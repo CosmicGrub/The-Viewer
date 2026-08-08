@@ -6,8 +6,28 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 213 | 1.13.2 — Retroactive Post-Support: run-mode is now a saved Settings choice (auto-pick + manual override) | 136 |
+| 216 | 1.13.3 — VERIFY.bat confirmed GREEN on host: two real bugs found + fixed | 138 |
 
+
+---
+
+## [1.13.3] — 2026-08-08 — VERIFY.bat confirmed GREEN on host: two real bugs found + fixed
+`FIX`
+
+- `VERIFY.bat` had never been confirmed green on an actual host for the v1.13.0–1.13.2 work (a standing item in `HANDOFF-NOTE.md`). Running it end-to-end surfaced two real, previously-undetected bugs — both root-caused with an isolated repro before fixing, not just re-run until quiet.
+
+**Fixed**
+- **`safeguard.db_integrity()` leaked its SQLite connection on the error path**, deterministically breaking the very next write on Windows. `sqlite3.connect()` succeeds even against a corrupted header (validation is lazy), so a genuinely-corrupted DB threw inside the `try` and skipped `c.close()`. On Windows an unclosed read handle blocks `os.replace()` over the same path, so `recover()` called immediately after detecting corruption — the exact scenario the function exists for — failed with `PermissionError: [WinError 5] Access is denied`. Confirmed 100% reproducible (identical failure across two independent runs) and isolated with a minimal repro before the fix. Now wrapped in `try/finally` so the connection always closes. Also reachable (rarer) from `snapshot()` and the manual `backupdb` command if either is ever run against an actually-corrupted DB.
+- **`search_feature.user_keywords_save()` (`POST /api/keywords`) appended every submitted group with no dedup**, unlike its sibling `user_tags_add()` a few lines below which already deduped case-insensitively. Since `test_routes.py`'s route smoke-sweep POSTs the same fixed payload every `VERIFY.bat` run, this had been silently accumulating duplicates for a while — **29 identical copies** were already sitting in the live `engine/keywords_user.json` sidecar. Added the same case-insensitive dedup `user_tags_add()` already had (a group is a duplicate if its lowercased term set matches an existing one, any order); verified idempotent against repeated and case-varied resubmission. Cleaned the 29 accumulated duplicates out of the live sidecar (29 → 1; harmless data, not corruption — just unbounded test-traffic pollution).
+
+**Verified**
+- Re-baselined the stale `safeguard.py` vault snapshot (was `SNAP_20260708_102259_pre-publog`, from before PUBLOG and all of v1.13.x — a separately-flagged known gap) to `SNAP_20260808_090205_v1.13.2-verify-final`.
+- Full `VERIFY.bat`, third run (after both fixes + the clean re-baseline): **RESULT: ALL GREEN — every step exited 0.** 563 PASS / 0 FAIL across the log; gate 9 (`safeguard verify`): 658/658 files OK, 0 damaged.
+
+**Compatibility (R1)**
+- Both fixes are internal correctness fixes to existing functions — same signatures, same call sites, no schema or API change. Pure stdlib; additive only (the dedup check does not remove any previously-saved data, only prevents future duplicates).
+
+_Legacy parity: VERIFY.bat confirmed GREEN on host: two real bugs fixed .............. ✓ same_
 
 ---
 
@@ -15,15 +35,16 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 `FEATURE`
 
 **Added**
-- **Persistent run-mode.** The RPS runtime mode (`modern`/`lite`/`legacy`) is no longer env/CLI-only — the user's choice is saved in `index/viewer_settings.json` and survives restarts. New `engine/settings.py` (stdlib-only, durable via `safeguard.atomic_write` + atomic-rename fallback; fail-open read / fail-loud write; preserves unknown keys).
-- **Settings control** on `status.html`: a **Run mode** card — Auto (recommended) · Performance · Retroactive Post-Support — showing resolved mode + reason, hardware recommendation, and page-cache size (ES5-safe). `POST /api/rps_mode` persists + re-applies live; `GET /api/rps` reports the saved `setting`, labels, env-override flag, and `recommended_mode`.
-- **`rps.mode_for_setting()`** maps the choice → concrete mode (auto→hardware pick · performance→modern · retro→compat, never full-effects, still lite-vs-legacy by OS); `mode_for()` unchanged. **`sysprobe.py`** now surfaces `recommended_run_mode`/`_reason`/`run_mode_ui` in the profile + printed summary.
+- **Persistent run-mode selection.** The Retroactive-Post-Support runtime mode (`modern` / `lite` / `legacy`) is no longer env/CLI-only — the user's choice is now saved in `index/viewer_settings.json` and survives restarts. New `engine/settings.py` (tiny, stdlib-only, durable via `safeguard.atomic_write` with an atomic-rename fallback; **fail-open on read, fail-loud on write**; preserves unknown keys so older/newer builds never clobber each other).
+- **Settings-panel control** on the System-Status page (`status.html`): a **Run mode** card with three choices — **Auto (recommended)** · **Performance** · **Retroactive Post-Support** — showing the resolved mode + reason, the hardware recommendation, and the page-cache size. ES5-safe (XHR/`var`) so it works on the legacy UI too. New `POST /api/rps_mode` persists + re-applies the choice live; `GET /api/rps` now reports the saved `setting`, its labels, whether an env var is overriding it, and sysprobe's `recommended_mode`.
+- **`rps.mode_for_setting()`** maps the user-facing choice onto a concrete engine mode: *auto* → hardware auto-pick, *performance* → force full experience, *retro* → force the compatibility path (never full-effects) while still auto-distinguishing `lite` (modern-but-weak) from `legacy` (old OS / Poppler / old Python). `mode_for()` is unchanged.
+- **`sysprobe.py` now surfaces the recommendation** (`recommended_run_mode` / `_reason` / `run_mode_ui`) in the profile and its printed summary, so launchers and the UI show a hardware-based pick without re-deriving the rule.
 
-**Compatibility (R1)** — Precedence `VIEWER_MODE` (concrete, back-compat) > `VIEWER_RUN_MODE` env > saved setting > `auto`. Additive keys only; no corpus/schema change. UI/render/page-cache switch immediately; SQLite tuning applies to new connections (full effect after restart) — response says so.
+**Precedence / compatibility (R1)**
+- A concrete `VIEWER_MODE` env/CLI value still wins over everything (existing launch scripts behave exactly as before); then `VIEWER_RUN_MODE` env, then the saved Settings choice, then `auto`. Additive — no schema or corpus change.
+- Live-apply note: UI effects, page-cache and render-DPI switch immediately; SQLite tuning applies to new connections, so it takes full effect on the next restart. The response says so (fail-loud, no silent partial apply).
 
-**Verified** — all 5 changed files compile; 22 pure-logic isolation tests green; live wiring (import `viewer_app` → `set_run_mode` persist+reapply → `/api/rps` + `/api/rps_mode` handlers) 13/13 green; audit 0 FAIL / 0 WARN (150 route decorators unique). Diagram: `docs/diagrams/53-rps-run-mode-setting.{svg,pdf,_preview.png}`.
-
-_Snapshot: **R10 literal screenshot pending host-side** (server not running in the build sandbox) — start the app and capture `127.0.0.1:8765/status` (the Run mode card) → `docs/screenshots/`._
+_Legacy parity: RPS run-mode is a saved Settings choice (this IS the legacy story) ... ✓ same_
 
 ---
 
@@ -31,24 +52,99 @@ _Snapshot: **R10 literal screenshot pending host-side** (server not running in t
 `FEATURE`
 
 **Added**
-- **`localmodel.py` AI illustrative tier + `index/models3d/ai/`.** Drop an AI-generated `<NSN>.obj|.stl` (e.g. a Meshy image-to-3D export) into `models3d/ai/` and it loads in the Interactive 3-D tab as an **illustrative approximation** with a red *"AI-GENERATED APPROXIMATION — not to scale, not for part ID or measurement"* banner. `localmodel.find_any()` returns `(path, fmt, tier)`; `status()`/`mesh_vf()` carry `tier` + `caveat`.
-- **Accuracy boundary enforced STRUCTURALLY (R13):** an authoritative model in the parent `models3d/` always wins over an `ai/` one, so a generated mesh can never shadow a real one; `/partdiff` is text/DB-only and never consumes these meshes. Back-compatible: `find()` unchanged. Docs: `index/models3d/ai/README.txt`.
+- **`localmodel.py` AI illustrative tier + `index/models3d/ai/` folder.** Drop an AI-generated model (e.g. a Meshy image-to-3D export) named `<NSN>.obj|.stl` into `models3d/ai/` and it loads in the Interactive 3-D tab as an **illustrative approximation** — rendered with a red *"AI-GENERATED APPROXIMATION — illustrative only, NOT to scale, NOT for part identification or measurement"* banner in `threed.html`. New `localmodel.find_any()` returns `(path, fmt, tier)`; `status()`/`mesh_vf()` now carry `tier` + `caveat`.
+- **The accuracy boundary is enforced STRUCTURALLY, by folder (R13):** an **authoritative** model in the parent `models3d/` folder always wins over an `ai/` one, so a generated mesh can never shadow or be mistaken for a real, to-scale model. The look-alike part-ID feature (`/partdiff`) is text/DB-only and never consumes these meshes. Back-compatible: `find()` is unchanged (authoritative-only). Docs: `index/models3d/ai/README.txt` (Meshy workflow — offline authoring; export OBJ/STL, not GLB).
+
+_Legacy parity: AI-generated 3-D models: illustrative tier (Meshy import lane) ....... ~ adapted_
 
 ---
 
 ## [1.13.0] — 2026-07-18 — HOLISTIC HARDENING: dev-team review implemented — trust everywhere, one verify gate, UI coherence, safety features
-`UPGRADE`
+`FEATURE` `UPGRADE` `POLISH`
 
-**Added / Changed** (four parallel work packages on the dev-team review + concurrent groundwork, then an independent audit/harden/polish pass)
-- **FEATURES:** fielded search operators `tm:`/`nsn:`/`vehicle:`/`side:` (parse_operators + parameterized filters; test_search_quality 23 green) · `oneuse.py` + `/api/oneuse` one-time-use / torque-to-yield fastener flags (R13 extractive + cited; red `/part` card; merged into the `/api/bom` kit as cited warnings) · zero-result gap log (`/api/searchgaps` + `/command` card) · `build_conflicts.py` + `BUILD-CONFLICTS.bat` precomputed conflict sweep (append-only `index/conflicts.db`; `/api/conflicts` serves fresh sweeps instantly).
-- **ACCURACY:** `features/corpus.py` = the one shared FTS retrieval (measures/ask/faulttree/cautions/pmcs/oneuse); `validate.py` woven into measures (quarantine withheld-not-hidden) + conflicts (garble dropped pre-grouping); trust badges on measures/ask/conflicts/publogdiff; `patterns.niin_of` canonical; hybrid `_GLOSS` lock; sessions rollback; signoff DDL-once; `registry.qfloat`; atomic per-migration transactions.
-- **VERIFY/OPS:** root `VERIFY.bat` = the one authoritative gate (VERIFY-099 forwards); test_routes blanket POST sweep (**281 green**); rps_lint unclassified=FAIL; new `engine/tools/check_crlf.py` (83 bats gated); safeguard `backupdb` (VACUUM INTO, keep-2) + `gc` CLI fix.
-- **UI:** Tools "Diagnose & decode" group; `shared.js` footer nav injector; esc()/toast() dedup across 29 pages; base.css onto 5 stray pages; all alert()→toast(); palette aria-modal + focus trap; dossier→/part banner; packet↔jobcard cross-links.
-- **Audit results:** 188/188 compile · no route collisions (244 GET + 20 POST) · operator-safe search LRU key verified · all suites green in an isolated copy · 63 adversarial cases on the new endpoints → 0×5xx / 0 tracebacks / 0 fixes needed · dead imports + version-tag polish.
+- Final ship entry for v1.13.0. Four parallel work packages (ACCURACY · VERIFY/OPS · UI · FEATURES) implemented the dev-team review's recommendations on top of the concurrent groundwork (pooled `doc_path()`, exposure posture); this entry consolidates and extends the preliminary [1.13.0] draft below (retained per R6). The whole wave was then independently audited, adversarially hardened, and polished before shipping. All changes additive/rollbackable (R1); backup at `backups/pre-v1.13`.
 
-_Snapshot: **R10 literal screenshot pending host-side** (server not running in the audit sandbox) — capture `127.0.0.1:8765` (e.g. `/part` one-use card or `/command` gap card) → `docs/screenshots/`. Diagram: `docs/diagrams/113-holistic-hardening.{svg,pdf}`._
+**Added — FEATURES (safety + search intelligence)**
+- **Fielded search operators `tm:` / `nsn:` / `vehicle:` / `side:`** — `search_feature.parse_operators()` pulls the operators out of the query text (quoted values OK: `vehicle:"M915 Truck"`); the free text runs the normal pipeline while tm/vehicle become parameterized document filters, `nsn:` digit-normalizes against `d.nsn`, and `side:` feeds the existing side filter (an explicit `?side=` wins; an unknown `side:` value is **dropped, never mis-filtered**). Bare-operator queries (no free text) answer with the matching documents. Hint on the home page; +10 tests (`test_search_quality` 23 green).
+- **`engine/oneuse.py` + GET `/api/oneuse`** — ONE-TIME-USE / torque-to-yield / discard-after-removal fastener flags (roadmap #41/#42, SAFETY). Sentence-level lexical classifiers over FTS-matched pages; **R13 extractive + cited**: every flag carries the manual's exact sentence (≤200 chars) + doc/tm/page — if the TM doesn't say it, no flag exists. `mentions_query` ranks flags whose cited sentence names the queried part first. Red warning card on `/part`; **`bom.build_kit()` merges the flags as cited `warnings`** so the kit itself says which fasteners MUST be replaced (deduped by kind+sentence; back-compat: no warnings → empty list).
+- **Zero-result GAP LOG (#19)** — `/api/search` misses (≥3 chars) append a `gap` event to the analytics sidecar (best-effort, never breaks search); new GET **`/api/searchgaps`** ranks the distinct unanswered queries; a "Search gaps" card on `/command` shows what the corpus could NOT answer, with one-click retry.
+- **`engine/build_conflicts.py` + `BUILD-CONFLICTS.bat` (#88-lite)** — precomputed cross-manual conflict sweep over the top part subjects into append-only `index/conflicts.db` (every sweep = a new run_id; R6). `/api/conflicts` answers a **fresh, exact-subject** swept entry instantly (`precomputed: true` + build timestamp); unswept/stale/ non-default-tolerance queries fall back to the live scan unchanged; the sweep itself always scans live (`use_precomputed=False` — it can never read its own output). Best run while OCR is paused.
 
-_Legacy parity: Holistic hardening (server-side identical; footer/menus ES5-safe; home dropdown + palette modern-by-design) ... ~ adapted_
+**Added / Changed — ACCURACY (R13 trust everywhere)**
+- **`features/corpus.py`** (see draft below) is now the ONE corpus FTS retrieval; **measures / ask / faulttree / cautions / pmcs / oneuse** all ride it — pooled per-thread connection in-app, leak-proof `try/finally` standalone, identical SQL + citation shape everywhere.
+- **`validate.py` woven in:** every `/measures` row carries `quality` (ok|suspect|quarantined) and quarantined garble is **withheld from results but returned in `quarantined`** (flagged, never silently dropped, never shown as fact); `conflicts.detect()` **drops quarantined values before grouping** so garbled OCR can never manufacture a false safety-critical conflict (the response reports how many were held back and why).
+- **Trust badges** on `/measures`, `/ask`, `/api/conflicts` (a detected conflict is by definition `review` — a human adjudicates) and `/publogdiff`.
+- **`patterns.niin_of()` is the one canonical NIIN extractor** — publog, publogdiff, xref_feature and build_publog now delegate to it (one source of truth for NIIN parsing).
+- **Concurrency/durability fixes:** `hybrid.py` `_GLOSS` lazy-init behind a lock; `sessions_feature` transaction rollback on failed writes; `signoff.py` DDL-once + read-only reads; `registry.qfloat()` central float param parsing (NaN/±inf → clean 400); `viewer_ingest.migrate()` atomic per-migration transactions (a failed migration can no longer leave columns without the schema_version bump — the crash-loop class from the migration gotcha).
+
+**Changed — VERIFY / OPS (one gate, exit-code truth)**
+- **Root `VERIFY.bat` is THE authoritative union gate** (see draft below); `VERIFY-099.bat` forwards to it.
+- **`test_routes.py` gained a blanket POST sweep** to match the GET sweep — every `registry.POST` route is hit with an empty body asserting no 5xx; **281 route cases green**. A new POST route can never ship uncovered.
+- **`tests/rps_lint.py`: unclassified page = FAIL** — a new UI page must be explicitly classified ES5-required or modern-by-design; silent escape from the RPS gate is now impossible.
+- **NEW `engine/tools/check_crlf.py`** — repo-wide CRLF gate for every `.bat` (the LF-only blink-crash gotcha made LOUD); 20 engine bats converted to CRLF; 83 bats verified.
+- **`safeguard.py backupdb`** — `VACUUM INTO` full-DB backup with disk-space guard + keep-2 rotation; fixed the dead `gc` CLI branch (documented but unreachable); `run_ocr_auto.bat` runs a post-run `gc`.
+
+**Changed — UI (coherence + a11y)**
+- **Tools menu regrouped**: new "Diagnose & decode" group (troubleshoot / ask / decode / readiness / binaudit / learn + verify / command) on `index.html`.
+- **`shared.js` footer nav injector** (+ `base.css` `#vw-footer`) — consistent footer navigation on every page; **`esc()`/`toast()` dedup across 29 pages** (all now load `/shared.js`; `verify_ui.py` gained a dedup guard so a page that re-declares them fails verification).
+- **`base.css` linked into** `schematics` / `threed` / `circuitlab` / `demo` / `cadtex_test`; **every `alert()` is now a `toast()`** (no more blocking modals mid-job).
+- **A11y:** `palette.js` gets `aria-modal` + a focus trap; the index modals carry `role=dialog`.
+- **Cross-linking:** dossier → `/part` banner; packet ↔ jobcard cross-links.
+
+**Audited / Hardened / Polished (this session's independent pass)**
+- **Compile gate:** 188/188 `.py` compile clean in an isolated copy; 0 NUL-padded/truncated files; all HTML/JS/BAT end-sane; CRLF gate PASS (83 bats).
+- **Integration audit:** all six `corpus.fts_pages` callers match its signature; **no route collisions** (244 GET + 20 POST, registry-level overwrite detector); the search LRU key `(q, limit, mode, any, fuzzy, side)` keys on the **raw** query so operator variants can never hit a stale cache entry (verified live: plain vs `vehicle:`-filtered same-text queries return distinct results); bom `warnings` shape matches the `/part` + job-package consumers; the precomputed conflicts path stores post-validate/post-trust results and never rereads its own output.
+- **Suites green in the isolated copy:** test_routes **281/281** (GET+POST sweeps) · search_quality 23 · hardening 12 · patterns 20 · features 21 · pillars 23 · rps_lint PASS · verify_ui PASS · check_crlf PASS + 12 module self-tests (corpus, measures, conflicts, oneuse, bom, analytics, publog*, publogdiff, signoff, hybrid, ask, build_conflicts --selftest; *publog data-dependent step correctly SKIPs off-host).
+- **Adversarial pass** on `/api/search`, `/api/oneuse`, `/api/searchgaps` via a live fixture server: 63 hostile cases (missing/empty/10KB params, unicode, quotes, SQL-ish strings, `vehicle:"unclosed`, `side:'; DROP`, repeated operators, FTS metacharacters, absurd limits) — **0×5xx, 0 tracebacks, 0 fixes needed**.
+- **Polish:** dead `sqlite3`/`os` imports removed from `measures.py` + `faulttree.py` (they no longer open sqlite — corpus does); v1.13.0 tags on `check_crlf.py`; shebang on `oneuse.py`; no stray debug prints or console.log.
+- **Host-verify pending:** run root `VERIFY.bat` on the Windows host (R10 screenshot too — server not running in the audit sandbox); optionally `BUILD-CONFLICTS.bat` while OCR is paused.
+
+_Legacy parity: Holistic hardening: trust everywhere · one gate · UI · safety ...... ~ adapted_
+
+---
+
+## [1.13.0] — 2026-07-03 — HOLISTIC REVIEW: unified data access · hardening · trust-everywhere · a11y
+`FEATURE` `UPGRADE` `POLISH`
+
+- A "dev-team" review (three parallel reviewers: architecture/perf, robustness/security, data-integrity/UX) produced strong recommendations; this release implements them, then audits/hardens/polishes the result. Every change is additive and rollback-safe (R1); the full suite is green in-sandbox (11 regression suites + 279 route cases + 24k fuzz + audit 0 FAIL/0 WARN).
+
+**Added**
+- **`features/corpus.py`** — ONE shared FTS-retrieval implementation that measures/ask/cautions/conflicts/ faulttree/pmcs each carried privately (every copy opened its own `sqlite3.connect(mode=ro)` and **leaked the handle on error**). In-app it reuses the pooled per-thread connection; standalone it closes via `try/finally`. The leak class is gone and retrieval is identical everywhere (R13: same query, cited the same way).
+- **`viewer_app.doc_path()`** — pooled, leak-free document-path lookup; replaced ~15 raw `mode=ro` connects in `routes.py` that both leaked on error and bypassed the pool.
+- **Auto-optimizer at startup** — WAL journal is set synchronously (concurrent reads during OCR writes) and the missing indexes build in a background daemon thread (OCR-safe, idempotent). The fast state is now the shipped default, not a manual `optimize_index.py` step. Opt out with `VIEWER_NO_AUTO_OPTIMIZE=1`.
+- **Exposure posture** — binding to a non-loopback host now prints a loud banner and requires `VIEWER_AUTH_TOKEN` (constant-time compared, `X-Viewer-Token`) for mutating requests; loopback (the mechanics' path) is unchanged.
+- **`patterns.niin_of`** canonical NIIN extractor (publog/xref/build_publog now delegate — one source of truth); **`safeguard.py backupdb`** (VACUUM INTO full-DB backup with rotation) + a fixed missing `gc` subcommand branch.
+- **`/decode` page in the home Tools menu** plus `/part`, `/measures`, `/scan`; audit rule **[6] durable-write guard** (flags any raw `os.replace` in a serving module).
+
+**Changed / Hardened**
+- **Error boundary is now a hard contract:** a `_sent` flag set inside `_send` means the boundary emits its 500 only when nothing has been sent — a handler that sends-then-raises can no longer double-send and desync the keep-alive stream (B9 becomes structural, not by-convention). Chunked `Transfer-Encoding` is rejected (411).
+- **All sidecar/override/keyword writers route through `safeguard.atomic_write`** (fsync + `_replace_retry`) — the override POSTs used to 500 on the transient Windows lock the retry exists to absorb, and could lose the file.
+- **Bounded front door** — a connection semaphore caps concurrent worker threads (scales with cores, override via `VIEWER_MAX_WORKERS`) so an asset burst can't thrash the laptop. `_SEARCH_LRU` reads/writes are now lock-guarded.
+- **`/api/layout` + `/api/tables_plus`** degrade to empty on a bad page instead of 500; **`/api/request`** never orphans its temp PDF (`try/finally`); the `LIKE` search fallback is scan-capped.
+- **R13 trust, everywhere:** `/measures` now runs every value through `validate.py` and **withholds quarantined garble** (returned flagged, never shown as fact); `/part` "Key dimensions" carry a **real page cite** (cross- referenced against the cited measures path) or an honest "verify on /measures" — never a fake cite; **safety callouts on `/part` regained their page cite** (a corpus-refactor key rename `cautions`→`results` had silently dropped them from the part page + job package — caught and fixed in this audit).
+- **Home-page a11y fix:** `index.html` didn't load `base.css`, so kiosk/glove-mode + focus rings were dead on the most-used screen (the kiosk toggle was a silent no-op there); the rules are now inlined.
+- **`VERIFY.bat`** is the one authoritative gate (VERIFY-099.bat forwards to it): rebuilt on **exit-code truth** (per-step `if errorlevel 1`, no `&&`-chains that silently skip, no keyword-grep summaries) while keeping the console-hang lessons (subroutine+log, `pause >nul`, `run_timeout` wrapping, CRLF).
+
+_Legacy parity: Holistic hardening: trust everywhere · one gate · UI · safety ...... ~ adapted_
+
+---
+
+## [1.12.9] — 2026-07-03 — DEEP AUDIT: route-coverage gap closed, decoders reachable + fuzzed
+`FEATURE` `FIX`
+
+- A full audit of the v1.12 tower. It found three real problems — the most serious being that the reassuring `test_routes 87/87 PASS` was **testing none of the new work**.
+
+**Fixed**
+- **The 8 new v1.12 routes had ZERO test coverage.** `test_routes.py` drives a **hardcoded** ROUTES list, so `/api/standards`, `/api/nsndecode`, `/api/smr`, `/api/cage`, `/api/harnesstrace`, `/api/mac`, `/api/form_2404` and `/api/form_2407` were never once exercised over HTTP — the green 87/87 was false confidence. All are now curated with realistic params **plus their error paths** (missing `q` → 400, junk input → graceful null decode, invalid CAGE → reasons). Curated cases: **87 → 106**.
+- **51% of the whole API surface was untested** (68 of 133 routes). Rather than hand-patch, `test_routes` gained a **blanket crash-sweep**: it auto-discovers every route in `registry.GET` that the curated list misses and hits it **bare**, asserting no 5xx (a 400/404/503 is a correct answer to a bare request). **A newly added route can never again ship with zero smoke coverage** — the sweep finds it automatically.
+- **Name collision:** the new decoder page was briefly `/reference`, which collides semantically with the pre-existing `/api/reference` (part reference enrichment — a different thing). Renamed to **`/decode`** (alias `/reference-codes`) before it could confuse anyone.
+- **`verify_ui.py`'s inline-JS gate is a hardcoded list**, so new pages silently escaped it — `ui/decode.html` added; noted as a standing gap.
+
+**Added**
+- **`/decode` page + palette command "Decode a code (NSN/SMR/CAGE/MS)"** — the v1.12 decoders were **completely unreachable**: no page, no palette entry, no link. A mechanic could not use any of them. One input now auto-detects which kind of code was pasted (NSN / SMR / CAGE / standard designation) and renders the decode, showing R13 nulls honestly as *"not in the published tables — not guessed"* rather than hiding them.
+- **Fuzz coverage for all six new pure modules** in `test_newmodules.py` — 4,000 hostile/random cases each (24,000 total, verified: 0 crashes, 0 invariant violations). It asserts the **R13 invariants** hold under fuzz: curated-flag ↔ named-item agreement, NIIN=9/FSC=4, every name is `None`-or-`str` (**never fabricated**), CAGE `valid` XOR `reasons`, harness nets are never singletons, and every MAC row names a real function.
+
+_Legacy parity: Deep audit: coverage gap, /decode page, decoder fuzz ............... ~ adapted_
 
 ---
 

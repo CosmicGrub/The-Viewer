@@ -9,6 +9,39 @@ every change going forward.
 
 ---
 
+## [1.13.3] — 2026-08-08 — VERIFY.bat confirmed GREEN on host: two real bugs found + fixed
+`VERIFY.bat` had never been confirmed green on an actual host for the v1.13.0–1.13.2 work (a standing item in
+`HANDOFF-NOTE.md`). Running it end-to-end surfaced two real, previously-undetected bugs — both root-caused with
+an isolated repro before fixing, not just re-run until quiet.
+### Fixed
+- **`safeguard.db_integrity()` leaked its SQLite connection on the error path**, deterministically breaking the
+  very next write on Windows. `sqlite3.connect()` succeeds even against a corrupted header (validation is lazy),
+  so a genuinely-corrupted DB threw inside the `try` and skipped `c.close()`. On Windows an unclosed read handle
+  blocks `os.replace()` over the same path, so `recover()` called immediately after detecting corruption — the
+  exact scenario the function exists for — failed with `PermissionError: [WinError 5] Access is denied`. Confirmed
+  100% reproducible (identical failure across two independent runs) and isolated with a minimal repro before the
+  fix. Now wrapped in `try/finally` so the connection always closes. Also reachable (rarer) from `snapshot()` and
+  the manual `backupdb` command if either is ever run against an actually-corrupted DB.
+- **`search_feature.user_keywords_save()` (`POST /api/keywords`) appended every submitted group with no dedup**,
+  unlike its sibling `user_tags_add()` a few lines below which already deduped case-insensitively. Since
+  `test_routes.py`'s route smoke-sweep POSTs the same fixed payload every `VERIFY.bat` run, this had been silently
+  accumulating duplicates for a while — **29 identical copies** were already sitting in the live
+  `engine/keywords_user.json` sidecar. Added the same case-insensitive dedup `user_tags_add()` already had (a
+  group is a duplicate if its lowercased term set matches an existing one, any order); verified idempotent against
+  repeated and case-varied resubmission. Cleaned the 29 accumulated duplicates out of the live sidecar (29 → 1;
+  harmless data, not corruption — just unbounded test-traffic pollution).
+### Verified
+- Re-baselined the stale `safeguard.py` vault snapshot (was `SNAP_20260708_102259_pre-publog`, from before PUBLOG
+  and all of v1.13.x — a separately-flagged known gap) to `SNAP_20260808_090205_v1.13.2-verify-final`.
+- Full `VERIFY.bat`, third run (after both fixes + the clean re-baseline): **RESULT: ALL GREEN — every step exited
+  0.** 563 PASS / 0 FAIL across the log; gate 9 (`safeguard verify`): 658/658 files OK, 0 damaged.
+### Compatibility (R1)
+- Both fixes are internal correctness fixes to existing functions — same signatures, same call sites, no schema
+  or API change. Pure stdlib; additive only (the dedup check does not remove any previously-saved data, only
+  prevents future duplicates).
+
+---
+
 ## [1.13.2] — 2026-07-18 — Retroactive Post-Support: run-mode is now a saved Settings choice (auto-pick + manual override)
 ### Added
 - **Persistent run-mode selection.** The Retroactive-Post-Support runtime mode (`modern` / `lite` / `legacy`) is no

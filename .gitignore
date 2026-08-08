@@ -30,6 +30,8 @@ engine/logs/
 
 # --- Local tool config ---
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/*.lock
 
 # --- OS / editor cruft ---
 Thumbs.db

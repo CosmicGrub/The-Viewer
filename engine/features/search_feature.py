@@ -175,12 +175,18 @@ def user_keywords_save(terms):
     try:
         try: doc = json.load(open(_kw_user_path(), encoding="utf-8"))
         except Exception: doc = {"groups": []}
-        doc.setdefault("groups", []).append(clean)
+        groups = doc.setdefault("groups", [])
+        # de-dup case-insensitively against existing groups (same words, any order = same group) --
+        # without this, identical submissions (e.g. repeated route-sweep/smoke traffic) pile up as
+        # unbounded duplicates on every call, unlike user_tags_add()'s tag list a few lines down.
+        want = set(t.lower() for t in clean)
+        if not any(set(t.lower() for t in g) == want for g in groups):
+            groups.append(clean)
         doc["_comment"] = "User-added keyword/tag groups (live). Each list = words that find each other in search."
         import safeguard          # v1.13: durable atomic write (fsync + _replace_retry, no leaked .tmp)
         safeguard.atomic_write(_kw_user_path(), json.dumps(doc, indent=2, ensure_ascii=False))
         _load_synonyms()                      # live reload -> the new words work immediately
-        return {"ok": True, "group": clean, "groups": len(doc["groups"])}
+        return {"ok": True, "group": clean, "groups": len(groups)}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

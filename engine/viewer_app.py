@@ -33,7 +33,7 @@ try:
 except Exception:
     fitz = None
 
-VERSION = "1.13.2"
+VERSION = "1.13.3"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)

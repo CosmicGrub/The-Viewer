@@ -8,6 +8,14 @@ modern track lives in `CHANGELOG.md`.
 
 ---
 
+## [1.13.3-legacy] — 2026-08-08 — VERIFY.bat confirmed GREEN on host: two real bugs fixed .............. ✓ same
+- `safeguard.db_integrity()` connection leak on the error path (Windows file-lock on the next write) — pure
+  stdlib `sqlite3`/`try-finally`, no GPU/WebGL involved ........................................................ ✓ same
+- `search_feature.user_keywords_save()` duplicate-group accumulation, same dedup pattern as `user_tags_add()` .... ✓ same
+- Both fixes + the `VERIFY.bat` gate itself are engine-layer, not UI-layer — identical on Win7/Vista .......... ✓ same
+
+---
+
 ## [1.13.2-legacy] — 2026-07-18 — RPS run-mode is a saved Settings choice (this IS the legacy story) ... ✓ same
 - `settings.py` durable choice + `status.html` Run mode card + `/api/rps_mode` — pure stdlib + ES5/XHR .... ✓ same
 - **This feature exists FOR the legacy line:** picking **Retroactive Post-Support** forces the compat path

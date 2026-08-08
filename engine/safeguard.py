@@ -153,12 +153,22 @@ def _sqlite_backup(src, dst):
     s.close(); d.close()
 
 def db_integrity(db):
+    c = None
     try:
         c = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
         r = c.execute("PRAGMA quick_check").fetchone()[0]
-        c.close(); return r
+        return r
     except Exception as e:
         return "ERROR: %s" % e
+    finally:
+        # Always close, even on the exception path: sqlite3.connect() succeeds even against a
+        # corrupted header (validation is lazy), so a bad DB throws INSIDE the try and used to
+        # skip close() -- leaking the connection. On Windows that leaves the file locked, which
+        # deterministically breaks the very next atomic_copy()/os.replace() over the same path
+        # (the recover-after-detect flow in test_truncation.py; also reachable from snapshot()
+        # and backupdb() if either is ever run against an actually-corrupted DB).
+        if c is not None:
+            c.close()
 
 # ---------------- verify ----------------
 def latest_snapid():

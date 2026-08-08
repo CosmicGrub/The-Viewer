@@ -1,0 +1,40 @@
+# --- Generated data / caches / model index ---
+# Contains multi-GB generated databases, embeddings, and rendered caches
+# (e.g. engine/index/publog.db is ~9GB) — all reproducible via BUILD-*.bat
+index/
+engine/index/
+*.db
+*.db-journal
+*.npy
+
+# --- Backups & packaged builds ---
+backups/
+build/
+dist/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.hypothesis/
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- Logs & runtime artifacts ---
+*.log
+engine/logs/
+
+# --- Local tool config ---
+.claude/settings.local.json
+
+# --- OS / editor cruft ---
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Masterfile coverage — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .bar{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center}
+  input{flex:1;min-width:220px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:9px 12px;font-size:14px}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #1c2530;vertical-align:top}
+  th{color:#8a98a8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .subj{font-weight:700;color:#cfe}
+  .n{font-weight:700}
+  .bar2{height:7px;background:#1c2530;border-radius:4px;overflow:hidden;min-width:90px}
+  .bar2 i{display:block;height:100%;background:#1d9e75}
+  .miss{font-size:11px;color:#8a98a8}
+  .chip{display:inline-block;background:#171207;border:1px solid #4a3a17;color:#e8c07a;border-radius:999px;padding:1px 8px;font-size:10.5px;margin:1px 2px}
+  .sheet{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:1px 8px;font-size:11px;white-space:nowrap}
+</style></head><body>
+<div class="wrap">
+  <h1>📊 Masterfile coverage — dimension gaps by subject</h1>
+  <div class="muted">How complete each vehicle's dimensional data is (of the 13 tracked types), and which types are still
+    missing — so you can target <b>ENRICH.bat</b> where it pays off. Built from <code>index/masterfile.db</code>.</div>
+  <div class="bar">
+    <input id="f" placeholder="filter subjects… (e.g. HMMWV, M35)" autofocus>
+    <a class="btn" href="/master">🗂 Masterfile</a><a class="btn" href="/measures">📐 Measurements</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  var ALL=[], DIMS=13;
+  function render(){
+    var f=($('#f').value||'').toLowerCase();
+    var rows=ALL.filter(function(s){ return !f || (s.label||s.subject||'').toLowerCase().indexOf(f)>=0; });
+    rows.sort(function(a,b){ return (a.n-b.n) || String(a.label).localeCompare(b.label); }); // least-covered first
+    if(!rows.length){ $('#out').innerHTML='<div class="muted">No subjects. Build the Masterfile (BUILD-MEASURES → BUILD-MASTERFILE).</div>'; return; }
+    var h='<table><tr><th>Subject</th><th>Coverage</th><th>Sources</th><th>Missing dimension types</th><th>Sheet</th></tr>';
+    h+=rows.map(function(s){
+      var pct=Math.round((s.n/DIMS)*100);
+      var miss=(s.missing||[]).map(function(m){return '<span class="chip">'+esc(m)+'</span>';}).join('') || '<span class="muted">none — complete ✓</span>';
+      var q=encodeURIComponent(s.label||s.subject);
+      return '<tr><td class="subj">'+esc(s.label||s.subject)+'</td>'
+        +'<td><div class="bar2"><i style="width:'+pct+'%"></i></div><span class="muted">'+s.n+'/'+DIMS+' ('+pct+'%)</span></td>'
+        +'<td class="muted">'+(s.corpus||0)+' manual · '+(s.external||0)+' ext</td>'
+        +'<td class="miss">'+miss+'</td>'
+        +'<td><a class="sheet" href="/api/specsheet?q='+q+'" target="_blank">Spec sheet ↗</a></td></tr>';
+    }).join('');
+    $('#out').innerHTML=h+'</table>';
+  }
+  fetch('/api/master_coverage').then(function(r){return r.json();}).then(function(j){
+    if(!j || !j.available){ $('#head').textContent='The Masterfile is not built yet — run BUILD-MEASURES.bat then BUILD-MASTERFILE.bat.'; return; }
+    ALL=j.subjects||[];
+    $('#head').textContent=ALL.length+' subjects in the Masterfile · sorted least-covered first.';
+    render();
+  }).catch(function(){ $('#head').textContent='Load failed.'; });
+  $('#f').addEventListener('input',render);
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

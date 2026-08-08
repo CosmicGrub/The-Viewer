@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Provenance audit (internal) — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .banner{background:#1a1206;border:1px solid #4a3a17;border-radius:8px;color:#e8c07a;font-size:12px;padding:8px 12px;margin:10px 0}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+  th,td{text-align:left;padding:6px 9px;border-bottom:1px solid #1c2530;vertical-align:top}
+  th{color:#8a98a8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .val{font-weight:700;color:#e8c07a;white-space:nowrap}
+  a.src{color:#4f9dff;text-decoration:none} a.src:hover{text-decoration:underline}
+  .s{color:#8a98a8;font-size:11px}
+</style></head><body>
+<div class="wrap">
+  <h1>🔎 Provenance audit <span class="muted">(internal)</span></h1>
+  <div class="banner">⚠ Operator tool — this is the <b>only</b> view that shows the external source links, so you can
+    spot-check where each gap-fill came from. The mechanic-facing views (Masterfile, dossier, Work Order) stay
+    link-free (R11). Every value here is external &amp; unconfirmed; the manuals remain authoritative.</div>
+  <div class="search">
+    <input id="q" placeholder="filter by subject (vehicle / part) — blank = everything" autofocus>
+    <button class="go" id="go">Show provenance</button>
+    <a class="btn" href="/master">🗂 Masterfile</a><a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function host(u){ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return u||''; } }
+  function ts(t){ return t?(esc(String(t).slice(0,4)+'-'+String(t).slice(4,6)+'-'+String(t).slice(6,8))):''; }
+  function run(){
+    var q=$('#q').value.trim();
+    $('#head').textContent='Loading provenance…'; $('#out').innerHTML='';
+    fetch('/api/provenance?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      var rows=(j&&j.rows)||[];
+      if(!rows.length){ $('#head').textContent='No external gap-fills recorded'+(q?(' for “'+q+'”'):'')+' — run ENRICH.bat to populate.'; return; }
+      $('#head').textContent=rows.length+' external value'+(rows.length===1?'':'s')+(q?(' for “'+q+'”'):' across all subjects')+':';
+      var h='<table><tr><th>Subject</th><th>Dimension</th><th>Value</th><th>Archived source (Wayback)</th><th>Original</th><th>Snapshot</th></tr>';
+      h+=rows.map(function(r){
+        var v=esc(r.value)+(r.value2?('–'+esc(r.value2)):'')+(r.tolerance?(' ±'+esc(r.tolerance)):'')+' '+esc(r.unit||'');
+        var wb=r.wayback_url?('<a class="src" href="'+esc(r.wayback_url)+'" target="_blank" rel="noopener">'+esc(host(r.wayback_url))+' ↗</a>'):'<span class="s">—</span>';
+        var og=r.orig_url?('<a class="src" href="'+esc(r.orig_url)+'" target="_blank" rel="noopener">'+esc(host(r.orig_url))+' ↗</a>'):'<span class="s">—</span>';
+        return '<tr><td>'+esc(r.label||r.subject)+'</td><td>'+esc(r.type)+'</td><td class="val">'+v+'</td><td>'+wb+'</td><td>'+og+'</td><td class="s">'+ts(r.wayback_ts)+'</td></tr>';
+      }).join('');
+      $('#out').innerHTML=h+'</table>';
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; } run();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

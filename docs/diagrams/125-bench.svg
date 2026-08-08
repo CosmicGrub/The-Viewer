@@ -1,0 +1,26 @@
+<svg viewBox="0 0 1100 520" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1100" height="520" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">My Bench — pin what you&#x27;re working on   v0.99.21</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">A localStorage favorites space: pin a dossier / procedure / torque / figure and jump back instantly. Delivered via palette.js → on every page, no per-page edits.</text>
+<line x1="40" y1="86" x2="1060" y2="86" stroke="#2b333f"/>
+<text x="40" y="118" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">HOW IT WORKS</text>
+<rect x="40" y="132" width="1020" height="150" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<circle cx="56" cy="155" r="2.6" fill="#4f9dff"/>
+<text x="66" y="158" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">On any page, the ☆ pin pill (bottom-right, beside ⌘K jump) saves {url, title, query} to localStorage &#x27;viewer_bench&#x27;.</text>
+<circle cx="56" cy="176" r="2.6" fill="#4f9dff"/>
+<text x="66" y="179" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">/bench lists your pinned items — open (new tab), remove, or clear the bench.</text>
+<circle cx="56" cy="197" r="2.6" fill="#4f9dff"/>
+<text x="66" y="200" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">★ My Bench is a command in the Ctrl+K palette; the whole thing rides palette.js so it reaches all 20+ pages.</text>
+<circle cx="56" cy="218" r="2.6" fill="#4f9dff"/>
+<text x="66" y="221" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">ES5-safe + persists across sessions; excluded on home and on /bench itself.</text>
+<line x1="40" y1="300" x2="1060" y2="300" stroke="#2b333f"/>
+<text x="40" y="328" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED / R1</text>
+<rect x="40" y="342" width="1020" height="120" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="363" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="366" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">bench.html inline JS passes node --check; pin/list/remove all localStorage, no backend.</text>
+<circle cx="56" cy="382" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="385" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">☆ pin pill + ★ My Bench command added to palette.js (reaches every page); /bench in _PAGES + verify_ui.py.</text>
+<circle cx="56" cy="401" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="404" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable: one page + palette additions. Nothing writes the index (R1/R6).</text>
+<text x="40" y="512" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.21 · 2026-07-01 · ui/bench.html + ☆ pin pill. Read-only. R1/R6.</text>
+</svg>

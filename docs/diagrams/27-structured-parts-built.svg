@@ -1,0 +1,50 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Structured parts index — built (Phase 1)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.19.0 · RPSTL → cited NSN↔figure index · /api/part + /api/coverage · catalog refs in the cart · multi-sheet PDF · suggestion capture. Additive (migration 0004).</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="360" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="128" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">EXTRACT (offline, idempotent)</text>
+<rect x="58" y="142" width="324" height="46" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="162" font-size="10.5" font-weight="700" fill="#cfe0ff" text-anchor="start">viewer_ingest.py  parts</text>
+<text x="70" y="178" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">scans RPSTL pages (&#x27;Usable On Code&#x27;)</text>
+<path d="M220,188 L220,202" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="204" width="324" height="42" rx="9" fill="#101a14" stroke="#2f7d4f" stroke-width="1"/>
+<text x="70" y="224" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">parts table (migration 0004): NSN · FIG# · figure</text><text x="70" y="236" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">title · doc · page · vehicle — cited.</text>
+<text x="58" y="270" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Auto-refreshes after run / ocrall.</text>
+<rect x="420" y="104" width="320" height="150" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="438" y="128" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">PROVEN ON YOUR INDEX</text>
+<rect x="438" y="142" width="284" height="28" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="450" y="161" font-size="10" font-weight="400" fill="#e6e9ee" text-anchor="start">RPSTL pages parsed</text>
+<text x="710" y="161" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="end">3,748</text>
+<rect x="438" y="176" width="284" height="28" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="450" y="195" font-size="10" font-weight="400" fill="#e6e9ee" text-anchor="start">NSN records</text>
+<text x="710" y="195" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="end">28,330</text>
+<rect x="438" y="210" width="284" height="28" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="450" y="229" font-size="10" font-weight="400" fill="#e6e9ee" text-anchor="start">distinct NSNs</text>
+<text x="710" y="229" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="end">10,521</text>
+<text x="438" y="250" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(sample index; grows with the full corpus + OCR)</text>
+<text x="760" y="128" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">OUTPUTS</text>
+<rect x="760" y="140" width="380" height="52" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="774" y="160" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Cart: cited catalog ref + FIG auto-fill</text>
+<text x="774" y="176" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;📐 In parts catalog: FIG 3 Cooling System (p.372) —</text><text x="774" y="187" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">verify&#x27; · click opens the page</text>
+<rect x="760" y="200" width="380" height="46" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="774" y="220" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Vehicle hub: &#x27;% searchable&#x27; coverage badge</text>
+<text x="774" y="236" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">GET /api/coverage — Buffalo 99% · M998 97% · gens 91%</text>
+<rect x="760" y="254" width="380" height="46" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="774" y="274" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /api/part?nsn= → cross-references</text>
+<text x="774" y="290" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">same NSN across figures, each cited</text>
+<text x="40" y="300" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">QUICK WINS</text>
+<rect x="40" y="316" width="540" height="58" rx="10" fill="#16301f" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="338" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">Multi-sheet 104th</text>
+<text x="56" y="356" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">&gt;6 items now paginate across sheets (&#x27;Sheet 2 of 2&#x27;) instead of capping at</text><text x="56" y="369" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">6.</text>
+<rect x="600" y="316" width="540" height="58" rx="10" fill="#1a2740" stroke="#2b333f" stroke-width="1"/>
+<text x="616" y="338" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">Capture suggestion</text>
+<text x="616" y="356" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">sessions store the suggested tech status + basis next to the confirmed one —</text><text x="616" y="369" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">sharper learning.</text>
+<rect x="40" y="392" width="1100" height="150" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="416" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">GROUNDED — AND HONEST ABOUT THE LIMIT</text>
+<text x="58" y="438" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">What&#x27;s reliable and shipped: the NSN→figure→page→vehicle citation index (every record points at a real page you can open and verify). The cart</text><text x="58" y="453" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">auto-fills only the FIG number from the catalog and shows the cited figure title; it never fabricates a part number or nomenclature.</text>
+<text x="58" y="500" font-size="10" font-weight="400" fill="#caa24a" text-anchor="start">Deliberately deferred: exact NSN↔part#↔nomenclature row alignment and automatic look-alike-variant warnings. OCR de-interleaves RPSTL columns, so</text><text x="58" y="515" font-size="10" font-weight="400" fill="#caa24a" text-anchor="start">asserting those now risks putting a wrong part on a request sheet. That precise table parser is the Phase-2 follow-up, strengthened by the ongoing OCR</text><text x="58" y="530" font-size="10" font-weight="400" fill="#caa24a" text-anchor="start">pass.</text>
+<text x="40" y="686" font-size="9.4" font-weight="400" fill="#6b7280" text-anchor="start">Verified on the live index: migration applies, extractor populates, /api/part &amp; /api/coverage return cited data, multi-sheet PDF confirmed. Dark (R3) · CHANGELOG 0.19.0 (R4) · visual panel (R5).</text>
+</svg>

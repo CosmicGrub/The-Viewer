@@ -1,0 +1,190 @@
+<svg viewBox="0 0 1240 1240" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="1240" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="50" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">THE auto-CAD function — what it does, how it works, how to make it better</text>
+<text x="40" y="76" font-size="12" font-weight="400" fill="#9aa6b6" text-anchor="start">Turns every catalogued part into a shaded, dimensioned CAD image from its name + NSN + FLIS dimensions. Offline, pure Python + Pillow.</text>
+<line x1="40" y1="92" x2="1200" y2="92" stroke="#2b333f"/>
+<text x="40" y="120" font-size="14" font-weight="700" fill="#4f9dff" text-anchor="start">WHAT IT DOES</text>
+<rect x="40" y="132" width="1160" height="78" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="156" font-size="11" font-weight="400" fill="#e6e9ee" text-anchor="start">Most of the 20,869 representative parts have no manufacturer CAD model and often no manual figure — just a name and FLIS dimensions. The auto-CAD function manufactures a recognizable engineering picture for each one: it infers the</text><text x="58" y="171" font-size="11" font-weight="400" fill="#e6e9ee" text-anchor="start">part&#x27;s shape, scales it to the real dimensions, and renders a clean three-quarter CAD view with dimension callouts and a title block. The result looks like a drafting-room approximation and is labeled as such — a fast visual identity</text><text x="58" y="186" font-size="11" font-weight="400" fill="#e6e9ee" text-anchor="start">for a part that otherwise had none.</text>
+<line x1="40" y1="228" x2="1200" y2="228" stroke="#2b333f"/>
+<text x="40" y="256" font-size="14" font-weight="700" fill="#1d9e75" text-anchor="start">HOW IT WORKS  ·  the pipeline (engine/cad_render.py)</text>
+<rect x="40" y="270" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="270" width="5" height="112" rx="2.5" fill="#4f9dff"/>
+<text x="56" y="292" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1  CLASSIFY</text>
+<circle cx="59" cy="309" r="2.4" fill="#4f9dff"/>
+<text x="68" y="312" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">name -&gt; family() (24 keyword rules)</text>
+<circle cx="59" cy="325" r="2.4" fill="#4f9dff"/>
+<text x="68" y="328" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">if unknown -&gt; NSN Federal Supply Class</text>
+<circle cx="59" cy="341" r="2.4" fill="#4f9dff"/>
+<text x="68" y="344" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">22 shape families (bolt..canister)</text>
+<rect x="330" y="270" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="330" y="270" width="5" height="112" rx="2.5" fill="#1d9e75"/>
+<text x="346" y="292" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">2  DIMENSION</text>
+<circle cx="349" cy="309" r="2.4" fill="#1d9e75"/>
+<text x="358" y="312" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">parse FLIS characteristics text</text>
+<circle cx="349" cy="325" r="2.4" fill="#1d9e75"/>
+<text x="358" y="328" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">DIAMETER/LENGTH/WIDTH/HEIGHT/THK</text>
+<circle cx="349" cy="341" r="2.4" fill="#1d9e75"/>
+<text x="358" y="344" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; L, W, H, dia, bore (inches)</text>
+<rect x="620" y="270" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="270" width="5" height="112" rx="2.5" fill="#caa24a"/>
+<text x="636" y="292" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">3  BUILD MESH</text>
+<circle cx="639" cy="309" r="2.4" fill="#caa24a"/>
+<text x="648" y="312" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">family builder -&gt; {V, F}</text>
+<circle cx="639" cy="325" r="2.4" fill="#caa24a"/>
+<text x="648" y="328" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">primitives: cyl/prism/tube/torus/</text>
+<circle cx="639" cy="341" r="2.4" fill="#caa24a"/>
+<text x="648" y="344" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">sphere/helix/gear/box, scaled</text>
+<rect x="910" y="270" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="910" y="270" width="5" height="112" rx="2.5" fill="#7f77dd"/>
+<text x="926" y="292" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">4  PROJECT</text>
+<circle cx="929" cy="309" r="2.4" fill="#7f77dd"/>
+<text x="938" y="312" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">rotate (three-quarter iso)</text>
+<circle cx="929" cy="325" r="2.4" fill="#7f77dd"/>
+<text x="938" y="328" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">orthographic to 2-D</text>
+<circle cx="929" cy="341" r="2.4" fill="#7f77dd"/>
+<text x="938" y="344" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">fit + centre to canvas</text>
+<rect x="40" y="392" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="392" width="5" height="112" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="414" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">5  SHADE</text>
+<circle cx="59" cy="431" r="2.4" fill="#2f7d4f"/>
+<text x="68" y="434" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">painter&#x27;s sort by depth</text>
+<circle cx="59" cy="447" r="2.4" fill="#2f7d4f"/>
+<text x="68" y="450" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">per-face normal . light</text>
+<circle cx="59" cy="463" r="2.4" fill="#2f7d4f"/>
+<text x="68" y="466" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">facet colour = material x brightness</text>
+<rect x="330" y="392" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="330" y="392" width="5" height="112" rx="2.5" fill="#4f9dff"/>
+<text x="346" y="414" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">6  ANNOTATE</text>
+<circle cx="349" cy="431" r="2.4" fill="#4f9dff"/>
+<text x="358" y="434" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">overall-dimension callouts (in.)</text>
+<circle cx="349" cy="447" r="2.4" fill="#4f9dff"/>
+<text x="358" y="450" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">title block: NSN / name / shape</text>
+<circle cx="349" cy="463" r="2.4" fill="#4f9dff"/>
+<text x="358" y="466" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">drafting grid + &#x27;REPRESENTATIVE&#x27;</text>
+<rect x="620" y="392" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="392" width="5" height="112" rx="2.5" fill="#1d9e75"/>
+<text x="636" y="414" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">7  OUTPUT</text>
+<circle cx="639" cy="431" r="2.4" fill="#1d9e75"/>
+<text x="648" y="434" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">2x supersample -&gt; LANCZOS down</text>
+<circle cx="639" cy="447" r="2.4" fill="#1d9e75"/>
+<text x="648" y="450" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">PNG to index/cadcache/ sidecar</text>
+<circle cx="639" cy="463" r="2.4" fill="#1d9e75"/>
+<text x="648" y="466" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">cache key = nsn + CAD_VERSION</text>
+<rect x="910" y="392" width="282" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="910" y="392" width="5" height="112" rx="2.5" fill="#caa24a"/>
+<text x="926" y="414" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">8  SERVE</text>
+<circle cx="929" cy="431" r="2.4" fill="#caa24a"/>
+<text x="938" y="434" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">/cadimg?nsn= render-on-demand</text>
+<circle cx="929" cy="447" r="2.4" fill="#caa24a"/>
+<text x="938" y="450" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">MAKE-CAD.bat pre-renders all</text>
+<circle cx="929" cy="463" r="2.4" fill="#caa24a"/>
+<text x="938" y="466" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">shown as the 3-D card thumbnail</text>
+<text x="40" y="524" font-size="10" font-weight="400" fill="#7f8a99" text-anchor="start">Faithful to partgeo.js: the same 22 families + the same NSN/FSC fallback, so the CAD image always matches the live WebGL model and the card tag.</text>
+<line x1="40" y1="520" x2="1200" y2="520" stroke="#2b333f"/>
+<text x="40" y="548" font-size="14" font-weight="700" fill="#caa24a" text-anchor="start">ANATOMY OF A CAD IMAGE</text>
+<rect x="40" y="562" width="560" height="360" rx="10" fill="#f1f4f7" stroke="#c7d0d8" stroke-width="1"/>
+<line x1="60" y1="562" x2="60" y2="856" stroke="#e0e6ea"/>
+<line x1="86" y1="562" x2="86" y2="856" stroke="#e0e6ea"/>
+<line x1="112" y1="562" x2="112" y2="856" stroke="#e0e6ea"/>
+<line x1="138" y1="562" x2="138" y2="856" stroke="#e0e6ea"/>
+<line x1="164" y1="562" x2="164" y2="856" stroke="#e0e6ea"/>
+<line x1="190" y1="562" x2="190" y2="856" stroke="#e0e6ea"/>
+<line x1="216" y1="562" x2="216" y2="856" stroke="#e0e6ea"/>
+<line x1="242" y1="562" x2="242" y2="856" stroke="#e0e6ea"/>
+<line x1="268" y1="562" x2="268" y2="856" stroke="#e0e6ea"/>
+<line x1="294" y1="562" x2="294" y2="856" stroke="#e0e6ea"/>
+<line x1="320" y1="562" x2="320" y2="856" stroke="#e0e6ea"/>
+<line x1="346" y1="562" x2="346" y2="856" stroke="#e0e6ea"/>
+<line x1="372" y1="562" x2="372" y2="856" stroke="#e0e6ea"/>
+<line x1="398" y1="562" x2="398" y2="856" stroke="#e0e6ea"/>
+<line x1="424" y1="562" x2="424" y2="856" stroke="#e0e6ea"/>
+<line x1="450" y1="562" x2="450" y2="856" stroke="#e0e6ea"/>
+<line x1="476" y1="562" x2="476" y2="856" stroke="#e0e6ea"/>
+<line x1="502" y1="562" x2="502" y2="856" stroke="#e0e6ea"/>
+<line x1="528" y1="562" x2="528" y2="856" stroke="#e0e6ea"/>
+<line x1="554" y1="562" x2="554" y2="856" stroke="#e0e6ea"/>
+<line x1="580" y1="562" x2="580" y2="856" stroke="#e0e6ea"/>
+<line x1="40" y1="582" x2="600" y2="582" stroke="#e0e6ea"/>
+<line x1="40" y1="608" x2="600" y2="608" stroke="#e0e6ea"/>
+<line x1="40" y1="634" x2="600" y2="634" stroke="#e0e6ea"/>
+<line x1="40" y1="660" x2="600" y2="660" stroke="#e0e6ea"/>
+<line x1="40" y1="686" x2="600" y2="686" stroke="#e0e6ea"/>
+<line x1="40" y1="712" x2="600" y2="712" stroke="#e0e6ea"/>
+<line x1="40" y1="738" x2="600" y2="738" stroke="#e0e6ea"/>
+<line x1="40" y1="764" x2="600" y2="764" stroke="#e0e6ea"/>
+<line x1="40" y1="790" x2="600" y2="790" stroke="#e0e6ea"/>
+<line x1="40" y1="816" x2="600" y2="816" stroke="#e0e6ea"/>
+<line x1="40" y1="842" x2="600" y2="842" stroke="#e0e6ea"/>
+<polygon points="220,682 360,682 380,722 240,722" fill="#5a6573"/>
+<polygon points="220,682 240,722 240,832 220,792" fill="#3a434f"/>
+<polygon points="360,682 380,722 380,832 360,792" fill="#2b333d"/>
+<polygon points="240,722 380,722 380,832 240,832" fill="#323b46"/>
+<line x1="560" y1="592" x2="560" y2="826" stroke="#2864aa" stroke-width="2"/>
+<text x="566" y="732" font-size="11" font-weight="700" fill="#2864aa" text-anchor="start">H 2.0&quot;</text>
+<rect x="40" y="864" width="560" height="58" rx="0" fill="#1c2430" stroke="#2864aa" stroke-width="1"/>
+<text x="54" y="886" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">NUT, HEX   ·   NSN 5310-...   ·   shape: nut</text>
+<text x="54" y="904" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">REPRESENTATIVE CAD APPROXIMATION — scaled to FLIS dims</text>
+<circle cx="626" cy="598" r="4" fill="#2f7d4f"/>
+<text x="640" y="602" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Shaded facets</text>
+<text x="640" y="617" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">per-face flat shading from a key light</text>
+<circle cx="626" cy="654" r="4" fill="#caa24a"/>
+<text x="640" y="658" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Edge lines</text>
+<text x="640" y="673" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">every face outlined — the &#x27;CAD wireframe&#x27; read</text>
+<circle cx="626" cy="710" r="4" fill="#4f9dff"/>
+<text x="640" y="714" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Dimension callout</text>
+<text x="640" y="729" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">the overall size in inches, from FLIS</text>
+<circle cx="626" cy="766" r="4" fill="#1d9e75"/>
+<text x="640" y="770" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Drafting grid</text>
+<text x="640" y="785" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">faint background = engineering-paper feel</text>
+<circle cx="626" cy="822" r="4" fill="#7f77dd"/>
+<text x="640" y="826" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Title block</text>
+<text x="640" y="841" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN · name · shape family · disclaimer</text>
+<line x1="40" y1="940" x2="1200" y2="940" stroke="#2b333f"/>
+<text x="40" y="968" font-size="14" font-weight="700" fill="#2f7d4f" text-anchor="start">BETTER &amp; MORE — ways to grow this feature</text>
+<rect x="40" y="982" width="287" height="210" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="982" width="5" height="210" rx="2.5" fill="#4f9dff"/>
+<text x="56" y="1006" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">Higher fidelity</text>
+<circle cx="59" cy="1027" r="2.6" fill="#4f9dff"/>
+<text x="68" y="1030" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">smooth (vertex-normal) shading for round</text><text x="68" y="1043" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">parts</text>
+<circle cx="59" cy="1061" r="2.6" fill="#4f9dff"/>
+<text x="68" y="1064" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">port the WebGL specular/metallic look to</text><text x="68" y="1077" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Pillow</text>
+<circle cx="59" cy="1095" r="2.6" fill="#4f9dff"/>
+<text x="68" y="1098" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">soft shadow + ground plane for depth</text>
+<circle cx="59" cy="1116" r="2.6" fill="#4f9dff"/>
+<text x="68" y="1119" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">per-family canonical orientation (bolt head</text><text x="68" y="1132" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">up, …)</text>
+<rect x="332" y="982" width="287" height="210" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="332" y="982" width="5" height="210" rx="2.5" fill="#1d9e75"/>
+<text x="348" y="1006" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">More accuracy</text>
+<circle cx="351" cy="1027" r="2.6" fill="#1d9e75"/>
+<text x="360" y="1030" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">parse thread pitch, head/drive type, # holes</text>
+<circle cx="351" cy="1048" r="2.6" fill="#1d9e75"/>
+<text x="360" y="1051" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">sub-type builders (hex vs socket screw; ball</text><text x="360" y="1064" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">vs roller)</text>
+<circle cx="351" cy="1082" r="2.6" fill="#1d9e75"/>
+<text x="360" y="1085" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">fit dims from RPSTL/figure when FLIS is</text><text x="360" y="1098" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">silent</text>
+<circle cx="351" cy="1116" r="2.6" fill="#1d9e75"/>
+<text x="360" y="1119" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;low-confidence&#x27; badge when dimensions are</text><text x="360" y="1132" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">defaulted</text>
+<rect x="624" y="982" width="287" height="210" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="624" y="982" width="5" height="210" rx="2.5" fill="#caa24a"/>
+<text x="640" y="1006" font-size="12.5" font-weight="700" fill="#caa24a" text-anchor="start">Real CAD output</text>
+<circle cx="643" cy="1027" r="2.6" fill="#caa24a"/>
+<text x="652" y="1030" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">export STL / OBJ per part (3-D print / CAD)</text>
+<circle cx="643" cy="1048" r="2.6" fill="#caa24a"/>
+<text x="652" y="1051" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">glTF/GLB for web + AR viewing</text>
+<circle cx="643" cy="1069" r="2.6" fill="#caa24a"/>
+<text x="652" y="1072" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">true multi-view drawing sheet</text><text x="652" y="1085" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">(front/top/side + iso)</text>
+<circle cx="643" cy="1103" r="2.6" fill="#caa24a"/>
+<text x="652" y="1106" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">full dimensioning + tolerances on the sheet</text>
+<rect x="916" y="982" width="287" height="210" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="916" y="982" width="5" height="210" rx="2.5" fill="#7f77dd"/>
+<text x="932" y="1006" font-size="12.5" font-weight="700" fill="#7f77dd" text-anchor="start">UX + scale</text>
+<circle cx="935" cy="1027" r="2.6" fill="#7f77dd"/>
+<text x="944" y="1030" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">CAD tab + download button in the part modal</text>
+<circle cx="935" cy="1048" r="2.6" fill="#7f77dd"/>
+<text x="944" y="1051" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">loupe on the CAD image; print into the job</text><text x="944" y="1064" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">packet</text>
+<circle cx="935" cy="1082" r="2.6" fill="#7f77dd"/>
+<text x="944" y="1085" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;report wrong shape&#x27; override -&gt; append-only</text><text x="944" y="1098" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">feedback</text>
+<circle cx="935" cy="1116" r="2.6" fill="#7f77dd"/>
+<text x="944" y="1119" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">multiprocess the 20,869 batch; pre-warm on</text><text x="944" y="1132" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">idle</text>
+<text x="40" y="1228" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Detailed reference. Dark (R3). v0.86.0 · 2026-06-04 · engine/cad_render.py · /cadimg · make_cad.py / MAKE-CAD.bat · index/cadcache. Representative — not a manufacturing drawing.</text>
+</svg>

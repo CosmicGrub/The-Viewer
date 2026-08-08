@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Bench — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .bar{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  a.btn,button{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .item{display:flex;align-items:center;gap:12px;background:#10151c;border:1px solid #223;border-radius:10px;padding:11px 14px;margin:8px 0}
+  .item a.open{flex:1;color:#e6edf4;text-decoration:none;font-weight:600;font-size:13.5px}
+  .item a.open:hover{color:#7fbfff}
+  .item .q{color:#8a98a8;font-size:11.5px}
+  .item .rm{color:#8a98a8;cursor:pointer;border:1px solid #2f4858;border-radius:6px;padding:3px 9px;font-size:12px}
+  .item .rm:hover{color:#f2a49c;border-color:#6b4636}
+  .empty{color:#6b7787;font-size:13px;padding:16px 0;line-height:1.6}
+  .empty code{background:#16202b;border:1px solid #26333f;border-radius:5px;padding:1px 6px}
+</style></head><body>
+<div class="wrap">
+  <h1>★ My Bench</h1>
+  <div class="muted">The parts, procedures, and pages you've pinned while working a job — kept on this computer so you can jump back instantly.</div>
+  <div class="bar">
+    <a class="btn" href="/">← search</a>
+    <button id="clear" title="Remove everything from the bench">Clear bench</button>
+  </div>
+  <div id="list"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function get(){ try{ return JSON.parse(window.localStorage.getItem('viewer_bench')||'[]'); }catch(e){ return []; } }
+  function put(l){ try{ window.localStorage.setItem('viewer_bench', JSON.stringify(l.slice(0,100))); }catch(e){} }
+  function render(){
+    var l=get(), host=$('#list');
+    if(!l.length){ host.innerHTML='<div class="empty">Nothing pinned yet.<br>On any page, click the <b>☆ pin</b> button (bottom-right, next to ⌘K) to add it here — a part dossier, a procedure, a torque spec, a figure. It stays until you remove it.</div>'; return; }
+    var h='';
+    l.forEach(function(it,i){
+      h+='<div class="item"><a class="open" href="'+esc(it.url)+'" target="_blank">'+esc(it.title||it.url)+(it.q?' <span class="q">“'+esc(it.q)+'”</span>':'')+'</a><span class="rm" data-i="'+i+'">✕ remove</span></div>';
+    });
+    host.innerHTML=h;
+    host.querySelectorAll('.rm').forEach(function(b){ b.onclick=function(){ var l=get(); l.splice(parseInt(b.getAttribute('data-i'),10),1); put(l); render(); }; });
+  }
+  $('#clear').onclick=function(){ if(confirm('Clear the whole bench?')){ put([]); render(); } };
+  render();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

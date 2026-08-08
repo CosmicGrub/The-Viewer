@@ -1,0 +1,76 @@
+<svg viewBox="0 0 1180 940" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="940" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">PROPOSAL — Retroactive post-support: comparable responsiveness on legacy Windows</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Responsiveness != horsepower. Do the heavy work ONCE on the fast PC; the legacy box serves a finished artifact and does only light work. Daily use feels just as snappy.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · THE KEY MOVE — split heavy (once) from light (every day)</text>
+<rect x="40" y="126" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="150" width="300" height="100" rx="8" fill="#13241c" stroke="#2f7d4f" stroke-width="1"/>
+<text x="210" y="172" font-size="10" font-weight="700" fill="#bfe6cf" text-anchor="middle">ONE-TIME, on the RTX 4050 PC</text>
+<text x="78" y="192" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• index + OCR (PP-OCRv5, GPU)</text>
+<text x="78" y="208" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• correlations, enrichment</text>
+<text x="78" y="224" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• pre-render page-image cache</text>
+<path d="M360,200 L470,200" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<text x="415" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="middle">copy the</text>
+<text x="415" y="214" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="middle">portable folder</text>
+<rect x="478" y="150" width="300" height="100" rx="8" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="628" y="172" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="middle">LEGACY BOX (Win7/Vista)</text>
+<text x="496" y="192" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• serves a FINISHED viewer.db</text>
+<text x="496" y="208" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• search = SQLite FTS (instant)</text>
+<text x="496" y="224" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• open page = read a cached PNG</text>
+<rect x="796" y="150" width="324" height="100" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="958" y="172" font-size="9.4" font-weight="700" fill="#caa24a" text-anchor="middle">no heavy compute on the old PC</text>
+<text x="812" y="190" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">It never OCRs or re-indexes. It just reads a</text><text x="812" y="201" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">small set of rows and a pre-made image. That</text><text x="812" y="212" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">is why it can feel as fast as the modern</text><text x="812" y="223" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">machine for everyday use.</text>
+<text x="56" y="300" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · COMPATIBILITY-BASED ENHANCEMENTS (help the old PC without slowing it)</text>
+<rect x="40" y="310" width="1100" height="300" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="332" width="520" height="82" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<rect x="60" y="332" width="6" height="82" rx="3" fill="#2f7d4f"/>
+<text x="78" y="354" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Pre-rendered page cache</text>
+<text x="78" y="372.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Opening a page becomes a disk read of a ready PNG, not a live PDF rasterise. Bake the</text><text x="78" y="383.5" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">common pages on the fast PC; warm the rest on first view.</text>
+<rect x="600" y="332" width="520" height="82" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<rect x="600" y="332" width="6" height="82" rx="3" fill="#caa24a"/>
+<text x="618" y="354" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">ES5 / polyfilled &#x27;legacy UI&#x27;</text>
+<text x="618" y="372.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Old default browsers (IE11 on Win7, old Firefox) can&#x27;t run modern JS. A transpiled ES5</text><text x="618" y="383.5" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">bundle + a fetch-&gt;XMLHttpRequest shim makes the UI run on them. (Or ship Firefox ESR,</text><text x="618" y="395.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">which still supports Win7/Vista.)</text>
+<rect x="60" y="424" width="520" height="82" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<rect x="60" y="424" width="6" height="82" rx="3" fill="#4f9dff"/>
+<text x="78" y="446" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">SQLite tuned for low RAM / HDD</text>
+<text x="78" y="464.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Set cache_size, mmap, and read patterns for spinning disks + small memory so search</text><text x="78" y="475.5" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">stays quick on a 2008-era machine.</text>
+<rect x="600" y="424" width="520" height="82" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<rect x="600" y="424" width="6" height="82" rx="3" fill="#4f9dff"/>
+<text x="618" y="446" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Lite render + lite effects</text>
+<text x="618" y="464.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Lower default DPI; local-only loupe (no server hi-DPI fetch); drop costly CSS (heavy</text><text x="618" y="475.5" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">3D tilt, shadows). Same features, lighter touch.</text>
+<rect x="60" y="516" width="520" height="82" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<rect x="60" y="516" width="6" height="82" rx="3" fill="#1d9e75"/>
+<text x="78" y="538" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Lean transport</text>
+<text x="78" y="556.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">gzip responses + keep-alive + lazy thumbnails = less disk/IO churn; snappier first</text><text x="78" y="567.5" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">paint on slow storage.</text>
+<rect x="600" y="516" width="520" height="82" rx="10" fill="#171d26" stroke="#9aa6b6" stroke-width="1"/>
+<rect x="600" y="516" width="6" height="82" rx="3" fill="#9aa6b6"/>
+<text x="618" y="538" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Optional: split DBs</text>
+<text x="618" y="556.0" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">A tiny metadata/parts/NSN DB for instant browse + the big FTS DB only when full-text</text><text x="618" y="567.5" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">searching — keeps the common path light.</text>
+<text x="56" y="634" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · TWO MODES (auto-picked by the probe, manually overridable)</text>
+<rect x="40" y="644" width="1100" height="160" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="664" width="510" height="120" rx="8" fill="#13241c" stroke="#2f7d4f" stroke-width="1"/>
+<text x="80" y="686" font-size="10.5" font-weight="700" fill="#bfe6cf" text-anchor="start">Performance mode  (Win10/11, RTX 4050)</text>
+<text x="80" y="706" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">GPU OCR (PP-OCRv5), full effects, server hi-DPI loupe, high DPI,</text><text x="80" y="718" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">zoom/tilt/mirror, HD. Everything on.</text>
+<text x="80" y="754" font-size="9" font-weight="700" fill="#2f7d4f" text-anchor="start">Goal: maximum fidelity + speed.</text>
+<rect x="610" y="664" width="510" height="120" rx="8" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="630" y="686" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">Retroactive Post-Support mode  (Win7/Vista)</text>
+<text x="630" y="706" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Finished portable index, page cache, ES5 UI, tuned SQLite, lite</text><text x="630" y="718" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">effects, Poppler+Tesseract. Same features, tuned to feel instant.</text>
+<text x="630" y="754" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">Goal: comparable RESPONSIVENESS on old hardware.</text>
+<rect x="40" y="814" width="1100" height="86" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="836" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">EXPECTED FEEL (everyday tasks)</text>
+<text x="60" y="854" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="start">Task</text>
+<text x="360" y="854" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Modern RTX</text>
+<text x="620" y="854" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Legacy + this plan</text>
+<text x="60" y="868" font-size="8.8" font-weight="400" fill="#e6e9ee" text-anchor="start">Search (FTS)</text>
+<text x="360" y="868" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">~50 ms</text>
+<text x="620" y="868" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">~120-200 ms (still instant)</text>
+<text x="60" y="882" font-size="8.8" font-weight="400" fill="#e6e9ee" text-anchor="start">Open a page</text>
+<text x="360" y="882" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">~100 ms</text>
+<text x="620" y="882" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">~120 ms from cache (vs ~600 ms live)</text>
+<text x="60" y="896" font-size="8.8" font-weight="400" fill="#e6e9ee" text-anchor="start">Type-ahead / browse</text>
+<text x="360" y="896" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">instant</text>
+<text x="620" y="896" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">instant (stdlib + SQLite)</text>
+<text x="40" y="930" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">PROPOSAL — your call. Dark (R3). Companion to SYSTEM-REQUIREMENTS.md. Nothing built yet; pick the pieces to implement.</text>
+</svg>

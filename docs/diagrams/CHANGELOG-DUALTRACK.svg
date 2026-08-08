@@ -1,0 +1,67 @@
+<svg viewBox="0 0 1180 620" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="620" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER — Dual-track changelog timeline (Modern + Legacy)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">The Legacy / Retroactive Post-Support line branches from the modern track at the version it was created, and shows every backport. Versions: &lt;base&gt;-legacy.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="60" y="170" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">MODERN  (Performance · Win 10/11)</text>
+<line x1="130" y1="210" x2="1120" y2="210" stroke="#3a5a44" stroke-width="2.5"/>
+<path d="M1120,210 l16,0" stroke="#3a5a44" stroke-width="2.5" marker-end="url(#a)"/>
+<circle cx="160" cy="210" r="8" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="160" y="188" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.37.0</text>
+<text x="160" y="202" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">COMPLETE compat</text>
+<circle cx="344" cy="210" r="8" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="344" y="188" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.42.0</text>
+<text x="344" y="202" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">Circuit Lab</text>
+<circle cx="528" cy="210" r="8" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="528" y="188" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.45.0</text>
+<text x="528" y="202" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">RPS</text>
+<circle cx="712" cy="210" r="8" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="712" y="188" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.48.0</text>
+<text x="712" y="202" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">Solve-it + procedures</text>
+<circle cx="896" cy="210" r="8" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="896" y="188" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.50.0</text>
+<text x="896" y="202" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">Add docs + search</text>
+<circle cx="1080" cy="210" r="8" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="1080" y="188" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.54.0</text>
+<text x="1080" y="202" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">workflow + ops</text>
+<text x="60" y="444" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">LEGACY  (Retroactive Post-Support · Win 7 / Vista)</text>
+<line x1="160" y1="400" x2="1120" y2="400" stroke="#2b486e" stroke-width="2.5"/>
+<path d="M1120,400 l16,0" stroke="#2b486e" stroke-width="2.5" marker-end="url(#a)"/>
+<path d="M160,218 C160,280 160,330 160,392" stroke="#7f77dd" stroke-width="2" fill="none"/>
+<text x="152" y="305" font-size="8.6" font-weight="700" fill="#7f77dd" text-anchor="end">branches here (legacy created)</text>
+<circle cx="160" cy="400" r="8" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="160" y="424" font-size="9.0" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.37.0-legacy</text>
+<text x="160" y="438" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">legacy created (compat foundation)</text>
+<circle cx="344" cy="400" r="8" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="344" y="424" font-size="9.0" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.42.0-legacy</text>
+<text x="344" y="438" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">Circuit Lab (static overlay)</text>
+<circle cx="160" cy="400" r="8" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="160" y="424" font-size="9.0" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.43.0-legacy</text>
+<text x="160" y="438" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">Look-Alike Parts (full parity)</text>
+<circle cx="160" cy="400" r="8" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="160" y="424" font-size="9.0" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.44.0-legacy</text>
+<text x="160" y="438" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">Circuit Lab+ (static overlay)</text>
+<circle cx="528" cy="400" r="8" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="528" y="424" font-size="9.0" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.45.0-legacy</text>
+<text x="528" y="438" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">RPS delivered (full parity)</text>
+<circle cx="160" cy="400" r="8" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="160" y="424" font-size="9.0" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.46.0-legacy</text>
+<text x="160" y="438" font-size="7.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">gzip + Legacy toggle (full parity)</text>
+<path d="M344,218 L344,392" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<text x="350" y="255" font-size="7.6" font-weight="400" fill="#caa24a" text-anchor="start">backport: Circuit Lab → static-overlay (~adapted)</text>
+<path d="M528,218 L528,392" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<text x="534" y="283" font-size="7.6" font-weight="400" fill="#caa24a" text-anchor="start">backport: RPS → legacy now runs well (✓ same)</text>
+<path d="M712,218 L712,392" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<text x="704" y="311" font-size="7.6" font-weight="400" fill="#caa24a" text-anchor="end">backport: procedures / hub / search → full parity (✓ same)</text>
+<path d="M896,218 L896,392" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<text x="888" y="339" font-size="7.6" font-weight="400" fill="#caa24a" text-anchor="end">backport: Add documents → full parity (✓ same)</text>
+<path d="M1080,218 L1080,392" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<text x="1072" y="255" font-size="7.6" font-weight="400" fill="#caa24a" text-anchor="end">backport: packet / dossier / find / ops → full parity (✓ same)</text>
+<rect x="40" y="470" width="1100" height="110" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="494" font-size="10" font-weight="700" fill="#9aa6b6" text-anchor="start">Parity badges (per legacy entry in CHANGELOG-LEGACY.md):</text>
+<text x="58" y="516" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ same feature        ~ adapted (Poppler / Tesseract / lite UI)        – N/A (GPU-only — speed, not a feature)</text>
+<text x="58" y="544" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Modern history: CHANGELOG.md   ·   Legacy history (starts at the branch point): CHANGELOG-LEGACY.md</text>
+<text x="58" y="562" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">To extend: add to MODERN / LEGACY / BACKPORTS in this generator and re-run (R4/R5/R7).</text>
+<text x="40" y="608" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">Dark (R3) · R7 dual-track changelog · regenerated each release.</text>
+</svg>

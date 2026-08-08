@@ -1,0 +1,32 @@
+<svg viewBox="0 0 1100 540" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1100" height="540" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">PMCS finder — the maintenance-check tables, fast   v0.99.23</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Find Preventive Maintenance Checks &amp; Services tables by vehicle, with the interval each page covers, each cited to its real page.</text>
+<line x1="40" y1="86" x2="1060" y2="86" stroke="#2b333f"/>
+<rect x="40" y="110" width="1020" height="128" rx="12" fill="#171d26" stroke="#7fbfff" stroke-width="1"/>
+<text x="56" y="132" font-size="12" font-weight="700" fill="#cfe" text-anchor="start">HMMWV M998 · TM 9-2320-280-10 · p.40</text>
+<rect x="500" y="120" width="90" height="16" rx="6" fill="#16202b" stroke="#2f4858" stroke-width="1"/>
+<text x="510" y="132" font-size="8.4" font-weight="400" fill="#4f9dff" text-anchor="start">view page ↗</text>
+<rect x="56" y="144" width="128" height="18" rx="999" fill="#123a2c" stroke="#1d9e75" stroke-width="1"/>
+<text x="64" y="157" font-size="8.6" font-weight="400" fill="#7fd8b6" text-anchor="start">Before operation</text>
+<rect x="191" y="144" width="128" height="18" rx="999" fill="#123a2c" stroke="#1d9e75" stroke-width="1"/>
+<text x="199" y="157" font-size="8.6" font-weight="400" fill="#7fd8b6" text-anchor="start">During operation</text>
+<rect x="326" y="144" width="128" height="18" rx="999" fill="#123a2c" stroke="#1d9e75" stroke-width="1"/>
+<text x="334" y="157" font-size="8.6" font-weight="400" fill="#7fd8b6" text-anchor="start">After operation</text>
+<rect x="461" y="144" width="128" height="18" rx="999" fill="#123a2c" stroke="#1d9e75" stroke-width="1"/>
+<text x="469" y="157" font-size="8.6" font-weight="400" fill="#7fd8b6" text-anchor="start">Weekly</text>
+<text x="56" y="182" font-size="10" font-weight="400" fill="#cdd8e4" text-anchor="start">“TABLE 2-1. PREVENTIVE MAINTENANCE CHECKS AND SERVICES. Interval: BEFORE, DURING, AFTER, WEEKLY. Item: engine oil level…”</text>
+<text x="56" y="226" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">+ intervals inferred: Monthly / Annually on continuation pages.</text>
+<line x1="40" y1="258" x2="1060" y2="258" stroke="#2b333f"/>
+<text x="40" y="286" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">HOW / VERIFIED / R1</text>
+<rect x="40" y="300" width="1020" height="168" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="321" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="324" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">pmcs.find(): FTS-match (&#x27;preventive maintenance checks&#x27; OR PMCS OR &#x27;checks and services&#x27;); dedup by doc+page; infer interval from text.</text>
+<circle cx="56" cy="340" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="343" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Vehicle filters on documents.vehicle LIKE — NOT the page body. A self-test caught the original body-FTS bug (vehicle isn&#x27;t in the body) and it was fixed.</text>
+<circle cx="56" cy="359" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="362" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified in-sandbox on a synthetic FTS index: HMMWV → 2 PMCS pages w/ correct intervals; wrong vehicle → 0; no-vehicle → all.</text>
+<circle cx="56" cy="378" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="381" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/pmcs + /pmcs page + 🗓 in palette + Tools menu; pmcs.py in audit + VERIFY-099 + verify_ui. Read-only on the index (R1/R6).</text>
+<text x="40" y="532" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.23 · 2026-07-01 · pmcs.py + /api/pmcs + /pmcs. Read-only. R1/R6.</text>
+</svg>

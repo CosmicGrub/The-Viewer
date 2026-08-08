@@ -1,0 +1,55 @@
+<svg viewBox="0 0 1180 860" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="860" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">Dimension-driven parametric reconstruction — does the combo count? Yes, for a real subset</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Reconstructing 3D from stated dimensions + views is real engineering, NOT generation. The catch: TMs/RPSTLs are illustrations + scattered specs — not full dimensioned drawings (TDP).</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="100" width="1100" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="54" y="120" font-size="10" font-weight="700" fill="#9aa6b6" text-anchor="start">In your corpus (sample):</text>
+<text x="240" y="120" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">diameter</text>
+<text x="293.6" y="120" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">846</text>
+<text x="344.6" y="120" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">threads</text>
+<text x="392.0" y="120" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">~600</text>
+<text x="450.0" y="120" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">torque</text>
+<text x="491.2" y="120" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">1,706</text>
+<text x="556.2" y="120" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">dim/spec tables</text>
+<text x="653.2" y="120" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">1,301</text>
+<text x="718.2" y="120" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">clearances</text>
+<text x="784.2" y="120" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">1,807</text>
+<text x="54" y="142" font-size="9.3" font-weight="400" fill="#caa24a" text-anchor="start">BUT — tolerances: 85 · explicit bolt-circles: 2  → full GD&amp;T / complete dimensioning is rare (these aren&#x27;t engineering drawings).</text>
+<rect x="40" y="168" width="545" height="250" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="192" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">WHAT IT RELIABLY GROUNDS</text>
+<text x="58" y="210" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">• Standard / parametric parts (big population)</text>
+<text x="70" y="225" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN/part# → a standard (bolt, nut, washer, fitting, bearing, connector)</text><text x="70" y="237" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">→ exact geometry from the standard&#x27;s tables.</text>
+<text x="58" y="259" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">• The distinguishing features themselves</text>
+<text x="70" y="274" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Thread size, hole/port COUNT, connector/pin type — stated or countable</text><text x="70" y="286" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">in the figure. This is the look-alike case, nailed.</text>
+<text x="58" y="308" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">• Key stated dimensions</text>
+<text x="70" y="323" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Diameters, lengths, clearances, port/thread sizes that the manual does</text><text x="70" y="335" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">give — enough to size a parametric family member exactly.</text>
+<rect x="595" y="168" width="545" height="250" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="613" y="192" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">WHERE IT BECOMES INFERENCE</text>
+<text x="613" y="210" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">• Complex castings / housings</text>
+<text x="625" y="225" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">A TM rarely dimensions every surface of an irregular casting → the model</text><text x="625" y="237" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">would interpolate the un-stated geometry. Guessing.</text>
+<text x="613" y="261" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">• Under-dimensioned / single illustration</text>
+<text x="625" y="276" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">One exploded view + no dimensions = depth unrecoverable for that shape.</text>
+<text x="613" y="300" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">• Internal / occluded features</text>
+<text x="625" y="315" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">What isn&#x27;t drawn or specified can&#x27;t be reconstructed.</text>
+<text x="40" y="448" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">GROUNDED PIPELINE (Tier 2.5 — slots between the 2D viewer and real-CAD/photogrammetry)</text>
+<rect x="40" y="466" width="355" height="108" rx="11" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="54" y="490" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Extract parameters</text>
+<text x="54" y="510" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">spec tables (parsable) · NSN→standard identity ·</text><text x="54" y="523" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">countable features (holes/ports) · SME confirms a</text><text x="54" y="536" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">few key dims</text>
+<path d="M395,520 L412,520" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="412" y="466" width="355" height="108" rx="11" fill="#16301f" stroke="#2b333f" stroke-width="1"/>
+<text x="426" y="490" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · Parametric CAD generator</text>
+<text x="426" y="510" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">code-CAD (CadQuery / build123d / OpenSCAD) — exact,</text><text x="426" y="523" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">offline, per part-FAMILY template instantiated by</text><text x="426" y="536" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">the params</text>
+<path d="M767,520 L784,520" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="784" y="466" width="355" height="108" rx="11" fill="#3a2f1a" stroke="#2b333f" stroke-width="1"/>
+<text x="798" y="490" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · Confidence-labeled 3D (Three.js)</text>
+<text x="798" y="510" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">rotate · angle · zoom-to-feature · linked from the</text><text x="798" y="523" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">part — SPECIFIED features exact; unstated surfaces</text><text x="798" y="536" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">shown schematic &amp; flagged</text>
+<rect x="40" y="596" width="1100" height="96" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="620" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">THE GROUNDING RULE (what keeps it honest)</text>
+<text x="58" y="642" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Model only what the documentation specifies. A specified feature (thread, hole count, port, stated dimension) is rendered exactly and cited to its source. Anything not</text><text x="58" y="655" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">specified is shown as a plain schematic placeholder, clearly marked &#x27;representative — not to scale&#x27;, and never presented as authoritative geometry. So a reconstructed part</text><text x="58" y="668" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">is trustworthy precisely where it&#x27;s labeled trustworthy — and the look-alike difference is always in the trustworthy part.</text>
+<rect x="40" y="704" width="1100" height="120" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="728" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">VERDICT — yes, it accounts for something real:</text>
+<text x="58" y="750" font-size="9.7" font-weight="400" fill="#9aa6b6" text-anchor="start">For the large standard-hardware population and for the exact distinguishing features between look-alikes, dimension-driven parametric reconstruction gives accurate, rotatable,</text><text x="58" y="764" font-size="9.7" font-weight="400" fill="#9aa6b6" text-anchor="start">cited 3D from the docs alone — no photos, no CAD sourcing. It does NOT give accurate full 3D of arbitrary complex castings from a TM (that still needs a TDP or photogrammetry).</text><text x="58" y="778" font-size="9.7" font-weight="400" fill="#9aa6b6" text-anchor="start">Best use: auto-build standard parts + a &#x27;spec-accurate&#x27; model that visibly encodes the look-alike difference; fall back to the 2D viewer where the geometry isn&#x27;t specified.</text>
+<text x="40" y="848" font-size="9.6" font-weight="400" fill="#6b7280" text-anchor="start">Proposal only — nothing built. Companion to diagrams 28–29. Dark (R3). Your call on whether to add Tier 2.5.</text>
+</svg>

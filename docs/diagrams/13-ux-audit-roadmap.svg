@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1020 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER — UX audit &amp; dynamism roadmap (dark)</title>
+<desc>Three columns: what the app already has, the user-experience gaps, and the proposed prioritized upgrades to make it more dynamic and end-user friendly for shop-floor mechanics.</desc>
+<style>
+  .bg{fill:#0f1419}.title{font-size:19px;font-weight:700;fill:#e6e9ee}
+  .sub{font-size:10px;fill:#9aa6b6}.col{font-size:12px;font-weight:700;letter-spacing:.5px}
+  .it{font-size:11px;fill:#e6e9ee}.s{font-size:9.3px;fill:#9aa6b6}
+  .n{font-size:10px;fill:#9aa6b6}
+</style>
+<rect class="bg" x="0" y="0" width="1020" height="660"/>
+<text x="32" y="40" class="title">THE VIEWER — UX audit &amp; dynamism roadmap</text>
+<text x="32" y="60" class="sub">Goal: more dynamic + end-user friendly for shop-floor mechanics (junior &amp; SME) · dark (R3)</text>
+<line x1="32" y1="74" x2="988" y2="74" stroke="#2a2f37"/>
+
+<!-- HAVE -->
+<text x="40" y="100" class="col" fill="#bfe6c5">✓ WHAT WE HAVE</text>
+<rect x="32" y="110" width="300" height="430" rx="10" fill="#11201a" stroke="#2f5a3e"/>
+<text x="48" y="136" class="it">• Onboarding + express field</text>
+<text x="48" y="160" class="it">• Predictive FTS5 search</text>
+<text x="48" y="184" class="it">• Full-NSN search (part + vehicle)</text>
+<text x="48" y="208" class="it">• Vehicle breakdown hub</text>
+<text x="48" y="232" class="it">• Document viewer + page render</text>
+<text x="48" y="256" class="it">• Schematics &amp; install panel</text>
+<text x="48" y="280" class="it">• 104th parts-request PDF</text>
+<text x="48" y="304" class="it">• Dark theme · offline · resumable</text>
+<text x="48" y="328" class="it">• 1.87M pages searchable (OCR ongoing)</text>
+<text x="48" y="360" class="s">Solid engine + core flows. Functional, not yet</text>
+<text x="48" y="374" class="s">"grab-it-on-the-floor" friendly or visually dynamic.</text>
+
+<!-- GAPS -->
+<text x="362" y="100" class="col" fill="#e8d5a6">△ UX GAPS</text>
+<rect x="354" y="110" width="300" height="430" rx="10" fill="#241d10" stroke="#6b5526"/>
+<text x="370" y="136" class="it">• No home / browse-by-vehicle</text>
+<text x="370" y="160" class="it">• Desktop-only (no phone/tablet/touch)</text>
+<text x="370" y="184" class="it">• Raw OCR snippets · no filters/counts</text>
+<text x="370" y="208" class="it">• Viewer: no zoom / thumbnails / highlight</text>
+<text x="370" y="232" class="it">• No saved / recent requests &amp; searches</text>
+<text x="370" y="256" class="it">• No simple ↔ advanced (junior/SME) mode</text>
+<text x="370" y="280" class="it">• Schematics are static (vision = interactive)</text>
+<text x="370" y="304" class="it">• Sparse empty-states / guidance / polish</text>
+<text x="370" y="328" class="it">• Modal required every time</text>
+<text x="370" y="360" class="s">Most friction is discoverability, field ergonomics,</text>
+<text x="370" y="374" class="s">and making results/graphics feel alive.</text>
+
+<!-- PROPOSED -->
+<text x="684" y="100" class="col" fill="#bcd4ff">★ PROPOSED (prioritized)</text>
+<rect x="676" y="110" width="312" height="430" rx="10" fill="#13203a" stroke="#3a4d6e"/>
+<text x="692" y="136" class="it">1 · Home: browse-by-vehicle + recents</text>
+<text x="704" y="150" class="s">dynamic grid from the index · discoverable</text>
+<text x="692" y="178" class="it">2 · Responsive + touch + large-text</text>
+<text x="704" y="192" class="s">works on phone/tablet · simple↔advanced toggle</text>
+<text x="692" y="220" class="it">3 · Smart results: filters + counts + cards</text>
+<text x="704" y="234" class="s">by vehicle / manual type / text·OCR · cleaner</text>
+<text x="692" y="262" class="it">4 · Viewer: zoom + thumbnails + highlight</text>
+<text x="704" y="276" class="s">find-in-doc · jump to the hit on the page</text>
+<text x="692" y="304" class="it">5 · Saved / recent requests &amp; sessions</text>
+<text x="704" y="318" class="s">reopen, edit, re-export (data already in DB)</text>
+<text x="692" y="346" class="it">6 · Interactive dynamic graphics (vision D)</text>
+<text x="704" y="360" class="s">clickable callouts on schematics · simple+advanced</text>
+<text x="692" y="392" class="it">7 · Polish: branding, skeletons, toasts</text>
+<text x="704" y="406" class="s">guided empty-states</text>
+<rect x="692" y="430" width="280" height="40" rx="8" fill="#16301f" stroke="#2f5a3e"/>
+<text x="832" y="455" text-anchor="middle" class="s">Quick win bundle: 1 + 3 + 4 (most "alive" for least lift)</text>
+
+<line x1="32" y1="560" x2="988" y2="560" stroke="#2a2f37"/>
+<text x="32" y="586" class="n">All additive (R1) · each ships with diagram (R2), dark+PDF (R3), changelog (R4), visual panel (R5).</text>
+<text x="32" y="606" class="n">#6 (interactive graphics) is the project's vision-level "dynamic diagrams" goal — the biggest lift; best after the OCR/structured-data work.</text>
+<text x="32" y="626" class="n">Engine/search are already fast; this pass is about the front-end feeling dynamic and being usable in a motor pool.</text>
+</svg>

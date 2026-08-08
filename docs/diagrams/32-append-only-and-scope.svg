@@ -1,0 +1,55 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">More NSNs (append-only, R6) + the space/scope of growing the dataset</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.21.0 · NSN enrichment now keeps every version forever (R6: add, never remove). And: what it costs to add NSNs vs whole TMs.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="98" width="1100" height="30" rx="7" fill="#101a14" stroke="#2f7d4f" stroke-width="1"/>
+<text x="54" y="118" font-size="11" font-weight="700" fill="#bfe6c5" text-anchor="start">NEW RULE R6 — append-only: you may always ADD to the search engine, but never take away, even if the information is outdated.</text>
+<rect x="40" y="144" width="560" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="168" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">APPEND-ONLY NSN ENRICHMENT (built)</text>
+<rect x="58" y="184" width="524" height="42" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="203" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">GSA NSN Extract (re-fetch anytime)</text>
+<text x="70" y="218" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">official, data.gov</text>
+<path d="M320,226 L320,234" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="234" width="524" height="42" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="253" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">ref_nsn_log — APPEND every version</text>
+<text x="70" y="268" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">old + new both kept; nothing overwritten-without-trace</text>
+<path d="M320,276 L320,284" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="284" width="524" height="42" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="303" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">ref_nsn — &#x27;current&#x27; pointer (latest)</text>
+<text x="70" y="318" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">convenience only; history lives in the log</text>
+<path d="M320,326 L320,334" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="334" width="524" height="42" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="353" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">/api/reference → cart: current + &#x27;N versions on file&#x27;</text>
+<text x="70" y="368" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">outdated NSN data stays searchable</text>
+<text x="58" y="388" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified: two passes on one NSN → both versions retained; current = latest.</text>
+<rect x="620" y="144" width="520" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="638" y="168" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">SPACE &amp; SCOPE — adding NSNs vs TMs</text>
+<rect x="638" y="184" width="484" height="64" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="650" y="204" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="start">NSNs for everything in your set</text>
+<rect x="1060" y="192" width="52" height="18" rx="5" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1086" y="205" font-size="8" font-weight="700" fill="#0f1419" text-anchor="middle">TEXT</text>
+<text x="650" y="221" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">tiny — ~0.5 KB/row; even 100k NSNs ≈ tens of MB. (GSA bulk CSV download</text><text x="650" y="232" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">is a few hundred MB, but you keep only your matches.)</text>
+<rect x="638" y="254" width="484" height="64" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="650" y="274" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="start">Hardware / thread standards</text>
+<rect x="1060" y="262" width="52" height="18" rx="5" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1086" y="275" font-size="8" font-weight="700" fill="#0f1419" text-anchor="middle">TEXT</text>
+<text x="650" y="291" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">trivial — kilobytes (FED-STD-H28 dims).</text>
+<rect x="638" y="324" width="484" height="64" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="650" y="344" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="start">More TM documents (full manuals)</text>
+<rect x="1060" y="332" width="52" height="18" rx="5" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="1086" y="345" font-size="8" font-weight="700" fill="#0f1419" text-anchor="middle">BINARY</text>
+<text x="650" y="361" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">heavy — PDFs MB–tens of MB each + OCR/index; hundreds of TMs = GB–tens</text><text x="650" y="372" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">of GB + OCR time. Different sourcing (public TM repositories, not</text><text x="650" y="383" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">data.gov).</text>
+<rect x="40" y="410" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="434" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">WHAT I&#x27;D DO</text>
+<text x="58" y="456" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">•</text>
+<text x="72" y="456" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Your definite want — &#x27;new NSNs for everything&#x27; — is the cheap one. Run `enrich --gsa &lt;official GSA extract.csv&gt;`: it appends current GSA</text><text x="72" y="469" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">name/desc/price for every NSN already in your index, keeping all prior versions (R6). Tens of MB at most.</text>
+<text x="58" y="487" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">•</text>
+<text x="72" y="487" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Standards/hardware: already seeded; trivial to extend.</text>
+<text x="58" y="505" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">•</text>
+<text x="72" y="505" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Adding whole TMs is the space-heavy, sourcing-sensitive part — best done deliberately by platform/manual, with version/authority checks. It&#x27;s a</text><text x="72" y="518" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">different pipeline (crawl + OCR + index) than the NSN text enrichment.</text>
+<text x="58" y="536" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">•</text>
+<text x="72" y="536" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">One practical note: the GSA Extract is a bulk download (hundreds of MB) — that&#x27;s a file download, so I&#x27;ll state size/source and get your OK, or you</text><text x="72" y="549" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">drop the CSV in and point `--gsa` at it.</text>
+<text x="40" y="744" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">Built &amp; verified on the live index (append-only retention confirmed). Dark (R3) · CHANGELOG 0.21.0 (R4) · visual panel (R5).</text>
+</svg>

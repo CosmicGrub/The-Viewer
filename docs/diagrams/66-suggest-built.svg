@@ -1,0 +1,35 @@
+<svg viewBox="0 0 1180 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="560" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Type-ahead predictive search  (v0.49.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Google-style suggestions as you type — but fully offline, so it&#x27;s instant. Strengthens the core &#x27;predictive search&#x27; goal.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · WHERE THE SUGGESTIONS COME FROM  (/api/suggest — prefix, ranked)</text>
+<rect x="40" y="126" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="150" width="348" height="108" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="70" y="172" font-size="10.5" font-weight="700" fill="#7f77dd" text-anchor="start">Vehicles</text>
+<text x="70" y="192" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">distinct vehicle names (cached 5 min) — jump straight</text><text x="70" y="203" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">to a platform</text>
+<rect x="418" y="150" width="348" height="108" rx="10" fill="#1c2430" stroke="#caa24a" stroke-width="1"/>
+<text x="430" y="172" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">Parts</text>
+<text x="430" y="192" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">item names previously requested (your own catalog of</text><text x="430" y="203" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">real parts)</text>
+<rect x="778" y="150" width="348" height="108" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="790" y="172" font-size="10.5" font-weight="700" fill="#1d9e75" text-anchor="start">Manual words</text>
+<text x="790" y="192" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">real terms from the pages via the FTS vocab table,</text><text x="790" y="203" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">ranked by frequency — typo-free, on-topic</text>
+<text x="58" y="300" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Ranked vehicles → parts → words; deduped; 8 shown. All from indexed columns / the FTS vocab — no scan, no network. Debounced 120 ms; ↑/↓ to choose, Enter to search.</text>
+<text x="56" y="332" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · IN THE SEARCH BOX</text>
+<rect x="40" y="342" width="1100" height="120" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="360" width="420" height="30" rx="6" fill="#1f2733" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="380" font-size="12" font-weight="400" fill="#e6e9ee" text-anchor="start">alt</text>
+<rect x="58" y="392" width="420" height="62" rx="8" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="72" y="410" font-size="11" font-weight="400" fill="#e6e9ee" text-anchor="start">🔩  ALTERNATOR ASSEMBLY</text>
+<text x="458" y="410" font-size="8.5" font-weight="700" fill="#9aa6b6" text-anchor="end">PART</text>
+<text x="72" y="430" font-size="11" font-weight="400" fill="#e6e9ee" text-anchor="start">🔎  alternator</text>
+<text x="458" y="430" font-size="8.5" font-weight="700" fill="#9aa6b6" text-anchor="end">TERM</text>
+<text x="72" y="448" font-size="11" font-weight="400" fill="#e6e9ee" text-anchor="start">🚛  M1083 ALT…</text>
+<text x="458" y="448" font-size="8.5" font-weight="700" fill="#9aa6b6" text-anchor="end">VEHICLE</text>
+<text x="510" y="376" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Selecting a suggestion fills the box and runs the search. The dropdown closes on Escape,</text><text x="510" y="389" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">blur, or an outside click; keyboard-navigable and screen-reader labelled</text><text x="510" y="402" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">(role=combobox/listbox).</text>
+<rect x="40" y="476" width="1100" height="62" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="498" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">GROUNDED &amp; ADDITIVE (R1/R6)</text>
+<text x="58" y="516.0" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Read-only over existing indexes (vocab + vehicles + request history) — nothing written, no scan. Verified on a synthetic FTS5 vocab DB: &#x27;alt&#x27;→ALTERNATOR/alternator, &#x27;hmmwv&#x27;→vehicle,</text><text x="58" y="528.5" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">ranking vehicles&gt;parts&gt;words. New /api/suggest route only; rollback = remove it + the dropdown. JS lints clean.</text>
+<text x="40" y="548" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.49.0 · 2026-06-02 · suggest() in viewer_app.py + /api/suggest + index.html type-ahead dropdown.</text>
+</svg>

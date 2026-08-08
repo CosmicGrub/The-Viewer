@@ -1,0 +1,166 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — System Status</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+:root{--grn:#2f9d63}  /* page keeps its brighter green; all other tokens from /base.css (v0.97.0) */
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1060px;margin:0 auto;padding:24px}
+h1{font-size:22px;font-weight:600;margin:0 0 2px}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.row{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.metric{flex:1;min-width:150px;background:var(--p2);border:none}
+.metric .k{font-size:12px;color:var(--sub)}.metric .v{font-size:24px;font-weight:600;margin-top:4px}
+.bar{height:14px;border-radius:7px;background:var(--p2);overflow:hidden;border:1px solid var(--line)}
+.bar>i{display:block;height:100%;background:var(--grn)}
+.sec{margin-top:22px}.sec h2{font-size:15px;font-weight:600;margin:0 0 8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--sub);font-weight:500}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--p2);color:var(--sub);border:1px solid var(--line)}
+.tag.warn{color:var(--amb);border-color:#5a4a1f}.tag.ok{color:var(--grn);border-color:#1f5a37}.tag.bad{color:var(--red);border-color:#5a2420}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{background:var(--p2)}input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:240px}
+.pill{font-size:12px;color:var(--sub)}
+</style><script src="/rps.js"></script></head><body><div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>THE VIEWER — System Status</h1><div class="muted" id="gen">loading…</div></div>
+  <div><a href="/">← back to search</a> &nbsp; <button onclick="loadAll()">↻ Refresh</button></div>
+</div>
+
+<div class="row" id="metrics"></div>
+
+<div class="sec card" id="rpscard">
+  <h2>Run mode <span class="pill" id="rpsnow">…</span></h2>
+  <div class="muted" style="margin-bottom:8px">How hard the program leans on this PC. <b>Auto</b> follows the hardware probe —
+    <b>Performance</b> on Windows 10/11 with a strong GPU, <b>Retroactive Post-Support</b> (lighter effects, lower DPI,
+    local loupe, ES5/polyfilled UI, small-footprint SQLite) on Windows 7/Vista or low-RAM/HDD machines. Your choice is saved and survives restarts.</div>
+  <div id="rpsbtns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+  <div class="muted" id="rpsreason" style="margin-top:8px"></div>
+  <div class="muted" id="rpsnote" style="margin-top:4px"></div>
+</div>
+
+<div class="sec card">
+  <h2>Searchable coverage <span class="pill" id="covpct"></span></h2>
+  <div class="bar"><i id="covbar" style="width:0%"></i></div>
+  <div class="muted" id="covnote" style="margin-top:6px"></div>
+</div>
+
+<div class="sec card">
+  <h2>OCR progress <span class="pill" id="ocrpct"></span></h2>
+  <div class="bar"><i id="ocrbar" style="width:0%;background:var(--amb)"></i></div>
+  <div class="muted" id="ocrnote" style="margin-top:6px"></div>
+</div>
+
+<div class="row">
+  <div class="card" style="flex:1;min-width:240px"><h2 style="font-size:15px;margin:0 0 8px">Data protection</h2><div id="snap" class="muted">…</div></div>
+  <div class="card" style="flex:1;min-width:240px"><h2 style="font-size:15px;margin:0 0 8px">Correlations</h2><div id="corr" class="muted">…</div></div>
+</div>
+
+<div class="sec card">
+  <h2>NIIN format-drift review queue <span class="pill" id="niincount"></span></h2>
+  <div class="muted" style="margin-bottom:8px">Same NIIN written as different NSN strings. <span class="tag bad">FSC conflict</span> = different supply class on one NIIN (likely an extraction error). Your decisions are saved append-only (history kept); the main index is never changed.</div>
+  <div style="margin-bottom:8px"><button id="niinfilter" onclick="toggleNiin()">Show: pending</button>
+    <span class="pill" id="niinprog" style="margin-left:8px"></span></div>
+  <table id="niintbl"><thead><tr><th>NIIN</th><th>variants</th><th>flag</th><th>decision</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="sec card">
+  <h2>Fault → parts (predictive, from your logged history)</h2>
+  <div style="margin:6px 0"><input id="faultq" placeholder="e.g. brake air leak" onkeydown="if(event.key==='Enter')loadFault()"> <button onclick="loadFault()">Suggest parts</button></div>
+  <div id="faultout" class="muted">Type a fault to see the parts most often requested for similar faults.</div>
+</div>
+
+<div class="muted" style="margin-top:24px">Read-only dashboard. Counts come from the live index; correlations from the optional sidecar. Run <code>engine\run_safeguard.bat snapshot</code> on Windows to protect your files.</div>
+</div>
+<script>
+/* ES5-safe (RPS): var / function / XHR only -- runs on legacy (Win7/Vista) browsers too. */
+function $(s){ return document.querySelector(s); }
+function fmt(n){ return (n==null) ? "—" : Number(n).toLocaleString(); }
+function bytes(b){ if(!b) return "—"; var u=["B","KB","MB","GB"], i=0; while(b>=1024&&i<3){ b/=1024; i++; } return b.toFixed(1)+" "+u[i]; }
+function getJSON(url, cb, err){ var x=new XMLHttpRequest(); x.open("GET",url,true);
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ try{ cb(JSON.parse(x.responseText)); }catch(e){ if(err)err(e); } } else if(err){ err(x.status); } } };
+  x.send(); }
+function postJSON(url, body, cb, err){ var x=new XMLHttpRequest(); x.open("POST",url,true); x.setRequestHeader("Content-Type","application/json");
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ if(cb)cb(); } else if(err){ err(x.status); } } };
+  x.send(JSON.stringify(body)); }
+
+function loadAll(){
+  getJSON("/api/status", function(s){
+    $("#gen").textContent="as of "+s.generated;
+    var m=[["Documents",fmt(s.documents)],["Pages",fmt(s.pages)],["Parts indexed",fmt(s.parts)],["NSNs enriched",fmt(s.ref_nsn)],["Index size",bytes(s.db_size_bytes)]];
+    $("#metrics").innerHTML=m.map(function(x){ return '<div class="card metric"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+'</div></div>'; }).join("");
+    $("#covpct").textContent=s.coverage_pct+"%"; $("#covbar").style.width=s.coverage_pct+"%";
+    $("#covnote").textContent=fmt(s.searchable_pages)+" of "+fmt(s.pages)+" pages are text-searchable.";
+    var o=s.ocr||{}; $("#ocrpct").textContent=(o.progress_pct||0)+"% processed"; $("#ocrbar").style.width=(o.progress_pct||0)+"%";
+    $("#ocrnote").textContent="pending "+fmt(o.pending)+" · running "+fmt(o.running)+" · done "+fmt(o.done)+" · skipped "+fmt(o.skipped)+"  — run engine\\run_ocr_gpu.bat to finish (resumable).";
+    var sn=s.snapshot;
+    $("#snap").innerHTML = sn ? ("Last snapshot: <b>"+sn.created+"</b><br>"+fmt(sn.files)+" files · "+sn.count_total+" snapshots in the vault"+(sn.db?(" · db: "+sn.db):"")) : "<span class='tag warn'>no snapshots yet</span><br>Run <code>run_safeguard.bat snapshot</code> on Windows.";
+    var c=s.correlations;
+    $("#corr").innerHTML = c ? ("Interchangeable NSNs (&gt;1 vehicle): <b>"+fmt(c.interchangeable)+"</b><br>NIIN-drift groups: <b>"+fmt(c.niin_review)+"</b><br>Supersession pairs held: <b>"+fmt(c.supersession)+"</b>") : "<span class='tag'>sidecar not built</span> — run build_correlations.py";
+    loadNiin();
+  }, function(e){ $("#gen").textContent="status unavailable ("+e+")"; });
+}
+var niinPending=true;
+var DECLABEL={distinct:"distinct items",interchangeable:"interchangeable",error:"extraction error",dismiss:"dismissed"};
+function toggleNiin(){ niinPending=!niinPending; $("#niinfilter").textContent="Show: "+(niinPending?"pending":"all"); loadNiin(); }
+function loadNiin(){
+  getJSON("/api/niin_review?limit=40&pending="+(niinPending?1:0), function(j){
+    if(!j.available){ $("#niincount").textContent="(sidecar not built)"; return; }
+    $("#niincount").textContent=fmt(j.total)+" groups";
+    $("#niinprog").textContent=fmt(j.decided)+" decided · "+fmt(j.pending)+" pending";
+    var rows=(j.items||[]);
+    if(!rows.length){ $("#niintbl tbody").innerHTML="<tr><td colspan='4' class='muted'>"+(niinPending?"nothing pending — all reviewed.":"no groups.")+"</td></tr>"; return; }
+    $("#niintbl tbody").innerHTML=rows.map(function(it){
+      var flag=it.fsc_conflict?'<span class="tag bad">FSC ('+it.fscs.join("/")+')</span>':'<span class="tag ok">same FSC</span>';
+      var cell;
+      if(it.decision){ cell='<span class="tag ok">'+(DECLABEL[it.decision.decision]||it.decision.decision)+'</span> <a href="#" onclick="return clearRow(\''+it.niin+'\')" class="pill">change</a>'; }
+      else { cell=["distinct","interchangeable","error","dismiss"].map(function(d){ return '<button style="padding:2px 7px;font-size:11px" onclick="decide(\''+it.niin+'\',\''+d+'\')">'+d+'</button>'; }).join(" "); }
+      return "<tr id='niin-"+it.niin+"'><td>"+it.niin+"</td><td>"+it.variants.join(" &nbsp;·&nbsp; ")+"</td><td>"+flag+"</td><td>"+cell+"</td></tr>";
+    }).join("");
+  }, function(){});
+}
+function decide(niin,decision){
+  postJSON("/api/niin_review_decision", {niin:niin,decision:decision,by:"status-page"}, function(){ loadNiin(); }, function(){ toast("could not save decision"); });
+}
+function clearRow(niin){ decide(niin,"dismiss"); return false; }
+function loadFault(){
+  var q=$("#faultq").value.replace(/^\s+|\s+$/g,""); if(!q){ return; }
+  $("#faultout").textContent="…";
+  getJSON("/api/faultparts?fault="+encodeURIComponent(q), function(j){
+    if(!j.parts||!j.parts.length){ $("#faultout").innerHTML="No matching history yet for terms: <i>"+(j.terms||[]).join(", ")+"</i>. Suggestions grow as parts requests are logged."; return; }
+    $("#faultout").innerHTML="<table><thead><tr><th>part</th><th>NSN</th><th>times requested</th></tr></thead><tbody>"+
+      j.parts.map(function(p){ return "<tr><td>"+(p.item_name||"—")+"</td><td>"+(p.nsn||"—")+"</td><td>"+p.n+"</td></tr>"; }).join("")+"</tbody></table>";
+  }, function(){ $("#faultout").textContent="lookup failed"; });
+}
+
+/* ---- Run mode (Retroactive Post-Support) -------------------------------------------------------- */
+var RPS_ORDER=["auto","performance","retro"];
+var RPS_FALLBACK={auto:"Auto (recommended)",performance:"Performance",retro:"Retroactive Post-Support"};
+function loadRps(){
+  getJSON("/api/rps", function(j){
+    var cur=(j.setting||"auto"), labels=j.setting_labels||RPS_FALLBACK;
+    $("#rpsnow").textContent="active: "+(j.mode||"—");
+    var envForced=!!j.env_forced;
+    $("#rpsbtns").innerHTML=RPS_ORDER.map(function(k){
+      var on=(k===cur), lab=labels[k]||RPS_FALLBACK[k]||k;
+      var style="padding:8px 12px;"+(on?"border-color:var(--acc);color:var(--acc);background:var(--p2);font-weight:600":"");
+      return '<button data-k="'+k+'" style="'+style+'"'+(envForced?" disabled":"")+' onclick="setRps(\''+k+'\')">'+(on?"● ":"")+lab+'</button>';
+    }).join("");
+    var rec=j.recommended_mode?(" · hardware recommends: "+(j.recommended_mode==="modern"?"Performance":"Retroactive Post-Support")):"";
+    $("#rpsreason").textContent=(j.reason||"")+rec;
+    var pc=j.page_cache_stats;
+    var note = envForced ? "Overridden by the VIEWER_MODE environment variable — clear it to control the mode here." : "";
+    if(pc && pc.files){ note += (note?"  ":"")+"Page cache: "+fmt(pc.files)+" pages ("+bytes(pc.bytes)+")."; }
+    $("#rpsnote").textContent=note;
+  }, function(e){ $("#rpsnow").textContent="unavailable"; $("#rpsreason").textContent="run-mode status unavailable ("+e+")"; });
+}
+function setRps(setting){
+  $("#rpsnow").textContent="saving…";
+  postJSON("/api/rps_mode", {setting:setting}, function(){ loadRps(); }, function(e){ $("#rpsnow").textContent="save failed ("+e+")"; loadRps(); });
+}
+
+loadAll();
+loadRps();
+</script><script src="/palette.js"></script></body></html>

@@ -1,0 +1,243 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Schematics Library</title>
+<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode; page's own <style> below still wins (v1.13.0) -->
+<script src="/shared.js"></script>
+<style>
+:root{--bg:#0f1419;--panel:#171d26;--p2:#1c2430;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;--acc:#4f9dff;--amb:#caa24a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+h1{font-size:22px;font-weight:600;margin:0}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}
+input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 12px;width:340px;max-width:60vw}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 13px;cursor:pointer}
+button:hover{border-color:var(--acc);background:var(--p2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;transition:border-color .12s,transform .06s}
+.card:hover{border-color:var(--acc)}.card:active{transform:scale(.99)}
+.thumb{height:170px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb img{max-width:100%;max-height:100%;object-fit:contain}
+.cn{font-size:12.5px;font-weight:600;margin:8px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs{font-size:11px;color:var(--sub);margin:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{display:inline-block;font-size:10px;color:var(--sub);border:1px solid var(--line);border-radius:9px;padding:0 6px;margin-top:4px}
+.gate{position:fixed;inset:0;background:rgba(5,8,12,.9);display:none;z-index:60;flex-direction:column}
+.gate.on{display:flex}
+.gbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.gbar .sp{flex:1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gstage{flex:1;overflow:hidden;display:flex;justify-content:center;align-items:center;background:#0a0e12;padding:14px;cursor:grab;perspective:1700px}
+.gbar input[type=range]{width:58px;padding:0;background:transparent;border:none;vertical-align:middle}
+.gbar button.on{border-color:var(--acc);color:#fff}
+.rail{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#11161d;border-bottom:1px solid var(--line);min-height:0}
+.rail:empty{display:none}
+.rail .r{flex:0 0 auto;width:84px;cursor:pointer;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff;transition:border-color .12s}
+.rail .r:hover{border-color:var(--acc)}.rail .r.on{border-color:var(--acc);box-shadow:0 0 0 2px rgba(79,157,255,.2)}
+.rail .r img{width:100%;height:60px;object-fit:cover;display:block}
+.rail .r div{font-size:9px;color:#0a0e12;background:#dfe3ea;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count2{font-size:12px;color:var(--sub)}
+</style><script src="/rps.js"></script><script src="/schemhl.js"></script><script src="/schemflow.js"></script><script src="/loupe.js"></script></head><body><div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>Schematics Library <span class="muted" id="count"></span></h1>
+    <div class="muted">Schematic &amp; wiring-diagram documents across the corpus. Click one to open and page through it.</div></div>
+  <div><a href="/partdiff">🔍 Look-Alike Parts</a> &nbsp; <a href="/circuitlab">⚡ Circuit Lab</a> &nbsp; <a href="/3d">🧊 3D Library</a> &nbsp; <a href="/">← back to search</a></div>
+</div>
+<div class="bar">
+  <input id="q" placeholder="Search schematics by vehicle, TM, title, NSN…" autocomplete="off">
+  <button onclick="search()">Search</button>
+  <span class="muted" id="hint">showing the collection</span>
+</div>
+<div class="grid" id="grid"></div>
+<div style="text-align:center;margin:18px 0"><button id="more" style="display:none" onclick="loadMore()">Load more</button></div>
+</div>
+
+<div class="gate" id="gate">
+  <div class="gbar">
+    <div class="sp" id="gtitle"></div>
+    <button id="prev">‹ Prev</button>
+    <span class="count2" id="pg"></span>
+    <button id="next">Next ›</button>
+    <button id="clean" title="Legibility cleanup">🧹 Clean</button>
+    <button id="blue" title="Blueprint mode (white lines on blue)">🟦 Blueprint</button>
+    <span class="count2">tilt&nbsp;X</span><input id="tx" type="range" min="-70" max="70" step="2" value="0" title="Tilt up/down — view the sheet from above/below">
+    <span class="count2">tilt&nbsp;Y</span><input id="ty" type="range" min="-70" max="70" step="2" value="0" title="Tilt left/right — view the sheet from the side">
+    <button id="mir" title="Mirror — view the back side">↔</button>
+    <button id="zout">−</button><span class="count2" id="zlbl">100%</span><button id="zin">+</button>
+    <button id="reset" title="Reset view (zoom, pan, tilt, mirror)">⟲ Reset</button>
+    <button id="hl" title="Highlighter — click elements on a vector sheet to highlight the connected net/part">🖍 Highlight</button>
+    <button id="flow" title="Living Schematic — animate signal/fluid flow along the wires; click a wire to isolate its net, click a component for its breakdown">▶ Flow</button>
+    <span class="count2" id="flowinfo" style="display:none"></span>
+    <button id="clab" title="Open this sheet in Circuit Lab — build/trace a live circuit on top of it">⚡ Circuit Lab</button>
+    <button id="dzoom" title="Deep-zoom this sheet with clickable callout hotspots (offline)">🔎 Deep Zoom</button>
+    <button id="close">Close ✕</button>
+  </div>
+  <div id="scallout" style="display:none;gap:6px;flex-wrap:wrap;padding:7px 12px;background:#10151c;border-bottom:1px solid var(--line);align-items:center"></div>
+  <div class="rail" id="rail"></div>
+  <div class="gstage" id="gstage"></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+/* esc()/toast() from /shared.js */
+let OFF=0,Q='',LIMIT=60,total=0;
+function card(d){
+  const div=document.createElement('div'); div.className='card';
+  const title=(d.title&&d.title.trim())||d.filename||('doc '+d.doc_id);
+  div.innerHTML='<div class="thumb"><img loading="lazy" src="/page?doc='+d.doc_id+'&page=1&dpi=90" alt=""></div>'+
+    '<div class="cn" title="'+esc(title)+'">'+esc(title)+'</div>'+
+    '<div class="cs">'+esc(d.vehicle||'')+(d.tm?(' · '+esc(d.tm)):'')+'</div>'+
+    '<div class="tag">'+(d.pages||1)+' page'+((d.pages||1)>1?'s':'')+'</div>';
+  div.onclick=()=>openDoc(d);
+  return div;
+}
+async function fetchPage(reset){
+  if(reset){ OFF=0; $("#grid").innerHTML=''; }
+  $("#hint").textContent='loading…';
+  try{
+    const j=await (await fetch('/api/schematics?limit='+LIMIT+'&offset='+OFF+(Q?('&q='+encodeURIComponent(Q)):''))).json();
+    total=j.total||0;
+    $("#count").textContent='('+total.toLocaleString()+(Q?' matches':' documents')+')';
+    $("#hint").textContent=Q?('search: '+Q):'showing the collection';
+    const g=$("#grid"); (j.items||[]).forEach(d=>g.appendChild(card(d)));
+    OFF+=(j.items||[]).length;
+    $("#more").style.display=(OFF<total)?'inline-block':'none';
+  }catch(e){ $("#hint").textContent='could not load (is the app running?)'; }
+}
+function loadMore(){ fetchPage(false); }
+function search(){ Q=$("#q").value.trim(); fetchPage(true); }
+$("#q").addEventListener('keydown',e=>{ if(e.key==='Enter') search(); });
+
+// built-in page viewer — buttery pan/zoom, blueprint mode, fade transitions
+let SV={doc:0,page:1,pages:1,clean:false,blue:false,zoom:1,panX:0,panY:0,tx:0,ty:0,flip:false,vehicle:'',title:''};
+let scimg=null;
+function ensureImg(){ const st=$("#gstage"); if(!scimg||!scimg.isConnected){ st.innerHTML='';
+    scimg=document.createElement('img'); scimg.id='scimg';
+    scimg.style.cssText='max-width:100%;max-height:100%;object-fit:contain;transform-origin:center;will-change:transform,opacity;transition:opacity .18s ease, transform .06s ease;user-select:none;-webkit-user-drag:none';
+    st.appendChild(scimg); }
+  return scimg; }
+function applyTransform(){ if(scimg) scimg.style.transform='translate('+SV.panX+'px,'+SV.panY+'px) rotateX('+SV.tx+'deg) rotateY('+SV.ty+'deg) scale('+SV.zoom+')'+(SV.flip?' scaleX(-1)':''); $("#zlbl").textContent=Math.round(SV.zoom*100)+'%'; }
+async function loadRail(veh){ const rail=$("#rail"); rail.innerHTML=''; if(!veh) return;
+  try{ const j=await (await fetch('/api/schematics?limit=24&q='+encodeURIComponent(veh))).json();
+    (j.items||[]).forEach(d=>{ const el=document.createElement('div'); el.className='r'+(d.doc_id===SV.doc?' on':'');
+      const ti=(d.title&&d.title.trim())||d.filename||('doc '+d.doc_id);
+      el.innerHTML='<img loading="lazy" src="/page?doc='+d.doc_id+'&page=1&dpi=70" alt=""><div title="'+esc(ti)+'">'+esc(ti)+'</div>';
+      el.onclick=()=>openDoc(d); rail.appendChild(el); });
+  }catch(e){}
+}
+function applyFilter(){ if(scimg) scimg.style.filter=SV.blue?'invert(1) hue-rotate(178deg) saturate(2.4) contrast(1.06) brightness(.95)':'none'; }
+function loadImg(){
+  $("#pg").textContent='p. '+SV.page+' / '+SV.pages;
+  const im=ensureImg(); im.style.opacity='0';
+  const url='/page?doc='+SV.doc+'&page='+SV.page+'&dpi=150'+(SV.clean?'&clean=1':'');
+  const pre=new Image();
+  pre.onload=()=>{ im.src=url; im.style.opacity='1'; if(window.Loupe) Loupe.attach(im,{mag:3}); };
+  pre.onerror=()=>{ $("#gstage").innerHTML='<div class="muted" style="margin-top:40px">This page can\'t be rendered.</div>'; scimg=null; };
+  pre.src=url;
+  applyTransform(); applyFilter();
+  loadCallouts();
+}
+// OCR-driven callouts for the open schematic page: clickable NSN / part# / figure chips (read-only).
+function ccColor(k){ return k==='nsn'?'#4f9dff':(k==='part'?'#caa24a':'#2f9e6a'); }
+function loadCallouts(){
+  var bar=$("#scallout"); if(!bar) return; bar.style.display='none'; bar.innerHTML='';
+  if(!SV.doc) return;
+  var x=new XMLHttpRequest(); x.open('GET','/api/callouts?doc='+SV.doc+'&page='+SV.page,true);
+  x.onreadystatechange=function(){ if(x.readyState!==4||x.status<200||x.status>=300) return;
+    var j; try{ j=JSON.parse(x.responseText); }catch(e){ return; }
+    var cs=(j&&j.callouts)||[]; if(!cs.length) return;
+    bar.style.display='flex';
+    var lab=document.createElement('span'); lab.className='count2'; lab.textContent='On this sheet:'; bar.appendChild(lab);
+    for(var i=0;i<cs.length;i++){ (function(c){ var b=document.createElement('button');
+      b.style.cssText='border:1px solid '+ccColor(c.kind)+';color:var(--txt);background:rgba(0,0,0,.25);border-radius:9px;padding:2px 8px;font-size:11px;cursor:pointer;white-space:nowrap';
+      b.innerHTML=esc(c.label)+(c.url?' ↗':' 🔎');
+      b.title=(c.kind==='fig')?('Search the manuals for FIG '+c.text):(c.kind==='nsn'?'Open the part dossier':'Open Look-Alike Parts');
+      b.onclick=function(){ if(c.url){ window.open(c.url,'_blank'); } else if(c.find){ window.open('/?ex='+encodeURIComponent(c.find),'_blank'); } };
+      bar.appendChild(b); })(cs[i]); }
+  };
+  x.send();
+}
+function openDoc(d){
+  SV.doc=d.doc_id; SV.page=1; SV.pages=d.pages||1; SV.clean=false; SV.blue=false; SV.zoom=1; SV.panX=0; SV.panY=0;
+  SV.tx=0; SV.ty=0; SV.flip=false; SV.vehicle=d.vehicle||'';
+  SV.title=(d.title&&d.title.trim())||d.filename||('doc '+d.doc_id);
+  $("#gtitle").innerHTML='<b>'+esc(SV.title)+'</b> &nbsp;<span class="muted">'+esc(d.vehicle||'')+(d.tm?(' · '+esc(d.tm)):'')+'</span>';
+  $("#clean").classList.remove('on'); $("#blue").classList.remove('on'); $("#mir").classList.remove('on');
+  HLMODE=false; $("#hl").classList.remove('on'); $("#hl").style.borderColor='';
+  if(typeof FLOWMODE!=='undefined'&&FLOWMODE){ flowOff(); }
+  const txi=$("#tx"); if(txi) txi.value=0; const tyi=$("#ty"); if(tyi) tyi.value=0;
+  scimg=null;
+  $("#gate").classList.add('on'); loadImg(); loadRail(SV.vehicle);
+}
+function go(n){ SV.page=Math.max(1,Math.min(SV.pages,SV.page+n)); SV.panX=0; SV.panY=0;
+  if(HLMODE){ SchemHL.open($("#gstage"), SV.doc, SV.page, function(){}); }
+  else if(FLOWMODE){ flowOpen(); } else { loadImg(); } }
+function setZoom(z,cx,cy){ const nz=Math.max(0.5,Math.min(6,Math.round(z*100)/100));
+  if(cx!=null){ SV.panX=cx-(cx-SV.panX)*(nz/SV.zoom); SV.panY=cy-(cy-SV.panY)*(nz/SV.zoom); }
+  SV.zoom=nz; applyTransform(); }
+$("#prev").onclick=()=>go(-1); $("#next").onclick=()=>go(1);
+$("#clean").onclick=()=>{ SV.clean=!SV.clean; $("#clean").classList.toggle('on',SV.clean); $("#clean").style.borderColor=SV.clean?'var(--acc)':''; loadImg(); };
+$("#blue").onclick=()=>{ SV.blue=!SV.blue; $("#blue").classList.toggle('on',SV.blue); $("#blue").style.borderColor=SV.blue?'var(--acc)':''; applyFilter(); };
+$("#zin").onclick=()=>setZoom(SV.zoom+0.25);
+$("#zout").onclick=()=>setZoom(SV.zoom-0.25);
+$("#tx").oninput=e=>{ SV.tx=parseInt(e.target.value)||0; applyTransform(); };
+$("#ty").oninput=e=>{ SV.ty=parseInt(e.target.value)||0; applyTransform(); };
+$("#mir").onclick=()=>{ SV.flip=!SV.flip; $("#mir").classList.toggle('on',SV.flip); applyTransform(); };
+function resetView(){ SV.zoom=1; SV.panX=0; SV.panY=0; SV.tx=0; SV.ty=0; SV.flip=false;
+  const a=$("#tx"); if(a)a.value=0; const b=$("#ty"); if(b)b.value=0; $("#mir").classList.remove('on'); applyTransform(); }
+$("#reset").onclick=resetView;
+$("#clab").onclick=()=>{ window.open('/circuitlab?doc='+SV.doc+'&page='+SV.page,'_blank'); };
+$("#dzoom").onclick=()=>{ window.open('/deepzoom?doc='+SV.doc+'&page='+SV.page,'_blank'); };
+// Highlighter mode: on a vector sheet, replace the static image with an interactive clickable overlay; the
+// highlighter owns its own zoom/click, so we disable the gate's pan/zoom while it's on. Off -> restore image.
+let HLMODE=false, FLOWMODE=false;
+function overlayOn(){ return HLMODE||FLOWMODE; }
+$("#hl").onclick=()=>{ if(FLOWMODE) flowOff();
+  HLMODE=!HLMODE; $("#hl").classList.toggle('on',HLMODE); $("#hl").style.borderColor=HLMODE?'var(--acc)':'';
+  if(HLMODE){ if(window.SchemHL){ SchemHL.open($("#gstage"), SV.doc, SV.page, function(){}); } else { HLMODE=false; } }
+  else { loadImg(); } };
+// Living Schematic flow overlay: animated, tiered (RPS). Mutually exclusive with the highlighter.
+function flowTier(){ return (window.RPS&&RPS.mode)||'modern'; }
+function flowInfo(o){ const el=$("#flowinfo"); if(!el) return;
+  if(!o||o.mode==='none'){ el.style.display='inline'; el.textContent='no traceable wiring'; el.style.color='var(--sub)'; return; }
+  if(o.mode==='flow'){ el.style.display='inline';
+    el.textContent='flow · '+(o.counts?o.counts.nets:'?')+' nets · '+(o.comps||0)+' parts · conf '+Math.round((o.confidence||0)*100)+'%';
+    el.style.color=(o.confidence>=0.6?'var(--ok,#5cf2c4)':(o.confidence>=0.35?'#ffd24a':'#ff7a59')); return; }
+  if(o.net!=null){ el.style.display='inline'; el.textContent=o.net<0?('flow · click a wire to isolate a net'):('net #'+o.net+' isolated · '+o.size+' segments'); }
+}
+function flowComponent(c){ // lightweight breakdown panel; reference designator -> search the manual for that ref
+  let p=$("#flowpanel"); if(!p){ p=document.createElement('div'); p.id='flowpanel';
+    p.style.cssText='position:absolute;right:12px;top:64px;width:230px;background:#10151c;border:1px solid var(--line);border-radius:10px;padding:12px 14px;z-index:6;box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:13px';
+    $("#gstage").appendChild(p); }
+  p.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b style="color:#ff7a59;font-size:15px">'+esc(c.ref)+'</b>'+
+    '<span id="fpx" style="cursor:pointer;color:var(--sub)">✕</span></div>'+
+    '<div class="muted" style="margin:6px 0 10px">Component on this sheet (reference designator). Look it up in the parts list or find every mention in the manual.</div>'+
+    '<button id="fpfind" style="width:100%;background:#1b2735;color:#cfe;border:1px solid var(--line);border-radius:6px;padding:6px;cursor:pointer">🔎 Find “'+esc(c.ref)+'” in this manual</button>';
+  p.querySelector('#fpx').onclick=()=>{ p.remove(); };
+  p.querySelector('#fpfind').onclick=()=>{ window.open('/?q='+encodeURIComponent(c.ref)+'&doc='+c.doc,'_blank'); };
+}
+function flowOpen(){ FLOWMODE=true; $("#flow").classList.add('on'); $("#flow").style.borderColor='var(--acc)';
+  SchemFlow.open($("#gstage"), SV.doc, SV.page, {tier:flowTier(), onInfo:flowInfo, onComponent:flowComponent}); }
+function flowOff(){ FLOWMODE=false; $("#flow").classList.remove('on'); $("#flow").style.borderColor='';
+  const fp=$("#flowpanel"); if(fp) fp.remove(); const fi=$("#flowinfo"); if(fi) fi.style.display='none';
+  if(window.SchemFlow) SchemFlow.close($("#gstage")); }
+$("#flow").onclick=()=>{ if(!window.SchemFlow){ return; }
+  if(FLOWMODE){ flowOff(); loadImg(); return; }
+  if(HLMODE){ HLMODE=false; $("#hl").classList.remove('on'); $("#hl").style.borderColor=''; }
+  flowOpen(); };
+// drag to pan + cursor-centered wheel zoom
+(function(){ const st=$("#gstage"); let dr=false,px=0,py=0;
+  st.addEventListener('mousedown',e=>{ if(overlayOn())return; dr=true; px=e.clientX; py=e.clientY; st.style.cursor='grabbing'; e.preventDefault(); });
+  window.addEventListener('mousemove',e=>{ if(overlayOn()||!dr)return; SV.panX+=(e.clientX-px); SV.panY+=(e.clientY-py); px=e.clientX; py=e.clientY; applyTransform(); });
+  window.addEventListener('mouseup',()=>{ dr=false; st.style.cursor=''; });
+  st.addEventListener('wheel',e=>{ if(overlayOn()||!$("#gate").classList.contains('on'))return; e.preventDefault();
+    const r=st.getBoundingClientRect(); const cx=e.clientX-r.left-r.width/2, cy=e.clientY-r.top-r.height/2;
+    setZoom(SV.zoom*(e.deltaY<0?1.12:0.89), cx, cy); },{passive:false});
+  st.addEventListener('dblclick',()=>{ SV.zoom=1; SV.panX=0; SV.panY=0; applyTransform(); });
+})();
+$("#close").onclick=()=>$("#gate").classList.remove('on');
+document.addEventListener('keydown',e=>{
+  if(!$("#gate").classList.contains('on')) return;
+  if(e.key==='Escape') $("#gate").classList.remove('on');
+  else if(e.key==='ArrowLeft') go(-1);
+  else if(e.key==='ArrowRight') go(1);
+});
+fetchPage(true);
+</script><script src="/palette.js"></script></body></html>

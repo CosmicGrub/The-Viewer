@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PMCS finder — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button,a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600}
+  .r{background:#10151c;border:1px solid #223;border-radius:10px;padding:12px 15px;margin:9px 0}
+  .r .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .r .cite{font-weight:600;color:#cfe;font-size:13px} .r .cite .p{color:#8a98a8;font-weight:400}
+  .ivs{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}
+  .iv{background:#123a2c;border:1px solid #1d9e75;color:#7fd8b6;border-radius:999px;padding:2px 10px;font-size:11px}
+  .its{margin:6px 0 4px;padding-left:18px} .its li{color:#dfe7ef;font-size:12.5px;margin:2px 0}
+  .snip{color:#8a98a8;font-size:11.8px;margin-top:4px;font-style:italic}
+  .r a.view{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:11.5px}
+  .note{color:#e8a06a;font-size:11.5px;margin-top:14px}
+</style></head><body>
+<div class="wrap">
+  <h1>🗓 PMCS finder</h1>
+  <div class="muted">Jump straight to the <b>Preventive Maintenance Checks &amp; Services</b> tables — filter by vehicle, see which interval each page covers (Before/During/After/Weekly/Monthly), and open the cited page.</div>
+  <div class="search">
+    <input id="q" placeholder="vehicle — e.g.  HMMWV   ·   M1 Abrams   ·   HEMTT   ·   (blank = all)" autofocus>
+    <button class="go" id="go">Find PMCS</button>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="results"></div>
+  <div class="note">⚠ Parsed from the OCR text layer — open the cited page and follow the actual PMCS table, notes, and equipment-not-ready criteria in the TM.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function run(){
+    var q=$('#q').value.trim();
+    $('#head').textContent='Searching for PMCS tables…'; $('#results').innerHTML='';
+    fetch('/api/pmcs?vehicle='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      var res=(j&&j.results)||[];
+      if(!res.length){ $('#head').textContent='No PMCS pages found'+(q?(' for “'+q+'”'):'')+'. Try a broader vehicle name, or leave it blank.'; return; }
+      $('#head').textContent=res.length+' PMCS page'+(res.length===1?'':'s')+(q?(' for “'+q+'”'):'')+':';
+      var h='';
+      res.forEach(function(x){
+        var ivs=(x.intervals||[]).map(function(i){return '<span class="iv">'+esc(i)+'</span>';}).join('');
+        h+='<div class="r"><div class="top"><span class="cite">'+esc(x.vehicle||'?')+' <span class="p">· '+esc(x.tm||'')+' · p.'+esc(x.page)+'</span></span>'
+          +'<a class="view" href="'+esc(x.deepzoom_url)+'" target="_blank">view page ↗</a></div>'
+          +(ivs?('<div class="ivs">'+ivs+'</div>'):'')
+          +((x.items&&x.items.length)?('<ul class="its">'+x.items.map(function(it){return '<li>'+esc(it)+'</li>';}).join('')+'</ul>'):'')
+          +'<div class="snip">'+esc(x.snippet||'')+'</div></div>';
+      });
+      $('#results').innerHTML=h;
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=run;
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre!==null){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

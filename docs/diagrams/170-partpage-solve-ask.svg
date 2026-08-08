@@ -1,0 +1,96 @@
+<svg viewBox="0 0 1240 960" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="960" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="50" font-size="18" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER v1.7.0 — Part page + job PDF · guided troubleshooting · offline Q&amp;A · command center</text>
+<text x="40" y="76" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">App-wide, high-leverage: one pane per part, a printable job package, symptom-to-fix trees, a safety conflict check, cited offline answers, and hands-free help. R1 rollbackable · R6 read-only · no new deps.</text>
+<line x1="40" y1="92" x2="1200" y2="92" stroke="#2b333f"/>
+<text x="40" y="120" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">1  ONE AUTHORITATIVE PART PAGE  (/part)  +  COMPLETE JOB-PACKAGE PDF</text>
+<rect x="40" y="132" width="366" height="118" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="132" width="5" height="118" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="154" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">/part  -&gt;  /api/partsummary</text>
+<text x="56" y="174" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">ONE call fuses: identity + supersession</text>
+<text x="56" y="189" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">alert · parts-to-order · key dims ·</text>
+<text x="56" y="204" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">torque · cautions · procedure ·</text>
+<text x="56" y="219" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">approx 3-D model · CONFLICT banner</text>
+<text x="56" y="234" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(a fast bay-floor single pane)</text>
+<text x="423" y="190" font-size="20" font-weight="700" fill="#9aa6b6" text-anchor="start">-&gt;</text>
+<rect x="452" y="132" width="366" height="118" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="452" y="132" width="5" height="118" rx="2.5" fill="#4f9dff"/>
+<text x="468" y="154" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">jobpack.py  -&gt;  /api/jobpack</text>
+<text x="468" y="174" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">the COMPLETE printable package:</text>
+<text x="468" y="189" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">identity + PUBLOG + alerts + parts +</text>
+<text x="468" y="204" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">dims + torque + cautions + full</text>
+<text x="468" y="219" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">procedure, all cited -&gt; one PDF.</text>
+<text x="468" y="234" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">buttons on /part and /dossier</text>
+<text x="835" y="190" font-size="20" font-weight="700" fill="#9aa6b6" text-anchor="start">-&gt;</text>
+<rect x="864" y="132" width="336" height="118" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="864" y="132" width="5" height="118" rx="2.5" fill="#1d9e75"/>
+<text x="880" y="154" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">the mechanic</text>
+<text x="880" y="174" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">opens /part, scans the alerts,</text>
+<text x="880" y="189" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">prints the package, walks to</text>
+<text x="880" y="204" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">the bay with everything cited —</text>
+<text x="880" y="219" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">no hunting across pages.</text>
+<line x1="40" y1="266" x2="1200" y2="266" stroke="#2b333f"/>
+<text x="40" y="294" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">2  GUIDED TROUBLESHOOTING  +  CROSS-MANUAL CONFLICT CHECK</text>
+<rect x="40" y="306" width="575" height="112" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="306" width="5" height="112" rx="2.5" fill="#caa24a"/>
+<text x="56" y="328" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">faulttree.py  -&gt;  /troubleshoot</text>
+<text x="56" y="348" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">parses MALFUNCTION -&gt; (STEP n) TEST OR INSPECTION -&gt; CORRECTIVE ACTION</text>
+<text x="56" y="363" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">out of the OCR text into interactive DECISION TREES: pick a symptom,</text>
+<text x="56" y="378" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">step the checks, land on the fix -&gt; procedure / part. Cited to the page.</text>
+<text x="56" y="393" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Self-tested on the real Army TM troubleshooting format.</text>
+<rect x="625" y="306" width="575" height="112" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="306" width="5" height="112" rx="2.5" fill="#e0564f"/>
+<text x="641" y="328" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">conflicts.py  -&gt;  /api/conflicts  (SAFETY)</text>
+<text x="641" y="348" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">gathers a part&#x27;s measured values across the corpus and flags where two</text>
+<text x="641" y="363" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">MANUALS DISAGREE on a torque / pressure / dimension — each value cited,</text>
+<text x="641" y="378" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">severity-ranked. Shown as a red banner on /part.</text>
+<text x="641" y="393" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified: 35 vs 50 ft-lb across 2 docs -&gt; flagged HIGH.</text>
+<line x1="40" y1="434" x2="1200" y2="434" stroke="#2b333f"/>
+<text x="40" y="462" font-size="13" font-weight="700" fill="#7f77dd" text-anchor="start">3  OFFLINE CITED Q&amp;A  +  HANDS-FREE</text>
+<rect x="40" y="474" width="575" height="112" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="474" width="5" height="112" rx="2.5" fill="#7f77dd"/>
+<text x="56" y="496" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">ask.py  -&gt;  /ask   (extractive, no LLM, no network)</text>
+<text x="56" y="516" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">retrieve pages (semantic embeddings + keyword FTS) -&gt; return the exact</text>
+<text x="56" y="531" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">ANSWERING SENTENCES verbatim, each with its manual + page. Nothing is</text>
+<text x="56" y="546" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">invented; it surfaces the lines a mechanic would read.</text>
+<text x="56" y="561" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified: &#x27;bleed the CTIS lines&#x27; -&gt; TM-B p.44.</text>
+<rect x="625" y="474" width="575" height="112" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="474" width="5" height="112" rx="2.5" fill="#4f9dff"/>
+<text x="641" y="496" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">readaloud.js   (auto-injected app-wide)</text>
+<text x="641" y="516" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">native SpeechSynthesis reads any page ALOUD (greasy-hands friendly) +</text>
+<text x="641" y="531" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">voice input on the search box (SpeechRecognition, best-effort).</text>
+<text x="641" y="546" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Fully offline; both degrade silently if the browser lacks the API.</text>
+<text x="641" y="561" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">A &#x27;🔊 read&#x27; pill + a &#x27;🎤&#x27; mic appear where supported.</text>
+<line x1="40" y1="602" x2="1200" y2="602" stroke="#2b333f"/>
+<text x="40" y="630" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">4  COMMAND CENTER  +  HARDENING</text>
+<rect x="40" y="642" width="575" height="108" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="642" width="5" height="108" rx="2.5" fill="#1d9e75"/>
+<text x="56" y="664" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">/command  -&gt;  /api/command_status</text>
+<text x="56" y="684" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">one &#x27;are we complete?&#x27; cockpit: OCR % · corpus coverage ·</text>
+<text x="56" y="699" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">PUBLOG build state · Masterfile dimensional gaps.</text>
+<text x="56" y="714" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Best-effort aggregate — one missing sidecar can&#x27;t break it.</text>
+<text x="56" y="729" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Points you at RESUME-OCR / BUILD-PUBLOG when incomplete.</text>
+<rect x="625" y="642" width="575" height="108" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="642" width="5" height="108" rx="2.5" fill="#2f7d4f"/>
+<text x="641" y="664" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">tests/test_newmodules.py  (property/fuzz)</text>
+<text x="641" y="684" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">hammers publogdiff · dimscad · conflicts · faulttree · ask ·</text>
+<text x="641" y="699" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">hybrid · jobpack with random &amp; hostile inputs; asserts NO crash</text>
+<text x="641" y="714" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">+ invariants. Verified 0 crashes over 3,000+ cases/target;</text>
+<text x="641" y="729" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">wired into VERIFY-099 (4,000/target host-side).</text>
+<line x1="40" y1="766" x2="1200" y2="766" stroke="#2b333f"/>
+<text x="40" y="794" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">GRACEFUL DEGRADE &amp; ROLLBACK</text>
+<rect x="40" y="808" width="575" height="66" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="830" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">Everything cites the page</text>
+<text x="56" y="848" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Part page, job PDF, troubleshooting, and Q&amp;A all deep-link the cited TM page. The manual stays the source of truth.</text>
+<rect x="625" y="808" width="575" height="66" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="830" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">Nothing invented</text>
+<text x="641" y="848" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">The assistant is EXTRACTIVE — verbatim sentences from the corpus, never generated. Empty when the corpus has no answer.</text>
+<rect x="40" y="884" width="575" height="66" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="56" y="906" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">Coverage-aware</text>
+<text x="56" y="924" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Sections fill in as OCR completes; the command center shows how far along everything is and what to build next.</text>
+<rect x="625" y="884" width="575" height="66" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="641" y="906" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">Rollback (R1)</text>
+<text x="641" y="924" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Each new page/module + its route removes cleanly. No schema changes; read-only over the existing indexes.</text>
+<rect x="40" y="924" width="1160" height="30" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="943" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 rollbackable · R2 this diagram · R3 dark+PDF · R4 CHANGELOG [1.7.0] · R5 changelog-visual · R6 read-only · R7 legacy · R9 VERIFY-099 (jobpack/conflicts/faulttree/ask + fuzz) · VERSION=1.7.0.</text>
+</svg>

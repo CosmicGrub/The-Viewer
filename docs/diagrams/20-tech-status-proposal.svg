@@ -1,0 +1,88 @@
+<svg viewBox="0 0 1180 900" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="900" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Auto-deriving Tech Status from the fault + part — proposal</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Grounded in the TM&#x27;s PMCS &#x27;Not Fully Mission Capable If&#x27; criteria. Required &amp; filled before the sheet generates. Decide before we build.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="690" height="168" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="128" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">HOW TECH STATUS IS ACTUALLY DECIDED</text>
+<text x="58" y="150" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">A fault either deadlines the vehicle or it doesn&#x27;t. The TM&#x27;s PMCS &#x27;NOT FULLY MISSION CAPABLE IF&#x27;</text><text x="58" y="165" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">column is the authority — it states exactly which faults make the vehicle non-mission-capable.</text>
+<rect x="58" y="200" width="160" height="52" rx="8" fill="#5a2330" stroke="#2b333f" stroke-width="1"/>
+<text x="138.0" y="222" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="middle">NMCS</text>
+<text x="66" y="238" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">Deadline fault + waiting</text><text x="66" y="249" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">on the part</text>
+<rect x="226" y="200" width="160" height="52" rx="8" fill="#5a2330" stroke="#2b333f" stroke-width="1"/>
+<text x="306.0" y="222" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="middle">NMCM</text>
+<text x="234" y="238" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">Deadline fault, in</text><text x="234" y="249" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">maintenance</text>
+<rect x="394" y="200" width="160" height="52" rx="8" fill="#5a4a1e" stroke="#2b333f" stroke-width="1"/>
+<text x="474.0" y="222" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="middle">PMC</text>
+<text x="402" y="238" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">Degrades but</text><text x="402" y="249" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">mission-capable</text>
+<rect x="562" y="200" width="160" height="52" rx="8" fill="#1e3a26" stroke="#2b333f" stroke-width="1"/>
+<text x="642.0" y="222" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="middle">FMC</text>
+<text x="570" y="238" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">No mission impact</text>
+<text x="58" y="266" font-size="9.5" font-weight="400" fill="#caa24a" text-anchor="start">Since this is a PARTS request (waiting on supply), a deadline fault most often → NMCS.</text>
+<rect x="748" y="104" width="392" height="168" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="766" y="128" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">THE DATA IS IN YOUR CORPUS</text>
+<rect x="766" y="150" width="356" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="778" y="170" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">‘Not Fully Mission Capable If’</text>
+<text x="1110" y="170" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="end">381 pages</text>
+<rect x="766" y="187" width="356" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="778" y="207" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">PMCS tables</text>
+<text x="1110" y="207" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="end">1,158 pages</text>
+<rect x="766" y="224" width="356" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="778" y="244" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">‘mission capable’</text>
+<text x="1110" y="244" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="end">439 pages</text>
+<text x="766" y="273" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(sample index of 45k pages — the full index is ~40× larger)</text>
+<text x="40" y="300" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">SIGNAL SOURCES  (combine for confidence)</text>
+<rect x="40" y="316" width="355" height="160" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="316" width="5" height="160" rx="2" fill="#2f7d4f"/>
+<text x="58" y="342" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">A · PMCS-grounded (authoritative)</text>
+<text x="58" y="364" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Search the vehicle&#x27;s PMCS pages for the fault/part</text><text x="58" y="379" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">terms; read the matched &#x27;Not Fully Mission Capable</text><text x="58" y="394" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">If&#x27; line and cite it verbatim.</text>
+<text x="58" y="417" font-size="9" font-weight="400" fill="#7c8696" text-anchor="start">Doctrinally correct + cited. Coverage depends on OCR</text><text x="58" y="430" font-size="9" font-weight="400" fill="#7c8696" text-anchor="start">(partial now, grows).</text>
+<rect x="412" y="316" width="355" height="160" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="412" y="316" width="5" height="160" rx="2" fill="#4f9dff"/>
+<text x="430" y="342" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">B · Keyword rules (works today)</text>
+<text x="430" y="364" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Offline deadline-term classifier: e.g. no-start /</text><text x="430" y="379" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">steering / brakes / Class III leak → likely NMC;</text><text x="430" y="394" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">gauge / lamp / cosmetic → PMC-FMC. Extensible</text><text x="430" y="409" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">JSON.</text>
+<text x="430" y="432" font-size="9" font-weight="400" fill="#7c8696" text-anchor="start">Instant, offline, no OCR needed. Approximate — a</text><text x="430" y="445" font-size="9" font-weight="400" fill="#7c8696" text-anchor="start">starting guess only.</text>
+<rect x="784" y="316" width="355" height="160" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="784" y="316" width="5" height="160" rx="2" fill="#caa24a"/>
+<text x="802" y="342" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">C · Learned from history</text>
+<text x="802" y="364" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Same fault + part on past sessions → the tech</text><text x="802" y="379" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">status the mechanic confirmed before. Improves</text><text x="802" y="394" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">with use (like the parts learning).</text>
+<text x="802" y="417" font-size="9" font-weight="400" fill="#7c8696" text-anchor="start">Gets smarter over time. Empty on a fresh install.</text>
+<text x="40" y="506" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">RECOMMENDED PIPELINE  ·  propose with evidence → mechanic confirms (mandatory) → onto the sheet</text>
+<rect x="40" y="520" width="205" height="92" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="542" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Fault + parts on the request</text>
+<text x="52" y="561" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the inputs</text>
+<path d="M245,566 L263,566" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="263" y="520" width="205" height="92" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="275" y="542" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">A → B → C</text>
+<text x="275" y="561" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">PMCS evidence, else rules, else</text><text x="275" y="572" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">history</text>
+<path d="M468,566 L486,566" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="486" y="520" width="205" height="92" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="498" y="542" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">SUGGEST status + cite</text>
+<text x="498" y="561" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">e.g. NMCS — &#x27;NOT FMC IF: service</text><text x="498" y="572" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">brakes inoperative&#x27; (TM</text><text x="498" y="583" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">9-2320-327-10)</text>
+<path d="M691,566 L709,566" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="709" y="520" width="205" height="92" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="721" y="542" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">MANDATORY confirm at export</text>
+<text x="721" y="561" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">mechanic accepts or overrides —</text><text x="721" y="572" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">sheet won&#x27;t generate while blank</text>
+<path d="M914,566 L932,566" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="932" y="520" width="205" height="92" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="944" y="542" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">TECH STATUS on the 104th</text>
+<text x="944" y="561" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">filled, every time</text>
+<rect x="709" y="514" width="205" height="104" rx="10" fill="none" stroke="#6b5526" stroke-width="2"/>
+<text x="811.5" y="624" font-size="8.5" font-weight="400" fill="#caa24a" text-anchor="middle">the gate that guarantees it&#x27;s always set</text>
+<rect x="40" y="672" width="560" height="180" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="696" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">WHY A CONFIRM GATE (not silent auto-fill)</text>
+<text x="58" y="720" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Tech status is a formal readiness call with real consequences. The app</text><text x="58" y="735" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">should PROPOSE it with cited evidence and require a human to confirm —</text><text x="58" y="750" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">never silently decide, and never invent a deadline. It stays a</text><text x="58" y="765" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">faithful, cited determination (the project&#x27;s safety stance).</text>
+<text x="58" y="800" font-size="10" font-weight="400" fill="#caa24a" text-anchor="start">It is still MANDATORY: the sheet will not generate with Tech Status</text><text x="58" y="815" font-size="10" font-weight="400" fill="#caa24a" text-anchor="start">blank, so it&#x27;s always present by the end — just human-confirmed.</text>
+<rect x="620" y="672" width="520" height="180" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="638" y="696" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">RECOMMENDATION</text>
+<text x="638" y="718" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="652" y="718" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Hybrid: A (PMCS, cited) → B (rules) → C (history), best evidence wins.</text>
+<text x="638" y="739" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="652" y="739" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Suggest + mandatory confirm at &#x27;Generate sheet&#x27; — pre-filled, editable,</text><text x="652" y="752" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">blocks if blank.</text>
+<text x="638" y="773" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="652" y="773" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Use full codes (FMC / PMCM / PMCS / NMCM / NMCS); parts-request defaults</text><text x="652" y="786" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">toward the supply (S) code.</text>
+<text x="638" y="807" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="652" y="807" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Ship the keyword-rule pack first (works now); PMCS-cited evidence</text><text x="652" y="820" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">strengthens as OCR completes.</text>
+<text x="40" y="888" font-size="10" font-weight="400" fill="#6b7280" text-anchor="start">Proposal only — nothing built yet. Dark (R3). On approval: data-flow diagram (R2), CHANGELOG (R4) + visual panel (R5).</text>
+</svg>

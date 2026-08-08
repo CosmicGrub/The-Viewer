@@ -1,0 +1,89 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#9aa6b6"/></marker></defs>
+<text x="40" y="44" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">v0.96.0 — THE RESTRUCTURE: monolith → thin shell + features/ package</text>
+<text x="40" y="66" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">viewer_app.py 2,407 lines → ~330-line shell · domain logic moved verbatim into 9 modules · one error boundary · declarative routes</text>
+<text x="40" y="102" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">REQUEST LIFECYCLE (hardened shell)</text>
+<rect x="40" y="118" width="172" height="70" rx="10" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="126.0" y="140" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">Browser /</text>
+<text x="126.0" y="154" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">UI page</text>
+<path d="M212,153 L228,153" stroke="#9aa6b6" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="230" y="118" width="172" height="70" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="316.0" y="140" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">Handler</text>
+<text x="316.0" y="154" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">B13 timeout · J68 origin</text>
+<text x="316.0" y="168" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">B13 8 MB body cap</text>
+<path d="M402,153 L418,153" stroke="#9aa6b6" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="420" y="118" width="172" height="70" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="506.0" y="140" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">Route registry</text>
+<text x="506.0" y="154" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">{path: handler}</text>
+<text x="506.0" y="168" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">108 GET · 10 POST</text>
+<path d="M592,153 L608,153" stroke="#9aa6b6" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="610" y="118" width="172" height="70" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="696.0" y="140" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">Param validation</text>
+<text x="696.0" y="154" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">qint/qstr/qflag</text>
+<text x="696.0" y="168" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">bad input → 400 (B11)</text>
+<path d="M782,153 L798,153" stroke="#9aa6b6" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="800" y="118" width="172" height="70" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="886.0" y="140" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">Feature handler</text>
+<text x="886.0" y="154" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">(verbatim domain logic)</text>
+<path d="M972,153 L988,153" stroke="#9aa6b6" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="990" y="118" width="172" height="70" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="1076.0" y="140" font-size="10.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">ONE error boundary</text>
+<text x="1076.0" y="154" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">400 / 404 / logged 500</text>
+<text x="1076.0" y="168" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">never drops the socket (B9)</text>
+<text x="40" y="234" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">engine/features/ — WHERE THE MONOLITH&#x27;S LOGIC LIVES NOW (DI: each module gets `core` = the running viewer_app)</text>
+<rect x="40" y="250" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="54" y="274" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">registry.py</text>
+<text x="54" y="292" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">routes dicts + ParamError + central clamps (B11/J67)</text>
+<rect x="414" y="250" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="428" y="274" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">routes.py</text>
+<text x="428" y="292" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">every endpoint, declared once; static pages/scripts as tables</text>
+<rect x="788" y="250" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="802" y="274" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">search_feature</text>
+<text x="802" y="292" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">synonyms · tags · fuzzy · type-ahead · FTS search ·</text><text x="802" y="304" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">find-in-doc</text>
+<rect x="40" y="328" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="54" y="352" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">parts_feature</text>
+<text x="54" y="370" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN refs · look-alike diff · NIIN review · learning layer</text>
+<rect x="414" y="328" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="428" y="352" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">browse_feature</text>
+<text x="428" y="370" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">vehicle hub · sides · 3D/schematics lists · status/ops</text>
+<rect x="788" y="328" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="802" y="352" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">procedures_feature</text>
+<text x="802" y="370" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">work-package parse · torque specs</text>
+<rect x="40" y="406" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="54" y="430" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">render_feature</text>
+<text x="54" y="448" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">fitz/Poppler render · page cache · words · callouts (B12 by-id</text><text x="54" y="460" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">only)</text>
+<rect x="414" y="406" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="428" y="430" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">ingest_feature</text>
+<text x="428" y="448" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">preview/start/status (+ J70 canonical paths)</text>
+<rect x="788" y="406" width="356" height="64" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="802" y="430" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">sessions_feature</text>
+<text x="802" y="448" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">104th request sessions</text>
+<path d="M590,188 L590,246" stroke="#9aa6b6" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<text x="40" y="506" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">EARLIER EXTRACTIONS (unchanged, same DI)</text>
+<rect x="40" y="518" width="730" height="44" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="538" font-size="10.2" font-weight="400" fill="#9aa6b6" text-anchor="start">collections · sides · chapters · figures · rpstl · xref(+online) · material · image3d · localmodel · procedure_full</text>
+<text x="54" y="552" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">all keep calling core.db / core.DB_PATH — the shell still owns config + the per-thread SQLite plumbing</text>
+<rect x="800" y="518" width="340" height="44" rx="10" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="816" y="538" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">index/viewer.db (READ-ONLY here, R1)</text>
+<text x="816" y="552" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">+ sidecars: collections · reviews · correlations · rpstl</text>
+<text x="40" y="600" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">FOUNDATION (dedup) + SAFETY RAILS shipped with v0.96.0</text>
+<rect x="40" y="612" width="356" height="56" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="54" y="632" font-size="10.8" font-weight="700" fill="#e6e9ee" text-anchor="start">engine/theme.py</text>
+<text x="54" y="648" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">ONE palette — ui/base.css mirrors it; diagram _common.py imports</text><text x="54" y="659" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">it (A3/A4/A8)</text>
+<rect x="414" y="612" width="356" height="56" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="428" y="632" font-size="10.8" font-weight="700" fill="#e6e9ee" text-anchor="start">ui/shared.js (ES5)</text>
+<text x="428" y="648" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">ONE copy of esc/$/getJSON/postJSON/toast/debounce — served at</text><text x="428" y="659" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">/shared.js (A2)</text>
+<rect x="788" y="612" width="356" height="56" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="802" y="632" font-size="10.8" font-weight="700" fill="#e6e9ee" text-anchor="start">patterns.py adopted</text>
+<text x="802" y="648" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN/FIG/PN regexes now imported, not copied (A6)</text>
+<rect x="40" y="680" width="356" height="56" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="54" y="700" font-size="10.8" font-weight="700" fill="#e6e9ee" text-anchor="start">rps_lint in VERIFY-ALL</text>
+<text x="54" y="716" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">ES5/legacy gate runs with every verify; all 31 UI files</text><text x="54" y="727" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">classified (G47/G48/K73)</text>
+<rect x="414" y="680" width="356" height="56" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="428" y="700" font-size="10.8" font-weight="700" fill="#e6e9ee" text-anchor="start">test_hardening.py</text>
+<text x="428" y="716" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">12 acceptance checks: 400s, 413, 403, traversal, version</text><text x="428" y="727" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">surfacing (K71)</text>
+<rect x="788" y="680" width="356" height="56" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="802" y="700" font-size="10.8" font-weight="700" fill="#e6e9ee" text-anchor="start">logs + rollback</text>
+<text x="802" y="716" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">rotating server-errors.log in /ops (B10) · monolith preserved in</text><text x="802" y="727" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">backups/pre-v0.96-restructure (R1)</text>
+<text x="40" y="746" font-size="9.3" font-weight="400" fill="#6b7280" text-anchor="start">Rules: R1 backwards-compatible/rollbackable · R2 diagram · R3 dark+PDF · R4 changelog · R5 visual changelog · R6 append-only · verified: 75 regression + 59 route-smoke + 12 hardening tests green</text></svg>

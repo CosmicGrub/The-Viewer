@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verification cockpit — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  h2{font-size:14px;margin:18px 0 8px;color:#9fb3c8}
+  .big{background:#0e141c;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:10px 0}
+  .verdict{font-size:20px;font-weight:800}
+  .ok{color:#7fd6a0}.bad{color:#e39b95}.warn{color:#e8c07a}.unk{color:#8a98a8}
+  .mods{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .m{font-size:11px;border:1px solid #2f4858;border-radius:6px;padding:2px 7px;background:#111823;color:#9fb3c8}
+  .m.pass{border-color:#1d9e75;color:#7fd6a0}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+  .tile{background:#111823;border:1px solid #1c2530;border-radius:8px;padding:9px 11px;font-size:12.5px}
+  .tile b{color:#e6edf4}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;font-size:13.5px}
+  code{background:#10151c;border:1px solid #2f4858;border-radius:5px;padding:1px 6px;color:#cfe}
+</style></head><body>
+<div class="wrap">
+  <h1>✅ Verification cockpit <span class="muted">— what have we actually proven?</span></h1>
+  <div class="muted">R13: verification you can't see is verification you won't keep green. This reads the last host-side
+    <code>VERIFY-099.bat</code> run, the self-tested module roster, and which data sidecars are built.</div>
+  <div style="margin:12px 0"><a class="btn" href="/command">Command center</a> <a class="btn" href="/review">Review queue</a> <a class="btn" href="/">← search</a></div>
+  <div id="out"><div class="muted">Loading…</div></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+
+  Promise.all([gj('/api/verifystate'), gj('/api/integrity')]).then(function(res){
+    var v=res[0]||{}, ig=res[1]||{};
+    var lv=v.last_verify||{}, h='';
+    // last verify verdict
+    h+='<h2>Last host-verify</h2><div class="big">';
+    if(!lv.present){ h+='<div class="verdict warn">not run yet</div><div class="muted" style="margin-top:4px">Run <code>VERIFY-099.bat</code> to generate the proof state (it writes docs/verify_099.log).</div>'; }
+    else{
+      var pass = lv.failed===false;
+      h+='<div class="verdict '+(pass?'ok':'bad')+'">'+(pass?'✓ GREEN':'✗ FAILURES')+'</div>';
+      h+='<div class="muted" style="margin-top:4px">'+esc(lv.ran||'')+' · '+esc(lv.n_pass||0)+' PASS markers'+(lv.n_fail_lines?(' · '+lv.n_fail_lines+' failure lines'):'')+'</div>';
+      if(lv.passes&&lv.passes.length){ h+='<div class="mods">'+lv.passes.slice(0,60).map(function(p){return '<span class="m pass">'+esc(p)+'</span>';}).join('')+'</div>'; }
+    }
+    h+='</div>';
+    // integrity
+    h+='<h2>Database integrity</h2><div class="big">';
+    var dbok=ig.databases_ok;
+    h+='<div class="verdict '+(dbok===true?'ok':(dbok===false?'bad':'unk'))+'">'+(dbok===true?'✓ all databases intact':(dbok===false?'✗ corruption detected':'— not checked'))+'</div>';
+    if(ig.files){ h+='<div class="cards" style="margin-top:8px">';
+      Object.keys(ig.files).forEach(function(p){ var e=ig.files[p]; if(!e.present) return;
+        var name=p.split(/[\\/]/).pop();
+        var st=(e.integrity===true)?'<span class="ok">intact</span>':(e.integrity===false?'<span class="bad">CORRUPT</span>':'');
+        h+='<div class="tile"><b>'+esc(name)+'</b><br>'+((e.size/1e6).toFixed(1))+' MB '+st+'</div>'; });
+      h+='</div>'; }
+    h+='</div>';
+    // module roster
+    h+='<h2>Self-tested modules ('+esc(v.n_modules||0)+')</h2>';
+    var passed={}; (lv.passes||[]).forEach(function(p){ passed[p]=1; });
+    h+='<div class="mods">'+(v.modules||[]).map(function(m){var ok=passed[m]||passed[m+' self-test'];return '<span class="m'+(ok?' pass':'')+'">'+esc(m)+'</span>';}).join('')+'</div>';
+    h+='<div class="muted" style="margin-top:8px">'+esc(v.note||'')+'</div>';
+    $('#out').innerHTML=h;
+  });
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

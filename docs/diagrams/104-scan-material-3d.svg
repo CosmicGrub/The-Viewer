@@ -1,0 +1,37 @@
+<svg viewBox="0 0 1180 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="560" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="18" font-weight="700" fill="#e6e9ee" text-anchor="start">Scan colour + material → 3-D models  (v0.80.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">If the scans/FLIS state a colour, material or finish, the 3-D model now wears it — as a procedural metallic/matte/rubber finish.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="116" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Material → finish (parsed, verified)</text>
+<rect x="40" y="130" width="171" height="84" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="52" y="148" width="147" height="34" rx="6" fill="#2a2a2a" stroke="#2b333f"/>
+<text x="52" y="200" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="start">RUBBER · BLACK</text>
+<text x="52" y="210" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">matte</text>
+<rect x="223" y="130" width="171" height="84" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="235" y="148" width="147" height="34" rx="6" fill="#c8ccd0" stroke="#2b333f"/>
+<text x="235" y="200" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="start">STEEL · ZINC</text>
+<text x="235" y="210" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">metallic</text>
+<rect x="406" y="130" width="171" height="84" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="418" y="148" width="147" height="34" rx="6" fill="#b5933f" stroke="#2b333f"/>
+<text x="418" y="200" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="start">BRASS</text>
+<text x="418" y="210" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">warm gloss</text>
+<rect x="589" y="130" width="171" height="84" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="601" y="148" width="147" height="34" rx="6" fill="#b4b8bd" stroke="#2b333f"/>
+<text x="601" y="200" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="start">STAINLESS</text>
+<text x="601" y="210" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">bright</text>
+<rect x="772" y="130" width="171" height="84" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="784" y="148" width="147" height="34" rx="6" fill="#3b3b22" stroke="#2b333f"/>
+<text x="784" y="200" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="start">OLIVE DRAB · PAINT</text>
+<text x="784" y="210" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">flat</text>
+<rect x="955" y="130" width="171" height="84" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="967" y="148" width="147" height="34" rx="6" fill="#8a2f2f" stroke="#2b333f"/>
+<text x="967" y="200" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="start">RED · PLASTIC</text>
+<text x="967" y="210" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">semi-matte</text>
+<rect x="40" y="236" width="540" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/><rect x="40" y="236" width="6" height="150" rx="3" fill="#2f7d4f"/><text x="60" y="260" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">🔎  Parse (material_feature)</text><circle cx="64" cy="277" r="3" fill="#2f7d4f"/><text x="76" y="280" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">From the scan: COLOR · MATERIAL · SURFACE TREATMENT/FINISH.</text><circle cx="64" cy="291" r="3" fill="#2f7d4f"/><text x="76" y="294" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">Military colours (olive drab/CARC/sand) + metals + polymers +</text><circle cx="64" cy="305" r="3" fill="#2f7d4f"/><text x="76" y="308" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">platings. Plating/oxide overrides the colour.</text><rect x="56" y="356" width="508" height="22" rx="6" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/><text x="66" y="371" font-size="8.8" font-weight="700" fill="#2f7d4f" text-anchor="start">FLIS-sourced, authoritative.</text>
+<rect x="600" y="236" width="540" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/><rect x="600" y="236" width="6" height="150" rx="3" fill="#1d9e75"/><text x="620" y="260" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">💡  Render (gl3d material)</text><circle cx="624" cy="277" r="3" fill="#1d9e75"/><text x="636" y="280" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">Shader gains mat=[spec, shininess, metallic]; metals tint</text><circle cx="624" cy="291" r="3" fill="#1d9e75"/><text x="636" y="294" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">their own highlight, drop the plastic rim. Applied on open</text><circle cx="624" cy="305" r="3" fill="#1d9e75"/><text x="636" y="308" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">via /api/part_material; SVG fallback takes the colour.</text><rect x="616" y="356" width="508" height="22" rx="6" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/><text x="626" y="371" font-size="8.8" font-weight="700" fill="#1d9e75" text-anchor="start">Looks like the real material.</text>
+<rect x="40" y="400" width="1100" height="76" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="421" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">Honest scope</text>
+<text x="58" y="441" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">The scans give material WORDS, not surface photographs — so &#x27;texture&#x27; here is a procedural finish (colour + metalness + roughness), not a photographic image map. That&#x27;s what makes a steel bolt read</text><text x="58" y="453" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">metallic, a rubber hose matte-black, a brass fitting warm-glossy. Verified across 8 material/colour/finish cases; route in RUN-ALL-TESTS.bat. Additive, RPS-safe (default = original look; SVG fallback</text><text x="58" y="465" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">keeps the colour).</text>
+<text x="40" y="554" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.80.0 · 2026-06-03 · material_feature.py · /api/part_material · gl3d material uniform. Additive (R1/R6).</text>
+</svg>

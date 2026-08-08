@@ -1,0 +1,53 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">CAD-first 3-D library + bat rundown  (v0.90.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">The CAD image is now the face of every part. The interactive 3-D model and the cited manual figure are one click away.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="116" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">WHAT YOU SEE NOW</text>
+<rect x="40" y="130" width="360" height="132" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/><rect x="40" y="130" width="6" height="132" rx="3" fill="#4f9dff"/><text x="60" y="154" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">GRID  every card</text><circle cx="64" cy="171" r="3" fill="#4f9dff"/><text x="76" y="174" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">leads with the CAD image (/cadimg)</text><circle cx="64" cy="185" r="3" fill="#4f9dff"/><text x="76" y="188" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">textured + coloured + dimensioned</text><circle cx="64" cy="199" r="3" fill="#4f9dff"/><text x="76" y="202" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">detail follows the build tier (&amp;tier=)</text><circle cx="64" cy="213" r="3" fill="#4f9dff"/><text x="76" y="216" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">parametric SVG = loading placeholder only</text><rect x="56" y="232" width="328" height="22" rx="6" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/><text x="66" y="247" font-size="8.8" font-weight="700" fill="#4f9dff" text-anchor="start">uniform CAD face across the library</text>
+<text x="416" y="200" font-size="22" fill="#9aa6b6">&#8594;</text>
+<rect x="432" y="130" width="708" height="132" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/><rect x="432" y="130" width="6" height="132" rx="3" fill="#2f7d4f"/><text x="452" y="154" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">MODAL  click a part → tabs (CAD opens first)</text><circle cx="456" cy="171" r="3" fill="#2f7d4f"/><text x="468" y="174" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">🖼 CAD image (default) — the rendered representative CAD, scaled to FLIS dims</text><circle cx="456" cy="185" r="3" fill="#2f7d4f"/><text x="468" y="188" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">◳ Interactive 3-D — the live WebGL parametric model (spin / zoom)</text><circle cx="456" cy="199" r="3" fill="#2f7d4f"/><text x="468" y="202" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">📄 Manual illustration — the real cited TM scan, when one exists</text><circle cx="456" cy="213" r="3" fill="#2f7d4f"/><text x="468" y="216" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">⚠ Approximation — opt-in experimental image→3-D</text><rect x="448" y="232" width="676" height="22" rx="6" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/><text x="458" y="247" font-size="8.8" font-weight="700" fill="#2f7d4f" text-anchor="start">CAD at the forefront; figure + live 3-D secondary</text>
+<text x="40" y="300" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">RUN THESE — every CAD/3-D bat (all compile-verified)</text>
+<rect x="40" y="320" width="1100" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="54" y="338" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">BAT</text>
+<text x="280" y="338" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">WHAT IT DOES</text>
+<text x="900" y="338" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">WHEN</text>
+<rect x="40" y="350" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="350" width="5" height="40" rx="2.5" fill="#2f7d4f"/>
+<text x="54" y="375" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">RUN-CAD-TIERS.bat</text>
+<text x="280" y="367" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">Render ALL THREE tiers (v1/v2/v3) for the whole ~32,622-part set — the complete collection.</text>
+<text x="900" y="367" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">★ run this for a complete CAD set</text><text x="900" y="379" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">(resumable)</text>
+<rect x="40" y="395" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="395" width="5" height="40" rx="2.5" fill="#4f9dff"/>
+<text x="54" y="420" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">MAKE-CAD.bat</text>
+<text x="280" y="412" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">Render only the modern v3 (textured) set into index/cadcache.</text>
+<text x="900" y="412" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">modern set only</text>
+<rect x="40" y="440" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="440" width="5" height="40" rx="2.5" fill="#4f9dff"/>
+<text x="54" y="465" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">RUN-CAD-BATCH.bat</text>
+<text x="280" y="457" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">Stop any running batch, clear orphaned older renders, render v3 fresh.</text>
+<text x="900" y="457" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">clean restart of v3</text>
+<rect x="40" y="485" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="485" width="5" height="40" rx="2.5" fill="#1d9e75"/>
+<text x="54" y="510" font-size="10.5" font-weight="700" fill="#1d9e75" text-anchor="start">CAD-STATUS.bat</text>
+<text x="280" y="502" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">Live progress: per-tier counts (legacy/lite/modern), %, rate, ETA, or COMPLETE.</text>
+<text x="900" y="502" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">check progress anytime</text>
+<rect x="40" y="530" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="530" width="5" height="40" rx="2.5" fill="#7f77dd"/>
+<text x="54" y="555" font-size="10.5" font-weight="700" fill="#7f77dd" text-anchor="start">RENDER-CONTACT.bat</text>
+<text x="280" y="547" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">A 10-part textured contact sheet -&gt; docs/cad_contact_sheet.png.</text>
+<text x="900" y="547" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">see the textures</text>
+<rect x="40" y="575" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="575" width="5" height="40" rx="2.5" fill="#7f77dd"/>
+<text x="54" y="600" font-size="10.5" font-weight="700" fill="#7f77dd" text-anchor="start">RENDER-COMPARE.bat</text>
+<text x="280" y="592" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">A 50-part v1-vs-v2 comparison sheet -&gt; docs/cad_v1_vs_v2.png.</text>
+<text x="900" y="592" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">see the v1→v2 jump</text>
+<rect x="40" y="620" width="1100" height="40" rx="7" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="620" width="5" height="40" rx="2.5" fill="#caa24a"/>
+<text x="54" y="645" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">RUN-CADCHECK.bat</text>
+<text x="280" y="637" font-size="9.3" font-weight="400" fill="#e6e9ee" text-anchor="start">Start a throwaway server on 8766 and HTTP-probe /cadimg -&gt; a real PNG.</text>
+<text x="900" y="637" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">smoke-test the route</text>
+<rect x="40" y="669" width="1100" height="44" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="689" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Don&#x27;t have a cached image? The server renders it on demand: GET /cadimg?nsn=… (or ?style=v1|v2|v3 / ?tier=modern|lite|legacy). STL/OBJ at /cadstl /cadobj. Tip: never click inside a running batch console — that</text><text x="58" y="702" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">pauses it (press Esc to resume).</text>
+<text x="40" y="752" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.90.0 · 2026-06-04 · threed.html CAD-first card+modal · /cadimg tiered · cadcache. All bats compile-audited. R1.</text>
+</svg>

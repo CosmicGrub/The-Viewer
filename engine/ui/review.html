@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review &amp; sign-off — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:920px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  h2{font-size:14px;margin:18px 0 8px;color:#9fb3c8}
+  input,select{background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:9px 11px;font-size:14px}
+  button{border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:600;border:1px solid}
+  .go{background:#1f6feb;border-color:#1f6feb;color:#fff}.appr{background:#123020;border-color:#1d9e75;color:#7fd6a0}
+  .rej{background:#2a1414;border-color:#6a2f2a;color:#e39b95}.ovr{background:#1a130a;border-color:#4a3a17;color:#e8c07a}
+  .item{background:#111823;border:1px solid #1c2530;border-radius:10px;padding:12px 14px;margin:8px 0}
+  .item .k{font-weight:700}.item .v{color:#7fd6a0;font-weight:700}
+  .ctl{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  .none{color:#8a98a8;font-size:12.5px;padding:10px 0}
+  .who{width:130px}.note{flex:1;min-width:160px}
+  .trail{margin-top:8px;border-top:1px solid #1c2530;padding-top:6px;font-size:12px;color:#8a98a8}
+  .trail .ev{padding:2px 0}
+  .submit{background:#0e141c;border:1px solid #24303c;border-radius:10px;padding:12px 14px;margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+</style></head><body>
+<div class="wrap">
+  <h1>🖊 Review &amp; sign-off <span class="muted">— extracted → human-verified</span></h1>
+  <div class="muted">R13: a machine can extract a value; only a subject-matter expert can vouch for it. Approvals are
+    permanent and append-only — every action keeps a who / what / when audit trail.</div>
+
+  <h2>Submit a value for review</h2>
+  <div class="submit">
+    <select id="skind"><option value="torque">torque</option><option value="nsn">nsn</option><option value="dimension">dimension</option><option value="procedure">procedure</option></select>
+    <input id="skey" placeholder="subject (e.g. HMMWV mount bolt)" style="min-width:200px">
+    <input id="sval" placeholder="value (e.g. 35 ft-lb)" style="width:140px">
+    <input id="ssrc" placeholder="source (TM p.)" style="width:120px">
+    <button class="go" id="ssub">Queue for review</button>
+  </div>
+
+  <h2>Pending review <span id="cnt" class="muted"></span></h2>
+  <div id="who" class="muted" style="margin-bottom:8px">Signing as: <input id="by" class="who" placeholder="your name / rank" value=""></div>
+  <div id="out"><div class="none">Loading…</div></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+  function post(body){return fetch('/api/signoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).catch(function(){return null;});}
+  function when(ts){ try{return new Date(ts*1000).toLocaleString();}catch(e){return '';} }
+
+  function load(){
+    gj('/api/signoff').then(function(j){
+      var q=(j&&j.queue)||[]; $('#cnt').textContent='('+q.length+')';
+      if(!q.length){ $('#out').innerHTML='<div class="none">✓ Nothing awaiting sign-off.</div>'; return; }
+      $('#out').innerHTML=q.map(function(it,i){
+        return '<div class="item" data-kind="'+esc(it.kind)+'" data-key="'+esc(it.key)+'">'
+          +'<div><span class="k">'+esc(it.kind)+'</span> · '+esc(it.key)+' → <span class="v">'+esc(it.value||'')+'</span></div>'
+          +'<div class="muted">'+esc(it.source||'')+' · queued '+esc(when(it.ts))+' by '+esc(it.by||'')+'</div>'
+          +'<div class="ctl"><button class="appr" data-a="approve">✓ Approve</button>'
+          +'<input class="ovr-val" placeholder="corrected value" style="width:130px">'
+          +'<button class="ovr" data-a="override">✎ Override</button>'
+          +'<button class="rej" data-a="reject">✗ Reject</button>'
+          +'<input class="note" placeholder="note (optional)"></div>'
+          +'<div class="trail" id="tr-'+i+'"></div></div>';
+      }).join('');
+      $('#out').querySelectorAll('.item').forEach(function(el){
+        el.querySelectorAll('button[data-a]').forEach(function(b){ b.onclick=function(){ act(el, b.getAttribute('data-a')); }; });
+      });
+    });
+  }
+
+  function act(el, action){
+    var by=($('#by').value||'').trim(); if(!by){ $('#by').focus(); $('#by').style.borderColor='#e39b95'; return; }
+    var body={kind:el.getAttribute('data-kind'), key:el.getAttribute('data-key'), action:action, by:by,
+              note:(el.querySelector('.note').value||'').trim()};
+    if(action==='override') body.value=(el.querySelector('.ovr-val').value||'').trim();
+    post(body).then(function(r){ if(r&&r.ok) load(); });
+  }
+
+  $('#ssub').onclick=function(){
+    var body={kind:$('#skind').value, key:($('#skey').value||'').trim(), action:'submit',
+              value:($('#sval').value||'').trim(), source:($('#ssrc').value||'').trim(), by:($('#by').value||'system').trim()||'system'};
+    if(!body.key){ $('#skey').focus(); return; }
+    post(body).then(function(r){ if(r&&r.ok){ $('#skey').value=''; $('#sval').value=''; $('#ssrc').value=''; load(); } });
+  };
+  load();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

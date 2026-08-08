@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Related parts & assemblies — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  h3{color:#7fbfff;font-size:13px;margin:16px 0 6px}
+  .chip{display:inline-block;background:#10151c;border:1px solid #223;border-radius:9px;padding:8px 12px;margin:5px 6px 0 0;font-size:12.5px}
+  .chip a{color:#4f9dff;text-decoration:none} .chip .n{color:#8a98a8;font-size:11px}
+  .asm{background:#10151c;border:1px solid #223;border-radius:9px;padding:9px 13px;margin:6px 0;font-size:13px}
+  .asm .t{color:#cfe;font-weight:600} .asm a{color:#4f9dff;text-decoration:none;font-size:11.5px;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;margin-left:8px}
+</style></head><body>
+<div class="wrap">
+  <h1>🧩 Related parts & assemblies</h1>
+  <div class="muted">See what a part sits inside (its assemblies/figures), what ships on the same figure (siblings), and other parts in the same assembly across the manuals.</div>
+  <div class="search">
+    <input id="q" placeholder="part / NSN / name — e.g. alternator · 2920-01-…" autofocus>
+    <button class="go" id="go">Show related</button>
+    <a class="btn" href="/dossier">📋 Dossier</a><a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part.'; return; }
+    $('#head').textContent='Looking up…'; $('#out').innerHTML='';
+    fetch('/api/xref?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      if(!j.found){ $('#head').textContent='No related data for “'+q+'”.'; return; }
+      $('#head').textContent='Related to '+(j.nomenclature?('“'+j.nomenclature+'”'):('“'+q+'”'))+':';
+      var h='';
+      if((j.assemblies||[]).length){ h+='<h3>Assemblies / figures it belongs to</h3>';
+        j.assemblies.forEach(function(a){ h+='<div class="asm"><span class="t">'+esc(a.fig_title||a.fig_no||'figure')+'</span> <span class="muted">'+esc((a.vehicle||'')+' · '+(a.fig_no||'')+' · p.'+(a.page||'?'))+'</span>'+(a.locate_url?'<a href="'+esc(a.locate_url)+'" target="_blank">view ↗</a>':'')+'</div>'; }); }
+      if((j.siblings||[]).length){ h+='<h3>On the same figure (siblings)</h3>';
+        j.siblings.forEach(function(s){ h+='<span class="chip">'+(s.dossier_url?'<a href="'+esc(s.dossier_url)+'" target="_blank">'+esc(s.name||s.part_number||s.nsn)+'</a>':esc(s.name||'part'))+(s.nsn?' <span class="n">'+esc(s.nsn)+'</span>':'')+'</span>'; }); }
+      if((j.see_also||[]).length){ h+='<h3>See also (same assembly, elsewhere)</h3>';
+        j.see_also.forEach(function(s){ h+='<span class="chip"><a href="'+esc(s.dossier_url)+'" target="_blank">'+esc(s.name||s.nsn)+'</a> <span class="n">'+esc(s.assembly||'')+'</span></span>'; }); }
+      $('#out').innerHTML=h||'<div class="muted">No related parts found.</div>';
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

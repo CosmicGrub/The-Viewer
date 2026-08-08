@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add documents — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:840px;margin:0 auto;padding:20px}
+  .bar{display:flex;gap:10px;margin:10px 0 6px}
+  #path{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:14px;font-family:ui-monospace,Consolas,monospace}
+  #path:focus{outline:none;border-color:var(--acc)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:14px;transition:border-color .15s,background .15s}
+  .drop.over{border-color:var(--acc);background:rgba(80,150,240,.06)}
+  .drop .dz{font-size:12px;color:var(--sub);margin-top:8px;text-align:center}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 0}
+  .chip{background:var(--p2);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12px;color:var(--acc);cursor:pointer;font-family:ui-monospace,Consolas,monospace}
+  .chip:hover{border-color:var(--acc)} .chip .x{color:var(--sub);margin-left:7px}
+  button.b{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:10px 16px;cursor:pointer;font-size:14px}
+  button.b:hover{border-color:var(--acc)} button.go{background:var(--acc);border-color:var(--acc);color:#06121f;font-weight:700}
+  button.b[disabled]{opacity:.5;cursor:default}
+  .muted{color:var(--sub);font-size:12.5px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:6px 0 10px}
+  .num{background:var(--p2);border-radius:10px;padding:12px}
+  .num .v{font-size:24px;font-weight:600} .num .l{font-size:11px;color:var(--sub)}
+  .num.new .v{color:#7fd6a0}
+  .sample{font-size:12px;color:var(--sub)} .sample span{display:inline-block;background:var(--p2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin:3px 5px 0 0}
+  .bar2{height:8px;background:var(--p2);border-radius:5px;overflow:hidden;margin:8px 0}
+  .bar2 i{display:block;height:100%;background:var(--acc);width:0;transition:width .4s}
+  .ok{color:#7fd6a0} .err{color:#f0a6a6}
+  .ground{font-size:11.5px;color:var(--sub);margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
+  .steps{font-size:13px;color:var(--sub);margin:4px 0 0;padding-left:18px} .steps li{margin:3px 0}
+  code{background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>➕ Add documents</h1><span class="muted">index new TMs / PDFs — no command line</span>
+  <span class="sp"></span><a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <p class="muted">Point THE VIEWER at a folder of PDFs on this computer and it indexes the new ones into the searchable corpus. It only <b>adds</b> — your existing data is never changed, a safety snapshot is taken first, and it's resumable if interrupted.</p>
+  <div class="drop" id="drop">
+    <div class="bar">
+      <input id="path" placeholder="Folder path on this PC, e.g.  E:\ALL MILITARY TMS\New" spellcheck="false">
+      <button class="b" id="prev" onclick="preview()">Preview</button>
+    </div>
+    <div class="dz" id="dz">…or drag a folder of PDFs here to detect it (paste the full path to confirm — browsers can't read absolute paths for security)</div>
+  </div>
+  <div id="recent" class="chips"></div>
+  <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
+  <div id="out"></div>
+  <div class="ground">How it works: a safeguard snapshot is taken, then the tested <code>crawl</code> pipeline walks the folder, adds new documents, extracts their text, and queues scanned pages for OCR. Nothing is deleted or overwritten (R1/R6). After indexing, run the GPU OCR to make scanned pages searchable.</div>
+</div>
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+var pollTimer=null;
+function preview(){
+  var p=$("#path").value.trim(); if(!p){return;}
+  $("#out").innerHTML='<div class="muted" style="padding:14px 0">Scanning the folder…</div>';
+  fetch("/api/ingest_preview?path="+encodeURIComponent(p)).then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){ $("#out").innerHTML='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t read that folder.")+'</span></div>'; return; }
+    saveRecent(p); renderRecent();
+    var h='<div class="card"><div class="muted">Found in <b>'+esc(d.path)+'</b></div>';
+    h+='<div class="nums"><div class="num"><div class="v">'+d.total_pdfs+'</div><div class="l">PDFs total</div></div>';
+    h+='<div class="num"><div class="v">'+d.already_indexed+'</div><div class="l">already indexed</div></div>';
+    h+='<div class="num new"><div class="v">'+d.new_pdfs+'</div><div class="l">new to add</div></div></div>';
+    if(d.sample&&d.sample.length){h+='<div class="sample">new files include: ';d.sample.forEach(function(f){h+='<span>'+esc(f)+'</span>';});h+='</div>';}
+    if(d.new_pdfs>0) h+='<div style="margin-top:12px"><button class="b go" id="run" onclick="startRun()">Index '+d.new_pdfs+' new document'+(d.new_pdfs===1?'':'s')+' now</button></div>';
+    else h+='<div class="muted" style="margin-top:10px">Nothing new to index in this folder.</div>';
+    h+='</div>'; $("#out").innerHTML=h;
+  }).catch(function(e){ $("#out").innerHTML='<div class="card"><span class="err">Error: '+esc(e.message)+'</span></div>'; });
+}
+function startRun(){
+  var p=$("#path").value.trim(); if(!p)return;
+  var btn=$("#run"); if(btn){btn.disabled=true;btn.textContent="Starting…";}
+  fetch("/api/ingest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:p})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ $("#out").innerHTML+='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t start.")+'</span></div>'; return; }
+      $("#out").innerHTML='<div class="card" id="prog"><div class="muted">Indexing <b>'+esc(p)+'</b>…</div><div class="bar2"><i id="pf"></i></div><div id="pstat" class="muted">starting…</div></div>';
+      poll();
+    }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent="Index now";} });
+}
+function poll(){
+  clearTimeout(pollTimer);
+  fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
+    var st=$("#pstat"); if(!st)return; var run=d.run||{};
+    var msg="seen "+(run.files_seen||0)+" files · added "+(run.new_docs||0)+" docs · "+(run.pages_indexed||0)+" pages of text · "+(run.ocr_queued||0)+" pages queued for OCR";
+    st.innerHTML=msg+'  <span class="muted">('+(d.elapsed||0)+'s)</span>';
+    var pf=$("#pf"); if(pf){ var tot=Math.max(1,(run.new_docs||0)); pf.style.width=(d.running? Math.min(95, 10+(run.new_docs||0)) : 100)+"%"; }
+    if(d.running){ pollTimer=setTimeout(poll,2000); }
+    else { st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.<ul class="steps"><li>New documents are searchable now (text pages immediately).</li><li>Scanned pages were queued for OCR — run the GPU OCR (<code>START-OCR-NOW.bat</code>) to make them searchable too.</li></ul>';
+      if(pf)pf.style.width="100%"; }
+  }).catch(function(){ pollTimer=setTimeout(poll,3000); });
+}
+$("#path").addEventListener("keydown",function(e){if(e.key==="Enter")preview();});
+
+/* ---- Recent ingest paths (localStorage) — one-click re-index of a folder you've used before ---- */
+function getRecent(){ try{ return JSON.parse(window.localStorage.getItem("viewer_ingest_recent")||"[]"); }catch(e){ return []; } }
+function putRecent(l){ try{ window.localStorage.setItem("viewer_ingest_recent", JSON.stringify(l.slice(0,6))); }catch(e){} }
+function saveRecent(p){ if(!p)return; var l=getRecent().filter(function(x){return x!==p;}); l.unshift(p); putRecent(l); }
+function renderRecent(){
+  var l=getRecent(), box=$("#recent"); if(!box)return;
+  if(!l.length){ box.innerHTML=""; return; }
+  var h='<span class="muted" style="align-self:center">Recent:</span>';
+  l.forEach(function(p){ h+='<span class="chip" data-p="'+esc(p)+'" title="Preview this folder">'+esc(p)+'<span class="x" data-x="'+esc(p)+'" title="remove">✕</span></span>'; });
+  box.innerHTML=h;
+  box.querySelectorAll(".chip").forEach(function(c){ c.onclick=function(ev){
+    if(ev.target && ev.target.getAttribute("data-x")!=null){ var rm=ev.target.getAttribute("data-x"); putRecent(getRecent().filter(function(x){return x!==rm;})); renderRecent(); return; }
+    $("#path").value=c.getAttribute("data-p"); preview();
+  };});
+}
+
+/* ---- drag-drop: detect a dropped folder's name; auto-preview if it matches a Recent path ---- */
+(function(){
+  var dz=$("#drop"); if(!dz)return;
+  function stop(e){ e.preventDefault(); e.stopPropagation(); }
+  ["dragenter","dragover"].forEach(function(ev){ dz.addEventListener(ev,function(e){ stop(e); dz.classList.add("over"); }); });
+  ["dragleave","drop"].forEach(function(ev){ dz.addEventListener(ev,function(e){ stop(e); dz.classList.remove("over"); }); });
+  dz.addEventListener("drop",function(e){
+    var name="", items=e.dataTransfer&&e.dataTransfer.items;
+    try{
+      if(items&&items.length&&items[0].webkitGetAsEntry){ var en=items[0].webkitGetAsEntry(); if(en){ name=en.name; } }
+    }catch(_){}
+    if(!name && e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){ name=e.dataTransfer.files[0].name; }
+    if(!name){ $("#dz").textContent="Couldn't read the drop — paste the full folder path instead."; return; }
+    // if a Recent path ends with this folder name, use it directly
+    var hit=getRecent().filter(function(p){ return p.replace(/[\\/]+$/,"").split(/[\\/]/).pop().toLowerCase()===name.toLowerCase(); })[0];
+    if(hit){ $("#path").value=hit; $("#dz").textContent="Matched recent folder — previewing "+hit; preview(); }
+    else { $("#dz").innerHTML="Detected folder <b>"+esc(name)+"</b> — paste its full path (e.g. <code>E:\\ALL MILITARY TMS\\"+esc(name)+"</code>) and press Preview."; if(!$("#path").value){ $("#path").focus(); } }
+  });
+})();
+renderRecent();
+</script>
+<script src="/palette.js"></script>
+</body></html>

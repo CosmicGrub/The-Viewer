@@ -1,0 +1,90 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419"/>
+<text x="40" y="50" font-size="24" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER — Dynamic front-end UX pass</text>
+<text x="40" y="76" font-size="12" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.13.0 · Home/browse-by-vehicle · smart results (filters+counts) · viewer zoom/thumbnails/highlight · responsive+touch+large-text. All additive (R1).</text>
+<line x1="40" y1="92" x2="1140" y2="92" stroke="#2b333f"/>
+<rect x="40" y="110" width="330" height="150" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="40" y="110" width="330" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="54" y="130" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">CLIENT  ·  preferences (localStorage)</text>
+<rect x="58" y="150" width="140" height="34" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="128" y="172" font-size="11" font-weight="600" fill="#e6e9ee" text-anchor="middle">A+  large text</text>
+<rect x="212" y="150" width="140" height="34" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="282" y="172" font-size="11" font-weight="600" fill="#e6e9ee" text-anchor="middle">Simple / Advanced</text>
+<rect x="58" y="196" width="294" height="30" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="205" y="216" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="middle">recent searches (viewer_recent_q)</text>
+<text x="58" y="246" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Persist across launches · CSS classes body.big / body.simple</text>
+<rect x="40" y="280" width="330" height="250" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="40" y="280" width="330" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="54" y="300" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">HOME  ·  browse-by-vehicle + recents</text>
+<rect x="58" y="322" width="294" height="46" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="70" y="342" font-size="11.5" font-weight="600" fill="#e6e9ee" text-anchor="start">Vehicle grid + filter box</text>
+<text x="70" y="358" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">GET /api/vehicles  → name · #manuals · NSN</text>
+<rect x="58" y="376" width="294" height="40" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="70" y="393" font-size="11.5" font-weight="600" fill="#e6e9ee" text-anchor="start">Recent searches (chips)</text>
+<text x="70" y="408" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">from localStorage → click re-runs search</text>
+<rect x="58" y="424" width="294" height="44" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="70" y="442" font-size="11.5" font-weight="600" fill="#e6e9ee" text-anchor="start">Recent parts requests</text>
+<text x="70" y="457" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">GET /api/sessions → bumper · fault · #items</text>
+<text x="58" y="496" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Shown whenever the search box is empty.</text>
+<text x="58" y="512" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Click a vehicle → vehicle hub.</text>
+<rect x="410" y="110" width="360" height="420" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="410" y="110" width="360" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="424" y="130" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">SEARCH  →  SMART RESULTS</text>
+<rect x="428" y="150" width="324" height="38" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="440" y="174" font-size="11" font-weight="600" fill="#e6e9ee" text-anchor="start">Type query  →  GET /api/search (FTS5 / NSN)</text>
+<path d="M590,188 L590,206" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="428" y="208" width="324" height="70" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="440" y="228" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">Build facets (client-side, from results):</text>
+<text x="440" y="246" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">• vehicle counts   • manual type (classifyType)</text>
+<text x="440" y="262" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">• Text vs OCR source   • result count N of M</text>
+<path d="M590,278 L590,296" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="428" y="298" width="324" height="40" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="440" y="323" font-size="11" font-weight="600" fill="#e6e9ee" text-anchor="start">Filter bar: clickable chips toggle filters</text>
+<path d="M590,338 L590,356" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="428" y="358" width="324" height="150" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="440" y="378" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">Result cards (filtered view)</text>
+<text x="440" y="398" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">vehicle · type · TM · NSN · page · OCR badge</text>
+<text x="440" y="416" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">snippet w/ &lt;mark&gt; hit   →  View page / Add</text>
+<rect x="440" y="430" width="300" height="30" rx="7" fill="#1f2733" stroke="#2b333f"/>
+<text x="450" y="449" font-size="10" font-weight="400" fill="#bcd4ff" text-anchor="start">NSN banner → vehicle? open full breakdown hub</text>
+<text x="440" y="486" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Predictive (offline FTS5) · exact NSN bypass preserved.</text>
+<rect x="810" y="110" width="330" height="420" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="810" y="110" width="330" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="824" y="130" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">DOCUMENT VIEWER  ·  zoom · thumbnails · highlight</text>
+<rect x="828" y="150" width="294" height="58" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="840" y="170" font-size="11.5" font-weight="600" fill="#e6e9ee" text-anchor="start">Zoom  −/100%/+</text>
+<text x="840" y="188" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">DPIS[90..340] → /page?dpi= re-render (sharp)</text>
+<rect x="828" y="216" width="294" height="66" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="840" y="236" font-size="11.5" font-weight="600" fill="#e6e9ee" text-anchor="start">Highlight the hit  🖍</text>
+<text x="840" y="254" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">/page?hl=term → PyMuPDF page.search_for()</text>
+<text x="840" y="270" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">draws yellow boxes on the text layer</text>
+<rect x="828" y="290" width="294" height="72" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="840" y="310" font-size="11.5" font-weight="600" fill="#e6e9ee" text-anchor="start">Thumbnail strip  ▦</text>
+<text x="840" y="328" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">window ±8 pages · /page?dpi=24 lazy</text>
+<text x="840" y="344" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">click jumps · current highlighted</text>
+<rect x="828" y="370" width="294" height="68" rx="9" fill="#1f2733" stroke="#2b333f"/>
+<text x="840" y="390" font-size="11.5" font-weight="700" fill="#bfe6c5" text-anchor="start">Schematics &amp; install panel (kept)</text>
+<text x="840" y="408" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">cited FIG → page → vehicle schematic set</text>
+<text x="840" y="424" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">verbatim &amp; cited — never invented</text>
+<text x="828" y="462" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Prev/Next · arrow keys · Esc · Add this part.</text>
+<text x="828" y="478" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">On phones the panel stacks below; thumbs hidden.</text>
+<rect x="40" y="560" width="1100" height="120" rx="12" fill="#171d26" stroke="#2b333f"/>
+<text x="60" y="584" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">SERVER  ·  viewer_app.py  (additive endpoints, no schema change)</text>
+<rect x="60" y="600" width="250" height="62" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="72" y="622" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /api/vehicles</text>
+<text x="72" y="642" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">distinct vehicles + #manuals + NSN (browse)</text>
+<rect x="332" y="600" width="250" height="62" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="344" y="622" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /api/sessions</text>
+<text x="344" y="642" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">recent request sessions (bumper · fault · items)</text>
+<rect x="604" y="600" width="250" height="62" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="616" y="622" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /page?…&amp;hl=</text>
+<text x="616" y="642" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">PyMuPDF search_for → highlight boxes, then render</text>
+<rect x="876" y="600" width="250" height="62" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="888" y="622" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /api/search</text>
+<text x="888" y="642" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">unchanged · GET /api/vehicle hub unchanged</text>
+<path d="M205,530 L205,560" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<path d="M590,530 L590,560" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<path d="M975,530 L975,560" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<text x="40" y="746" font-size="10" font-weight="400" fill="#6b7280" text-anchor="start">Dark (R3) · ships with PDF · backwards-compatible &amp; rollbackable (R1) · accompanies CHANGELOG 0.13.0 (R4) + visual panel (R5).</text>
+</svg>

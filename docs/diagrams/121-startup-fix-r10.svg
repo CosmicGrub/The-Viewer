@@ -1,0 +1,76 @@
+<svg viewBox="0 0 1180 710" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="710" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Offline startup fix · version banner · R10 snapshot   v0.99.17</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Fixed the launch hang on the offline machine, corrected the stale version, and built the visual per-iteration snapshot Chris asked for.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="112" font-size="13" font-weight="700" fill="#e0564f" text-anchor="start">[FIX] startup hung on pip retries (offline)</text>
+<rect x="40" y="126" width="545" height="150" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<circle cx="56" cy="147" r="2.4" fill="#e0564f"/>
+<text x="66" y="150" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">run_app.bat ran `pip install --upgrade pip` on EVERY launch →</text>
+<circle cx="56" cy="165" r="2.4" fill="#e0564f"/>
+<text x="66" y="168" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">ConnectionResetError(10054), retry x4 — hangs when offline.</text>
+<circle cx="56" cy="183" r="2.4" fill="#e0564f"/>
+<text x="66" y="186" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">FIX: one `import fitz, reportlab, PIL` gate; touch the network</text>
+<circle cx="56" cy="201" r="2.4" fill="#e0564f"/>
+<text x="66" y="204" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">ONLY if a package is missing (then --timeout 8 --retries 1).</text>
+<circle cx="56" cy="219" r="2.4" fill="#e0564f"/>
+<text x="66" y="222" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Same guard applied to run_ocr_auto/gpu/ocr/enrich/indexing.</text>
+<circle cx="56" cy="237" r="2.4" fill="#e0564f"/>
+<text x="66" y="240" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Normal launch now: &#x27;All present -- no network touched&#x27;.</text>
+<text x="604" y="112" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">[FIX] version banner was stale</text>
+<rect x="604" y="126" width="536" height="150" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="624" y="156" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">engine/viewer_app.py</text>
+<text x="624" y="182" font-size="13" font-weight="700" fill="#e0564f" text-anchor="start">VERSION = &quot;0.98.0&quot;</text>
+<text x="624" y="204" font-size="13" font-weight="400" fill="#9aa6b6" text-anchor="start">→</text>
+<text x="650" y="204" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERSION = &quot;0.99.17&quot;</text>
+<text x="624" y="232" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">The running app printed v0.98.0 while the changelog was at 0.99.16 — a snapshot-vs-changelog mismatch.</text><text x="624" y="246" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Bumped to match; the app VERSION now tracks the changelog top (per R10).</text>
+<line x1="40" y1="292" x2="1140" y2="292" stroke="#2b333f"/>
+<text x="40" y="320" font-size="13" font-weight="700" fill="#7fbfff" text-anchor="start">[FEATURE] R10 — the iteration snapshot (visual, matches the changelog EXACTLY)</text>
+<rect x="40" y="334" width="545" height="170" rx="12" fill="#171d26" stroke="#7fbfff" stroke-width="1"/>
+<circle cx="56" cy="355" r="2.3" fill="#7fbfff"/>
+<text x="66" y="358" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">New rule R10: every iteration ships a comprehensive, VISUAL snapshot</text>
+<circle cx="56" cy="372" r="2.3" fill="#7fbfff"/>
+<text x="66" y="375" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">of every change — tagged [FEATURE] [UPGRADE] [POLISH] [FIX] — so Chris</text>
+<circle cx="56" cy="389" r="2.3" fill="#7fbfff"/>
+<text x="66" y="392" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">can see &amp; confirm changes iteration-to-iteration.</text>
+<circle cx="56" cy="406" r="2.3" fill="#7fbfff"/>
+<text x="66" y="409" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">engine/build_iteration_snapshot.py DERIVES it from CHANGELOG.md, so it</text>
+<circle cx="56" cy="423" r="2.3" fill="#7fbfff"/>
+<text x="66" y="426" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">matches by construction (amended: MUST match, no exceptions) — it even</text>
+<circle cx="56" cy="440" r="2.3" fill="#7fbfff"/>
+<text x="66" y="443" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">self-asserts every changelog version is present. Wired into VERIFY-099.</text>
+<circle cx="56" cy="457" r="2.3" fill="#7fbfff"/>
+<text x="66" y="460" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Outputs: docs/ITERATION-SNAPSHOTS.md + docs/ITERATION-DASHBOARD.html.</text>
+<rect x="604" y="334" width="536" height="170" rx="12" fill="#171d26" stroke="#7fbfff" stroke-width="1.3"/>
+<text x="620" y="358" font-size="12" font-weight="700" fill="#7fbfff" text-anchor="start">ITERATION-DASHBOARD.html</text>
+<text x="620" y="376" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">149 iterations · 88 legacy · matches CHANGELOG.md</text>
+<rect x="620" y="386" width="38" height="18" rx="999" fill="#16202b" stroke="#e6edf4" stroke-width="1"/>
+<text x="627" y="399" font-size="8.4" font-weight="600" fill="#e6edf4" text-anchor="start">All</text>
+<rect x="664" y="386" width="62" height="18" rx="999" fill="#16202b" stroke="#4f9dff" stroke-width="1"/>
+<text x="671" y="399" font-size="8.4" font-weight="600" fill="#4f9dff" text-anchor="start">Feature</text>
+<rect x="732" y="386" width="62" height="18" rx="999" fill="#16202b" stroke="#caa24a" stroke-width="1"/>
+<text x="739" y="399" font-size="8.4" font-weight="600" fill="#caa24a" text-anchor="start">Upgrade</text>
+<rect x="800" y="386" width="56" height="18" rx="999" fill="#16202b" stroke="#1d9e75" stroke-width="1"/>
+<text x="807" y="399" font-size="8.4" font-weight="600" fill="#1d9e75" text-anchor="start">Polish</text>
+<rect x="862" y="386" width="38" height="18" rx="999" fill="#16202b" stroke="#e0564f" stroke-width="1"/>
+<text x="869" y="399" font-size="8.4" font-weight="600" fill="#e0564f" text-anchor="start">Fix</text>
+<rect x="620" y="414" width="504" height="74" rx="8" fill="#0f151c" stroke="#2b333f" stroke-width="1"/>
+<text x="632" y="432" font-size="9.6" font-weight="700" fill="#7fbfff" text-anchor="start">0.99.17  2026-07-01  Offline startup fix + R10</text>
+<rect x="632" y="440" width="54" height="15" rx="4" fill="#12314f" stroke="#12314f" stroke-width="0"/>
+<text x="638" y="451" font-size="7.6" font-weight="700" fill="#8fc0ff" text-anchor="start">FEATURE</text>
+<rect x="692" y="440" width="30" height="15" rx="4" fill="#3a1512" stroke="#3a1512" stroke-width="0"/>
+<text x="698" y="451" font-size="7.6" font-weight="700" fill="#f2a49c" text-anchor="start">FIX</text>
+<text x="632" y="472" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">search · filter by tag · link to each diagram · legacy parity</text>
+<line x1="40" y1="520" x2="1140" y2="520" stroke="#2b333f"/>
+<text x="40" y="548" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED / R1</text>
+<rect x="40" y="562" width="1100" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="581" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="584" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Generator run: 149 iterations, 88 with legacy parity, 11 with diagram links; R10 integrity OK -- all 149 CHANGELOG versions present.</text>
+<circle cx="56" cy="598" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="601" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Snapshot MATCHES the changelog by construction (derived from it); verbatim &#x27;(...)&#x27;/&#x27;[...]&#x27; in old entries are real text, not truncation.</text>
+<circle cx="56" cy="615" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="618" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Outputs structurally complete: ITERATION-SNAPSHOTS.md ends with the tail sentinel, DASHBOARD.html closes cleanly (R9).</text>
+<circle cx="56" cy="632" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="635" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable: bat guards + one VERSION constant + one generator + two generated docs. Nothing writes the index (R1/R6).</text>
+<text x="40" y="702" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.17 · 2026-07-01 · run_app.bat offline-safe · VERSION 0.99.17 · R10 dashboard. R1/R6.</text>
+</svg>

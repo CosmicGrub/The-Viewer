@@ -1,0 +1,68 @@
+<svg viewBox="0 0 1180 1000" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="1000" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">PROPOSAL — Pushing the envelope: deeper 3D + interactive schematics</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">What we can do NOW on the RTX 4050, what a stronger GPU (RTX 5070, 12 GB) unlocks, and the grounding line we never cross.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="14" font-weight="700" fill="#1d9e75" text-anchor="start">3D PARTS</text>
+<rect x="40" y="128" width="545" height="238" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<rect x="40" y="128" width="6" height="238" rx="3" fill="#2f7d4f"/>
+<text x="58" y="148" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">NOW — on your RTX 4050 (grounded)</text>
+<text x="58" y="166" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Real-time WebGL (Three.js) viewer</text>
+<text x="70" y="179" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Replace flat SVG with true lit 3D: PBR materials (metal/rough), soft shadows, smooth orbit, ambient</text><text x="70" y="190" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">occlusion. Same geometry, far more recognisable.</text>
+<text x="58" y="203" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Parametric TEMPLATE library</text>
+<text x="70" y="216" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Beyond 4 primitives: real hex bolt (head+chamfer+thread helix), bearing races, gear teeth from FLIS</text><text x="70" y="227" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">tooth-count, flanges, multi-hole brackets — driven by real characteristics.</text>
+<text x="58" y="240" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Section · measure · exploded assemblies</text>
+<text x="70" y="253" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Clipping-plane cross-sections, click-measure, and exploded RPSTL assemblies (figure -&gt; its NSNs</text><text x="70" y="264" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">arranged in 3D). STL export for reference.</text>
+<rect x="40" y="374" width="545" height="150" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<rect x="40" y="374" width="6" height="150" rx="3" fill="#caa24a"/>
+<text x="58" y="394" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">MORE POWER — RTX 5070 12 GB</text>
+<text x="58" y="412" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Photogrammetry / Gaussian-splatting from REAL photos</text>
+<text x="70" y="425" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Mechanic photographs the actual part; build a TRUE rotatable 3D capture (COLMAP + gsplat/NeRF,</text><text x="70" y="436" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">offline). VRAM-bound — 6 GB is tight; 12 GB trains faster + higher-res. THIS is the upgrade&#x27;s</text><text x="70" y="447" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">headline.</text>
+<text x="58" y="460" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• AI image-&gt;mesh (TripoSR / InstantMesh)</text>
+<text x="70" y="473" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">One photo -&gt; a mesh in seconds. Fast on GPU, but see the grounding line.</text>
+<text x="620" y="116" font-size="14" font-weight="700" fill="#1d9e75" text-anchor="start">SCHEMATICS</text>
+<rect x="604" y="128" width="536" height="238" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<rect x="604" y="128" width="6" height="238" rx="3" fill="#2f7d4f"/>
+<text x="622" y="148" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">NOW — on your RTX 4050 (grounded)</text>
+<text x="622" y="166" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Vectorise raster -&gt; SVG line art</text>
+<text x="634" y="179" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Trace each schematic to clean vectors: infinite-zoom crispness, per-wire hover/highlight,</text><text x="634" y="190" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">recolour. The same drawing, made interactive.</text>
+<text x="622" y="203" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Full-text search INSIDE diagrams</text>
+<text x="634" y="216" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Once OCR completes, find every sheet containing &#x27;fuel pump relay&#x27; or a connector ID; jump straight</text><text x="634" y="227" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">to it.</text>
+<text x="622" y="240" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Callout -&gt; part hotspots</text>
+<text x="634" y="253" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Hover a component/figure number -&gt; highlight it and open the NSN (ties to the parts index; OCR-box</text><text x="634" y="264" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">gated).</text>
+<text x="622" y="277" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Cross-sheet / off-page links</text>
+<text x="634" y="290" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Click an off-page connector to jump to its continuation sheet; link a connector to its pinout</text><text x="634" y="301" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">table + the 3D part.</text>
+<rect x="604" y="374" width="536" height="150" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<rect x="604" y="374" width="6" height="150" rx="3" fill="#caa24a"/>
+<text x="622" y="394" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">MORE POWER — RTX 5070 12 GB</text>
+<text x="622" y="412" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Net / circuit EXTRACTION (the big one)</text>
+<text x="634" y="425" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Vision models detect components + wires + labels -&gt; a netlist. Click a wire and the WHOLE circuit</text><text x="634" y="436" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">lights up across sheets; &#x27;where does J12-7 go?&#x27;. Vision-heavy -&gt; more cores/VRAM = faster build +</text><text x="634" y="447" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">inference over all 1,093 schematics.</text>
+<text x="622" y="460" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Symbol recognition + local &#x27;explain this circuit&#x27; VLM</text>
+<text x="634" y="473" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Identify standard symbols; a small offline vision-language model explains a circuit — grounded to</text><text x="634" y="484" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the EXTRACTED netlist, not free invention. 12 GB opens usable VLMs (6 GB can&#x27;t).</text>
+<rect x="40" y="540" width="1100" height="96" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="564" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">THE GROUNDING LINE (never crossed — it&#x27;s the whole point of this tool)</text>
+<text x="58" y="584" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">GROUNDED (build freely): WebGL rendering, parametric templates, photogrammetry/splats from REAL photos, multi-view reconstruction from REAL drawings, schematic vectorisation + net</text><text x="58" y="597" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">extraction, OCR search/hotspots — all from real data. FLAGGED (aids only, clearly labelled, never authoritative): single-image AI 3D and AI super-resolution INVENT the hidden sides /</text><text x="58" y="610" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">unseen strokes. We can offer them as a quick visual aid with a bold &#x27;AI-inferred, not verified&#x27; badge — but the 104th sheet and any decision stays on cited, real geometry.</text>
+<rect x="40" y="650" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="674" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">HARDWARE — would the RTX 5070 help?</text>
+<rect x="60" y="690" width="300" height="96" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="80" y="712" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">RTX 4050 (you have)</text>
+<text x="80" y="730" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">2,560 CUDA · 6 GB GDDR6</text>
+<text x="80" y="746" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">great: OCR, WebGL 3D, vectorise,</text>
+<text x="80" y="762" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">templates, OCR-search, hotspots</text>
+<text x="378" y="740" font-size="18" font-weight="700" fill="#4f9dff" text-anchor="middle">→</text>
+<rect x="400" y="690" width="360" height="96" rx="8" fill="#13241c" stroke="#2f7d4f" stroke-width="1"/>
+<text x="420" y="712" font-size="10" font-weight="700" fill="#bfe6cf" text-anchor="start">RTX 5070 12 GB (Blackwell)</text>
+<text x="420" y="730" font-size="8.6" font-weight="400" fill="#8fbf9f" text-anchor="start">4,608 CUDA · 12 GB GDDR7 · ~798 AI TOPS</text>
+<text x="420" y="745" font-size="8.6" font-weight="400" fill="#8fbf9f" text-anchor="start">unlocks: photogrammetry/Gaussian-splat,</text>
+<text x="420" y="760" font-size="8.6" font-weight="400" fill="#8fbf9f" text-anchor="start">net-extraction vision models, local VLM,</text>
+<text x="420" y="775" font-size="8.6" font-weight="400" fill="#8fbf9f" text-anchor="start">faster batch over all schematics</text>
+<text x="778" y="712" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verdict: the 4050 covers the whole &#x27;NOW&#x27; column (most of the</text><text x="778" y="724" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">value). The 5070&#x27;s 12 GB is worth it specifically for</text><text x="778" y="736" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">photo-&gt;true-3D capture and schematic net-extraction at scale</text><text x="778" y="748" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">— VRAM is the real limiter, not raw speed.</text>
+<rect x="40" y="814" width="1100" height="150" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="838" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">MY RECOMMENDED ORDER (high value, all grounded, all on the 4050 first)</text>
+<text x="58" y="860" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">1.  WebGL/Three.js real-3D viewer — biggest visual leap, runs now, makes parts instantly recognisable.</text>
+<text x="58" y="879" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">2.  Schematic vectorisation + per-wire hover — turns flat scans into interactive line art.</text>
+<text x="58" y="898" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">3.  Parametric template library — richer, more accurate shapes from the FLIS fields we already hold.</text>
+<text x="58" y="917" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">4.  (as OCR finishes) full-text schematic search + callout-&gt;part hotspots.</text>
+<text x="58" y="936" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">5.  THEN, if you get the 5070: photo-&gt;true-3D capture and schematic net/circuit extraction.</text>
+<text x="40" y="988" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">PROPOSAL — your call on order + whether to plan for the 5070. Dark (R3). Nothing built yet.</text>
+</svg>

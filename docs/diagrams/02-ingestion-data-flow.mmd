@@ -1,0 +1,24 @@
+%% THE VIEWER - Ingestion Data Flow & Job Queue (Milestone M1)
+%% This is the "how data is queued" diagram required by standing rule R2.
+flowchart TB
+    START([New / changed file detected]) --> HASH["Fingerprint<br/>(hash + size + mtime)"]
+    HASH --> SEEN{Already<br/>indexed &<br/>unchanged?}
+    SEEN -->|yes| SKIP["Skip (idempotent)"]
+    SEEN -->|no| JOB["Create job row<br/>state = discovered"]
+
+    JOB --> CLASSIFY["Classify file type"]
+    CLASSIFY --> KIND{Type?}
+
+    KIND -->|text PDF / Office| TEXT["Extract text per page<br/>+ metadata: TM#, NSN, title"]
+    KIND -->|scanned / image PDF| OCRQ[["OCR QUEUE<br/>state = pending_ocr"]]
+    KIND -->|image / graphic| GFX["Register figure<br/>+ link svgz/svg source"]
+    KIND -->|unsupported| FAIL["state = failed<br/>(reason, retryable)"]
+
+    TEXT --> INDEX["Write to viewer.db<br/>pages + pages_fts + documents"]
+    GFX --> INDEX
+    OCRQ -.background pass later.-> OCRRUN["state = ocr_running<br/>tesseract"] --> INDEX
+
+    INDEX --> DONE["state = indexed"]
+    DONE --> REPORT["Update run log:<br/>seen / new / indexed / queued / failed"]
+
+    FAIL -.retry.-> CLASSIFY

@@ -1,0 +1,85 @@
+<svg viewBox="0 0 1240 940" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="940" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="48" font-size="17" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER v1.8.0 — R13 trust layer: validate · integrity · sign-off · TM currency · verify cockpit</text>
+<text x="40" y="74" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">R13 (above military grade): raise the TRUST, VERIFICATION, and RESILIENCE of the whole app. Additive/rollbackable (R1); append-only audit; no new deps.</text>
+<line x1="40" y1="90" x2="1200" y2="90" stroke="#2b333f"/>
+<text x="40" y="118" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">1  TRUST &amp; ACCURACY</text>
+<rect x="40" y="130" width="380" height="120" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="130" width="5" height="120" rx="2.5" fill="#e0564f"/>
+<text x="56" y="152" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">validate.py  -&gt;  /api/validate</text>
+<text x="56" y="172" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">physical-plausibility + OCR-garble checks</text>
+<text x="56" y="187" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">on every extracted value:</text>
+<text x="56" y="202" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">  quarantine = impossible/garbled (HELD)</text>
+<text x="56" y="217" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">  suspect   = unusual (flagged)</text>
+<text x="56" y="232" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">wired into /part: bad data is WITHHELD</text>
+<rect x="430" y="130" width="380" height="120" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="430" y="130" width="5" height="120" rx="2.5" fill="#1d9e75"/>
+<text x="446" y="152" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">trust.py  (one canonical level)</text>
+<text x="446" y="172" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">high  = authoritative + corroborated</text>
+<text x="446" y="187" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">medium= single cite   review= disagreement</text>
+<text x="446" y="202" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">low   = external      quarantined = failed</text>
+<text x="446" y="217" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">        validation</text>
+<text x="446" y="232" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">so a trust chip means the same everywhere</text>
+<rect x="820" y="130" width="380" height="120" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="820" y="130" width="5" height="120" rx="2.5" fill="#caa24a"/>
+<text x="836" y="152" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">defense-in-depth accuracy</text>
+<text x="836" y="172" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">conflicts.py  -&gt; cross-MANUAL disagreement</text>
+<text x="836" y="187" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">validate.py   -&gt; physical plausibility</text>
+<text x="836" y="202" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">two independent checks; disagreement is</text>
+<text x="836" y="217" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">SURFACED, never silently resolved.</text>
+<text x="836" y="232" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(cross-method agreement = follow-up)</text>
+<line x1="40" y1="266" x2="1200" y2="266" stroke="#2b333f"/>
+<text x="40" y="294" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">2  VERIFICATION MADE MEASURABLE</text>
+<rect x="40" y="306" width="575" height="108" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="306" width="5" height="108" rx="2.5" fill="#4f9dff"/>
+<text x="56" y="328" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">verifystate.py  -&gt;  /verify  (cockpit)</text>
+<text x="56" y="348" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">reads the last host-side VERIFY-099 log + the 39-module self-test roster</text>
+<text x="56" y="363" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">+ which sidecars are built + DB-integrity status -&gt; ONE &#x27;what have we</text>
+<text x="56" y="378" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">proven?&#x27; view. Verification you can&#x27;t see is verification you won&#x27;t keep green.</text>
+<rect x="625" y="306" width="575" height="108" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="306" width="5" height="108" rx="2.5" fill="#2f7d4f"/>
+<text x="641" y="328" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">tests/test_accuracy.py</text>
+<text x="641" y="348" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">MEASURED extraction accuracy vs a hand-verified ground-truth set:</text>
+<text x="641" y="363" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">recall / precision with a regression FLOOR. You cannot claim &#x27;above</text>
+<text x="641" y="378" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">military grade&#x27; without measuring it. Wired into VERIFY-099.</text>
+<line x1="40" y1="430" x2="1200" y2="430" stroke="#2b333f"/>
+<text x="40" y="458" font-size="13" font-weight="700" fill="#7f77dd" text-anchor="start">3  HUMAN AUTHORITY &amp; AUDITABILITY</text>
+<rect x="40" y="470" width="575" height="112" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="470" width="5" height="112" rx="2.5" fill="#7f77dd"/>
+<text x="56" y="492" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">signoff.py  -&gt;  /review  (SME sign-off)</text>
+<text x="56" y="512" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">low-confidence value -&gt; review queue -&gt; an expert APPROVES / REJECTS /</text>
+<text x="56" y="527" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">OVERRIDES -&gt; verified &amp; locked. The store is APPEND-ONLY: every action is</text>
+<text x="56" y="542" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">a new event, nothing is updated or deleted -&gt; a permanent who/what/when</text>
+<text x="56" y="557" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">audit trail. extracted -&gt; HUMAN-VERIFIED.</text>
+<rect x="625" y="470" width="575" height="112" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="470" width="5" height="112" rx="2.5" fill="#1d9e75"/>
+<text x="641" y="492" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">tmrev.py  -&gt;  /api/tmrev  (TM currency)</text>
+<text x="641" y="512" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">parses a manual&#x27;s CHANGE number + date; flags when a NEWER revision of</text>
+<text x="641" y="527" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">the same TM exists in the corpus, so no one works from a superseded book.</text>
+<text x="641" y="542" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;Is this the current manual?&#x27; answered authoritatively.</text>
+<text x="641" y="557" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">change number dominates; date breaks ties.</text>
+<line x1="40" y1="598" x2="1200" y2="598" stroke="#2b333f"/>
+<text x="40" y="626" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">4  RESILIENCE</text>
+<rect x="40" y="638" width="1160" height="92" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="638" width="5" height="92" rx="2.5" fill="#caa24a"/>
+<text x="56" y="660" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">integrity.py  -&gt;  /api/integrity</text>
+<text x="56" y="680" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">SQLite corruption detection (integrity_check) · SHA-256 tamper-evidence · a file manifest that catches change/corruption ·</text>
+<text x="56" y="695" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">ONLINE-safe backup (a consistent snapshot even while the DB is in use). The index and sidecars are the app&#x27;s memory —</text>
+<text x="56" y="710" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">they must never be silently corrupted or lost. Surfaced in the verification cockpit; complements the off-disk safeguard mirror.</text>
+<line x1="40" y1="746" x2="1200" y2="746" stroke="#2b333f"/>
+<text x="40" y="774" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">THE POSTURE (R13)</text>
+<rect x="40" y="788" width="575" height="66" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="56" y="810" font-size="11.5" font-weight="700" fill="#e0564f" text-anchor="start">Never shown as fact</text>
+<text x="56" y="828" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">A garbled or impossible value is quarantined and withheld — the mechanic sees an honest &#x27;held for review&#x27;, not a wrong number.</text>
+<rect x="625" y="788" width="575" height="66" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="810" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">Human vouches</text>
+<text x="641" y="828" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">A machine extracts; only an SME verifies. Approvals are permanent and auditable — the record can always be reconstructed.</text>
+<rect x="40" y="864" width="575" height="66" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="886" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">Proven, not assumed</text>
+<text x="56" y="904" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Every module self-tested; accuracy measured against ground truth; the cockpit makes the proof state visible and keeps it green.</text>
+<rect x="625" y="864" width="575" height="66" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="641" y="886" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">Never lose data</text>
+<text x="641" y="904" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Corruption is detected, tampering is evident, and a consistent backup is one call away. Read-only over the corpus (R6).</text>
+<rect x="40" y="906" width="1160" height="28" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="924" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">R13 above-military-grade (governs all) · R1 rollbackable · R4 CHANGELOG [1.8.0] · R9 VERIFY-099 (6 modules + accuracy) · append-only audit · VERSION=1.8.0.</text>
+</svg>

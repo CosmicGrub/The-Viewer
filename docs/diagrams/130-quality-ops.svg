@@ -1,0 +1,45 @@
+<svg viewBox="0 0 1180 540" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="540" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Quality &amp; ops — analytics · HTTP fuzz · mutation · installer   v0.99.24/30/31/32</text>
+<line x1="40" y1="70" x2="1140" y2="70" stroke="#2b333f"/>
+<rect x="40" y="100" width="272" height="160" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="53" y="122" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">📊 Usage analytics</text>
+<text x="53" y="144" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">analytics.py — append-only local</text>
+<text x="53" y="159" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">JSONL, OFFLINE, no accounts.</text>
+<text x="53" y="174" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/analytics_top + palette beacon.</text>
+<text x="53" y="189" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">hot_docs() → prioritize OCR on the</text>
+<text x="53" y="204" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">docs people actually use. Self-test green.</text>
+<rect x="318" y="100" width="272" height="160" rx="11" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="331" y="122" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">🌐 HTTP integ/fuzz</text>
+<text x="331" y="144" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">test_http.py + RUN-HTTP-FUZZ.bat.</text>
+<text x="331" y="159" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">Spins the real app on a test port,</text>
+<text x="331" y="174" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">hits EVERY GET route (adversarial</text>
+<text x="331" y="189" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">params), asserts no 5xx + /api JSON.</text>
+<text x="331" y="204" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">Real request-path coverage.</text>
+<rect x="596" y="100" width="272" height="160" rx="11" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="609" y="122" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">🧬 Mutation testing</text>
+<text x="609" y="144" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">RUN-MUTATION.bat extended to</text>
+<text x="609" y="159" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">figureparts / jobcard (test_jobcard)</text>
+<text x="609" y="174" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">+ coverage (property fuzz).</text>
+<text x="609" y="189" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">Survivors = test blind-spots — a</text>
+<text x="609" y="204" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">true test-quality metric for v1.0.</text>
+<rect x="874" y="100" width="272" height="160" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="887" y="122" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">📦 Installer</text>
+<text x="887" y="144" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">viewer.spec + BUILD-INSTALLER.bat</text>
+<text x="887" y="159" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">→ dist\THE_VIEWER.exe (no Python).</text>
+<text x="887" y="174" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">FIRST-RUN.bat points at corpus,</text>
+<text x="887" y="189" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">re-tunes hardware, runs doctor,</text>
+<text x="887" y="204" font-size="8.9" font-weight="400" fill="#9aa6b6" text-anchor="start">launches. For shop-floor PCs.</text>
+<line x1="40" y1="280" x2="1140" y2="280" stroke="#2b333f"/>
+<text x="40" y="308" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED / R1</text>
+<rect x="40" y="322" width="1100" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="341" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="344" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">analytics.py self-test green in-sandbox (ranking / counts / hot-docs / kind-coercion / empty-drop).</text>
+<circle cx="56" cy="358" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="361" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">HTTP fuzz + mutation are host-side runners (need the app / mutmut-style loop); harness logic written + wired into batch files.</text>
+<circle cx="56" cy="375" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="378" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Installer + FIRST-RUN are host build/run scripts; spec lists all hidden-imports so the frozen exe finds the feature modules.</text>
+<circle cx="56" cy="392" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="395" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">All additive: new modules + scripts, no product-code regressions. analytics is append-only sidecar (R1/R6).</text>
+<text x="40" y="532" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.24/30/31/32 · 2026-07-01 · analytics.py · test_http.py · RUN-MUTATION · viewer.spec. R1/R6.</text>
+</svg>

@@ -1,0 +1,102 @@
+<svg viewBox="0 0 1180 840" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="840" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — System Status · auto-snapshots · OCR finishing · suggestions  (v0.31.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">A one-glance health page, automatic daily backups, a resumable OCR finisher, and three recall/curation features — all additive.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · SYSTEM STATUS PAGE  (/status · /api/status)</text>
+<rect x="40" y="126" width="560" height="290" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="144" width="122" height="46" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="162" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Documents</text>
+<text x="70" y="182" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">39,683</text>
+<rect x="190" y="144" width="122" height="46" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="202" y="162" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Pages</text>
+<text x="202" y="182" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">1,848,465</text>
+<rect x="322" y="144" width="122" height="46" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="334" y="162" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Parts</text>
+<text x="334" y="182" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">227,908</text>
+<rect x="454" y="144" width="122" height="46" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="466" y="162" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">NSNs</text>
+<text x="466" y="182" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">41,701</text>
+<text x="58" y="214" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">Searchable coverage</text>
+<text x="560" y="214" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="end">93.5%</text>
+<rect x="58" y="222" width="524" height="12" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/><rect x="58" y="222" width="489" height="12" rx="6" fill="#2f7d4f"/>
+<text x="58" y="254" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">OCR progress</text>
+<text x="560" y="254" font-size="10" font-weight="700" fill="#caa24a" text-anchor="end">1.6% (118,964 pending)</text>
+<rect x="58" y="262" width="524" height="12" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/><rect x="58" y="262" width="10" height="12" rx="6" fill="#caa24a"/>
+<rect x="58" y="286" width="256" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="304" font-size="9.4" font-weight="700" fill="#9aa6b6" text-anchor="start">Data protection</text>
+<text x="70" y="322" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">last snapshot · vault count</text>
+<rect x="326" y="286" width="256" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="338" y="304" font-size="9.4" font-weight="700" fill="#9aa6b6" text-anchor="start">Correlations</text>
+<text x="338" y="322" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">19,511 interchange · 884 drift</text>
+<text x="58" y="360" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">NIIN-drift review queue (FSC-conflict flagged) + Fault→parts lookup</text>
+<text x="58" y="378" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">Fast: indexed counts only — no slow full-table scans on the 3.6 GB index.</text>
+<text x="58" y="398" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Read-only dashboard; opens at http://127.0.0.1:8765/status</text>
+<text x="620" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · AUTOMATIC SNAPSHOTS</text>
+<rect x="604" y="126" width="536" height="290" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="624" y="146" width="230" height="52" rx="8" fill="#13241c" stroke="#2f7d4f" stroke-width="1"/>
+<text x="739" y="168" font-size="10" font-weight="700" fill="#bfe6cf" text-anchor="middle">Daily Windows task</text>
+<text x="739" y="184" font-size="8.6" font-weight="400" fill="#8fbf9f" text-anchor="middle">register_snapshot_task.bat</text>
+<path d="M854,172 L884,172" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="890" y="146" width="230" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="1005" y="168" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="middle">safeguard snapshot+verify</text>
+<text x="1005" y="184" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">06:00 daily</text>
+<text x="624" y="228" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">Plus: snapshot BEFORE every data-mutating run</text>
+<text x="640" y="248" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• run_ocr_gpu.bat</text>
+<text x="900" y="248" font-size="9.2" font-weight="400" fill="#caa24a" text-anchor="start">--label pre-ocr</text>
+<text x="640" y="278" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• run_enrich.bat</text>
+<text x="900" y="278" font-size="9.2" font-weight="400" fill="#caa24a" text-anchor="start">--label pre-enrich</text>
+<text x="624" y="316" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Runs natively on Windows so it reads the real, intact files. Snapshots are</text><text x="624" y="328" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">additive (R6); the main index is never modified (R1). Pre-op snapshots give a</text><text x="624" y="340" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">restore point; enrichment also has its own rollback.</text>
+<text x="624" y="372" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Manual any time: run_safeguard.bat snapshot | verify | recover /all.</text>
+<text x="56" y="442" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · OCR FINISHING (resumable, on your GPU)</text>
+<rect x="40" y="452" width="560" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="472" width="124" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="68" y="492" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">prioritize</text>
+<text x="68" y="508" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">parts catalogs first</text>
+<path d="M182,498 L190,498" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="190" y="472" width="124" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="200" y="492" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">ocr batch</text>
+<text x="200" y="508" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">RapidOCR + CUDA</text>
+<path d="M314,498 L322,498" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="322" y="472" width="124" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="332" y="492" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">loop until pending=0</text>
+<text x="332" y="508" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">resumable</text>
+<path d="M446,498 L454,498" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="454" y="472" width="124" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="464" y="492" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">refresh parts index</text>
+<text x="464" y="508" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">auto</text>
+<text x="58" y="548" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">118,964 scanned pages remain (6.5%). &#x27;ocrall&#x27; already finishes them across resumable</text><text x="58" y="560" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">batches; a snapshot is taken first and progress shows on the status page. The multi-day</text><text x="58" y="572" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">run executes on YOUR GPU — I made it bulletproof + trackable, I can&#x27;t run it in this</text><text x="58" y="584" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">environment.</text>
+<text x="620" y="442" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">4 · SUGGESTIONS DEVELOPED</text>
+<rect x="604" y="452" width="536" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<circle cx="624" cy="472" r="4" fill="#2f7d4f"/>
+<text x="636" y="476" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Nomenclature normalization</text>
+<text x="636" y="490" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;BOLT, MACHINE&#x27;&lt;-&gt;&#x27;machine bolt&#x27;, gskt-&gt;gasket; widens recall (tested)</text>
+<circle cx="624" cy="506" r="4" fill="#4f9dff"/>
+<text x="636" y="510" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Fault -&gt; parts</text>
+<text x="636" y="524" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/faultparts: parts most requested for similar faults (your history)</text>
+<circle cx="624" cy="540" r="4" fill="#caa24a"/>
+<text x="636" y="544" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">NIIN-drift review queue</text>
+<text x="636" y="558" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/niin_review: 884 groups, FSC-conflict flagged for review</text>
+<circle cx="624" cy="574" r="4" fill="#9aa6b6"/>
+<text x="636" y="578" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Scanner-friendly NSN</text>
+<text x="636" y="592" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">USB barcode wedge types into search; camera-scan optional later</text>
+<rect x="40" y="620" width="1100" height="90" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="644" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">GROUNDING &amp; INVARIANTS (R1 · R6)</text>
+<text x="58" y="664" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">All additive and reversible: new read-only endpoints + a status page + Windows automation; no change to the dataset, FTS search, or 104th sheet. Nomenclature widening only ADDS</text><text x="58" y="677" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">results when a query is sparse. Honest gaps: tool-list roll-up needs structured &#x27;tools&#x27; data (the procedures table is empty) so it&#x27;s deferred; fault-&gt;parts grows as requests are</text><text x="58" y="690" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">logged; OCR completion is GPU-time on your machine.</text>
+<rect x="40" y="718" width="1100" height="96" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="742" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">NEW ENDPOINTS / FILES</text>
+<text x="58" y="766" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• /api/status + /status</text>
+<text x="258" y="766" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">fast health dashboard</text>
+<text x="428" y="766" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• /api/niin_review</text>
+<text x="628" y="766" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">drift queue (sidecar)</text>
+<text x="798" y="766" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• /api/faultparts</text>
+<text x="998" y="766" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">predictive parts from history</text>
+<text x="58" y="788" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• register_snapshot_task.bat</text>
+<text x="258" y="788" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">daily Windows backup</text>
+<text x="428" y="788" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• normalize_nomenclature()</text>
+<text x="628" y="788" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">recall widening (in search)</text>
+<text x="798" y="788" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• snapshot hooks</text>
+<text x="998" y="788" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">pre-ocr / pre-enrich</text>
+<text x="40" y="832" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.31.0 · 2026-06-02.</text>
+</svg>

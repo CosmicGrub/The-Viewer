@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 540" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER — NSN search + Vehicle breakdown hub (dark)</title>
+<desc>A full NSN in the query is detected and exact-matched against page text and the document cover NSN, then classified part vs vehicle by Federal Supply Class. A vehicle NSN opens a breakdown hub grouping the vehicle's whole manual set, each opening the real page.</desc>
+<style>
+  .bg{fill:#0f1419}.title{font-size:19px;font-weight:700;fill:#e6e9ee}
+  .sub{font-size:10px;fill:#9aa6b6}.lbl{font-size:12.5px;font-weight:600;fill:#e6e9ee}
+  .s{font-size:9.5px;fill:#9aa6b6}.h{font-size:11px;font-weight:700;fill:#93a1b3;letter-spacing:.5px}
+  .edge{stroke:#9aa5b1;stroke-width:1.7;fill:none;marker-end:url(#a)}.edge.d{stroke-dasharray:5 4}
+  .mono{font-size:9px;fill:#dfe5ec;font-family:ui-monospace,Consolas,monospace}.leg{font-size:10px;fill:#9aa6b6}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1000" height="540"/>
+<text x="32" y="42" class="title">THE VIEWER — NSN search + Vehicle breakdown</text>
+<text x="32" y="62" class="sub">offline · safety: everything anchored to the real manual page (TM# · p.) — nothing invented (R1)</text>
+<line x1="32" y1="76" x2="968" y2="76" stroke="#2a2f37"/>
+
+<rect x="32" y="100" width="170" height="64" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="117" y="128" text-anchor="middle" class="lbl">Query</text>
+<text x="117" y="146" text-anchor="middle" class="s">part# · NSN · keyword</text>
+
+<rect x="238" y="100" width="190" height="64" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="333" y="124" text-anchor="middle" class="lbl">Detect full NSN</text>
+<text x="333" y="141" text-anchor="middle" class="mono">NNNN-NN-NNN-NNNN</text>
+<text x="333" y="156" text-anchor="middle" class="s">11+ digits → NSN mode</text>
+
+<rect x="464" y="86" width="230" height="44" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="579" y="105" text-anchor="middle" class="lbl">Exact match</text>
+<text x="579" y="121" text-anchor="middle" class="s">cover NSN (documents.nsn) + page text phrase</text>
+
+<rect x="464" y="138" width="230" height="44" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="579" y="157" text-anchor="middle" class="lbl">Classify by FSC</text>
+<text x="579" y="173" text-anchor="middle" class="s">2320/2350… = vehicle · else = part</text>
+
+<path class="edge" d="M202,132 L238,132"/>
+<path class="edge" d="M428,124 L464,108"/>
+<path class="edge" d="M428,140 L464,160"/>
+
+<text x="730" y="92" class="h">PART NSN</text>
+<rect x="730" y="100" width="238" height="64" rx="10" fill="#1c2430" stroke="#38414e"/>
+<text x="849" y="126" text-anchor="middle" class="lbl">Results → page → cart</text>
+<text x="849" y="144" text-anchor="middle" class="s">add to 104th request (nomenclature carries)</text>
+<path class="edge" d="M694,120 C712,120 716,128 730,130"/>
+
+<line x1="32" y1="206" x2="968" y2="206" stroke="#2a2f37"/>
+<text x="32" y="232" class="h">VEHICLE / END-ITEM NSN → BREAKDOWN HUB</text>
+<rect x="32" y="244" width="190" height="60" rx="10" fill="#16301f" stroke="#2f5a3e"/>
+<text x="127" y="270" text-anchor="middle" class="lbl">Vehicle hub</text>
+<text x="127" y="288" text-anchor="middle" class="s">/api/vehicle?key=NSN</text>
+
+<!-- grouped manual set -->
+<g>
+  <rect x="262" y="232" width="220" height="40" rx="8" fill="#1c2430" stroke="#38414e"/><text x="372" y="257" text-anchor="middle" class="s">Operator (-10)</text>
+  <rect x="262" y="278" width="220" height="40" rx="8" fill="#1c2430" stroke="#38414e"/><text x="372" y="303" text-anchor="middle" class="s">Maintenance (-20/-24)</text>
+  <rect x="262" y="324" width="220" height="40" rx="8" fill="#1c2430" stroke="#38414e"/><text x="372" y="349" text-anchor="middle" class="s">Troubleshooting</text>
+  <rect x="500" y="232" width="220" height="40" rx="8" fill="#1c2430" stroke="#38414e"/><text x="610" y="257" text-anchor="middle" class="s">Parts (RPSTL / -24P)</text>
+  <rect x="500" y="278" width="220" height="40" rx="8" fill="#1c2430" stroke="#38414e"/><text x="610" y="303" text-anchor="middle" class="s">Schematics / wiring</text>
+  <rect x="500" y="324" width="220" height="40" rx="8" fill="#1c2430" stroke="#38414e"/><text x="610" y="349" text-anchor="middle" class="s">Lubrication · MWO · other</text>
+</g>
+<text x="372" y="222" class="s" fill="#7b8794">grouped by TM suffix / filename</text>
+
+<rect x="744" y="262" width="224" height="80" rx="10" fill="#16301f" stroke="#2f5a3e"/>
+<text x="856" y="288" text-anchor="middle" class="lbl">Open the real page</text>
+<text x="856" y="306" text-anchor="middle" class="s">rendered PDF page · TM# · p.</text>
+<text x="856" y="324" text-anchor="middle" class="s">→ procedures/tools verbatim (Phase 3)</text>
+
+<path class="edge" d="M222,274 L262,252"/>
+<path class="edge" d="M222,274 L262,298"/>
+<path class="edge" d="M222,278 L262,344"/>
+<path class="edge" d="M482,252 L500,252"/>
+<path class="edge" d="M720,252 C736,252 740,290 744,296"/>
+<path class="edge" d="M720,298 L744,300"/>
+<path class="edge d" d="M694,160 C710,200 120,210 127,244"/>
+
+<line x1="32" y1="392" x2="968" y2="392" stroke="#2a2f37"/>
+<rect x="32" y="408" width="14" height="11" rx="3" fill="#1a2740" stroke="#3a4d6e"/><text x="52" y="417" class="leg">input / detect</text>
+<rect x="180" y="408" width="14" height="11" rx="3" fill="#16301f" stroke="#2f5a3e"/><text x="200" y="417" class="leg">match / output (anchored to page)</text>
+<rect x="430" y="408" width="14" height="11" rx="3" fill="#1c2430" stroke="#38414e"/><text x="450" y="417" class="leg">manual group / result</text>
+<text x="32" y="448" class="sub">Phase 1 (NSN search) + Phase 2 (vehicle hub) shipped. Phase 3 (verbatim procedure/tool panel, cited to the page) is next — never AI-invented.</text>
+<text x="32" y="468" class="sub">Rule R1 read-only/anchored · R2 this diagram · R3 dark+PDF · R4 changelog · R5 visual panel.</text>
+</svg>

@@ -1,0 +1,80 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">Recommended path: interactive schematic viewer + an optional, BYO-3D module</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Grounded foundation first (real drawing, deep zoom, callout→part). True 3D is an opt-in slot that loads REAL 3D data — CAD or photogrammetry — never a guess.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="560" height="300" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="128" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">FOUNDATION · interactive 2D schematic (grounded)</text>
+<rect x="58" y="144" width="524" height="40" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="162" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">Rendered schematic page (real scan)</text>
+<text x="70" y="177" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the authoritative drawing</text>
+<path d="M320,184 L320,192" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="192" width="524" height="40" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="210" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">Deep-zoom tile pyramid (OpenSeadragon)</text>
+<text x="70" y="225" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">pan + zoom to fine detail: holes, ports, connectors</text>
+<path d="M320,232 L320,240" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="240" width="524" height="40" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="258" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">Callout coordinates (PyMuPDF words / OCR boxes)</text>
+<text x="70" y="273" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">find the FIG item-numbers on the page automatically</text>
+<path d="M320,280 L320,288" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="288" width="524" height="40" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="306" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">Auto-placed clickable hotspots</text>
+<text x="70" y="321" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">each callout → the part row</text>
+<path d="M320,328 L320,336" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="336" width="524" height="40" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="354" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">→ parts index (FIG+item → NSN / part#, cited)</text>
+<text x="70" y="369" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">click a callout → exact part, opens the page</text>
+<rect x="620" y="104" width="520" height="300" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="638" y="128" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">OPTIONAL · true 3D module (BYO real 3D)</text>
+<rect x="638" y="144" width="484" height="66" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="650" y="164" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Source A — real CAD / 3D-TM</text>
+<text x="650" y="180" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">glTF, or STEP/IGES → glTF (IETM/S1000D/OEM). Accurate</text><text x="650" y="192" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">as-built geometry.</text>
+<rect x="638" y="218" width="484" height="66" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="650" y="238" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Source B — photogrammetry of the real part</text>
+<text x="650" y="254" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Many photos → textured mesh. Build a library, prioritise</text><text x="650" y="266" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">look-alike parts.</text>
+<path d="M880,284 L880,296" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="638" y="298" width="484" height="46" rx="9" fill="#3a2f1a" stroke="#2b333f" stroke-width="1"/>
+<text x="650" y="318" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Three.js viewer · rotate · angle · zoom-to-feature</text>
+<text x="650" y="333" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">linked from the part record (parts.model_ref)</text>
+<rect x="638" y="352" width="484" height="40" rx="9" fill="#1c2430" stroke="#e0564f" stroke-width="1"/>
+<text x="650" y="377" font-size="9.6" font-weight="700" fill="#e0a0a0" text-anchor="start">✗ never AI-generated from a 2D scan (invents geometry)</text>
+<text x="40" y="438" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">PHASED ROADMAP  (rough, focused-effort estimates; gated on schematic OCR)</text>
+<rect x="40" y="458" width="214" height="170" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="458" width="214" height="26" rx="0" fill="#243042"/>
+<text x="52" y="475" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PREREQ</text>
+<text x="242" y="475" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="end">ongoing</text>
+<text x="52" y="502" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Schematic OCR coverage</text>
+<text x="52" y="540" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">The coverage meter shows when</text><text x="52" y="552" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">a vehicle&#x27;s schematics are</text><text x="52" y="564" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">searchable enough for</text><text x="52" y="576" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">auto-hotspots.</text>
+<path d="M254,520 L262,520" stroke="#5d6675" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="262" y="458" width="214" height="170" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="262" y="458" width="214" height="26" rx="0" fill="#16301f"/>
+<text x="274" y="475" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PHASE A</text>
+<text x="464" y="475" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="end">~2–4 wks</text>
+<text x="274" y="502" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Interactive 2D viewer</text>
+<text x="274" y="540" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Deep-zoom + auto callout</text><text x="274" y="552" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">hotspots → parts. The grounded</text><text x="274" y="564" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">core; most of the practical</text><text x="274" y="576" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">value.</text>
+<path d="M476,520 L484,520" stroke="#5d6675" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="484" y="458" width="214" height="170" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="484" y="458" width="214" height="26" rx="0" fill="#1a2740"/>
+<text x="496" y="475" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PHASE B</text>
+<text x="686" y="475" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="end">~1–2 wks</text>
+<text x="496" y="502" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Multi-view + hotspot</text><text x="496" y="515" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">polish</text>
+<text x="496" y="540" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">View switcher where TMs</text><text x="496" y="552" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">provide multiple views; manual</text><text x="496" y="564" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">hotspot touch-up tools.</text>
+<path d="M698,520 L706,520" stroke="#5d6675" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="706" y="458" width="214" height="170" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="706" y="458" width="214" height="26" rx="0" fill="#3a2f1a"/>
+<text x="718" y="475" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PHASE C (opt)</text>
+<text x="908" y="475" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="end">~2–3 wks</text>
+<text x="718" y="502" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">3D import module</text>
+<text x="718" y="540" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Three.js viewer + glTF import;</text><text x="718" y="552" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">link models to parts. Needs</text><text x="718" y="564" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">real CAD files.</text>
+<path d="M920,520 L928,520" stroke="#5d6675" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="928" y="458" width="214" height="170" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="928" y="458" width="214" height="26" rx="0" fill="#3a2f1a"/>
+<text x="940" y="475" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PHASE D (opt)</text>
+<text x="1130" y="475" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="end">~3–5 wks + capture</text>
+<text x="940" y="502" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Photogrammetry library</text>
+<text x="940" y="540" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Capture pipeline + growing</text><text x="940" y="552" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">part library, look-alikes</text><text x="940" y="564" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">first.</text>
+<rect x="40" y="644" width="1100" height="86" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="668" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">THEORY / WHY THIS WAY</text>
+<text x="58" y="688" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">2D→3D from one image is mathematically underdetermined — depth is unrecoverable, so any single-image 3D is a guess. For maintenance, accuracy beats realism: a deep-zoom of</text><text x="58" y="701" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the real drawing reliably shows the hole count and the connector; a generated mesh might not. True rotation is worth it only when fed by real geometry (CAD) or the real</text><text x="58" y="714" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">part (photogrammetry). So: grounded viewer now, real-3D module when the data exists.</text>
+</svg>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Corpus Coverage — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{margin:0;background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 18px 60px}
+  h1{font-size:22px;margin:0 0 2px}
+  .sub{color:#8a98a8;font-size:12px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .card{background:#10151c;border:1px solid #223;border-radius:10px;padding:14px}
+  .card h3{margin:0 0 8px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#8fb3d9}
+  .big{font-size:26px;font-weight:700}
+  .muted{color:#8a98a8;font-size:12px}
+  .bar{height:9px;background:#1b2430;border-radius:5px;overflow:hidden;margin:8px 0 4px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#2f9d63,#4f9dff)}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  td{padding:3px 4px;border-top:1px solid #1b2430}
+  .ok{color:#7fdca0}.no{color:#ff9a94}
+  a.btn,button{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;text-decoration:none}
+  .row{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+</style></head><body>
+<div class="wrap">
+  <h1>📊 Corpus Coverage</h1>
+  <div class="sub" id="sub">mission control — how enriched the whole corpus is</div>
+  <div class="row">
+    <button id="refresh">↻ Refresh</button>
+    <a class="btn" href="/ops">Ops dashboard</a>
+    <a class="btn" href="/">← search</a>
+    <span class="muted" id="gen"></span>
+  </div>
+  <div id="body"><div class="muted">loading…</div></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function pctBar(label, o){ var p=(o&&o.pct)||0; return '<div class="card"><h3>'+label+'</h3>'+
+    '<div class="big">'+p+'%</div><div class="bar"><i style="width:'+Math.max(0,Math.min(100,p))+'%"></i></div>'+
+    '<div class="muted" id="'+label+'sub"></div></div>'; }
+  function num(label, v, sub){ return '<div class="card"><h3>'+label+'</h3><div class="big">'+(v==null?'—':Number(v).toLocaleString())+'</div>'+(sub?('<div class="muted">'+sub+'</div>'):'')+'</div>'; }
+  function load(){
+    $('#body').innerHTML='<div class="muted">loading…</div>';
+    fetch('/api/coverage').then(function(r){return r.json();}).then(function(d){
+      if(!d){ $('#body').innerHTML='<div class="no">could not load coverage.</div>'; return; }
+      $('#gen').textContent=(d.version?('v'+d.version+'  ·  '):'')+'generated '+(d.generated||'');
+      var h='<div class="grid">';
+      h+= '<div class="card"><h3>OCR</h3><div class="big">'+(d.ocr.pct)+'%</div><div class="bar"><i style="width:'+d.ocr.pct+'%"></i></div><div class="muted">'+Number(d.ocr.pages_ocr).toLocaleString()+' / '+Number(d.ocr.pages_total).toLocaleString()+' pages with text</div></div>';
+      h+= '<div class="card"><h3>CAD renders</h3><div class="big">'+(d.cad.pct)+'%</div><div class="bar"><i style="width:'+d.cad.pct+'%"></i></div><div class="muted">'+Number(d.cad.rendered_v3).toLocaleString()+' / '+Number(d.cad.representative_parts).toLocaleString()+' representative parts (v3)</div></div>';
+      h+= '<div class="card"><h3>Vectorized figures</h3><div class="big">'+(d.vectorize.pct)+'%</div><div class="bar"><i style="width:'+d.vectorize.pct+'%"></i></div><div class="muted">'+Number(d.vectorize.figures_vectorized).toLocaleString()+' / '+Number(d.vectorize.figure_pages).toLocaleString()+' figure pages</div></div>';
+      h+= num('Documents', d.corpus.documents, Number(d.corpus.pages_total).toLocaleString()+' pages total');
+      h+= num('Schematic netlists', d.schematics.netlist_pages, (d.schematics.reviewed||0)+' reviewed · avg conf '+(d.schematics.avg_confidence!=null?Math.round(d.schematics.avg_confidence*100)+'%':'—'));
+      h+= num('Local 3-D models', d.local_models, 'index/models3d');
+      h+= num('Figure crops', d.figure_crops, 'index/figcache');
+      h+='</div>';
+      // sidecars
+      h+='<div class="card" style="margin-top:14px"><h3>Sidecars (index/)</h3><table>';
+      for(var k in d.sidecars){ var s=d.sidecars[k]; h+='<tr><td>'+esc(k)+'</td><td class="'+(s.exists?'ok':'no')+'">'+(s.exists?'present':'missing')+'</td><td class="muted">'+(s.mb?(s.mb+' MB'):'')+'</td></tr>'; }
+      h+='</table></div>';
+      $('#body').innerHTML=h;
+    }).catch(function(){ $('#body').innerHTML='<div class="no">coverage endpoint error.</div>'; });
+  }
+  $('#refresh').onclick=load; load();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

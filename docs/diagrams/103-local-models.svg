@@ -1,0 +1,64 @@
+<svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1200" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Local 3-D models — drop your CAD, replace the placeholder   v0.94.0</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">If you have a real model file for a part, the 3-D tab loads IT instead of the representative geometry. Authoritative, not an approximation.</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">HOW IT WORKS</text>
+<rect x="40" y="128" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">1  DROP A FILE</text>
+<text x="56" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">index/models3d/&lt;NSN&gt;.obj</text>
+<text x="56" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">                    or .stl</text>
+<text x="56" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">named by the part&#x27;s NSN.</text>
+<text x="56" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">sidecar — never the index (R1).</text>
+<text x="316" y="192" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="328" y="128" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="328" y="128" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="344" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">2  localmodel.py</text>
+<text x="344" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">find() the file → parse to {V,F}.</text>
+<text x="344" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">OBJ (n-gon→tris) · ASCII STL ·</text>
+<text x="344" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">BINARY STL (struct). pure stdlib.</text>
+<text x="344" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">faces capped 300k.</text>
+<text x="604" y="192" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="616" y="128" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="616" y="128" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="632" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">3  /api/localmodel(_mesh)</text>
+<text x="632" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">status: exists / fmt / url.</text>
+<text x="632" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">mesh: {V,F,local:true} JSON.</text>
+<text x="632" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">404 JSON when none (no 5xx).</text>
+<text x="632" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start"></text>
+<text x="892" y="192" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="904" y="128" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="904" y="128" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="920" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">4  gl3d.js</text>
+<text x="920" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">auto-centres + auto-fits any</text>
+<text x="920" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">units; loads in the Interactive</text>
+<text x="920" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">3-D tab in place of the</text>
+<text x="920" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">parametric placeholder.</text>
+<line x1="40" y1="262" x2="1160" y2="262" stroke="#2b333f"/>
+<text x="40" y="290" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">AUTHORITATIVE vs APPROXIMATION</text>
+<rect x="40" y="304" width="560" height="120" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="330" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">🧩  LOCAL MODEL  (this feature)</text>
+<text x="58" y="356" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Your real OBJ/STL file — shown as-is, NO watermark.</text>
+<text x="58" y="373" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Replaces the placeholder in the Interactive 3-D tab.</text>
+<text x="58" y="390" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Green badge + one-click toggle back to the placeholder.</text>
+<text x="58" y="407" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· index/models3d/&lt;NSN&gt;.obj|.stl</text>
+<rect x="620" y="304" width="540" height="120" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="638" y="330" font-size="12.5" font-weight="700" fill="#caa24a" text-anchor="start">⚠  IMAGE→3D  (Approximation tab)</text>
+<text x="638" y="356" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· AI-generated from the figure crop (TripoSR…).</text>
+<text x="638" y="373" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Gated — off until you configure a backend.</text>
+<text x="638" y="390" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· ALWAYS watermarked &#x27;NOT TO SCALE&#x27;.</text>
+<text x="638" y="407" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· index/mesh3d/ · docs/IMAGE3D-SETUP.md</text>
+<line x1="40" y1="444" x2="1160" y2="444" stroke="#2b333f"/>
+<text x="40" y="472" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED (host-side)</text>
+<rect x="40" y="486" width="1120" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="505" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="508" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-LOCALMODEL.bat: localmodel.py + viewer_app.py + both UI pages parse.</text>
+<circle cx="56" cy="522" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="525" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Round-trip parse of a sample OBJ (8v/12f), ASCII STL and BINARY STL (36v/12f each) → all OK; test files cleaned up.</text>
+<circle cx="56" cy="539" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="542" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">gl3d auto-centres/auto-fits, so a model in any units displays correctly; materials still come from FLIS/scan.</text>
+<circle cx="56" cy="556" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="559" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable (R1): drop the module + 2 routes + the loadLocalModel block. How-to: docs/LOCAL-MODELS.md.</text>
+<text x="40" y="748" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.94.0 · 2026-06-04 · localmodel.py · /api/localmodel(_mesh) · threed.html loadLocalModel · gl3d.js · index/models3d. R1/R6.</text>
+</svg>

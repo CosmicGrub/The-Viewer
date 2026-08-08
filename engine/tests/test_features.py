@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Regression tests for the v0.42-0.50 features (procedure parser, suggest, look-alike, ingest preview,
+RPS mode). Self-contained: spins up a tiny synthetic index and monkeypatches viewer_app.db so it never
+touches the real corpus. Run:  python test_features.py   (exit 0 = all pass)."""
+import os, sys, tempfile, sqlite3
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, ".."))
+import viewer_app as V
+
+TMP = tempfile.mkdtemp(prefix="viewer_feat_")
+DBP = os.path.join(TMP, "t.db")
+
+def _build_db():
+    c = sqlite3.connect(DBP)
+    c.executescript("""
+      CREATE TABLE documents(id INTEGER PRIMARY KEY, path TEXT, vehicle TEXT, tm_number TEXT, title TEXT, page_count INT);
+      CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, source TEXT);
+      CREATE VIRTUAL TABLE pages_fts USING fts5(body_text, content='pages', content_rowid='id');
+      CREATE TABLE request_items(id INTEGER PRIMARY KEY, item_name TEXT, nsn TEXT, session_id INT, created_at TEXT);
+      CREATE TABLE parts(id INTEGER PRIMARY KEY, name TEXT, part_number TEXT, nsn TEXT, document_id INT, page INT,
+                         vehicle TEXT, nomenclature TEXT, cagec TEXT, smr TEXT, fig_no TEXT, fig_title TEXT, uoc TEXT, confidence TEXT);
+    """)
+    c.execute("INSERT INTO documents(id,path,vehicle,tm_number,title,page_count) VALUES(1,?,?,?,?,?)",
+              (os.path.join(TMP, "old.pdf"), "HMMWV M998", "TM 9-2320", "HMMWV maint", 50))
+    proc = ("ALTERNATOR\n\nREMOVAL\n\nTOOLS REQUIRED\nWrench, Torque, 0-150 ft-lb\n\n"
+            "WARNING\nDisconnect the battery first.\n\n1. Disconnect the negative battery cable.\n"
+            "2. Remove the drive belt.\n3. Remove the alternator bolts.\n")
+    c.execute("INSERT INTO pages(id,document_id,page_number,body_text,source) VALUES(1,1,12,?,'text')", (proc,))
+    c.execute("INSERT INTO pages(id,document_id,page_number,body_text,source) VALUES(2,1,40,'alternator wiring schematic','text')")
+    c.execute("INSERT INTO pages_fts(rowid,body_text) SELECT id,body_text FROM pages")
+    c.executemany("INSERT INTO request_items(item_name,nsn) VALUES(?,?)",
+                  [("ALTERNATOR ASSEMBLY", "2920-01-111-1111"), ("BRAKE CALIPER", "2530-01-222-2222")])
+    c.executemany("INSERT INTO parts(name,nsn,uoc,cagec,fig_title,confidence) VALUES(?,?,?,?,?,?)",
+                  [("ALTERNATOR", "2920-01-111-1111", "AB1", "19207", "FIG 5", "page"),
+                   ("ALTERNATOR", "2920-01-333-3333", "AB2", "19207", "FIG 5", "page"),
+                   ("ALTERNATOR", "5340-01-444-4444", "AB1", "81337", "FIG 5", "page")])
+    c.commit(); c.close()
+
+_build_db()
+V.DB_PATH = DBP
+def _db():
+    c = sqlite3.connect(DBP); c.row_factory = sqlite3.Row; return c
+V.db = _db
+V.correlations_for = lambda nsn: {}     # no sidecar in the test
+V._VOCAB_READY = False
+
+passed, failed = [], []
+def ok(name, cond):
+    (passed if cond else failed).append(name)
+
+# --- procedure parser ---
+pr = V._parse_procedure("ALTERNATOR\n\nREMOVAL\n\nTOOLS REQUIRED\nWrench, Torque\n\nWARNING\nHeavy.\n\n1. Disconnect battery.\n2. Drain coolant.\n")
+ok("parse_kind_removal", bool(pr) and pr["kind"] == "Removal")
+ok("parse_steps>=2", bool(pr) and len(pr["steps"]) >= 2)
+ok("parse_tools_wrench", bool(pr) and any("Wrench" in t for t in pr["tools"]))
+ok("parse_warning", bool(pr) and any(c["kind"] == "WARNING" for c in pr["cautions"]))
+pr2 = V._parse_procedure("ENGINE ASSEMBLY\n1. step one goes here clearly\n")     # group title must NOT be the kind
+ok("parse_group_title_not_kind", (pr2 is None) or pr2["kind"] != "Assembly")
+
+# --- procedure_for (FTS over the synthetic page) ---
+pf = V.procedure_for("alternator")
+ok("procedure_for_found", pf["found"] and pf["n"] >= 1)
+ok("procedure_for_cites_page", bool(pf["procedures"]) and pf["procedures"][0]["page"] == 12)
+
+# --- suggest ---
+sg = V.suggest("alt")
+texts = [s["text"].lower() for s in sg["suggestions"]]
+ok("suggest_has_part", any("alternator assembly" in t for t in texts))
+ok("suggest_has_term", any(t == "alternator" for t in texts))
+sv = V.suggest("hmmwv")
+ok("suggest_vehicle", any(s["kind"] == "vehicle" for s in sv["suggestions"]))
+ok("suggest_short_empty", V.suggest("a")["suggestions"] == [])
+
+# --- part_differences ---
+pd = V.part_differences("ALTERNATOR")
+ok("partdiff_found", pd["found"] and pd["n_variants"] == 3)
+fields = [d["field"] for d in pd["discriminators"]]
+ok("partdiff_uoc_disc", "UOC" in fields)
+ok("partdiff_fsc_disc", "FSC" in fields)
+rels = {v["relation"] for v in pd["variants"]}
+ok("partdiff_diff_class", "different item class" in rels)   # the 5340 FSC item
+
+# --- ingest_preview ---
+for f in ("old.pdf", "new1.pdf", "new2.pdf"): open(os.path.join(TMP, f), "w").write("x")
+os.makedirs(os.path.join(TMP, "sub"), exist_ok=True); open(os.path.join(TMP, "sub", "new3.pdf"), "w").write("x")
+ip = V.ingest_preview(TMP)
+ok("ingest_total_4", ip["ok"] and ip["total_pdfs"] == 4)
+ok("ingest_new_3", ip["new_pdfs"] == 3)            # old.pdf already in documents
+ok("ingest_bad_path", V.ingest_preview("/no/such/folder")["ok"] is False)
+
+# --- RPS mode (via the rps module) ---
+try:
+    import rps
+    ok("rps_modern", rps.mode_for({"python_ok": True, "modern_os": True, "render_backend": "pymupdf", "ram_gb": 16, "tier": "GPU laptop"})[0] == "modern")
+    ok("rps_legacy", rps.mode_for({"modern_os": False, "render_backend": "poppler", "ram_gb": 4, "tier": "Legacy / low-power"})[0] == "legacy")
+    ok("rps_flags_legacy", rps.feature_flags("legacy")["polyfills"] is True and rps.feature_flags("legacy")["default_dpi"] == 100)
+except Exception as e:
+    failed.append("rps_import(%s)" % e)
+
+for n in passed: print("PASS", n)
+for n in failed: print("FAIL", n)
+print("\n%d passed, %d failed (of %d feature tests)" % (len(passed), len(failed), len(passed) + len(failed)))
+sys.exit(1 if failed else 0)

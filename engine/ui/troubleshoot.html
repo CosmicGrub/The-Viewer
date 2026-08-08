@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guided troubleshooting — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer}
+  a.btn,button.alt{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;cursor:pointer;font-size:13.5px}
+  .sym{background:#111823;border:1px solid #24303c;border-left:4px solid #4f9dff;border-radius:10px;padding:12px 14px;margin:10px 0;cursor:pointer}
+  .sym:hover{background:#141d29}
+  .sym h3{margin:0;font-size:15px}.sym .cite{color:#8a98a8;font-size:11.5px;margin-top:3px}
+  .tree{background:#0e141c;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:12px 0}
+  .step{border:1px solid #1c2530;border-radius:9px;padding:10px 12px;margin:8px 0}
+  .step.active{border-color:#1f6feb;background:#0e1a2b}
+  .step.done{opacity:.6}
+  .step .n{display:inline-block;min-width:24px;height:24px;border-radius:50%;background:#1c2836;border:1px solid #2f4858;text-align:center;line-height:24px;font-weight:800;font-size:12px;color:#9fd0ff;margin-right:8px}
+  .step.active .n{background:#123020;border-color:#1d9e75;color:#7fd6a0}
+  .test{font-weight:600;font-size:14px}
+  .action{margin-top:6px;color:#c9e6d3;font-size:13.5px;background:#10201a;border:1px solid #1d3a2a;border-radius:6px;padding:7px 10px}
+  .action b{color:#7fd6a0}
+  .ctl{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .none{color:#8a98a8;font-size:12.5px;padding:12px 0}
+</style></head><body>
+<div class="wrap">
+  <h1>🌳 Guided troubleshooting</h1>
+  <div class="muted">Describe the <b>symptom</b> (e.g. "engine will not crank", "no CTIS pressure"). We pull the
+    manual's MALFUNCTION → check → corrective-action tree and walk you through it, cited to the page.</div>
+  <div class="search">
+    <input id="q" placeholder="Symptom or system…" autofocus>
+    <button class="go" id="go">Find</button>
+    <a class="btn" href="/solve">Solve-it hub</a><a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+  var TREES=[];
+
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a symptom.'; return; }
+    history.replaceState(null,'','/troubleshoot?q='+encodeURIComponent(q));
+    $('#head').textContent='Searching the troubleshooting tables…'; $('#out').innerHTML='';
+    gj('/api/faulttree?q='+encodeURIComponent(q)).then(function(j){
+      TREES=(j&&j.trees)||[];
+      if(!TREES.length){ $('#head').innerHTML='No structured troubleshooting found for “'+esc(q)+'”. Try the <a href="/solve?q='+encodeURIComponent(q)+'">Solve-it hub</a> or a broader symptom.'; return; }
+      $('#head').textContent=TREES.length+' matching symptom'+(TREES.length===1?'':'s')+' — pick one:';
+      $('#out').innerHTML=TREES.map(function(t,i){return '<div class="sym" data-i="'+i+'"><h3>'+esc(t.symptom)+'</h3><div class="cite">'+esc(t.tm||t.vehicle||('doc '+t.doc))+' · p.'+esc(t.page)+' · '+(t.steps?t.steps.length:0)+' checks</div></div>';}).join('');
+      $('#out').querySelectorAll('.sym').forEach(function(el){ el.onclick=function(){ openTree(parseInt(el.getAttribute('data-i'),10)); }; });
+    });
+  }
+
+  function openTree(i){
+    var t=TREES[i]; if(!t) return; var cur=0;
+    function draw(){
+      var h='<div class="tree"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">'
+        +'<h3 style="margin:0;font-size:16px">🔧 '+esc(t.symptom)+'</h3>'
+        +'<a class="btn" href="/deepzoom?doc='+encodeURIComponent(t.doc)+'&page='+encodeURIComponent(t.page)+'" target="_blank">open p.'+esc(t.page)+' ↗</a></div>'
+        +'<div class="cite muted" style="margin:4px 0 8px">'+esc(t.tm||t.vehicle||'')+'</div>';
+      (t.steps||[]).forEach(function(s,si){
+        var cls=si===cur?'active':(si<cur?'done':'');
+        h+='<div class="step '+cls+'"><div class="test"><span class="n">'+(s.n||si+1)+'</span>'+esc(s.test||'(check)')+'</div>'
+          +(s.action?('<div class="action"><b>→ If so / then:</b> '+esc(s.action)+'</div>'):'')+'</div>';
+      });
+      h+='<div class="ctl"><button class="alt" id="pv">‹ Back</button><button class="go" id="nx">Next check ›</button>'
+        +'<a class="btn" href="/procedure?q='+encodeURIComponent(t.symptom)+'" target="_blank">🔧 Procedure</a>'
+        +'<a class="btn" href="/part?q='+encodeURIComponent(t.symptom)+'" target="_blank">🪪 Part page</a>'
+        +'<button class="alt" id="bk2">↑ other symptoms</button></div></div>';
+      $('#out').innerHTML=h;
+      $('#nx').onclick=function(){ if(cur<(t.steps.length-1)){cur++;draw();} };
+      $('#pv').onclick=function(){ if(cur>0){cur--;draw();} };
+      $('#bk2').onclick=run;
+      window.scrollTo(0,0);
+    }
+    draw();
+  }
+
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

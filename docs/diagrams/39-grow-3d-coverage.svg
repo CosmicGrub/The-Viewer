@@ -1,0 +1,66 @@
+<svg viewBox="0 0 1180 890" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="890" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">Growing the 3D coverage — methods that compound over time</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Every method is grounded: dimensions come from FLIS or the manual&#x27;s own drawings, never invented. Coverage climbs as OCR, FLIS refreshes, and curation accrue.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="100" width="262" height="58" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="132" font-size="20" font-weight="700" fill="#4f9dff" text-anchor="start">45,068</text>
+<text x="148" y="132" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">part NSNs in index</text>
+<rect x="318" y="100" width="262" height="58" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="334" y="132" font-size="20" font-weight="700" fill="#2f7d4f" text-anchor="start">41,701</text>
+<text x="426" y="132" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">enriched from FLIS</text>
+<rect x="596" y="100" width="262" height="58" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="612" y="132" font-size="20" font-weight="700" fill="#caa24a" text-anchor="start">20,869</text>
+<text x="704" y="132" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">renderable in 3D now</text>
+<rect x="874" y="100" width="262" height="58" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="890" y="132" font-size="20" font-weight="700" fill="#2f7d4f" text-anchor="start">6,092</text>
+<text x="982" y="132" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">with a stated bore</text>
+<text x="40" y="190" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">THE GROWTH LADDER  (grounded → progressively richer)</text>
+<rect x="40" y="204" width="1100" height="86" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="204" width="6" height="86" rx="3" fill="#2f7d4f"/>
+<text x="60" y="228" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Expand the FLIS dimension parser</text>
+<rect x="1000" y="215" width="128" height="22" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1064" y="230" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">FREE · NOW</text>
+<text x="60" y="248" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Use the fields already in your data: &#x27;overall length&#x27;, &#x27;body diameter&#x27;, &#x27;nominal thread size&#x27;, radius, depth. Prefer OVERALL dims for</text><text x="60" y="261" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">accuracy; gate the button to renderable parts.</text>
+<text x="60" y="280" font-size="9" font-weight="700" fill="#8fae8f" text-anchor="start">Grounded: data already indexed · pushes ~20.9k → ~30k+ · low effort</text>
+<rect x="40" y="296" width="1100" height="86" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="296" width="6" height="86" rx="3" fill="#4f9dff"/>
+<text x="60" y="320" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · Parametric family templates</text>
+<rect x="1000" y="307" width="128" height="22" rx="6" fill="#4f9dff" stroke="#2b333f" stroke-width="1"/>
+<text x="1064" y="322" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">RICHER SHAPES</text>
+<text x="60" y="340" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">For standard families (bolt, nut, washer, flange, connector, bearing) render a real shape from the characteristics + thread — not just a</text><text x="60" y="353" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">box. Recognizable, still grounded.</text>
+<text x="60" y="372" font-size="9" font-weight="700" fill="#9bb3d6" text-anchor="start">Grounded: standards + FLIS dims · med effort</text>
+<rect x="40" y="388" width="1100" height="86" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="388" width="6" height="86" rx="3" fill="#caa24a"/>
+<text x="60" y="412" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · Extract dimensions from the TM drawings</text>
+<rect x="1000" y="399" width="128" height="22" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="1064" y="414" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">YOUR ASK</text>
+<text x="60" y="432" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Read dimension callouts off the figure/exploded-view pages (OCR boxes + dimension-line detection), tie them to the figure&#x27;s part via the</text><text x="60" y="445" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">parts index, attach as cited dims. Literally 2D sketch → 3D dims.</text>
+<text x="60" y="464" font-size="9" font-weight="700" fill="#cbb87a" text-anchor="start">Grounded: the manual&#x27;s own drawing, cited · needs OCR done · med-high effort</text>
+<rect x="40" y="480" width="1100" height="86" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="480" width="6" height="86" rx="3" fill="#caa24a"/>
+<text x="60" y="504" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · Multi-view orthographic reconstruction</text>
+<rect x="1000" y="491" width="128" height="22" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="1064" y="506" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">HIGHER FIDELITY</text>
+<text x="60" y="524" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Where a TM gives front/side/section dimensioned views, reconstruct a more accurate solid (real engineering reconstruction).</text>
+<text x="60" y="556" font-size="9" font-weight="700" fill="#cbb87a" text-anchor="start">Grounded: the drawing&#x27;s own views · high effort</text>
+<rect x="40" y="572" width="1100" height="86" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="572" width="6" height="86" rx="3" fill="#e0564f"/>
+<text x="60" y="596" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · Real CAD / photogrammetry (look-alikes)</text>
+<rect x="1000" y="583" width="128" height="22" rx="6" fill="#e0564f" stroke="#2b333f" stroke-width="1"/>
+<text x="1064" y="598" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="middle">EXACT, SELECTIVE</text>
+<text x="60" y="616" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">For the highest-value look-alike parts, import real CAD or photograph the part — exact surfaces where it matters. A library that grows.</text>
+<text x="60" y="648" font-size="9" font-weight="700" fill="#d98a8a" text-anchor="start">Grounded: real geometry · per-part labor / data-rights</text>
+<rect x="40" y="664" width="1100" height="86" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="664" width="6" height="86" rx="3" fill="#2f7d4f"/>
+<text x="60" y="688" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">6 · SME confirm / curate loop</text>
+<rect x="1000" y="675" width="128" height="22" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1064" y="690" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">LEARNS</text>
+<text x="60" y="708" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Let an SME confirm/correct a part&#x27;s dims or attach a model; stored &amp; reused (like the parts learning). Coverage grows with use.</text>
+<text x="60" y="740" font-size="9" font-weight="700" fill="#8fae8f" text-anchor="start">Grounded: human-verified · low effort, ongoing</text>
+<rect x="40" y="760" width="1100" height="70" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="784" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">WHY IT COMPOUNDS</text>
+<text x="58" y="804" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Each OCR pass makes more drawings readable (feeds #3/#4); each monthly FLIS refresh adds characteristics; each parser/template/SME addition lifts the renderable count — all</text><text x="58" y="817" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">additive (R1) and append-only (R6). A per-vehicle &#x27;3D coverage %&#x27; meter makes the climb visible. The representative model is the floor; CAD/photogrammetry is the ceiling</text><text x="58" y="830" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">for the parts that earn it.</text>
+<text x="40" y="878" font-size="9.4" font-weight="400" fill="#6b7280" text-anchor="start">Proposal — your call on which rungs to build. The interactive viewer already in chat is rung 0. Dark (R3).</text>
+</svg>

@@ -1,0 +1,72 @@
+<svg viewBox="0 0 1180 840" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="840" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">Where authoritative military NSN data comes from — assessment</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">You asked to assess fuller sources before pulling. Verdict: PUB LOG (DLA) — free, monthly, no CAC, public-domain — and it carries the exact fields we were missing.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="98" width="720" height="104" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="98" width="6" height="104" rx="3" fill="#2f7d4f"/>
+<text x="60" y="122" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">PUB LOG® (DLA)</text>
+<rect x="620" y="108" width="128" height="22" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="684" y="123" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">USE THIS</text>
+<text x="60" y="142" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Publicly-releasable FLIS catalog: NSN→item name, Characteristics (CHAR), Master Cross-Reference</text><text x="60" y="155" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">(NSN↔part#↔CAGE), Interchangeability/Substitutability + AAC, item-name directory. Single .ZIP,</text><text x="60" y="168" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">updated monthly, free, no CAC.</text>
+<text x="60" y="190" font-size="9" font-weight="700" fill="#8fae8f" text-anchor="start">Authoritative · current · comprehensive · public-domain</text>
+<rect x="40" y="210" width="720" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="210" width="6" height="80" rx="3" fill="#4f9dff"/>
+<text x="60" y="234" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">WebFLIS® (DLA)</text>
+<rect x="620" y="220" width="128" height="22" rx="6" fill="#4f9dff" stroke="#2b333f" stroke-width="1"/>
+<text x="684" y="235" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">spot checks</text>
+<text x="60" y="254" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Per-NSN web lookup (name, part numbers, suppliers). Interactive, not bulk — good for verifying one</text><text x="60" y="267" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN.</text>
+<text x="60" y="278" font-size="9" font-weight="700" fill="#9bb3d6" text-anchor="start">official · not a bulk fill</text>
+<rect x="40" y="298" width="720" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="298" width="6" height="80" rx="3" fill="#caa24a"/>
+<text x="60" y="322" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">GSA NSN Extract (data.gov)</text>
+<rect x="620" y="308" width="128" height="22" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="684" y="323" font-size="9" font-weight="700" fill="#0f1419" text-anchor="middle">superseded</text>
+<text x="60" y="342" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Public/CC0, but the GSA-Advantage commercial subset, last updated 2017. PUB LOG covers it and far</text><text x="60" y="355" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">more.</text>
+<text x="60" y="366" font-size="9" font-weight="700" fill="#cbb87a" text-anchor="start">public-domain but partial &amp; dated</text>
+<rect x="40" y="386" width="720" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="386" width="6" height="80" rx="3" fill="#e0564f"/>
+<text x="60" y="410" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">FED LOG® (DLA)</text>
+<rect x="620" y="396" width="128" height="22" rx="6" fill="#e0564f" stroke="#2b333f" stroke-width="1"/>
+<text x="684" y="411" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="middle">restricted</text>
+<text x="60" y="430" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Fuller product incl. management/pricing — but access-controlled; not the public path.</text>
+<text x="60" y="454" font-size="9" font-weight="700" fill="#d98a8a" text-anchor="start">not publicly downloadable</text>
+<rect x="40" y="474" width="720" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="474" width="6" height="80" rx="3" fill="#e0564f"/>
+<text x="60" y="498" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">Commercial mirrors (nsnlookup, ISO, etc.)</text>
+<rect x="620" y="484" width="128" height="22" rx="6" fill="#e0564f" stroke="#2b333f" stroke-width="1"/>
+<text x="684" y="499" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="middle">avoid</text>
+<text x="60" y="518" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Scrape FLIS; unofficial, variable quality. Excluded by your &#x27;official-only&#x27; choice.</text>
+<text x="60" y="542" font-size="9" font-weight="700" fill="#d98a8a" text-anchor="start">unofficial</text>
+<rect x="780" y="98" width="360" height="418" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="798" y="122" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">WHAT PUB LOG FILLS HERE</text>
+<rect x="798" y="146" width="326" height="62" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="810" y="166" font-size="10.6" font-weight="700" fill="#bfe6c5" text-anchor="start">NSN → nomenclature</text>
+<text x="810" y="182" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the parts-request sheet item names</text>
+<rect x="798" y="216" width="326" height="62" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="810" y="236" font-size="10.6" font-weight="700" fill="#bfe6c5" text-anchor="start">NSN ↔ PART # + CAGE (MCRD)</text>
+<text x="810" y="252" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the exact part# OCR couldn&#x27;t pin down —</text><text x="810" y="264" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Phase-2 gap, solved by data</text>
+<rect x="798" y="286" width="326" height="62" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="810" y="306" font-size="10.6" font-weight="700" fill="#bfe6c5" text-anchor="start">Characteristics (CHAR)</text>
+<text x="810" y="322" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">size / thread / material → the SIZE parameter</text><text x="810" y="334" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">for Tier 2.5 parametric 3D</text>
+<rect x="798" y="356" width="326" height="62" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="810" y="376" font-size="10.6" font-weight="700" fill="#bfe6c5" text-anchor="start">AAC (acquisition advice)</text>
+<text x="810" y="392" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">fills the 104th&#x27;s AAC FEDLOG block</text>
+<rect x="798" y="426" width="326" height="62" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="810" y="446" font-size="10.6" font-weight="700" fill="#bfe6c5" text-anchor="start">Interchangeability / Substitutability</text>
+<text x="810" y="462" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">real substitute parts → grounds look-alike /</text><text x="810" y="474" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">variant warnings</text>
+<rect x="40" y="548" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="572" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">ONE-TIME, OFFLINE-PRESERVING PROCEDURE</text>
+<text x="58" y="592" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="72" y="592" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">On a CONNECTED machine: download PublogDVD.zip (free, no CAC) from DLA → extract.</text>
+<text x="58" y="609" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="72" y="609" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Use PUB LOG&#x27;s built-in Search Batch / SQL export to dump records for your NSN list to CSV (NSN, item name, part#, CAGE, characteristics, AAC).</text>
+<text x="58" y="626" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="72" y="626" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Run `enrich` against that CSV → fills the offline reference tables (append-only, cited, R6). Copy the DB back. Engine never goes online.</text>
+<text x="58" y="643" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">•</text>
+<text x="72" y="643" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Caveats: the .ZIP is large (~GB); data is in the IMD product format, so the Batch/SQL export step is how you get clean CSV.</text><text x="72" y="656" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Restricted/proprietary/NATO data is excluded (fine for us).</text>
+<rect x="40" y="700" width="1100" height="80" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="724" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">BONUS — this also unblocks earlier gaps</text>
+<text x="58" y="744" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">PUB LOG&#x27;s MCRD gives the authoritative NSN↔part# we deferred in the structured-parts work (it was OCR-noisy), CHAR gives the Tier 2.5 size parameter we said we&#x27;d need, and</text><text x="58" y="757" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">MDI&amp;S gives real substitutes for look-alike warnings + the AAC field. One public, free, monthly dataset closes several gaps at once — additively (R6).</text>
+<text x="40" y="826" font-size="9.4" font-weight="400" fill="#6b7280" text-anchor="start">Assessment only — no download taken. To wire ingestion I&#x27;d extend `enrich` to the PUB LOG fields. Dark (R3). Your call.</text>
+</svg>

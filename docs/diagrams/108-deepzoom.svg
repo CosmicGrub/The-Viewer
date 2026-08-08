@@ -1,0 +1,64 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="720" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Offline deep-zoom + callout hotspots   v0.99.3</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Zoom deep into any TM page or schematic — crisp at every level, no internet, no CDN — and click the OCR callouts to jump to the part.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">HOW IT WORKS</text>
+<rect x="40" y="128" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="120" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">canvas viewer</text>
+<text x="56" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">deepzoom.js: a &lt;canvas&gt; draws</text>
+<text x="56" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the page; drag-pan, wheel-zoom,</text>
+<text x="56" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">pinch, dbl-click fit. Same proven</text>
+<text x="56" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">pattern as cadview.js.</text>
+<text x="308" y="194" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="320" y="128" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="320" y="128" width="5" height="120" rx="2.5" fill="#caa24a"/>
+<text x="336" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">progressive DPI</text>
+<text x="336" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">as you zoom in, it re-requests</text>
+<text x="336" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">/page?dpi=N at 150→300→600→1000</text>
+<text x="336" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">so pixels stay CRISP — tiles</text>
+<text x="336" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">generated on demand, offline.</text>
+<text x="588" y="194" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="600" y="128" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="128" width="5" height="120" rx="2.5" fill="#1d9e75"/>
+<text x="616" y="150" font-size="11" font-weight="700" fill="#1d9e75" text-anchor="start">callout hotspots</text>
+<text x="616" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/callouts -&gt; numbered markers</text>
+<text x="616" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">at each NSN/PN/FIG box; click a</text>
+<text x="616" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">number to jump to the part</text>
+<text x="616" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(/dossier, /partdiff). ⌖ toggles.</text>
+<text x="868" y="194" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="880" y="128" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="880" y="128" width="5" height="120" rx="2.5" fill="#7f77dd"/>
+<text x="896" y="150" font-size="11" font-weight="700" fill="#7f77dd" text-anchor="start">entry points</text>
+<text x="896" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">/deepzoom?doc=ID&amp;page=N page</text>
+<text x="896" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(page nav + doc title) +</text>
+<text x="896" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">🔎 Deep Zoom button on the</text>
+<text x="896" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">schematics viewer toolbar.</text>
+<line x1="40" y1="264" x2="1140" y2="264" stroke="#2b333f"/>
+<text x="40" y="292" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">WHY OFFLINE-NATIVE</text>
+<rect x="40" y="306" width="550" height="90" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="330" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">No CDN / no tiles on disk</text>
+<text x="56" y="350" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">OpenSeadragon needs pre-generated tile pyramids; here the server renders the exact DPI you need, when you need it. Nothing to pre-bake, nothing to</text><text x="56" y="363" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">sync.</text>
+<rect x="600" y="306" width="550" height="90" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="616" y="330" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">Crisp, not blurry</text>
+<text x="616" y="350" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Zooming past a threshold swaps in a higher-DPI render instead of upscaling — so a dense parts diagram stays legible at deep zoom.</text>
+<rect x="40" y="406" width="550" height="90" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="430" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Callouts are already there</text>
+<text x="56" y="450" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">The OCR callout boxes (NSN/PN/FIG) that the page already computes become clickable hotspots — read the figure, tap a number, land on the part.</text>
+<rect x="600" y="406" width="550" height="90" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="616" y="430" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">Every tier</text>
+<text x="616" y="450" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Plain canvas + &lt;img&gt;, ES5-safe — works on legacy too (just a lower DPI ceiling). No WebGL required.</text>
+<line x1="40" y1="506" x2="1140" y2="506" stroke="#2b333f"/>
+<text x="40" y="534" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">STATUS</text>
+<rect x="40" y="548" width="1100" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="567" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="570" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">deepzoom.js + deepzoom.html inline JS pass node --check; deepzoom.html added to verify_ui.py.</text>
+<circle cx="56" cy="584" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="587" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Route table + schematics 🔎 button pending the host suite -&gt; run VERIFY-099.bat.</text>
+<circle cx="56" cy="601" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="604" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">DEFERRED (documented): line-art vectorization (raster-&gt;vector) — a separate heavy task; schem_overlay already extracts existing PDF vectors.</text>
+<circle cx="56" cy="618" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="621" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable (R1): 2 new UI files + 2 route lines + 1 toolbar button. This closes the 4th &#x27;all of the above&#x27; thread.</text>
+<text x="40" y="710" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.3 · 2026-07-01 · deepzoom.js · /deepzoom · /api/callouts hotspots · progressive /page?dpi. Offline, ES5. R1.</text>
+</svg>

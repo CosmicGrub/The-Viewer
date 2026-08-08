@@ -1,0 +1,39 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — 3D Library + Schematics Library + reset everywhere  (v0.39.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Two dedicated, browsable collection pages reachable from the header, plus a Reset on every moveable view.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · TWO COLLECTION PAGES (linked from the home header)</text>
+<rect x="40" y="126" width="1100" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="148" width="510" height="210" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="80" y="172" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">🧊 3D Library   /3d</text>
+<text x="80" y="192" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Every part with enough FLIS dimensions to render a representative</text><text x="80" y="204" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">3D shape — 20,869 of them. Searchable, paginated grid; each card</text><text x="80" y="216" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">is a live mini 3D thumbnail.</text>
+<text x="80" y="248" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">Click → drag-rotate · scroll-zoom · ⟲ reset · double-click reset</text>
+<text x="80" y="266" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/threed?q=&amp;limit=&amp;offset=  (ref_nsn with DIAMETER/LENGTH/…)</text>
+<text x="80" y="292" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Self-contained renderer: family shape (cyl/hex/disc/box),</text>
+<text x="80" y="306" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">material/colour tint, depth-shaded — NOT a CAD model (grounded).</text>
+<rect x="600" y="148" width="510" height="210" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="620" y="172" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">📐 Schematics Library   /schematics</text>
+<text x="620" y="192" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Every schematic / wiring-diagram document in the corpus — 1,093 of</text><text x="620" y="204" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">them. Searchable by vehicle / TM / title / NSN; each card shows a</text><text x="620" y="216" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">rendered page-1 thumbnail.</text>
+<text x="620" y="248" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">Click → built-in page viewer: prev/next, 🧹 clean, zoom ±, ⟲ reset</text>
+<text x="620" y="266" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/schematics?q=&amp;limit=&amp;offset=  (documents typed schematic/wiring)</text>
+<text x="620" y="292" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Pages render on demand via /page; arrow keys page through.</text>
+<text x="620" y="306" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Exploded-view RPSTL figures remain in the vehicle hub.</text>
+<text x="56" y="408" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · RESET ON EVERY MOVEABLE / INTERACTIVE VIEW</text>
+<rect x="40" y="418" width="1100" height="200" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<circle cx="60" cy="440" r="3.5" fill="#2f7d4f"/>
+<text x="74" y="444" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">Schematic page viewer</text>
+<text x="310" y="444" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">⟲ Reset clears tilt X/Y, zoom, and mirror back to the default view (sliders + buttons reset too).</text>
+<circle cx="60" cy="474" r="3.5" fill="#2f7d4f"/>
+<text x="74" y="478" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">Representative 3D viewer</text>
+<text x="310" y="478" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">⟲ Reset + double-click restores the default rotation + zoom.</text>
+<circle cx="60" cy="508" r="3.5" fill="#2f7d4f"/>
+<text x="74" y="512" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">3D Library cards</text>
+<text x="310" y="512" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">double-click or ⟲ in the modal resets rotation/zoom.</text>
+<circle cx="60" cy="542" r="3.5" fill="#2f7d4f"/>
+<text x="74" y="546" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">Schematics viewer</text>
+<text x="310" y="546" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">⟲ Reset returns zoom to 100%.</text>
+<text x="60" y="584" font-size="9.2" font-weight="400" fill="#2f7d4f" text-anchor="start">Triggered by the user demonstrating tilt with no way to reset. Every transform now has a clearly-labelled Reset; presentation-only and reversible (R1).</text>
+<text x="40" y="688" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.39.0 · 2026-06-02 · new pages: ui/threed.html, ui/schematics.html.</text>
+</svg>

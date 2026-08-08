@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Keywords &amp; Tags</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+/* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:22px}
+h1{font-size:22px;font-weight:600;margin:0}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
+input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 14px;cursor:pointer}
+button:hover{border-color:var(--acc);background:var(--p2)}
+button.go{background:var(--acc);border-color:var(--acc);color:#08111d;font-weight:600}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-top:8px;background:var(--p2)}
+.tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:9px;padding:2px 9px;background:rgba(79,157,255,.10)}
+.tag.first{border-color:var(--amb);color:var(--amb)}
+.del{margin-left:auto;color:var(--sub);border:none;background:transparent;font-size:15px;cursor:pointer}
+.del:hover{color:#e06b6b}
+.empty{color:var(--sub);font-size:13px;padding:8px 2px}
+.stat{font-size:12px;color:var(--sub)}
+.ex{font-size:12px;color:var(--sub);margin-top:6px}
+</style><script src="/rps.js"></script></head><body><div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>Keywords &amp; Tags <span class="muted" id="stat"></span></h1>
+    <div class="muted">Teach the search your words. Type the terms that should all <b>find each other</b> &mdash; slang, common names, abbreviations, part numbers. It applies the moment you save (offline, and your additions are kept separately from the built-in sets).</div></div>
+  <div><a href="/">&larr; back to search</a></div>
+</div>
+
+<div class="card">
+  <div class="muted" style="margin-bottom:8px">Add a group of equivalent terms (comma-separated):</div>
+  <input id="terms" placeholder='e.g.  battery, power cell, juice box, 12 volt' autocomplete="off">
+  <div class="ex">When you search any one of these, you&rsquo;ll also find the others. Two or more words. Example: <i>alternator, charger, gen, the alt</i>.</div>
+  <div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="go" onclick="save()">+ Add keyword group</button><span class="muted" id="saveh"></span></div>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center"><b>Your keyword groups</b> <span class="stat" id="seednote"></span></div>
+  <div id="list"><div class="empty">loading&hellip;</div></div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function xget(url,cb,err){ var x=new XMLHttpRequest(); x.open('GET',url,true);
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ try{cb(JSON.parse(x.responseText));}catch(e){ if(err)err(e); } } else if(err){ err(x.status); } } }; x.send(); }
+function xpost(url,body,cb,err){ var x=new XMLHttpRequest(); x.open('POST',url,true); x.setRequestHeader('Content-Type','application/json');
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ try{cb(JSON.parse(x.responseText));}catch(e){ if(err)err(e); } } else if(err){ err(x.status); } } }; x.send(JSON.stringify(body)); }
+
+function render(j){
+  var groups=(j&&j.groups)||[];
+  $("stat").textContent='('+groups.length+' of yours · '+(j.terms_indexed||0)+' terms active)';
+  $("seednote").textContent=(j.seed_groups||0)+' built-in groups also active';
+  var box=$("list");
+  if(!groups.length){ box.innerHTML='<div class="empty">None yet. Add your first group above &mdash; e.g. the words your shop actually uses for a part.</div>'; return; }
+  box.innerHTML='';
+  for(var i=0;i<groups.length;i++){ (function(idx,terms){
+    var d=document.createElement('div'); d.className='grp';
+    var html='';
+    for(var k=0;k<terms.length;k++){ html+='<span class="tag'+(k===0?' first':'')+'">'+esc(terms[k])+'</span>'; }
+    d.innerHTML=html+'<button class="del" title="Remove this group">&times;</button>';
+    d.querySelector('.del').onclick=function(){ if(!window.confirm('Remove this keyword group?')) return;
+      xpost('/api/keywords',{action:'delete',index:idx},function(){ load(); },function(){}); };
+    box.appendChild(d);
+  })(i, groups[i]); }
+}
+function load(){ xget('/api/keywords', render, function(){ $("list").innerHTML='<div class="empty">Could not load (is the app running?)</div>'; }); }
+function save(){
+  var raw=$("terms").value.split(/[,\n]/); var terms=[];
+  for(var i=0;i<raw.length;i++){ var t=raw[i].replace(/^\s+|\s+$/g,''); if(t) terms.push(t); }
+  if(terms.length<2){ $("saveh").textContent='Enter at least two words, comma-separated.'; return; }
+  $("saveh").textContent='saving&hellip;';
+  xpost('/api/keywords',{action:'save',terms:terms},function(r){
+    if(r&&r.ok){ $("saveh").textContent='added — it works in search now.'; $("terms").value=''; load(); }
+    else { $("saveh").textContent=(r&&r.error)||'could not save.'; }
+  }, function(){ $("saveh").textContent='could not save.'; });
+}
+$("terms").addEventListener('keydown',function(e){ if(e.key==='Enter'||e.keyCode===13) save(); });
+load();
+</script></body></html>

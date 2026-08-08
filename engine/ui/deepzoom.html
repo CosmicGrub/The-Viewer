@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deep Zoom — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  html,body{height:100%;margin:0;background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif}
+  .wrap{display:flex;flex-direction:column;height:100vh}
+  .top{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#10151c;border-bottom:1px solid #223}
+  .top b{color:#7fbfff}
+  .muted{color:#8a98a8;font-size:12px}
+  .top button,.top a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;text-decoration:none}
+  #stage{flex:1;min-height:0}
+  #fpanel{position:fixed;top:44px;right:0;bottom:0;width:320px;background:#0f141b;border-left:1px solid #223;
+          transform:translateX(100%);transition:transform .18s ease;overflow:auto;z-index:20;box-shadow:-8px 0 24px #0008}
+  #fpanel.open{transform:translateX(0)}
+  #fpanel h3{margin:0;padding:12px 14px;font-size:13px;color:#7fbfff;border-bottom:1px solid #223;
+             position:sticky;top:0;background:#0f141b;display:flex;justify-content:space-between;align-items:center}
+  #fpanel .fp{display:block;padding:9px 14px;border-bottom:1px solid #1a232e;text-decoration:none;color:#e6edf4;font-size:12px}
+  #fpanel .fp:hover{background:#16202b}
+  #fpanel .fp b{color:#cfe} #fpanel .fp .n{color:#8a98a8;font-size:11px}
+  #fpanel .fpx{cursor:pointer;color:#8a98a8;font-size:16px;line-height:1}
+</style></head><body>
+<div class="wrap">
+  <div class="top">
+    <b>🔎 Deep Zoom</b>
+    <span class="muted" id="meta">—</span>
+    <span style="margin-left:auto"></span>
+    <button id="prev">◀ page</button>
+    <span class="muted" id="pg">p.1</span>
+    <button id="next">page ▶</button>
+    <a class="btn" id="opendoc" target="_blank">open full document ↗</a>
+    <a class="btn" id="vec" target="_blank" title="Vectorize this page to crisp SVG line-art (offline, OpenCV)">⛭ Vectorize</a>
+    <button id="fpbtn" title="List every part called out on this page (from the parts index)">🧩 Parts on page</button>
+    <span class="muted" id="cinfo"></span>
+  </div>
+  <div id="stage"></div>
+  <div id="fpanel"><h3><span id="fptitle">Parts on this page</span><span class="fpx" id="fpclose">×</span></h3><div id="fplist"></div></div>
+</div>
+<script src="/deepzoom.js"></script>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  var doc=q.get('doc')||'', page=parseInt(q.get('page')||'1',10)||1;
+  var dz=null;
+  function $(s){return document.querySelector(s);}
+  function mount(){
+    if(dz){ try{dz.destroy();}catch(e){} }
+    $('#pg').textContent='p.'+page;
+    $('#opendoc').href='/page?doc='+encodeURIComponent(doc)+'&page='+page+'&dpi=200';
+    $('#vec').href='/vectorize?doc='+encodeURIComponent(doc)+'&page='+page+'&dpi=200';
+    if(!doc){ $('#stage').innerHTML='<div style="padding:24px;color:#8a98a8">No document specified. Open this page as <code>/deepzoom?doc=ID&page=N</code>.</div>'; return; }
+    dz=DeepZoom.mount($('#stage'), doc, page, { onInfo:function(o){ $('#cinfo').textContent = o.callouts? (o.callouts+' callout'+(o.callouts===1?'':'s')+' — click a number to jump to the part') : 'no anchored callouts on this page'; } });
+  }
+  // doc title in the meta line
+  fetch('/api/doc?id='+encodeURIComponent(doc)).then(function(r){return r.json();}).then(function(j){
+    if(j){ $('#meta').textContent=(j.vehicle||'')+(j.tm_number?(' · '+j.tm_number):'')+(j.title?(' · '+j.title):''); }
+  }).catch(function(){});
+  $('#prev').onclick=function(){ if(page>1){ page--; mount(); loadParts(); } };
+  $('#next').onclick=function(){ page++; mount(); loadParts(); };
+
+  // ---- "parts on this page" drawer (GET /api/figureparts) ----
+  var partsLoaded=-1;
+  /* esc()/toast() from /shared.js */
+  function loadParts(){
+    partsLoaded=-1;
+    if(!doc) return;
+    $('#fplist').innerHTML='<div style="padding:14px;color:#8a98a8;font-size:12px">Loading…</div>';
+    fetch('/api/figureparts?doc='+encodeURIComponent(doc)+'&page='+page).then(function(r){return r.json();}).then(function(j){
+      partsLoaded=(j&&j.count)||0;
+      $('#fptitle').textContent=(j&&j.fig_no?(j.fig_no+' — '):'')+'Parts on p.'+page+(j&&j.count?(' ('+j.count+')'):'');
+      var rows=(j&&j.parts)||[];
+      if(!rows.length){ $('#fplist').innerHTML='<div style="padding:14px;color:#8a98a8;font-size:12px">No indexed parts on this page.</div>'; return; }
+      var html='';
+      for(var i=0;i<rows.length;i++){ var p=rows[i]; var href=p.dossier_url||p.locate_url||'#';
+        html+='<a class="fp" href="'+esc(href)+'" target="_blank"><b>'+esc(p.name||p.part_number||p.nsn||'part')+'</b>'
+             +(p.nsn?(' <span class="n">'+esc(p.nsn)+'</span>'):'')
+             +(p.part_number?('<br><span class="n">P/N '+esc(p.part_number)+(p.cagec?(' · CAGE '+esc(p.cagec)):'')+(p.smr?(' · SMR '+esc(p.smr)):'')+'</span>'):'')
+             +'</a>';
+      }
+      $('#fplist').innerHTML=html;
+    }).catch(function(){ $('#fplist').innerHTML='<div style="padding:14px;color:#c66;font-size:12px">Could not load parts.</div>'; });
+  }
+  $('#fpbtn').onclick=function(){ var p=$('#fpanel'); p.classList.toggle('open'); if(p.classList.contains('open')&&partsLoaded<0) loadParts(); };
+  $('#fpclose').onclick=function(){ $('#fpanel').classList.remove('open'); };
+
+  mount();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

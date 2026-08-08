@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ask the manuals — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:12px 14px;font-size:16px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:11px 15px;cursor:pointer}
+  a.btn,button.alt{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;cursor:pointer;font-size:13.5px}
+  .ans{background:#0e141c;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:12px 0}
+  .s{padding:9px 0;border-bottom:1px solid #1a222d;font-size:14.5px;line-height:1.5}
+  .s:last-child{border-bottom:none}
+  .cite{color:#4f9dff;text-decoration:none;font-size:12px;border:1px solid #2f4858;border-radius:6px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+  .ex{display:inline-block;background:#141d29;border:1px solid #2f4858;border-radius:14px;padding:4px 11px;margin:3px 5px 3px 0;font-size:12.5px;color:#cfe;cursor:pointer}
+  .none{color:#8a98a8;font-size:13px;padding:10px 0}
+  .disc{color:#6b7280;font-size:11.5px;margin-top:10px}
+</style></head><body>
+<div class="wrap">
+  <h1>💬 Ask the manuals <span class="muted">— offline &amp; cited</span></h1>
+  <div class="muted">Ask in plain language. The answer is pulled <b>verbatim</b> from your manuals with the page to
+    open — nothing is invented, nothing leaves this machine.</div>
+  <div class="search">
+    <input id="q" placeholder="e.g. How do I bleed the CTIS lines?" autofocus>
+    <button class="go" id="go">Ask</button>
+    <button class="alt" id="read" title="Read the answer aloud">🔊</button>
+  </div>
+  <div id="ex"></div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  var EX=["How do I bleed the CTIS lines?","What is the tire pressure for highway?","How to remove the alternator",
+          "Torque for the wheel lug nuts","What does a blinking CTIS light mean?"];
+  $('#ex').innerHTML=EX.map(function(e){return '<span class="ex">'+esc(e)+'</span>';}).join('');
+  $('#ex').querySelectorAll('.ex').forEach(function(el){ el.onclick=function(){ $('#q').value=el.textContent; run(); }; });
+
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<3){ $('#head').textContent='Ask a question.'; return; }
+    history.replaceState(null,'','/ask?q='+encodeURIComponent(q));
+    $('#head').textContent='Reading the manuals…'; $('#out').innerHTML='';
+    fetch('/api/ask?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.answered){ $('#head').textContent=''; $('#out').innerHTML='<div class="none">No answer found in the corpus for that. Try rephrasing, or use <a href="/?q='+encodeURIComponent(q)+'" style="color:#4f9dff">full search</a>. (Answers improve as OCR coverage grows.)</div>'; return; }
+      $('#head').textContent='From your manuals'+(j.retrieved?(' — scanned '+j.retrieved+' pages'):'')+':';
+      var h='<div class="ans">';
+      j.sentences.forEach(function(s){
+        var cite=s.page!=null?('<a class="cite" href="/deepzoom?doc='+encodeURIComponent(s.doc)+'&page='+encodeURIComponent(s.page)+'" target="_blank">'+esc(s.tm||('doc '+s.doc))+' p.'+esc(s.page)+' ↗</a>'):'';
+        h+='<div class="s">'+esc(s.text)+' '+cite+'</div>';
+      });
+      h+='</div><div class="disc">Extracted verbatim from the cited pages — always confirm on the actual TM page before acting. This is not a generated answer.</div>';
+      $('#out').innerHTML=h;
+      window.__lastAnswer = j.sentences.map(function(s){return s.text;}).join(". ");
+    }).catch(function(){ $('#head').textContent='Ask failed.'; });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  $('#read').onclick=function(){ if(typeof window.viewerSpeak==='function') window.viewerSpeak(window.__lastAnswer||$('#out').innerText); };
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

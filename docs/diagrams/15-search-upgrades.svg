@@ -1,0 +1,63 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="720" rx="0" fill="#0f1419" stroke="#0f1419"/>
+<text x="40" y="50" font-size="24" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER — Search upgrades: Last-4 + smarter key terms</text>
+<text x="40" y="76" font-size="12" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.14.0 · Last-4 NSN/NIIN lookup (cover/end-item) · synonyms · part#/FIG/callout · All/Any · offline fuzzy. Additive (R1).</text>
+<line x1="40" y1="92" x2="1140" y2="92" stroke="#2b333f"/>
+<rect x="40" y="112" width="1100" height="52" rx="12" fill="#171d26" stroke="#2b333f"/>
+<text x="60" y="143" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">Query  (one box)  →  GET /api/search?q=…&amp;any=0|1&amp;mode=text?</text>
+<text x="720" y="143" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">examples:  &quot;gasket&quot;   &quot;FIG 7&quot;   &quot;5330-01-186&quot;   &quot;2202&quot;   &quot;altenator&quot;</text>
+<path d="M590,164 L590,186" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="40" y="186" width="1100" height="46" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="60" y="214" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">Router decides the mode from the query shape:</text>
+<text x="430" y="214" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">exactly 4 digits → Last-4   ·   ≥11 NSN digits → exact NSN   ·   else → key-term search</text>
+<rect x="40" y="252" width="345" height="300" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="40" y="252" width="345" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="54" y="272" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">LAST-4  (4 digits)</text>
+<rect x="56" y="296" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="68" y="317" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Match COVER / end-item NSN</text>
+<text x="68" y="335" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">documents WHERE nsn LIKE &#x27;%2202&#x27;</text>
+<rect x="56" y="356" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="68" y="377" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Classify part vs vehicle (FSC)</text>
+<text x="68" y="395" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">banner: &#x27;LAST-4 •2202 · N manuals&#x27;</text>
+<rect x="56" y="416" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="68" y="437" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Escape hatch button</text>
+<text x="68" y="455" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;Search all manuals for 2202&#x27; → mode=text (FTS body)</text>
+<path d="M212.5,232 L212.5,252" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="415" y="252" width="345" height="300" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="415" y="252" width="345" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="429" y="272" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">FULL NSN  (≥11 digits)</text>
+<rect x="431" y="296" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="443" y="317" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Exact phrase match in pages</text>
+<text x="443" y="335" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">pages_fts MATCH &quot;2920 01 449 2202&quot;</text>
+<rect x="431" y="356" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="443" y="377" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">+ cover-NSN match</text>
+<text x="443" y="395" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">documents WHERE nsn = …</text>
+<rect x="431" y="416" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="443" y="437" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Vehicle NSN → breakdown hub</text>
+<text x="443" y="455" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">(unchanged from 0.10)</text>
+<path d="M587.5,232 L587.5,252" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="790" y="252" width="345" height="300" rx="12" fill="#171d26" stroke="#2b333f"/>
+<rect x="790" y="252" width="345" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="804" y="272" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">KEY TERMS  (everything else)</text>
+<rect x="806" y="296" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="818" y="317" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Synonyms (extensible JSON)</text>
+<text x="818" y="335" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">gasket → seal · packing · o-ring</text>
+<rect x="806" y="356" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="818" y="377" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Fuzzy / typo (fts5vocab, edit-dist 1)</text>
+<text x="818" y="395" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">altenator → alternator</text>
+<rect x="806" y="416" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="818" y="437" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">part# / FIG / callout precision</text>
+<text x="818" y="455" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">5330-01-186 → adjacent phrase · fig→figure</text>
+<rect x="806" y="476" width="313" height="52" rx="9" fill="#1c2430" stroke="#2b333f"/>
+<text x="818" y="497" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">All (AND)  vs  Any (OR) toggle</text>
+<text x="818" y="515" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">per-word groups combined either way</text>
+<path d="M962.5,232 L962.5,252" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="40" y="572" width="1100" height="58" rx="12" fill="#171d26" stroke="#2b333f"/>
+<text x="60" y="596" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">build_match()  →  one FTS5 MATCH expression  →  ranked results  →  smart-results cards (filters/counts)</text>
+<text x="60" y="617" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">e.g.  (&quot;gasket&quot;* OR &quot;seal&quot; OR &quot;packing&quot;)  AND  (&quot;7&quot;*)        ·  ANY mode flattens every alternative into one OR</text>
+<path d="M212,552 L212,572" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<path d="M587,552 L587,572" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<path d="M962,552 L962,572" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<text x="40" y="706" font-size="10" font-weight="400" fill="#6b7280" text-anchor="start">Cover-NSN-only Last-4 (your call) keeps false positives low; the escape hatch reaches part NSNs in body text. Dark+PDF (R3) · CHANGELOG 0.14.0 (R4) · visual panel (R5).</text>
+</svg>

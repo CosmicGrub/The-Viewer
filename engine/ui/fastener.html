@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fastener reference — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:960px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .bar{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  input{flex:1;min-width:220px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  a.btn,button{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .tabs{display:flex;gap:6px;margin:6px 0 10px}
+  .tab{background:#16202b;border:1px solid #26333f;border-radius:999px;padding:5px 13px;font-size:12.5px;color:#8a98a8;cursor:pointer}
+  .tab.on{background:#1f6feb;border-color:#1f6feb;color:#fff}
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #1a232e;font-size:13px}
+  th{color:#7fbfff;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+  td .sz{font-weight:700;color:#cfe}
+  td a{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:11.5px;margin-right:5px}
+  td a:hover{border-color:#4f9dff}
+  .note{color:#e8a06a;font-size:11.5px;margin-top:14px}
+</style></head><body>
+<div class="wrap">
+  <h1>🔧 Fastener reference</h1>
+  <div class="muted">Identify a thread by size — major diameter, threads/pitch — then jump to its torque spec and where it's used in the manuals. Standard UNC/UNF & ISO metric geometry (exact); torque always comes from the TM.</div>
+  <div class="bar">
+    <input id="q" placeholder="filter — e.g.  1/2   ·   3/8-16   ·   M10   ·   metric" autofocus>
+    <a class="btn" href="/torque">🔩 Torque</a>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div class="tabs">
+    <span class="tab on" data-f="all">All</span>
+    <span class="tab" data-f="unc">UNC (coarse)</span>
+    <span class="tab" data-f="unf">UNF (fine)</span>
+    <span class="tab" data-f="metric">Metric</span>
+  </div>
+  <table><thead><tr><th>Size</th><th>Major dia</th><th>Threads / pitch</th><th>Class</th><th>Find</th></tr></thead><tbody id="rows"></tbody></table>
+  <div class="note">⚠ Geometry is standard reference. For torque, source the value from the TM (use the “Torque” link per row) — never torque to a generic chart on safety-critical joints.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  // exact standard geometry: [label, major_dia_in, major_dia_mm, threads(TPI for inch / pitch mm for metric), class]
+  var DATA=[
+    ["#10-24",0.190,4.83,"24 TPI","unc"],["#10-32",0.190,4.83,"32 TPI","unf"],
+    ["1/4-20",0.250,6.35,"20 TPI","unc"],["1/4-28",0.250,6.35,"28 TPI","unf"],
+    ["5/16-18",0.3125,7.94,"18 TPI","unc"],["5/16-24",0.3125,7.94,"24 TPI","unf"],
+    ["3/8-16",0.375,9.53,"16 TPI","unc"],["3/8-24",0.375,9.53,"24 TPI","unf"],
+    ["7/16-14",0.4375,11.11,"14 TPI","unc"],["7/16-20",0.4375,11.11,"20 TPI","unf"],
+    ["1/2-13",0.500,12.70,"13 TPI","unc"],["1/2-20",0.500,12.70,"20 TPI","unf"],
+    ["9/16-12",0.5625,14.29,"12 TPI","unc"],["5/8-11",0.625,15.88,"11 TPI","unc"],["5/8-18",0.625,15.88,"18 TPI","unf"],
+    ["3/4-10",0.750,19.05,"10 TPI","unc"],["3/4-16",0.750,19.05,"16 TPI","unf"],
+    ["7/8-9",0.875,22.23,"9 TPI","unc"],["1-8",1.000,25.40,"8 TPI","unc"],["1-14",1.000,25.40,"14 TPI","unf"],
+    ["M3",0.118,3.0,"0.50 mm","metric"],["M4",0.157,4.0,"0.70 mm","metric"],["M5",0.197,5.0,"0.80 mm","metric"],
+    ["M6",0.236,6.0,"1.00 mm","metric"],["M8",0.315,8.0,"1.25 mm","metric"],["M10",0.394,10.0,"1.50 mm","metric"],
+    ["M12",0.472,12.0,"1.75 mm","metric"],["M14",0.551,14.0,"2.00 mm","metric"],["M16",0.630,16.0,"2.00 mm","metric"],
+    ["M18",0.709,18.0,"2.50 mm","metric"],["M20",0.787,20.0,"2.50 mm","metric"],["M24",0.945,24.0,"3.00 mm","metric"]
+  ];
+  var filt="all", q="";
+  function match(r){
+    if(filt!=="all" && r[4]!==filt) return false;
+    if(!q) return true;
+    var hay=(r[0]+" "+r[4]+" "+r[3]).toLowerCase();
+    return hay.indexOf(q)>=0;
+  }
+  function render(){
+    var h="";
+    DATA.forEach(function(r){
+      if(!match(r)) return;
+      var qe=encodeURIComponent(r[0]);
+      h+='<tr><td><span class="sz">'+esc(r[0])+'</span></td>'
+        +'<td>'+r[1].toFixed(r[4]==="metric"?3:4)+' in · '+r[2].toFixed(2)+' mm</td>'
+        +'<td>'+esc(r[3])+'</td><td>'+r[4].toUpperCase()+'</td>'
+        +'<td><a href="/torque?q='+qe+'" target="_blank">Torque</a><a href="/?q='+qe+'" target="_blank">In manuals</a></td></tr>';
+    });
+    $('#rows').innerHTML=h||'<tr><td colspan="5" style="color:#6b7787;padding:14px">No sizes match.</td></tr>';
+  }
+  document.querySelectorAll('.tab').forEach(function(t){ t.onclick=function(){ filt=t.getAttribute('data-f'); document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===t);}); render(); }; });
+  $('#q').addEventListener('input',function(e){ q=e.target.value.trim().toLowerCase(); render(); });
+  render();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

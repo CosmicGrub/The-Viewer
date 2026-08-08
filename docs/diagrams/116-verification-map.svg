@@ -1,0 +1,50 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Verification map — what VERIFY-099.bat now guards   v0.99.12</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The pre-1.0 hardening pass starts by locking in the work-order stack: behaviors verified by hand while building are now permanent regression tests.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="118" width="268" height="150" rx="11" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="142" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">test_features / _integration</text>
+<text x="54" y="164" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">restructure kept the 0.90–0.95</text>
+<text x="54" y="179" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">imagery/CAD/schematic stack wired;</text>
+<text x="54" y="194" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">CAD_VERSION 7, routes registered,</text>
+<text x="54" y="209" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">material_for, schemgraph, localmodel.</text>
+<rect x="316" y="118" width="268" height="150" rx="11" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="330" y="142" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">test_features_modules</text>
+<text x="330" y="164" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">every features/*.py imports;</text>
+<text x="330" y="179" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">registry populated; new schemgraph</text>
+<text x="330" y="194" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">review routes present; schemreview</text>
+<text x="330" y="209" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">sidecar round-trips.</text>
+<rect x="592" y="118" width="268" height="150" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="606" y="142" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">test_jobcard  (NEW)</text>
+<text x="606" y="164" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">figureparts dedup + fig meta + urls;</text>
+<text x="606" y="179" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">jobcard intent/order/warning/preview;</text>
+<text x="606" y="194" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">build_pdf valid multi-page;</text>
+<text x="606" y="209" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">procedure materials + refs parse.</text>
+<rect x="868" y="118" width="268" height="150" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="882" y="142" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">test_routes / _search / _hardening</text>
+<text x="882" y="164" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">route table shape; search quality</text>
+<text x="882" y="179" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">(ranking/dedup); hardening (POST cap,</text>
+<text x="882" y="194" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">same-origin, param validation →</text>
+<text x="882" y="209" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">400 not 500).</text>
+<line x1="40" y1="290" x2="1140" y2="290" stroke="#2b333f"/>
+<text x="40" y="318" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">WHAT test_jobcard PINS DOWN</text>
+<rect x="40" y="332" width="1100" height="116" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="353" r="2.4" fill="#2f7d4f"/>
+<text x="66" y="356" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">figureparts.parts_on: a part listed twice on a sheet counts ONCE; figure no./title surfaced; NSN-first; dossier URLs; bad input safe.</text>
+<circle cx="56" cy="369" r="2.4" fill="#2f7d4f"/>
+<text x="66" y="372" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">jobcard._task_intent: &#x27;replace…&#x27;→Replacement, &#x27;adjust…&#x27;→Adjustment, a bare NSN→no verb. _order_procs floats the matching kind first.</text>
+<circle cx="56" cy="385" r="2.4" fill="#2f7d4f"/>
+<text x="66" y="388" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">jobcard._lookalike_warning: fires when same-name parts differ by UOC/CAGEC/SMR/FSC/part-#; SILENT on NSN format-drift; None when absent.</text>
+<circle cx="56" cy="401" r="2.4" fill="#2f7d4f"/>
+<text x="66" y="404" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">jobcard.build_pdf: still emits a valid multi-page PDF once the Materials section + ⚠ BEFORE-YOU-START box are present.</text>
+<circle cx="56" cy="417" r="2.4" fill="#2f7d4f"/>
+<text x="66" y="420" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">procedures_feature._parse_procedure: MATERIALS captured, TM/WP/LO/TB/TC refs digit-anchored (no &#x27;LOCKWASHER&#x27;), steps-only page still parses.</text>
+<line x1="40" y1="462" x2="1140" y2="462" stroke="#2b333f"/>
+<text x="40" y="490" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">HOW IT RUNS (mount-truncation aware)</text>
+<rect x="40" y="504" width="1100" height="96" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="528" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">figureparts.py is small/un-grown so its checks run in-sandbox now (green). jobcard.py + procedures_feature.py GREW this session, so the sandbox mount serves truncated reads — their assertions were verified standalone while</text><text x="58" y="543" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">building and now run HOST-SIDE via VERIFY-099.bat (python tests\test_jobcard.py). Same discipline as the rest of the 0.99.x wave: logic in-sandbox, wiring host-side.</text>
+<line x1="40" y1="614" x2="1140" y2="614" stroke="#2b333f"/>
+<text x="40" y="642" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 · additive: one new test module + one line in the verify batch. Nothing writes the index. Next hardening step: property/fuzz over the pure helpers.</text>
+<text x="40" y="692" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.12 · 2026-07-01 · tests/test_jobcard.py + VERIFY-099.bat. Read-only. R1/R6.</text>
+</svg>

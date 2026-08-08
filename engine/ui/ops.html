@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ops dashboard — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:1040px;margin:0 auto;padding:20px}
+  .sec{margin:18px 0 8px;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--amb);font-weight:700}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .mc{background:var(--p2);border-radius:10px;padding:13px}
+  .mc .l{font-size:11px;color:var(--sub)} .mc .v{font-size:23px;font-weight:600;margin-top:2px}
+  .mc .s{font-size:11px;color:var(--sub)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left} th{color:var(--sub);font-weight:600;font-size:11px;text-transform:uppercase}
+  .ok{color:#7fd6a0} .warn{color:#e7c06a} .err{color:#f0a6a6}
+  .covrow{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13px}
+  .covrow .nm{min-width:160px} .bar{flex:1;height:8px;background:var(--p2);border-radius:5px;overflow:hidden} .bar i{display:block;height:100%;background:var(--acc)}
+  .covrow .pc{min-width:42px;text-align:right;color:var(--sub)}
+  button.b{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+  button.b:hover{border-color:var(--acc)}
+  .muted{color:var(--sub);font-size:12.5px} .spin{color:var(--sub);padding:14px 0}
+  code{background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>📊 Ops dashboard</h1><span class="muted">one glance at the engine's health</span>
+  <span class="sp"></span>
+  <a class="nav" href="/status">OCR status →</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <div class="sec">At a glance</div>
+  <div class="cards" id="cards"><div class="spin">Reading the engine…</div></div>
+
+  <div class="sec">Searchable coverage by vehicle</div>
+  <div class="card" id="cov"><div class="spin">Loading coverage…</div></div>
+
+  <div class="sec">Part-number cross-reference</div>
+  <div class="card" id="xref"><div class="spin">Loading cross-reference coverage…</div></div>
+
+  <div class="sec">Recent activity (ingest &amp; OCR runs)</div>
+  <div class="card" id="runs"><div class="spin">Loading…</div></div>
+
+  <div class="sec">File integrity audit</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:8px">Check whether the indexed source PDFs are still present on disk (e.g. an unplugged external drive). Read-only.</div>
+    <button class="b" id="auditBtn" onclick="audit()">Run audit (first 600 docs)</button>
+    <div id="auditout" style="margin-top:10px"></div>
+  </div>
+</div>
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+function fmtBytes(n){ if(!n)return "0"; var u=["B","KB","MB","GB"],i=0; while(n>=1024&&i<3){n/=1024;i++;} return n.toFixed(i?1:0)+" "+u[i]; }
+
+function boot(){
+  gj("/api/ops").then(function(o){
+    o=o||{}; var c=o.counts||{}, pc=o.page_cache||{}, rps=o.rps||{}, snap=o.snapshot||{};
+    var cards=[
+      ["Runtime mode",(rps.mode||"modern").toUpperCase(),(rps.flags&&rps.flags.effects)||""],
+      ["Documents",(c.documents!=null?c.documents.toLocaleString():"—"),(c.vehicles!=null?c.vehicles+" vehicles":"")],
+      ["Page cache",(pc.files!=null?pc.files.toLocaleString():"—")+" pages",fmtBytes(pc.bytes)],
+      ["Snapshots",(snap&&snap.count_total!=null?snap.count_total:"—"),(snap&&snap.created?("last "+esc(String(snap.created).slice(0,16))):"")]
+    ];
+    $("#cards").innerHTML=cards.map(function(x){return '<div class="mc"><div class="l">'+esc(x[0])+'</div><div class="v">'+esc(x[1])+'</div><div class="s">'+esc(x[2])+'</div></div>';}).join("");
+    renderRuns(o.recent_runs||[]);
+  });
+  gj("/api/status").then(function(s){ // OCR % from the existing status endpoint, if present
+    if(!s)return; var pct=null;
+    if(s.ocr&&s.ocr.pct!=null)pct=s.ocr.pct; else if(s.ocr_pct!=null)pct=s.ocr_pct;
+    if(pct!=null){ var d=document.createElement("div"); d.className="mc"; d.style.gridColumn="span 1";
+      d.innerHTML='<div class="l">OCR searchable</div><div class="v">'+pct+'%</div><div class="s"><a class="nav" href="/status">details →</a></div>';
+      var cc=$("#cards"); if(cc) cc.appendChild(d); }
+  });
+  gj("/api/coverage").then(function(c){
+    var cov=(c&&c.coverage)||{}; var keys=Object.keys(cov).sort(function(a,b){return (cov[b].pct||0)-(cov[a].pct||0);});
+    if(!keys.length){ $("#cov").innerHTML='<div class="muted">No per-vehicle coverage yet.</div>'; return; }
+    var h=""; keys.slice(0,18).forEach(function(k){ var v=cov[k]||{}; var p=v.pct||0;
+      h+='<div class="covrow"><span class="nm">'+esc(k)+'</span><span class="bar"><i style="width:'+p+'%"></i></span><span class="pc">'+p+'%</span></div>'; });
+    if(keys.length>18) h+='<div class="muted">+'+(keys.length-18)+' more vehicles</div>';
+    $("#cov").innerHTML=h;
+  });
+  gj("/api/xref_coverage").then(function(x){
+    var box=$("#xref"); if(!box)return;
+    if(!x||x.built===false){ box.innerHTML='<div class="muted">'+esc((x&&x.note)||"Not built yet — run BUILD-RPSTL.bat (then BUILD-XREF.bat for manufacturer/NSN recovery).")+'</div>'; return; }
+    var cells=[["Parsed rows",(x.rows||0).toLocaleString(),""],
+               ["With NSN",(x.with_nsn||0).toLocaleString(),(x.pct_with_nsn||0)+"%"],
+               ["FLIS-validated",(x.flis_validated||0).toLocaleString(),(x.pct_validated||0)+"%"],
+               ["In review",(x.in_review||0).toLocaleString(),(x.pct_in_review||0)+"% low-conf"]];
+    box.innerHTML='<div class="cards">'+cells.map(function(c){return '<div class="mc"><div class="l">'+esc(c[0])+'</div><div class="v">'+esc(c[1])+'</div><div class="s">'+esc(c[2])+'</div></div>';}).join("")+
+      '</div><div class="muted" style="margin-top:8px">Low-confidence rows are fixable in the app: 🔧 Part# review. Search any part number to see its breakdown image + vehicles + manufacturer.</div>';
+  });
+}
+function renderRuns(runs){
+  if(!runs.length){ $("#runs").innerHTML='<div class="muted">No recorded runs.</div>'; return; }
+  var h='<table><tr><th>Kind</th><th>Started</th><th>Files</th><th>New docs</th><th>Text pages</th><th>OCR</th><th>Status</th></tr>';
+  runs.forEach(function(r){
+    var done=!!r.finished_at; var st=done?'<span class="ok">done</span>':'<span class="warn">running/paused</span>';
+    if(r.failed)st+=' <span class="err">('+r.failed+' failed)</span>';
+    h+='<tr><td>'+esc(r.kind)+'</td><td>'+esc(String(r.started_at||"").slice(0,16))+'</td><td>'+(r.files_seen||0)+'</td><td>'+(r.new_docs||0)+'</td><td>'+(r.pages_indexed||0)+'</td><td>'+((r.ocr_done||0))+'/'+((r.ocr_done||0)+(r.ocr_queued||0))+'</td><td>'+st+'</td></tr>';
+  });
+  h+='</table>'; $("#runs").innerHTML=h;
+}
+function audit(){
+  var b=$("#auditBtn"); b.disabled=true; b.textContent="Checking…";
+  $("#auditout").innerHTML='<div class="spin">Checking files on disk…</div>';
+  gj("/api/audit").then(function(a){
+    b.disabled=false; b.textContent="Re-run audit";
+    if(!a){ $("#auditout").innerHTML='<div class="err">Audit failed.</div>'; return; }
+    var cls=a.missing?"err":"ok";
+    var h='<div class="'+cls+'" style="font-size:14px">'+(a.missing?('⚠ '+a.missing+' of '+a.checked+' source files are MISSING on disk'):('✓ all '+a.checked+' checked source files present'))+'</div>';
+    if(a.sample&&a.sample.length){ h+='<div class="muted" style="margin-top:6px">missing examples:</div>'; a.sample.forEach(function(p){h+='<div class="muted"><code>'+esc(p)+'</code></div>';}); }
+    $("#auditout").innerHTML=h;
+  });
+}
+boot();
+</script>
+<script src="/palette.js"></script>
+</body></html>

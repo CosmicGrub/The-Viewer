@@ -1,0 +1,228 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Smart Collections</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+/* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+h1{font-size:22px;font-weight:600;margin:0}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+input,select{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+input.nm{width:190px}input.qy{width:360px;max-width:56vw}input.vh{width:150px}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 13px;cursor:pointer}
+button:hover{border-color:var(--acc);background:var(--p2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px;margin-top:6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;cursor:pointer;transition:border-color .12s,transform .06s;position:relative}
+.card:hover{border-color:var(--acc)}.card:active{transform:scale(.99)}
+.card.on{border-color:var(--acc);box-shadow:0 0 0 2px rgba(79,157,255,.18)}
+.card.pin{background:linear-gradient(180deg,rgba(202,162,74,.08),var(--panel))}
+.cn{font-size:14px;font-weight:600;margin:0 0 6px;padding:0 38px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc{font-size:21px;font-weight:700;color:var(--acc)}
+.cq{font-size:10.5px;color:var(--sub);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,Menlo,Consolas,monospace}
+.tag{display:inline-block;font-size:10px;color:var(--sub);border:1px solid var(--line);border-radius:9px;padding:0 6px;margin-left:6px;vertical-align:middle}
+.scope{display:inline-block;font-size:10px;color:var(--amb);border:1px solid var(--amb);border-radius:9px;padding:0 6px;margin-top:7px}
+.new{display:inline-block;font-size:10px;color:#0a0e12;background:var(--grn);border-radius:9px;padding:1px 7px;margin-left:6px;font-weight:700}
+.del{position:absolute;top:9px;right:9px;font-size:13px;color:var(--sub);border:none;background:transparent;padding:0 4px;line-height:1}
+.del:hover{color:#e06b6b;background:transparent}
+.star{position:absolute;top:9px;right:30px;font-size:13px;color:var(--sub);border:none;background:transparent;padding:0 4px;line-height:1}
+.star.on{color:var(--amb)}.star:hover{color:var(--amb);background:transparent}
+.sec{margin-top:24px}
+.res{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:10px}
+.ghead{padding:8px 14px;background:var(--p2);border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--amb)}
+.row{display:block;padding:11px 14px;border-bottom:1px solid var(--line);color:var(--txt);cursor:pointer}
+.row:last-child{border-bottom:none}.row:hover{background:var(--p2)}
+.row .meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.badge{font-size:10px;color:var(--sub);border:1px solid var(--line);border-radius:9px;padding:0 6px}
+.badge.ocr{color:var(--amb);border-color:var(--amb)}
+.snip{font-size:12.5px;color:#cfd6e0;line-height:1.5}
+.snip mark{background:rgba(202,162,74,.32);color:#fff;border-radius:3px;padding:0 2px}
+.empty{padding:26px;text-align:center;color:var(--sub)}
+.note{font-size:12px;color:var(--sub);margin-top:6px}
+.rctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+</style><script src="/rps.js"></script></head><body><div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>Smart Collections <span class="muted" id="count"></span></h1>
+    <div class="muted">Living groups built from the text layer &mdash; each is a saved search that <b>auto-fills as OCR adds pages</b>. A <span class="new" style="margin:0">+N</span> badge shows what newly turned up since you last opened one.</div></div>
+  <div><a href="/partdiff">&#128269; Look-Alike Parts</a> &nbsp; <a href="/">&larr; back to search</a></div>
+</div>
+
+<!-- v0.98.0: the Schematics + 3D libraries now LIVE here (moved off the home header into
+     Collections — they are collections: curated, auto-growing groups of the corpus). -->
+<div class="muted" style="margin:16px 0 6px;font-weight:600;letter-spacing:.4px">LIBRARIES</div>
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+  <a href="/schematics" class="card" style="display:block;text-decoration:none;color:var(--txt)">
+    <div class="cn">&#128208; Schematics &amp; wiring</div>
+    <div class="muted" style="font-size:12px">Every schematic / wiring diagram in the corpus &mdash; searchable, paginated, each opens in the page viewer with the highlighter &amp; Living-Schematic overlays.</div>
+    <div class="cq">documents classified SCHEMATIC / WIRING &middot; auto-grows on ingest</div>
+  </a>
+  <a href="/3d" class="card" style="display:block;text-decoration:none;color:var(--txt)">
+    <div class="cn">&#129482; 3D Library</div>
+    <div class="muted" style="font-size:12px">Representative 3-D parts &mdash; cited figures first, interactive CAD turntable, dimensions from FLIS, your own OBJ/STL models when present.</div>
+    <div class="cq">parts with cited figures &middot; + full FLIS-dimension set (?all=1)</div>
+  </a>
+</div>
+
+<div class="muted" style="margin:18px 0 0;font-weight:600;letter-spacing:.4px">SMART COLLECTIONS</div>
+<div class="grid" id="grid"></div>
+
+<div class="bar" style="margin-top:18px">
+  <input class="nm" id="nname" placeholder="New collection name" autocomplete="off">
+  <input class="qy" id="nquery" placeholder='Search terms, e.g.  brake OR caliper OR "brake fluid"' autocomplete="off">
+  <input class="vh" id="nveh" list="vehlist" placeholder="Any vehicle" autocomplete="off"><datalist id="vehlist"></datalist>
+  <select id="ntype"><option value="">Any manual</option></select>
+  <label class="muted" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="npin" style="width:auto"> pin</label>
+  <button onclick="saveCollection()">+ Save collection</button>
+  <span class="muted" id="saveh"></span>
+</div>
+<div class="note">Optionally limit a collection to one <b>vehicle</b> and/or one <b>kind of manual</b> so it only shows what matters to the job. Terms use the same syntax as the main box (<code>OR</code>, quotes for phrases). Definitions live in a separate <code>collections.db</code> &mdash; saving never touches the main index or the running OCR scan.</div>
+
+<div class="sec" id="resSec" style="display:none">
+  <h1 style="font-size:17px" id="resTitle"></h1>
+  <div class="muted" id="resSub"></div>
+  <div class="rctl">
+    <label class="muted">Group by:
+      <select id="groupby"><option value="none">none</option><option value="vehicle">vehicle</option><option value="doc">manual</option></select>
+    </label>
+    <button onclick="printSheet()">&#128424; Print take-to-bay sheet</button>
+  </div>
+  <div class="res" id="res"></div>
+  <div style="text-align:center;margin:14px 0"><button id="more" style="display:none" onclick="loadMore()">Load more</button></div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function xhrGet(url,cb,err){ var x=new XMLHttpRequest(); x.open('GET',url,true);
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ try{cb(JSON.parse(x.responseText));}catch(e){ if(err)err(e); } } else if(err){ err(x.status); } } };
+  x.send(); }
+function xhrPost(url,body,cb,err){ var x=new XMLHttpRequest(); x.open('POST',url,true); x.setRequestHeader('Content-Type','application/json');
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ try{cb(JSON.parse(x.responseText));}catch(e){ if(err)err(e); } } else if(err){ err(x.status); } } };
+  x.send(JSON.stringify(body)); }
+function hlTerm(q){ if(!q) return ''; var m=q.match(/"([^"]+)"/); if(m) return m[1];
+  var w=q.replace(/\bOR\b|\bAND\b|\bNOT\b/gi,' ').match(/[A-Za-z0-9][A-Za-z0-9\-]{2,}/); return w?w[0]:''; }
+
+var DEFS={}, CUR=null, CURDEF=null, OFF=0, LIMIT=120, curHl='', ITEMS=[], TYPES=[];
+
+function cardEl(c){
+  var div=document.createElement('div'); div.className='card'+(CUR===c.slug?' on':'')+(c.pinned?' pin':''); div.setAttribute('data-slug',c.slug);
+  var cnt = c.capped ? (c.count.toLocaleString()+'+') : c.count.toLocaleString();
+  var newb = (c.new>0) ? '<span class="new" title="pages added since you last opened this">+'+c.new+' new</span>' : '';
+  var scope = c.scope ? '<div class="scope">'+esc(c.scope)+'</div>' : '';
+  div.innerHTML='<button class="star'+(c.pinned?' on':'')+'" title="Pin to the top">'+(c.pinned?'★':'☆')+'</button>'+
+    '<button class="del" title="Remove this collection">&times;</button>'+
+    '<div class="cn" title="'+esc(c.name)+'">'+esc(c.name)+(c.seed?'<span class="tag">built-in</span>':'<span class="tag">saved</span>')+'</div>'+
+    '<div class="cc">'+cnt+newb+'</div><div class="muted">page'+((c.count===1)?'':'s')+'</div>'+
+    scope+
+    '<div class="cq" title="'+esc(c.query)+'">'+esc(c.query)+'</div>';
+  div.onclick=function(ev){ var cl=ev.target&&ev.target.className||''; if(cl.indexOf('del')>=0){ ev.stopPropagation(); delCollection(c); return; }
+    if(cl.indexOf('star')>=0){ ev.stopPropagation(); togglePin(c); return; } openCollection(c); };
+  return div;
+}
+function loadList(){
+  xhrGet('/api/collections', function(j){
+    var cols=j.collections||[]; DEFS={}; var g=$("grid"); g.innerHTML='';
+    for(var i=0;i<cols.length;i++){ DEFS[cols[i].slug]=cols[i]; g.appendChild(cardEl(cols[i])); }
+    $("count").textContent='('+cols.length+' collections)';
+    var f=j.facets||{}; TYPES=f.types||[];
+    var dl=$("vehlist"); if(dl){ dl.innerHTML=''; (f.vehicles||[]).forEach(function(v){ var o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
+    var sel=$("ntype"); if(sel&&sel.options.length<=1){ TYPES.forEach(function(t){ var o=document.createElement('option'); o.value=t.key; o.textContent=t.label; sel.appendChild(o); }); }
+  }, function(){ $("grid").innerHTML='<div class="empty">Could not load (is the app running?)</div>'; });
+}
+
+function openCollection(c){ CUR=c.slug; CURDEF=c; curHl=hlTerm(c.query); OFF=0; ITEMS=[];
+  var cards=document.getElementsByClassName('card'); for(var i=0;i<cards.length;i++){ var s=cards[i].getAttribute('data-slug'); cards[i].className='card'+(s===CUR?' on':'')+((DEFS[s]&&DEFS[s].pinned)?' pin':''); }
+  $("resSec").style.display='block';
+  $("resTitle").textContent=c.name;
+  $("resSub").textContent='live results for: '+c.query+(c.scope?('   ·   '+c.scope):'');
+  $("res").innerHTML='<div class="empty">loading&hellip;</div>';
+  fetchResults(true);
+  $("resSec").scrollIntoView({behavior:'smooth',block:'start'});
+}
+function rowEl(r){
+  var a=document.createElement('a'); a.className='row';
+  var hl = curHl ? ('&hl='+encodeURIComponent(curHl)) : '';
+  a.href='/page?doc='+r.doc_id+'&page='+r.page_number+'&dpi=200'+hl; a.target='_blank';
+  var snip=esc(r.snip||'').replace(/&lt;&lt;/g,'<mark>').replace(/&gt;&gt;/g,'</mark>');
+  a.innerHTML='<div class="meta"><span class="badge">'+esc(r.vehicle||'?')+'</span>'+
+    (r.tm_number?'<span class="badge">'+esc(r.tm_number)+'</span>':'')+
+    (r.nsn?'<span class="badge">NSN '+esc(r.nsn)+'</span>':'')+
+    '<span class="badge">p.'+esc(r.page_number)+'</span>'+
+    (r.source==='ocr'?'<span class="badge ocr">OCR</span>':'')+'</div>'+
+    '<div class="snip">'+snip+'</div>';
+  return a;
+}
+function groupKey(r){ var gb=$("groupby").value;
+  if(gb==='vehicle') return r.vehicle||'(no vehicle)';
+  if(gb==='doc') return (r.tm_number?(r.tm_number+' — '):'')+(r.title||('doc '+r.doc_id));
+  return null; }
+function renderItems(){
+  var box=$("res"); box.innerHTML=''; if(!ITEMS.length){ box.innerHTML='<div class="empty">No pages match yet. As OCR processes more of the corpus, this fills in automatically.</div>'; return; }
+  var gb=$("groupby").value;
+  if(gb==='none'){ for(var i=0;i<ITEMS.length;i++) box.appendChild(rowEl(ITEMS[i])); return; }
+  var groups={}, order=[];
+  for(var j=0;j<ITEMS.length;j++){ var k=groupKey(ITEMS[j]); if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(ITEMS[j]); }
+  order.sort();
+  for(var g=0;g<order.length;g++){ var h=document.createElement('div'); h.className='ghead'; h.textContent=order[g]+'  ('+groups[order[g]].length+')'; box.appendChild(h);
+    for(var m=0;m<groups[order[g]].length;m++) box.appendChild(rowEl(groups[order[g]][m])); }
+}
+function fetchResults(reset){
+  xhrGet('/api/collections?slug='+encodeURIComponent(CUR)+'&limit='+LIMIT+'&offset='+OFF, function(j){
+    var items=j.items||[]; if(reset) ITEMS=[];
+    ITEMS=ITEMS.concat(items); OFF+=items.length; renderItems();
+    $("more").style.display=(items.length>=LIMIT)?'inline-block':'none';
+    if(reset) loadList();   // refresh badges: opening clears this collection's "new"
+  }, function(){ $("res").innerHTML='<div class="empty">Could not load results.</div>'; });
+}
+function loadMore(){ fetchResults(false); }
+$("groupby") && ($("groupby").onchange=function(){ renderItems(); });
+
+function printSheet(){
+  if(!CUR) return;
+  xhrGet('/api/collections?slug='+encodeURIComponent(CUR)+'&limit=500&offset=0', function(j){
+    var items=j.items||[]; var gbSel=$("groupby").value;
+    var groups={}, order=[];
+    for(var i=0;i<items.length;i++){ var r=items[i];
+      var k=(gbSel==='vehicle')?(r.vehicle||'(no vehicle)'):(gbSel==='doc')?((r.tm_number?(r.tm_number+' — '):'')+(r.title||('doc '+r.doc_id))):'All results';
+      if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(r); }
+    order.sort();
+    var html='<html><head><meta charset="utf-8"><title>'+esc(CURDEF.name)+' — collection sheet</title><style>'+
+      'body{font:13px Arial,Helvetica,sans-serif;color:#111;margin:24px}h1{font-size:18px;margin:0 0 2px}'+
+      '.sub{color:#555;font-size:12px;margin-bottom:14px}h2{font-size:13px;background:#eee;padding:5px 8px;margin:16px 0 6px;border-left:3px solid #888}'+
+      'table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:4px 7px;font-size:11.5px;vertical-align:top;text-align:left}'+
+      'th{background:#f4f4f4}.pg{white-space:nowrap}@media print{button{display:none}}</style></head><body>';
+    html+='<h1>'+esc(CURDEF.name)+'</h1><div class="sub">'+esc(CURDEF.query)+(CURDEF.scope?('  ·  '+esc(CURDEF.scope)):'')+'  ·  '+items.length+' pages  ·  printed '+new Date().toLocaleString()+'</div>';
+    html+='<button onclick="window.print()">Print</button>';
+    for(var o=0;o<order.length;o++){ html+='<h2>'+esc(order[o])+' ('+groups[order[o]].length+')</h2>';
+      html+='<table><tr><th>Vehicle</th><th>Manual</th><th class="pg">Page</th><th>Excerpt</th></tr>';
+      for(var p=0;p<groups[order[o]].length;p++){ var r=groups[order[o]][p];
+        var sn=(r.snip||'').replace(/<<|>>/g,'');
+        html+='<tr><td>'+esc(r.vehicle||'')+'</td><td>'+esc(r.tm_number||'')+'</td><td class="pg">'+esc(r.page_number)+'</td><td>'+esc(sn)+'</td></tr>'; }
+      html+='</table>'; }
+    html+='</body></html>';
+    var w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to print the sheet.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  });
+}
+
+function saveCollection(){
+  var name=$("nname").value.replace(/^\s+|\s+$/g,''), query=$("nquery").value.replace(/^\s+|\s+$/g,'');
+  if(!name||!query){ $("saveh").textContent='Enter a name and search terms.'; return; }
+  $("saveh").textContent='saving&hellip;';
+  xhrPost('/api/collections', {action:'save', name:name, query:query, vehicle:$("nveh").value, mtype:$("ntype").value, pinned:$("npin").checked?1:0}, function(r){
+    if(r&&r.ok){ $("saveh").textContent='saved.'; $("nname").value=''; $("nquery").value=''; $("nveh").value=''; $("ntype").value=''; $("npin").checked=false; loadList(); }
+    else { $("saveh").textContent=(r&&r.error)||'could not save.'; }
+  }, function(){ $("saveh").textContent='could not save.'; });
+}
+function togglePin(c){ xhrPost('/api/collections', {action:'pin', slug:c.slug, pinned:c.pinned?0:1}, function(){ loadList(); }, function(){}); }
+function delCollection(c){
+  if(!window.confirm('Remove "'+c.name+'"'+(c.seed?' (a built-in collection — it will be hidden)':'')+'?')) return;
+  xhrPost('/api/collections', {action:'delete', slug:c.slug}, function(){
+    if(CUR===c.slug){ CUR=null; $("resSec").style.display='none'; }
+    loadList();
+  }, function(){});
+}
+$("nquery").addEventListener('keydown',function(e){ if(e.key==='Enter'||e.keyCode===13) saveCollection(); });
+loadList();
+</script><script src="/palette.js"></script></body></html>

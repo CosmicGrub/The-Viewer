@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit Lab — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode; page's own <style> below still wins (v1.13.0) -->
+<style>
+  :root{--bg:#0f1419;--panel:#171d26;--p2:#1c2430;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;
+        --acc:#4f9dff;--grn:#2f7d4f;--amb:#caa24a;--red:#e0564f;--teal:#1d9e75;--pur:#7f77dd;--hi:#36c06a;--lo:#3a7bd5;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:13px/1.45 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .tag{font-size:10.5px;color:var(--sub);border:1px solid var(--line);padding:2px 7px;border-radius:20px}
+  header .sp{flex:1}
+  a.home{color:var(--acc);text-decoration:none;font-size:12px}
+  .wrap{display:grid;grid-template-columns:194px 1fr 236px;height:calc(100vh - 49px)}
+  .rail{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:10px}
+  .rail.right{border-right:none;border-left:1px solid var(--line)}
+  .stage{position:relative;overflow:hidden;background:#0b0f14}
+  .sec{font-size:10.5px;letter-spacing:.6px;color:var(--sub);text-transform:uppercase;margin:12px 2px 6px;font-weight:700}
+  .sec:first-child{margin-top:2px}
+  .palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .pbtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;background:var(--p2);border:1px solid var(--line);
+        border-radius:8px;cursor:pointer;color:var(--txt);font-size:9.5px;user-select:none;text-align:center}
+  .pbtn:hover{border-color:var(--acc)} .pbtn.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .pbtn svg{width:38px;height:26px}
+  .tool{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+  button.b{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:12px}
+  button.b:hover{border-color:var(--acc)} button.b.go{background:var(--grn);border-color:var(--grn)} button.b.stop{background:var(--red);border-color:var(--red)}
+  button.b.on{border-color:var(--acc);background:#1d2a3d}
+  select.b,input.b{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .row label{color:var(--sub);font-size:11px;min-width:54px}
+  input[type=range]{flex:1;accent-color:var(--acc)}
+  .val{font-variant-numeric:tabular-nums;color:var(--txt);min-width:60px;text-align:right;font-size:11.5px}
+  .hint{font-size:10.5px;color:var(--sub);margin:8px 2px;line-height:1.5}
+  #scope{width:100%;height:114px;background:#0a0e13;border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;gap:10px;font-size:10px;color:var(--sub);margin-top:6px;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:-1px;margin-right:3px}
+  .props{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11.5px}
+  .props .k{color:var(--sub)}
+  .pn{width:100%;margin-top:6px}
+  .toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:#0c1622;border:1px solid var(--acc);
+         color:var(--txt);padding:6px 12px;border-radius:8px;font-size:11.5px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+  svg.editor{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+  .modeflag{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--sub);background:#0c121a;border:1px solid var(--line);
+            border-radius:7px;padding:4px 9px;z-index:6}
+  .rps{margin-top:10px;font-size:10px;color:var(--sub);border:1px dashed var(--line);border-radius:8px;padding:7px}
+  .bg-controls{display:flex;gap:6px;align-items:center;margin-top:6px}
+</style></head>
+<body>
+<header>
+  <h1>⚡ Circuit Lab</h1>
+  <span class="tag">overlay editor + real-time simulator</span>
+  <span class="tag" id="enginetag">MNA engine: checking…</span>
+  <span class="sp"></span>
+  <a class="home" href="/partdiff">🔍 Look-Alike</a>&nbsp;&nbsp;<a class="home" href="/schematics">← Schematics</a>&nbsp;&nbsp;<a class="home" href="/">Home</a>
+</header>
+<div class="wrap">
+  <div class="rail">
+    <div class="sec">Tools</div>
+    <div class="tool">
+      <button class="b on" id="tSelect">Select</button>
+      <button class="b" id="tWire">Wire</button>
+    </div>
+    <div class="tool">
+      <button class="b" id="btnRot" title="Rotate (R)">⟳ Rotate</button>
+      <button class="b" id="btnDel" title="Delete (Del)">🗑 Delete</button>
+    </div>
+    <div class="sec">Place a part</div>
+    <div class="palette" id="palette"></div>
+    <div class="sec">Samples</div>
+    <select class="b" id="sample" style="width:100%">
+      <option value="">— load a demo —</option>
+      <option value="divider">Voltage divider</option>
+      <option value="rc">RC low-pass</option>
+      <option value="rlc">RLC resonator</option>
+      <option value="rect">Diode + LED</option>
+      <option value="ac">AC source + RC</option>
+      <option value="mos">MOSFET switch</option>
+      <option value="relay">Relay-driven lamp</option>
+      <option value="opamp">Op-amp ×2</option>
+    </select>
+    <div class="rps">RPS — the live simulator is a modern-browser feature (effortless on the 4050). On the Win7/Vista legacy build it falls back to the static schematic viewer; your drawn circuit still renders, it just won't animate.</div>
+  </div>
+
+  <div class="stage" id="stage">
+    <svg class="editor" id="ed" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="modeflag" id="modeflag">Select mode — click a part to tune it</div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="rail right">
+    <div class="sec">Simulate</div>
+    <div class="tool">
+      <button class="b go" id="btnRun">▶ Run</button>
+      <button class="b" id="btnDC" title="DC operating point">DC</button>
+      <button class="b" id="btnStepR" title="Single step">Step</button>
+    </div>
+    <div class="row"><label>Speed</label><input type="range" id="speed" min="1" max="100" value="35"><span class="val" id="speedV">35%</span></div>
+    <div class="row"><label>Show</label>
+      <select class="b" id="viz" style="flex:1">
+        <option value="analog">Analog (V + current)</option>
+        <option value="logic">Logic (HIGH / LOW)</option>
+      </select>
+    </div>
+    <div class="legend" id="legend"></div>
+
+    <div class="sec">Selected part</div>
+    <div class="props" id="props">Nothing selected.</div>
+    <div id="tune"></div>
+
+    <div class="sec">Scope</div>
+    <canvas id="scope" width="236" height="114"></canvas>
+    <div class="hint" id="scopehint">Click a node to scope its voltage.</div>
+
+    <div class="sec">Circuit file</div>
+    <div class="tool">
+      <button class="b" id="btnSave" title="Save to this browser">💾 Save</button>
+      <button class="b" id="btnLoad" title="Load last save">📂 Load</button>
+    </div>
+    <div class="tool">
+      <button class="b" id="btnExport" title="Download as .circuit.json">⬇ .json</button>
+      <button class="b" id="btnNetlist" title="Download SPICE-style netlist">⬇ netlist</button>
+    </div>
+    <input type="file" id="fileIn" accept=".json,.circuit.json" style="display:none">
+    <button class="b" id="btnImport" style="width:100%;margin-top:4px">⬆ Import .json file</button>
+    <button class="b" id="btnClear" style="width:100%;margin-top:6px">Clear canvas</button>
+
+    <div class="sec">Overlay a real schematic</div>
+    <div class="bg-controls">
+      <input class="b" id="bgUrl" placeholder="/page?doc=ID&page=N" style="flex:1;min-width:0">
+      <button class="b" id="bgLoad">Load</button>
+    </div>
+    <div class="row"><label>Opacity</label><input type="range" id="bgOp" min="0" max="100" value="55"><span class="val" id="bgOpV">55%</span></div>
+  </div>
+</div>
+
+<script src="/circuitsim.js"></script>
+<script>
+(function(){
+  "use strict";
+  var SIMOK = (typeof window.CircuitSim !== "undefined");
+  document.getElementById("enginetag").textContent = SIMOK ? "MNA engine: ready" : "MNA engine: unavailable (static)";
+  if(!SIMOK) document.getElementById("enginetag").style.color = "var(--amb)";
+  var SVGNS="http://www.w3.org/2000/svg", ed=document.getElementById("ed"), G=26;
+  var comps=[], wires=[], nextId=1, selected=null, scopeKey=null;
+  var tool="select", placeType=null, wireStart=null;
+  var sim=null, running=false, rafId=null, dashPhase=0, vmax=5, scopeData=[];
+  var view={x:48,y:40};
+
+  // pins are grid-offset arrays in netlist order; value meta for tunables
+  var PARTS={
+    V:{nm:"Source",pins:[[0,0],[0,2]],unit:"V",def:5,min:0,max:24,step:.5,sym:symV},
+    VAC:{nm:"AC source",pins:[[0,0],[0,2]],unit:"V",def:5,min:0,max:24,step:.5,freq:60,sym:symVAC},
+    R:{nm:"Resistor",pins:[[0,0],[2,0]],unit:"Ω",def:1000,min:1,max:1e5,log:true,sym:symR},
+    C:{nm:"Capacitor",pins:[[0,0],[2,0]],unit:"F",def:1e-6,min:1e-9,max:1e-3,log:true,sym:symC},
+    L:{nm:"Inductor",pins:[[0,0],[2,0]],unit:"H",def:.05,min:1e-4,max:1,log:true,sym:symL},
+    D:{nm:"Diode",pins:[[0,0],[2,0]],sym:symD},
+    LED:{nm:"LED",pins:[[0,0],[2,0]],sym:symLED},
+    SW:{nm:"Switch",pins:[[0,0],[2,0]],def:1,sym:symSW},
+    NMOS:{nm:"MOSFET",pins:[[2,0],[0,1],[2,2]],sym:symNMOS},   // d,g,s
+    OPAMP:{nm:"Op-amp",pins:[[0,0],[0,2],[3,1]],sym:symOP},    // in+,in-,out
+    RELAY:{nm:"Relay",pins:[[0,0],[0,2],[3,0],[3,2]],sym:symRLY}, // coilA,coilB,com,no
+    GND:{nm:"Ground",pins:[[0,0]],sym:symGND}
+  };
+
+  function el(t,a){var e=document.createElementNS(SVGNS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  function key(x,y){return x+","+y;}
+  function rot(dx,dy,r){r=((r%360)+360)%360;if(r===90)return[-dy,dx];if(r===180)return[-dx,-dy];if(r===270)return[dy,-dx];return[dx,dy];}
+  function pinsOf(c){return PARTS[c.type].pins.map(function(p){var o=rot(p[0],p[1],c.rot||0);return{gx:c.gx+o[0],gy:c.gy+o[1]};});}
+  function fmtVal(type,v){
+    if(type==="R")return v>=1e6?(v/1e6).toFixed(v>=1e7?0:1)+"M":(v>=1e3?(v/1e3).toFixed(v>=1e4?0:1)+"k":v.toFixed(0))+"Ω";
+    if(type==="C")return v>=1e-6?(v*1e6).toFixed(v>=1e-5?0:1)+"µF":(v*1e9).toFixed(0)+"nF";
+    if(type==="L")return v>=1?v.toFixed(1)+"H":(v*1e3).toFixed(v>=.1?0:1)+"mH";
+    if(type==="V"||type==="VAC")return v.toFixed(v%1?1:0)+"V";
+    return "";
+  }
+  function fmtSI(v,u){var a=Math.abs(v);if(a<1e-9)return"0"+u;if(a>=1)return v.toFixed(2)+u;if(a>=1e-3)return(v*1e3).toFixed(1)+"m"+u;if(a>=1e-6)return(v*1e6).toFixed(1)+"µ"+u;return(v*1e9).toFixed(0)+"n"+u;}
+
+  // ---- node assignment (union-find over pins + wires) ----
+  var nodeMap={};
+  function buildNodes(){
+    var parent={};
+    function find(k){if(parent[k]===undefined)parent[k]=k;return parent[k]===k?k:(parent[k]=find(parent[k]));}
+    function uni(a,b){var ra=find(a),rb=find(b);if(ra!==rb)parent[ra]=rb;}
+    comps.forEach(function(c){pinsOf(c).forEach(function(p){find(key(p.gx,p.gy));});});
+    wires.forEach(function(w){uni(key(w.a.gx,w.a.gy),key(w.b.gx,w.b.gy));});
+    var gnd=null;
+    comps.forEach(function(c){if(c.type==="GND"){var r=find(key(c.gx,c.gy));if(gnd===null)gnd=r;else{parent[find(gnd)]=r;gnd=find(r);}}});
+    var num={},n=0; nodeMap={}; var gr=gnd!==null?find(gnd):null;
+    if(gr===null){var ks=Object.keys(parent);if(ks.length)gr=find(ks[0]);}
+    Object.keys(parent).forEach(function(k){var r=find(k);if(num[r]===undefined)num[r]=(gr!==null&&r===gr)?0:++n;});
+    Object.keys(parent).forEach(function(k){nodeMap[k]=num[find(k)];});
+  }
+  function nodeOf(p){return nodeMap[key(p.gx,p.gy)];}
+
+  function netlist(){
+    buildNodes(); var els=[];
+    comps.forEach(function(c){
+      if(c.type==="GND") return;
+      var ns=pinsOf(c).map(nodeOf);
+      if(ns.some(function(x){return x===undefined;})) return;
+      var e={name:"c"+c.id, n:ns};
+      if(c.type==="V"){e.type="V";e.value=c.value;}
+      else if(c.type==="VAC"){e.type="VAC";e.value=c.value;e.freq=c.freq||60;}
+      else if(c.type==="R"){e.type="R";e.value=c.value;}
+      else if(c.type==="C"){e.type="C";e.value=c.value;}
+      else if(c.type==="L"){e.type="L";e.value=c.value;}
+      else if(c.type==="D"){e.type="D";e.Is=1e-12;}
+      else if(c.type==="LED"){e.type="D";e.Is=1e-13;e.Vt=0.045;}
+      else if(c.type==="SW"){e.type="SW";e.closed=!!c.value;}
+      else if(c.type==="NMOS"){e.type="NMOS";e.Vth=2;e.K=0.05;}
+      else if(c.type==="OPAMP"){e.type="OPAMP";e.gain=1e5;}
+      else if(c.type==="RELAY"){e.type="RELAY";e.Rcoil=120;e.pickup=0.02;e.dropout=0.01;}
+      els.push(e);
+    });
+    return els;
+  }
+  function makeSim(){ if(!SIMOK)return null; var els=netlist(); if(!els.length)return null;
+    try{return new window.CircuitSim.Circuit(els);}catch(e){return null;} }
+  function safeDC(){ if(!sim)return; try{sim.dc();}catch(e){} }
+  // ---- Web Worker run path (additive) : offload the continuous RUN loop's MNA solve off the main
+  // thread so a heavy circuit can't stutter the UI on weak CPUs. Edit/DC/Step stay inline+synchronous.
+  // WorkerSim mimics the inline sim's read API (v/i/state) from the latest snapshot, so draw()/nodeVolt()
+  // are unchanged. If Workers are unavailable OR the worker errors, startRun falls back to the inline sim.
+  var WORKER_OK = false; try{ WORKER_OK = (typeof window.Worker !== "undefined"); }catch(_e){ WORKER_OK = false; }
+  function WorkerSim(els){
+    this._snap={v:{},i:{},st:{}}; this.t=0; this.onframe=null; this._w=null; var self=this;
+    try{ this._w=new Worker("/circuitsim-worker.js"); }catch(e){ this._w=null; }
+    if(this._w){
+      this._w.onmessage=function(ev){ var m=ev.data||{}; if(m.cmd==="error"){ return; }
+        self._snap={v:m.v||{},i:m.i||{},st:m.st||{}}; self.t=m.t||0; if(self.onframe)self.onframe(m.cmd); };
+      this._w.onerror=function(){ self._w=null; };   // dead worker -> v()/i() return last snapshot
+      this._w.postMessage({cmd:"init",elements:els});
+    }
+  }
+  WorkerSim.prototype.ok=function(){ return !!this._w; };
+  WorkerSim.prototype.v=function(n){ var x=this._snap.v[n]; return (x===undefined||x===null)?0:x; };
+  WorkerSim.prototype.i=function(name){ var x=this._snap.i[name]; return (x===undefined||x===null)?0:x; };
+  WorkerSim.prototype.state=function(name){ return this._snap.st[name]||null; };
+  WorkerSim.prototype.dc=function(){ if(this._w)this._w.postMessage({cmd:"dc"}); };
+  WorkerSim.prototype.step=function(dt,steps){ if(this._w)this._w.postMessage({cmd:"step",dt:dt,steps:steps||1}); };
+  WorkerSim.prototype.terminate=function(){ try{ if(this._w)this._w.terminate(); }catch(e){} this._w=null; };
+  function solveDC(){ sim=makeSim(); if(!sim){toast("Add a source, parts and a ground, connected in a loop.");return;}
+    try{sim.dc();}catch(e){toast("Couldn't solve — check the wiring.");sim=null;return;} refreshVmax(); draw(); toast("DC solved."); updateReadout(); }
+  function refreshVmax(){vmax=.001;comps.forEach(function(c){if(c.type==="V"||c.type==="VAC")vmax=Math.max(vmax,Math.abs(c.value));});}
+
+  function vColor(v){
+    if(document.getElementById("viz").value==="logic"){if(v>=.66*vmax)return"#36c06a";if(v<=.33*vmax)return"#3a7bd5";return"#caa24a";}
+    var t=Math.max(-1,Math.min(1,v/vmax));
+    if(t>=0){return"rgb("+Math.round(40+60*t)+","+Math.round(120+135*t)+",90)";}
+    return"rgb("+Math.round(120-120*t)+",90,"+Math.round(140-60*t)+")";
+  }
+  function nodeVolt(k){if(!sim)return null;var n=nodeMap[k];if(n===undefined)return null;try{return sim.v(n);}catch(e){return null;}}
+
+  // ====================== RENDER ======================
+  var bgUrlCur=null;
+  function draw(){
+    while(ed.firstChild) ed.removeChild(ed.firstChild);
+    var W=ed.clientWidth||900,H=ed.clientHeight||600;
+    var defs=el("defs",{});
+    var pat=el("pattern",{id:"grid",width:G,height:G,patternUnits:"userSpaceOnUse",patternTransform:"translate("+(view.x%G)+","+(view.y%G)+")"});
+    pat.appendChild(el("circle",{cx:0,cy:0,r:1,fill:"#243042"})); defs.appendChild(pat); ed.appendChild(defs);
+    ed.appendChild(el("rect",{x:0,y:0,width:W,height:H,fill:"url(#grid)"}));
+    if(bgUrlCur){var img=el("image",{x:0,y:0,opacity:(+document.getElementById("bgOp").value/100)});img.setAttribute("href",bgUrlCur);img.setAttribute("width",W);img.setAttribute("height",H);img.setAttribute("preserveAspectRatio","xMidYMid meet");ed.appendChild(img);}
+    var gW=el("g",{transform:"translate("+view.x+","+view.y+")"}); ed.appendChild(gW);
+    wires.forEach(function(w){var v=sim?nodeVolt(key(w.a.gx,w.a.gy)):null;
+      gW.appendChild(el("line",{x1:w.a.gx*G,y1:w.a.gy*G,x2:w.b.gx*G,y2:w.b.gy*G,stroke:(v!==null?vColor(v):"#6b7686"),"stroke-width":3,"stroke-linecap":"round"}));});
+    comps.forEach(function(c){drawComp(gW,c);});
+    // node voltage labels + scope handles
+    var seen={};
+    comps.forEach(function(c){pinsOf(c).forEach(function(p){var k=key(p.gx,p.gy);if(seen[k])return;seen[k]=1;
+      if(sim){var v=nodeVolt(k);if(v!==null){var t=el("text",{x:p.gx*G+6,y:p.gy*G-6,"font":"700 10px ui-monospace,Consolas,monospace",fill:vColor(v)});t.textContent=v.toFixed(2)+"V";gW.appendChild(t);}}
+      var h=el("circle",{cx:p.gx*G,cy:p.gy*G,r:6,fill:"transparent",style:"cursor:pointer"});
+      h.addEventListener("click",function(ev){ev.stopPropagation();if(tool==="wire"){onWirePin(p);return;}scopeKey=k;scopeData=[];document.getElementById("scopehint").textContent="Scoping node — press Run.";draw();});
+      gW.appendChild(h);
+      if(k===scopeKey)gW.appendChild(el("circle",{cx:p.gx*G,cy:p.gy*G,r:5,fill:"none",stroke:"#4f9dff","stroke-width":2}));
+      if(wireStart&&wireStart.gx===p.gx&&wireStart.gy===p.gy)gW.appendChild(el("circle",{cx:p.gx*G,cy:p.gy*G,r:5,fill:"none",stroke:"#caa24a","stroke-width":2}));
+    });});
+  }
+  function drawComp(g,c){
+    var grp=el("g",{transform:"translate("+c.gx*G+","+c.gy*G+")"+((c.rot||0)?" rotate("+c.rot+")":"")});
+    grp.style.cursor="pointer";
+    var on=(selected===c), cur=0; if(sim){try{cur=sim.i("c"+c.id);}catch(e){}}
+    PARTS[c.type].sym(grp,c,on,cur,sim);
+    if(on){grp.appendChild(el("rect",{x:-14,y:-16,width:bboxW(c),height:bboxH(c),fill:"none",stroke:"#4f9dff","stroke-dasharray":"4 3","stroke-width":1.2,rx:5}));}
+    grp.addEventListener("mousedown",function(ev){ev.stopPropagation();startDrag(ev,c);});
+    g.appendChild(grp);
+    // upright labels (value + part tag) in world coords
+    var ctr=centroidPx(c);
+    if(c.type!=="GND"&&c.type!=="D"&&c.type!=="SW"&&c.type!=="NMOS"&&c.type!=="OPAMP"&&c.type!=="RELAY"){
+      var lbl=el("text",{x:ctr.x,y:ctr.y+22,"text-anchor":"middle","font-size":10,fill:"#9aa6b6"});lbl.textContent=fmtVal(c.type,c.value);g.appendChild(lbl);
+    }
+    if(c.tm){var tg=el("text",{x:ctr.x,y:ctr.y-20,"text-anchor":"middle","font-size":9.5,fill:"#7fd6a0",style:"cursor:pointer"});tg.textContent="▸ "+c.tm;
+      tg.addEventListener("click",function(ev){ev.stopPropagation();window.open("/partdiff?q="+encodeURIComponent(c.tm),"_blank");});g.appendChild(tg);}
+    if(running&&sim&&Math.abs(cur)>1e-7&&c.type!=="GND"){
+      var ps=pinsOf(c),a={x:ps[0].gx*G,y:ps[0].gy*G},b={x:ps[1].gx*G,y:ps[1].gy*G},spd=Math.min(1,Math.abs(cur)*200);
+      for(var i=0;i<3;i++){var ph=((dashPhase*spd*(cur>0?1:-1))/40+i/3)%1;if(ph<0)ph+=1;
+        g.appendChild(el("circle",{cx:a.x+(b.x-a.x)*ph,cy:a.y+(b.y-a.y)*ph,r:2.4,fill:"#ffd76a"}));}
+    }
+  }
+  function centroidPx(c){var ps=pinsOf(c),sx=0,sy=0;ps.forEach(function(p){sx+=p.gx;sy+=p.gy;});return{x:sx/ps.length*G,y:sy/ps.length*G};}
+  function bboxW(c){var ps=PARTS[c.type].pins,xs=ps.map(function(p){return p[0];});return (Math.max.apply(null,xs)-Math.min.apply(null,xs))*G+28;}
+  function bboxH(c){var ps=PARTS[c.type].pins,ys=ps.map(function(p){return p[1];});return (Math.max.apply(null,ys)-Math.min.apply(null,ys))*G+32;}
+
+  // ---- symbols (local coords; pin0 at 0,0) ----
+  function lead(g,x1,y1,x2,y2){g.appendChild(el("line",{x1:x1,y1:y1,x2:x2,y2:y2,stroke:"#aeb8c6","stroke-width":2}));}
+  function symR(g){var s=2*G;lead(g,0,0,s*.28,0);lead(g,s*.72,0,s,0);g.appendChild(el("rect",{x:s*.28,y:-8,width:s*.44,height:16,fill:"#11161d",stroke:"#cdd6e2","stroke-width":2,rx:2}));}
+  function symC(g){var s=2*G;lead(g,0,0,s*.44,0);lead(g,s*.56,0,s,0);g.appendChild(el("line",{x1:s*.44,y1:-11,x2:s*.44,y2:11,stroke:"#cdd6e2","stroke-width":2.4}));g.appendChild(el("line",{x1:s*.56,y1:-11,x2:s*.56,y2:11,stroke:"#cdd6e2","stroke-width":2.4}));}
+  function symL(g){var s=2*G;lead(g,0,0,s*.24,0);lead(g,s*.76,0,s,0);var d="M"+(s*.24)+",0";for(var i=0;i<4;i++)d+=" q "+(s*.13/2)+",-11 "+(s*.13)+",0";g.appendChild(el("path",{d:d,fill:"none",stroke:"#cdd6e2","stroke-width":2}));}
+  function symV(g){var s=2*G;lead(g,0,0,0,s*.34);lead(g,0,s*.66,0,s);g.appendChild(el("circle",{cx:0,cy:s*.5,r:s*.16,fill:"#11161d",stroke:"#7fd6a0","stroke-width":2}));
+    g.appendChild(txt(0,s*.5-3,"+",11,"#7fd6a0",700));g.appendChild(txt(0,s*.5+13,"−",12,"#7fd6a0"));}
+  function symVAC(g){var s=2*G;lead(g,0,0,0,s*.34);lead(g,0,s*.66,0,s);g.appendChild(el("circle",{cx:0,cy:s*.5,r:s*.18,fill:"#11161d",stroke:"#caa24a","stroke-width":2}));
+    g.appendChild(el("path",{d:"M"+(-8)+","+(s*.5)+" q 4,-8 8,0 q 4,8 8,0",fill:"none",stroke:"#caa24a","stroke-width":1.8}));}
+  function symD(g,c,on,cur){var s=2*G,lit=Math.abs(cur)>1e-5;lead(g,0,0,s*.34,0);lead(g,s*.66,0,s,0);
+    g.appendChild(el("path",{d:"M"+(s*.34)+",-9 L"+(s*.34)+",9 L"+(s*.62)+",0 Z",fill:lit?"#caa24a":"#11161d",stroke:"#cdd6e2","stroke-width":1.6}));
+    g.appendChild(el("line",{x1:s*.62,y1:-9,x2:s*.62,y2:9,stroke:"#cdd6e2","stroke-width":2.4}));}
+  function symLED(g,c,on,cur){var s=2*G,br=Math.min(1,Math.abs(cur)*400),lit=br>.02;lead(g,0,0,s*.34,0);lead(g,s*.66,0,s,0);
+    if(lit)g.appendChild(el("circle",{cx:s*.48,cy:0,r:14,fill:"#caa24a","fill-opacity":br*.6}));
+    g.appendChild(el("path",{d:"M"+(s*.34)+",-9 L"+(s*.34)+",9 L"+(s*.62)+",0 Z",fill:lit?"#ffd76a":"#11161d",stroke:"#cdd6e2","stroke-width":1.6}));
+    g.appendChild(el("line",{x1:s*.62,y1:-9,x2:s*.62,y2:9,stroke:"#cdd6e2","stroke-width":2.4}));}
+  function symSW(g,c){var s=2*G,cl=!!c.value;lead(g,0,0,s*.3,0);lead(g,s*.7,0,s,0);g.appendChild(el("circle",{cx:s*.3,cy:0,r:2.6,fill:"#cdd6e2"}));g.appendChild(el("circle",{cx:s*.7,cy:0,r:2.6,fill:"#cdd6e2"}));g.appendChild(el("line",{x1:s*.3,y1:0,x2:s*.7,y2:cl?0:-12,stroke:cl?"#7fd6a0":"#cdd6e2","stroke-width":2.4}));}
+  function symGND(g){lead(g,0,0,0,9);g.appendChild(el("line",{x1:-10,y1:9,x2:10,y2:9,stroke:"#aeb8c6","stroke-width":2}));g.appendChild(el("line",{x1:-6,y1:13,x2:6,y2:13,stroke:"#aeb8c6","stroke-width":2}));g.appendChild(el("line",{x1:-2,y1:17,x2:2,y2:17,stroke:"#aeb8c6","stroke-width":2}));}
+  function symNMOS(g,c,on,cur){ // pins local: d=(2,0)*G, g=(0,1)*G, s=(2,2)*G
+    var dx=2*G,gx=0,gyy=1*G,sy=2*G,bx=1.3*G;
+    lead(g,gx,gyy,bx-6,gyy);                       // gate lead
+    g.appendChild(el("line",{x1:bx-6,y1:gyy-13,x2:bx-6,y2:gyy+13,stroke:"#cdd6e2","stroke-width":2})); // gate plate
+    g.appendChild(el("line",{x1:bx,y1:gyy-13,x2:bx,y2:gyy+13,stroke:"#cdd6e2","stroke-width":2.6}));    // channel
+    lead(g,dx,0,dx,gyy-9); lead(g,bx,gyy-9,dx,gyy-9);   // drain
+    lead(g,dx,sy,dx,gyy+9); lead(g,bx,gyy+9,dx,gyy+9);  // source
+    var lit=Math.abs(cur)>1e-5; g.appendChild(el("circle",{cx:bx,cy:gyy,r:3,fill:lit?"#ffd76a":"#171d26"}));
+    g.appendChild(txt(dx+8,4,"D",8.5,"#9aa6b6"));g.appendChild(txt(dx+8,sy+2,"S",8.5,"#9aa6b6"));g.appendChild(txt(-8,gyy+3,"G",8.5,"#9aa6b6"));}
+  function symOP(g,c,on,cur){ // in+ (0,0), in- (0,2), out (3,1)
+    var x2=3*G,y1=0,y2=2*G,ym=1*G;lead(g,0,y1,18,y1);lead(g,0,y2,18,y2);lead(g,2.6*G,ym,x2,ym);
+    g.appendChild(el("path",{d:"M18,"+(y1-14)+" L18,"+(y2+14)+" L"+(2.6*G)+","+ym+" Z",fill:"#11161d",stroke:"#cdd6e2","stroke-width":1.8}));
+    g.appendChild(txt(26,y1+4,"+",10,"#7fd6a0",700));g.appendChild(txt(26,y2+4,"−",11,"#e0816a",700));}
+  function symRLY(g,c,on,cur,sim){ // coilA(0,0) coilB(0,2) com(3,0) no(3,2)
+    var y2=2*G,x2=3*G,energ=false;if(sim){try{var st=sim.state("c"+c.id);energ=st&&st.closed;}catch(e){}}
+    lead(g,0,0,.5*G,0);lead(g,0,y2,.5*G,y2);
+    g.appendChild(el("rect",{x:.5*G,y:-10,width:.9*G,height:y2+20,rx:4,fill:"#11161d",stroke:energ?"#7fd6a0":"#cdd6e2","stroke-width":2})); // coil
+    g.appendChild(txt(.95*G,ym1(y2),"K",9,energ?"#7fd6a0":"#9aa6b6",700));
+    lead(g,x2,0,2.2*G,0);lead(g,x2,y2,2.2*G,y2);
+    g.appendChild(el("circle",{cx:2.2*G,cy:0,r:2.6,fill:"#cdd6e2"}));g.appendChild(el("circle",{cx:2.2*G,cy:y2,r:2.6,fill:"#cdd6e2"}));
+    g.appendChild(el("line",{x1:2.2*G,y1:0,x2:2.2*G,y2:energ?y2:y2*.45,stroke:energ?"#7fd6a0":"#cdd6e2","stroke-width":2.4}));  // armature
+    g.appendChild(el("line",{x1:1.4*G,y1:1*G,x2:2.2*G,y2:y2*.5,stroke:"#46505f","stroke-width":1,"stroke-dasharray":"3 3"}));}  // mechanical link
+  function ym1(y2){return y2/2+3;}
+  function txt(x,y,s,sz,fill,w){var t=el("text",{x:x,y:y,"text-anchor":"middle","font-size":sz,fill:fill||"#cdd6e2",style:"pointer-events:none"});if(w)t.setAttribute("font-weight",w);t.textContent=s;return t;}
+
+  // ====================== INTERACTION ======================
+  function gridAt(ev){var r=ed.getBoundingClientRect();return{gx:Math.round((ev.clientX-r.left-view.x)/G),gy:Math.round((ev.clientY-r.top-view.y)/G)};}
+  ed.addEventListener("click",function(ev){
+    if(placeType){var gp=gridAt(ev);addComp(placeType,gp.gx,gp.gy);if(!ev.shiftKey){placeType=null;updatePalette();setMode();}return;}
+    if(tool==="select"){selected=null;renderProps();draw();}
+  });
+  var drag=null;
+  function startDrag(ev,c){
+    if(tool==="wire"){onWirePin(nearestPin(c,ev));return;}
+    selected=c;renderProps();drag={c:c,ox:c.gx,oy:c.gy,sx:ev.clientX,sy:ev.clientY,moved:false};
+    document.addEventListener("mousemove",onDrag);document.addEventListener("mouseup",endDrag);draw();
+  }
+  function onDrag(ev){if(!drag)return;var dx=Math.round((ev.clientX-drag.sx)/G),dy=Math.round((ev.clientY-drag.sy)/G);if(dx||dy)drag.moved=true;drag.c.gx=drag.ox+dx;drag.c.gy=drag.oy+dy;draw();}
+  function endDrag(){document.removeEventListener("mousemove",onDrag);document.removeEventListener("mouseup",endDrag);if(drag&&drag.moved&&sim){sim=makeSim();safeDC();}drag=null;draw();}
+  function nearestPin(c,ev){var gp=gridAt(ev),ps=pinsOf(c),best=ps[0],bd=1e9;ps.forEach(function(p){var d=Math.abs(p.gx-gp.gx)+Math.abs(p.gy-gp.gy);if(d<bd){bd=d;best=p;}});return best;}
+  function onWirePin(p){if(!wireStart){wireStart={gx:p.gx,gy:p.gy};draw();return;}if(wireStart.gx===p.gx&&wireStart.gy===p.gy){wireStart=null;draw();return;}
+    wires.push({a:{gx:wireStart.gx,gy:wireStart.gy},b:{gx:p.gx,gy:p.gy}});wireStart=null;if(sim){sim=makeSim();safeDC();}draw();}
+  ed.addEventListener("mousedown",function(ev){if(tool!=="wire")return;if(ev.target!==ed&&ev.target.tagName!=="rect"&&ev.target.tagName!=="line")return;onWirePin(gridAt(ev));});
+  function addComp(type,gx,gy){var c={id:nextId++,type:type,gx:gx,gy:gy,rot:0,value:PARTS[type].def,freq:PARTS[type].freq};selected=c;comps.push(c);renderProps();if(sim){sim=makeSim();safeDC();}draw();}
+  function delSelected(){if(!selected)return;comps=comps.filter(function(c){return c!==selected;});selected=null;renderProps();if(sim){sim=makeSim();safeDC();}draw();}
+  function rotSelected(){if(!selected)return;selected.rot=((selected.rot||0)+90)%360;if(sim){sim=makeSim();safeDC();}draw();}
+
+  function renderProps(){
+    var box=document.getElementById("props"),tune=document.getElementById("tune");
+    if(!selected){box.innerHTML="Nothing selected.";tune.innerHTML="";return;}
+    var P=PARTS[selected.type],html="<b>"+P.nm+"</b> <span class='k'>#"+selected.id+"</span>";
+    if(sim){var cur=0;try{cur=sim.i("c"+selected.id);}catch(e){}if(selected.type!=="GND")html+="<br><span class='k'>current</span> <b>"+fmtSI(cur,"A")+"</b>";
+      if(selected.type==="RELAY"){try{var st=sim.state("c"+selected.id);if(st)html+="<br><span class='k'>contact</span> <b>"+(st.closed?"CLOSED":"open")+"</b>";}catch(e){}}}
+    box.innerHTML=html;
+    tune.innerHTML="";
+    if(P.unit){
+      var w=document.createElement("div");w.className="row";var lab=document.createElement("label");lab.textContent="Value";
+      var rng=document.createElement("input");rng.type="range";rng.min=0;rng.max=1000;var val=document.createElement("span");val.className="val";
+      function toR(v){return P.log?Math.round(1000*(Math.log(v)-Math.log(P.min))/(Math.log(P.max)-Math.log(P.min))):Math.round(1000*(v-P.min)/(P.max-P.min));}
+      function frR(r){return P.log?Math.exp(Math.log(P.min)+(r/1000)*(Math.log(P.max)-Math.log(P.min))):P.min+(r/1000)*(P.max-P.min);}
+      rng.value=toR(selected.value);val.textContent=fmtVal(selected.type,selected.value);
+      rng.addEventListener("input",function(){selected.value=frR(+rng.value);val.textContent=fmtVal(selected.type,selected.value);refreshVmax();if(sim&&!running)safeDC();draw();});
+      w.appendChild(lab);w.appendChild(rng);w.appendChild(val);tune.appendChild(w);
+    }
+    if(selected.type==="VAC"){
+      var w2=document.createElement("div");w2.className="row";var l2=document.createElement("label");l2.textContent="Freq";
+      var r2=document.createElement("input");r2.type="range";r2.min=1;r2.max=400;r2.value=selected.freq||60;var v2=document.createElement("span");v2.className="val";v2.textContent=(selected.freq||60)+" Hz";
+      r2.addEventListener("input",function(){selected.freq=+r2.value;v2.textContent=selected.freq+" Hz";});
+      w2.appendChild(l2);w2.appendChild(r2);w2.appendChild(v2);tune.appendChild(w2);
+    }
+    if(selected.type==="SW"){var b=document.createElement("button");b.className="b";b.style.width="100%";b.textContent=selected.value?"CLOSED — click to open":"OPEN — click to close";
+      b.addEventListener("click",function(){selected.value=selected.value?0:1;renderProps();if(sim&&!running)safeDC();draw();});tune.appendChild(b);}
+    // TM part tag (links to Look-Alike Parts)
+    var pn=document.createElement("input");pn.className="b pn";pn.placeholder="TM part # / NSN (optional)";pn.value=selected.tm||"";
+    pn.addEventListener("change",function(){selected.tm=pn.value.trim();draw();});
+    tune.appendChild(pn);
+  }
+
+  // ====================== SIM LOOP ======================
+  function frame(){if(!running)return;var spd=+document.getElementById("speed").value/100,dt=2e-5+spd*1.2e-3,steps=2+Math.round(spd*6);
+    for(var i=0;i<steps;i++){try{sim.step(dt);}catch(e){running=false;break;}if(scopeKey!==null){var v=nodeVolt(scopeKey);if(v!==null){scopeData.push(v);if(scopeData.length>240)scopeData.shift();}}}
+    dashPhase+=steps;drawScope();draw();rafId=requestAnimationFrame(frame);}
+  function _runBtnOn(){var b=document.getElementById("btnRun");b.textContent="⏸ Pause";b.classList.add("stop");b.classList.remove("go");setMode();}
+  // Worker-driven run: the worker steps the MNA solve off-thread and posts a snapshot; each snapshot
+  // triggers a draw and requests the next batch (self-paced, never blocks the UI thread).
+  function pumpWorker(){ if(!running||!sim||!sim.step)return; var spd=+document.getElementById("speed").value/100,dt=2e-5+spd*1.2e-3,steps=2+Math.round(spd*6); sim.step(dt,steps); }
+  function onWorkerFrame(tag){ if(!running)return;
+    if(scopeKey!==null){var v=nodeVolt(scopeKey);if(v!==null){scopeData.push(v);if(scopeData.length>240)scopeData.shift();}}
+    dashPhase+=6;drawScope();draw();
+    if(tag==="step")pumpWorker(); }
+  function startRun(){
+    var els=[];try{els=netlist();}catch(e){els=[];}
+    if(!els.length){toast("Build a circuit first.");return;}
+    if(WORKER_OK){ var ws=new WorkerSim(els); if(ws.ok()){ sim=ws; sim.onframe=onWorkerFrame; refreshVmax(); running=true; scopeData=[]; _runBtnOn(); sim.dc(); pumpWorker(); return; } }
+    sim=makeSim();if(!sim){toast("Build a circuit first.");return;}try{sim.dc();}catch(e){}refreshVmax();running=true;scopeData=[];
+    _runBtnOn();rafId=requestAnimationFrame(frame);}
+  function stopRun(){running=false;if(rafId)cancelAnimationFrame(rafId);
+    // If a worker drove the run, terminate it and swap back to an inline sim at DC so Step/edits stay synchronous.
+    try{ if(sim&&sim.terminate){ sim.terminate(); sim=makeSim(); if(sim)safeDC(); draw(); } }catch(e){}
+    var b=document.getElementById("btnRun");b.textContent="▶ Run";b.classList.add("go");b.classList.remove("stop");}
+  function drawScope(){var cv=document.getElementById("scope"),ctx=cv.getContext("2d"),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);ctx.strokeStyle="#1c2733";ctx.lineWidth=1;
+    for(var gy=0;gy<=4;gy++){var y=gy/4*H;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    if(scopeKey===null){ctx.fillStyle="#5b6470";ctx.font="11px sans-serif";ctx.fillText("pick a node…",8,H/2);return;}
+    var lo=-1.15*vmax,hi=1.15*vmax;ctx.fillStyle="#9aa6b6";ctx.font="9px monospace";ctx.fillText(hi.toFixed(1)+"V",2,10);ctx.fillText(lo.toFixed(1)+"V",2,H-3);
+    if(scopeData.length<2)return;ctx.strokeStyle="#4f9dff";ctx.lineWidth=1.6;ctx.beginPath();
+    for(var i=0;i<scopeData.length;i++){var x=i/239*W,y=H-(scopeData[i]-lo)/(hi-lo)*H;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+    var lv=scopeData[scopeData.length-1];ctx.fillStyle="#4f9dff";ctx.fillText(lv.toFixed(2)+"V",W-44,12);}
+  function updateReadout(){}
+
+  // ====================== UI WIRING ======================
+  function toast(m){var t=document.getElementById("toast");t.textContent=m;t.style.opacity=1;clearTimeout(t._t);t._t=setTimeout(function(){t.style.opacity=0;},2400);}
+  function setMode(){document.getElementById("tSelect").classList.toggle("on",tool==="select"&&!placeType);document.getElementById("tWire").classList.toggle("on",tool==="wire");
+    document.getElementById("modeflag").textContent=placeType?("Place — click to drop "+PARTS[placeType].nm+" (Shift = keep)"):tool==="wire"?"Wire — click pin → pin":"Select — click a part to tune it";}
+  function updatePalette(){var pal=document.getElementById("palette");pal.innerHTML="";
+    Object.keys(PARTS).forEach(function(t){var b=document.createElement("div");b.className="pbtn"+(placeType===t?" on":"");
+      var s=el("svg",{viewBox:"0 0 78 52"});var gg=el("g",{transform:"translate(8,12)"});var mini={type:t,gx:0,gy:0,rot:0,value:PARTS[t].def,freq:PARTS[t].freq};
+      var sc=(t==="GND")?1:(t==="NMOS"||t==="OPAMP"||t==="RELAY")?0.5:0.62;var tmp=el("g",{transform:"scale("+sc+")"});PARTS[t].sym(tmp,mini,false,0,null);gg.appendChild(tmp);s.appendChild(gg);
+      var lbl=document.createElement("span");lbl.textContent=PARTS[t].nm;b.appendChild(s);b.appendChild(lbl);
+      b.addEventListener("click",function(){placeType=(placeType===t?null:t);tool="select";updatePalette();setMode();});pal.appendChild(b);});}
+  document.getElementById("tSelect").addEventListener("click",function(){tool="select";placeType=null;wireStart=null;updatePalette();setMode();draw();});
+  document.getElementById("tWire").addEventListener("click",function(){tool="wire";placeType=null;updatePalette();setMode();draw();});
+  document.getElementById("btnRot").addEventListener("click",rotSelected);
+  document.getElementById("btnDel").addEventListener("click",delSelected);
+  document.getElementById("btnRun").addEventListener("click",function(){running?stopRun():startRun();});
+  document.getElementById("btnDC").addEventListener("click",function(){stopRun();solveDC();});
+  document.getElementById("btnStepR").addEventListener("click",function(){if(!sim){sim=makeSim();if(sim)safeDC();}if(!sim){toast("Build a circuit first.");return;}try{sim.step(5e-4);}catch(e){}if(scopeKey!==null){var v=nodeVolt(scopeKey);if(v!==null){scopeData.push(v);if(scopeData.length>240)scopeData.shift();}}dashPhase+=4;drawScope();draw();});
+  document.getElementById("btnClear").addEventListener("click",function(){comps=[];wires=[];selected=null;scopeKey=null;scopeData=[];sim=null;stopRun();renderProps();draw();});
+  document.getElementById("speed").addEventListener("input",function(){document.getElementById("speedV").textContent=this.value+"%";});
+  document.getElementById("viz").addEventListener("change",function(){draw();updateLegend();});
+  document.getElementById("sample").addEventListener("change",function(){if(this.value)loadSample(this.value);this.value="";});
+  document.addEventListener("keydown",function(e){if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;if(e.key==="r"||e.key==="R")rotSelected();if(e.key==="Delete"||e.key==="Backspace")delSelected();if(e.key==="Escape"){placeType=null;wireStart=null;tool="select";updatePalette();setMode();draw();}});
+
+  // save / load / export
+  function serialize(){return JSON.stringify({v:2,comps:comps,wires:wires,nextId:nextId},null,1);}
+  function deserialize(s){try{var o=JSON.parse(s);if(!o.comps)return false;comps=o.comps;wires=o.wires||[];nextId=o.nextId||(comps.length+1);selected=null;scopeKey=null;sim=null;stopRun();refreshVmax();renderProps();draw();return true;}catch(e){return false;}}
+  document.getElementById("btnSave").addEventListener("click",function(){try{localStorage.setItem("circuitlab.save",serialize());toast("Saved to this browser.");}catch(e){toast("Save unavailable here.");}});
+  document.getElementById("btnLoad").addEventListener("click",function(){try{var s=localStorage.getItem("circuitlab.save");if(s&&deserialize(s))toast("Loaded last save.");else toast("No saved circuit found.");}catch(e){toast("Load unavailable.");}});
+  function download(name,text,mime){var b=new Blob([text],{type:mime||"text/plain"}),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(u);},800);}
+  document.getElementById("btnExport").addEventListener("click",function(){download("circuit.circuit.json",serialize(),"application/json");});
+  document.getElementById("btnImport").addEventListener("click",function(){document.getElementById("fileIn").click();});
+  document.getElementById("fileIn").addEventListener("change",function(ev){var f=ev.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){if(deserialize(rd.result))toast("Imported "+f.name);else toast("Couldn't read that file.");};rd.readAsText(f);ev.target.value="";});
+  document.getElementById("btnNetlist").addEventListener("click",function(){
+    buildNodes();var lines=["* THE VIEWER Circuit Lab netlist","* node 0 = ground"];
+    comps.forEach(function(c){if(c.type==="GND")return;var ns=pinsOf(c).map(nodeOf);if(ns.some(function(x){return x===undefined;}))return;
+      var nm=c.type+c.id,nstr=ns.join(" "),tag=c.tm?("  ; TM "+c.tm):"";
+      if(c.type==="R")lines.push("R"+c.id+" "+nstr+" "+c.value+tag);
+      else if(c.type==="C")lines.push("C"+c.id+" "+nstr+" "+c.value+tag);
+      else if(c.type==="L")lines.push("L"+c.id+" "+nstr+" "+c.value+tag);
+      else if(c.type==="V")lines.push("V"+c.id+" "+nstr+" DC "+c.value+tag);
+      else if(c.type==="VAC")lines.push("V"+c.id+" "+nstr+" SIN(0 "+c.value+" "+(c.freq||60)+")"+tag);
+      else if(c.type==="D"||c.type==="LED")lines.push("D"+c.id+" "+nstr+" "+(c.type==="LED"?"DLED":"DMOD")+tag);
+      else if(c.type==="SW")lines.push("* SW"+c.id+" "+nstr+" ("+(c.value?"closed":"open")+")"+tag);
+      else if(c.type==="NMOS")lines.push("M"+c.id+" "+nstr+" 0 NMOS"+tag);
+      else if(c.type==="OPAMP")lines.push("XU"+c.id+" "+nstr+" OPAMP"+tag);
+      else if(c.type==="RELAY")lines.push("* RELAY"+c.id+" coil="+ns[0]+","+ns[1]+" contact="+ns[2]+","+ns[3]+tag);});
+    lines.push(".end");download("circuit.cir",lines.join("\n"));toast("Netlist downloaded.");});
+
+  // background overlay
+  document.getElementById("bgLoad").addEventListener("click",function(){var u=document.getElementById("bgUrl").value.trim();if(u){bgUrlCur=u;draw();}});
+  document.getElementById("bgOp").addEventListener("input",function(){document.getElementById("bgOpV").textContent=this.value+"%";draw();});
+
+  function updateLegend(){var lg=document.getElementById("legend"),viz=document.getElementById("viz").value;
+    lg.innerHTML=viz==="logic"?"<span><span class='dot' style='background:#36c06a'></span>HIGH</span><span><span class='dot' style='background:#caa24a'></span>mid</span><span><span class='dot' style='background:#3a7bd5'></span>LOW</span>":"<span><span class='dot' style='background:#7fd66a'></span>+V</span><span><span class='dot' style='background:#caa24a'></span>current</span><span><span class='dot' style='background:#d06a6a'></span>−V</span>";}
+
+  // ---- samples ----
+  function loadSample(which){
+    comps=[];wires=[];nextId=1;selected=null;scopeKey=null;scopeData=[];stopRun();
+    function C(type,gx,gy,rot,val,extra){var c={id:nextId++,type:type,gx:gx,gy:gy,rot:rot||0,value:val!==undefined?val:PARTS[type].def};if(extra)for(var k in extra)c[k]=extra[k];comps.push(c);return c;}
+    function W(ax,ay,bx,by){wires.push({a:{gx:ax,gy:ay},b:{gx:bx,gy:by}});}
+    if(which==="divider"){C("V",2,2,0,5);C("R",2,2,0,1000);C("R",4,2,90,1000);C("GND",2,6);W(2,4,2,6);W(4,4,2,4);scopeKey=key(4,2);}
+    else if(which==="rc"){C("V",2,2,0,5);C("R",2,2,0,2000);C("C",4,2,90,1e-5);C("GND",2,6);W(2,4,2,6);W(4,4,2,4);scopeKey=key(4,2);}
+    else if(which==="rlc"){C("V",2,2,0,5);C("R",2,2,0,60);C("L",4,2,0,.08);C("C",6,2,90,5e-5);C("GND",2,6);W(6,4,2,6);W(2,4,2,6);scopeKey=key(6,2);}
+    else if(which==="rect"){C("V",2,2,0,5);C("D",2,2,0);C("R",4,2,0,1000);C("LED",6,2,90);C("GND",2,6);W(6,4,2,6);W(2,4,2,6);scopeKey=key(6,2);}
+    else if(which==="ac"){C("VAC",2,2,0,5,{freq:60});C("R",2,2,0,2000);C("C",4,2,90,1e-5);C("GND",2,6);W(2,4,2,6);W(4,4,2,4);scopeKey=key(4,2);}
+    else if(which==="mos"){ // NMOS inverter: VDD->R(pull-up)->drain; gate driven 5V; source->gnd
+      C("V",2,2,0,5);C("R",4,2,0,1000);C("NMOS",6,2,0);C("V",2,6,0,5);C("GND",4,6);
+      W(2,2,4,2);                 // VDD top -> R left
+      W(6,2,8,2);                 // R right -> drain (8,2)
+      W(2,6,6,3);                 // VG top -> gate (6,3)
+      W(2,4,4,6);                 // VDD bottom -> gnd
+      W(8,4,4,6);                 // source (8,4) -> gnd
+      W(2,8,4,6);                 // VG bottom -> gnd
+      scopeKey=key(8,2);}
+    else if(which==="relay"){ // 12V energizes the coil -> contact closes -> 5V lamp lights
+      C("V",2,2,0,12);C("RELAY",4,2,0);C("V",1,6,0,5);C("R",7,4,90,100);C("GND",4,8);
+      W(2,2,4,2);                 // VC top -> coilA (4,2)
+      W(2,4,4,8);                 // VC bottom -> gnd
+      W(4,4,4,8);                 // coilB -> gnd
+      W(1,6,7,2);                 // VL top -> contact COM (7,2)
+      W(7,6,4,8);                 // lamp bottom -> gnd  (lamp top = NO at 7,4)
+      W(1,8,4,8);                 // VL bottom -> gnd
+      scopeKey=key(7,4);}
+    else if(which==="opamp"){ // non-inverting x2: gain = 1 + Rf/Rg = 2, out = 2*vin
+      C("V",1,2,0,1);C("OPAMP",3,2,0);C("R",4,4,0,1000);C("R",3,4,90,1000);C("GND",4,8);
+      W(1,2,3,2);                 // vin -> in+ (3,2)
+      W(1,4,4,8);                 // vin bottom -> gnd
+      W(6,3,6,4);                 // out (6,3) -> Rf right
+      W(4,4,3,4);                 // Rf left -> in- (3,4)  (Rg top coincides at 3,4)
+      W(3,6,4,8);                 // Rg bottom -> gnd
+      scopeKey=key(6,3);}
+    refreshVmax();sim=makeSim();if(sim)safeDC();renderProps();draw();updateLegend();toast("Loaded: "+which+" — press ▶ Run");
+  }
+
+  // Living Schematic bridge (step 3): if this sheet has an inferred netlist, surface it as a reference to
+  // build the live circuit over. (Inference gives TOPOLOGY; the MNA solve needs component values, which the
+  // sheet may not state — so this jump-starts building, it doesn't auto-simulate.)
+  function loadInferred(doc,page){
+    var x=new XMLHttpRequest(); x.open("GET","/api/schemgraph?doc="+encodeURIComponent(doc)+"&page="+encodeURIComponent(page),true);
+    x.onreadystatechange=function(){ if(x.readyState!==4)return; var g=null; try{g=JSON.parse(x.responseText);}catch(e){}
+      if(!g||!g.counts||!(g.counts.edges>0))return; var c=g.counts, conf=Math.round((g.confidence||0)*100);
+      var p=document.createElement("div");
+      p.style.cssText="position:fixed;right:12px;bottom:12px;max-width:252px;background:#10151c;border:1px solid #2f4858;border-radius:8px;padding:10px;font-size:12px;color:#cfe;z-index:50";
+      p.innerHTML='<div style="color:#7fbfff;font-weight:700;margin-bottom:4px">⊹ Inferred netlist (this sheet)</div>'+
+        '<div style="color:#9aa6b6">'+c.nets+' nets · '+c.components+' components · '+c.edges+' wire-segments · confidence '+conf+'%</div>'+
+        '<div style="color:#8a98a8;margin:6px 0">Trace this topology over the page background to build the live circuit, then assign values and Run.</div>'+
+        '<button id="dlInferred" style="width:100%;background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:6px;padding:5px;cursor:pointer">⬇ inferred netlist (JSON)</button>'+
+        '<span id="clInfClose" style="position:absolute;right:8px;top:6px;color:#8a98a8;cursor:pointer">✕</span>';
+      document.body.appendChild(p);
+      document.getElementById("clInfClose").onclick=function(){ if(p.parentNode)p.parentNode.removeChild(p); };
+      document.getElementById("dlInferred").onclick=function(){ var b=new Blob([JSON.stringify(g,null,1)],{type:"application/json"});
+        var a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="inferred_netlist_doc"+doc+"_p"+page+".json"; a.click(); };
+    }; x.send();
+  }
+  function boot(){updatePalette();setMode();updateLegend();renderProps();
+    var q=new URLSearchParams(location.search);
+    if(q.get("doc")){bgUrlCur="/page?doc="+encodeURIComponent(q.get("doc"))+"&page="+(q.get("page")||"1")+"&dpi=150&clean=1";document.getElementById("bgUrl").value=bgUrlCur;
+      loadInferred(q.get("doc"), q.get("page")||"1");}
+    if(q.get("sample"))loadSample(q.get("sample"));else loadSample("rc");
+    window.addEventListener("resize",draw);}
+  boot();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

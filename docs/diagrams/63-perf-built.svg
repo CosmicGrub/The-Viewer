@@ -1,0 +1,57 @@
+<svg viewBox="0 0 1180 660" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="660" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Faster transport + a Performance toggle  (v0.46.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Two RPS finishers: gzip + keep-alive on the wire, and a Modern/Lite/Legacy switch in Settings. Both additive; data, search and the 104th sheet are untouched.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · gzip + KEEP-ALIVE (every page load, automatically)</text>
+<rect x="40" y="126" width="1100" height="180" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="150" width="210" height="135" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="75" y="172" font-size="9.6" font-weight="700" fill="#1d9e75" text-anchor="start">Keep-alive (HTTP/1.1)</text>
+<text x="75" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">one TCP connection reused</text>
+<text x="75" y="208" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">across every request</text>
+<text x="75" y="224" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">(Content-Length on all</text>
+<text x="75" y="240" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">responses) — less handshake</text>
+<text x="75" y="256" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">latency on slow links</text>
+<rect x="290" y="150" width="300" height="135" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="305" y="172" font-size="9.6" font-weight="700" fill="#4f9dff" text-anchor="start">gzip (Accept-Encoding aware)</text>
+<text x="305" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">compresses JSON / HTML / JS / SVG</text>
+<text x="305" y="208" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">when the browser sends gzip</text>
+<text x="305" y="224" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">skips &lt; 512 B (overhead) and</text>
+<text x="305" y="240" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">already-compressed PNG / PDF</text>
+<text x="305" y="256" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">sets Vary: Accept-Encoding</text>
+<rect x="610" y="150" width="530" height="135" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="625" y="172" font-size="9.6" font-weight="700" fill="#2f7d4f" text-anchor="start">Verified (curl)</text>
+<circle cx="628" cy="188" r="3" fill="#2f7d4f"/>
+<text x="640" y="191" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">2 KB JSON → 45 B gzipped (Content-Encoding: gzip)</text>
+<circle cx="628" cy="204" r="3" fill="#2f7d4f"/>
+<text x="640" y="207" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">two requests served on ONE connection (keep-alive)</text>
+<circle cx="628" cy="220" r="3" fill="#2f7d4f"/>
+<text x="640" y="223" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">small JSON (&lt;512 B) left uncompressed</text>
+<circle cx="628" cy="236" r="3" fill="#2f7d4f"/>
+<text x="640" y="239" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">image/png left uncompressed even when gzip offered</text>
+<circle cx="628" cy="252" r="3" fill="#2f7d4f"/>
+<text x="640" y="255" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">no Accept-Encoding → full uncompressed body</text>
+<text x="60" y="300" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Biggest win for the large home page + JSON results on a slow connection or an old box; zero UI change — it&#x27;s in _send().</text>
+<text x="56" y="338" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · PERFORMANCE TOGGLE IN SETTINGS (manual override)</text>
+<rect x="40" y="348" width="1100" height="210" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="372" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">⚙ Settings → Performance (Retroactive Post-Support)</text>
+<rect x="58" y="386" width="262" height="56" rx="9" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="70" y="408" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">Auto</text>
+<text x="70" y="424" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">match this PC (the probe decides) — the</text><text x="70" y="435" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">default</text>
+<rect x="330" y="386" width="262" height="56" rx="9" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="342" y="408" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Modern</text>
+<text x="342" y="424" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">full effects, server hi-fi loupe</text>
+<rect x="602" y="386" width="262" height="56" rx="9" fill="#1c2430" stroke="#caa24a" stroke-width="1"/>
+<text x="614" y="408" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">Lite</text>
+<text x="614" y="424" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">effects off, lighter rendering</text>
+<rect x="874" y="386" width="262" height="56" rx="9" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="886" y="408" font-size="10.5" font-weight="700" fill="#7f77dd" text-anchor="start">Legacy</text>
+<text x="886" y="424" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Win 7 / Vista friendly</text>
+<text x="58" y="470" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">How it works:</text>
+<text x="58" y="490" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• the choice is saved per-browser (localStorage &#x27;rps.mode&#x27;); rps.js reads it and re-applies live — no reload</text>
+<text x="58" y="506" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• it asks /api/rps?mode=… for that mode&#x27;s flags, then toggles lite-effects + default DPI on the client</text>
+<text x="58" y="522" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• the SERVER&#x27;s mode (SQLite tuning + page cache) stays auto-picked from the real hardware — you can&#x27;t mis-tune the DB by choosing a UI mode</text>
+<text x="58" y="538" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• force the whole server at launch instead with  viewer_app.py --mode legacy  (or ?mode= in the URL)</text>
+<text x="40" y="646" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.46.0 · 2026-06-02 · viewer_app.py (_send gzip+keep-alive) + engine/ui/rps.js + index.html Settings. Additive/rollbackable (R1).</text>
+</svg>

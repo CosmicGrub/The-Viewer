@@ -1,0 +1,13 @@
+%% THE VIEWER - OCR Indexing Queue (addition 2026-06-01, rule R2)
+flowchart TB
+    PAGE["PDF page"] --> PROBE["pdftotext probe<br/>chars per page"]
+    PROBE --> HAS{"Has real text?"}
+    HAS -->|yes| IDX["Index now -> FTS5<br/>source = text"]
+    HAS -->|no / scanned| Q[["OCR QUEUE<br/>state = pending_ocr"]]
+    Q --> RUN["state = ocr_running<br/>pdftoppm -> PNG"]
+    RUN --> TESS["tesseract (eng)<br/>image -> text"]
+    TESS --> IDX2["Update page text -> FTS5<br/>source = ocr"]
+    TESS -.error.-> FAIL["state = failed<br/>attempts + last_error"]
+    FAIL -.retry.-> RUN
+    IDX2 --> DONE["state = indexed"]
+    IDX --> DONE

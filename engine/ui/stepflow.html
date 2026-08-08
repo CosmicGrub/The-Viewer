@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visual steps — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:760px;margin:0 auto;padding:20px}
+  .bar{display:flex;gap:10px;margin-bottom:10px}
+  #q{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:15px}
+  #q:focus{outline:none;border-color:var(--acc)}
+  button.go{background:var(--acc);border:none;color:#06121f;font-weight:700;border-radius:9px;padding:0 18px;cursor:pointer;font-size:14px}
+  .muted{color:var(--sub);font-size:13px}
+  .nom{font-size:23px;font-weight:700;margin:6px 0 2px}
+  .proc{margin:22px 0}
+  .phead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .kind{font-size:14px;font-weight:700;border-radius:24px;padding:5px 14px}
+  .kind.removal,.kind.disassembly{background:#3a2f1a;color:#e7c06a}
+  .kind.installation,.kind.assembly{background:#16301f;color:#7fd6a0}
+  .kind.replacement,.kind.adjustment,.kind.repair,.kind.service,.kind.inspection,.kind.cleaning,.kind.procedure{background:#16223a;color:#9cc4ff}
+  .cite{font-size:12.5px;color:var(--sub)} .cite a{color:var(--acc);text-decoration:none}
+  .banner{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:12px 15px;margin:10px 0;font-size:14.5px;border:2px solid}
+  .banner .ic{font-size:22px;line-height:1}
+  .banner.warning,.banner.danger{background:#2a1414;border-color:#a13b3b;color:#f3b1b1}
+  .banner.caution{background:#2a2412;border-color:#9a7a2a;color:#ecca78}
+  .banner.note{background:#14202e;border-color:#33547e;color:#a8caf0}
+  .banner b{display:block;font-size:12px;letter-spacing:1px;margin-bottom:2px}
+  .toolsbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin:10px 0}
+  .toolsbar .lbl{font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--sub);font-weight:700}
+  .toolsbar .tool{display:inline-flex;align-items:center;gap:6px;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:13.5px}
+  .flow{position:relative;margin:8px 0 8px 8px}
+  .node{display:flex;gap:16px;align-items:flex-start;position:relative;padding-bottom:18px}
+  .node:last-child{padding-bottom:0}
+  .node .num{flex:none;width:42px;height:42px;border-radius:50%;background:var(--acc);color:#06121f;font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2}
+  .node .conn{position:absolute;left:21px;top:42px;bottom:-2px;width:2px;background:var(--line);z-index:1}
+  .node:last-child .conn{display:none}
+  .node .body{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 15px;font-size:15px;margin-top:2px}
+  .empty{color:var(--sub);padding:30px 0;text-align:center}
+  .spin{color:var(--sub);padding:20px 0}
+  .toggle a{display:inline-block;color:var(--acc);text-decoration:none;font-size:13px;border:1px solid var(--line);border-radius:7px;padding:6px 11px;margin:0 8px 0 0}
+  .ground{font-size:12px;color:var(--sub);margin-top:22px;border-top:1px dashed var(--line);padding-top:10px}
+  @media print{body{background:#fff;color:#111} header,.bar,.toggle,.ground{display:none!important}
+    .node .body,.toolsbar{background:#fff;border-color:#bbb;color:#111} .node .num{background:#111;color:#fff}
+    .banner.warning,.banner.danger,.banner.caution,.banner.note{background:#fff;color:#111}}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>📐 Visual steps</h1><span class="muted">the procedure as a follow-along flow</span>
+  <span class="sp"></span>
+  <a class="nav" href="/procedure">🔧 Detailed view</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <div class="bar">
+    <input id="q" placeholder="Part name or NSN (e.g. 'alternator')" autocomplete="off">
+    <button class="go" onclick="run()">Show steps</button>
+  </div>
+  <div id="out"><div class="muted">A big, simple visual of the remove/install steps — numbered nodes with the WARNINGs and CAUTIONs called out, and the tools staged up front. Built for following along at the vehicle.</div></div>
+</div>
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function kcls(k){return (k||"").toLowerCase().replace(/[^a-z]/g,"");}
+function cicon(k){k=(k||"").toUpperCase(); return (k==="WARNING"||k==="DANGER")?"⚠":(k==="CAUTION")?"❗":"ℹ";}
+function run(){
+  var q=$("#q").value.trim(); if(!q)return;
+  history.replaceState(null,"","/stepflow?q="+encodeURIComponent(q));
+  $("#out").innerHTML='<div class="spin">Drawing the steps…</div>';
+  fetch("/api/procedure?q="+encodeURIComponent(q)+"&limit=3").then(function(r){return r.json();}).then(render).catch(function(e){
+    $("#out").innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>';});
+}
+function render(d){
+  if(!d.found){ $("#out").innerHTML='<div class="empty">No step-by-step procedure found for <b>'+esc(d.query)+'</b> yet.<br><span class="muted">Try the exact part name, or check back as OCR coverage grows.</span></div>'; return; }
+  var h='<div class="nom">'+esc(d.nomenclature)+'</div>';
+  h+='<div class="toggle" style="margin:8px 0 4px"><a href="/procedure?q='+encodeURIComponent(d.query)+'">📋 Detailed list</a><a href="/packet?q='+encodeURIComponent(d.query)+'" target="_blank">🖨 Job packet</a><a href="#" onclick="window.print();return false">🖨 Print</a></div>';
+  (d.procedures||[]).forEach(function(p){
+    h+='<div class="proc"><div class="phead"><span class="kind '+kcls(p.kind)+'">'+esc(p.kind)+'</span>'+
+       '<span class="cite"><a href="/page?doc='+encodeURIComponent(p.doc_id)+'&page='+encodeURIComponent(p.page)+'&dpi=150&clean=1" target="_blank">'+esc(p.vehicle||p.tm_number||"")+' · p.'+esc(p.page)+' ↗</a></span></div>';
+    (p.cautions||[]).forEach(function(c){ h+='<div class="banner '+kcls(c.kind)+'"><span class="ic">'+cicon(c.kind)+'</span><span><b>'+esc(c.kind)+'</b>'+esc(c.text)+'</span></div>'; });
+    if(p.tools&&p.tools.length){ h+='<div class="toolsbar"><span class="lbl">Tools</span>'; p.tools.forEach(function(t){h+='<span class="tool">🔧 '+esc(t)+'</span>';}); h+='</div>'; }
+    if(p.steps&&p.steps.length){
+      h+='<div class="flow">';
+      p.steps.forEach(function(s,i){ h+='<div class="node"><div class="num">'+(i+1)+'</div><div class="conn"></div><div class="body">'+esc(s)+'</div></div>'; });
+      h+='</div>';
+    } else h+='<div class="muted">No numbered steps parsed for this section — open the cited page.</div>';
+    h+='</div>';
+  });
+  h+='<div class="ground">Generated from the manual page. Always confirm torque values, sequence and every CAUTION/WARNING on the cited sheet before working. Use the detailed view for the full text.</div>';
+  $("#out").innerHTML=h;
+}
+$("#q").addEventListener("keydown",function(e){if(e.key==="Enter")run();});
+(function(){var m=location.search.match(/[?&]q=([^&]+)/); if(m){$("#q").value=decodeURIComponent(m[1].replace(/\+/g," "));run();}})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

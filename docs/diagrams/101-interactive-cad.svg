@@ -1,0 +1,76 @@
+<svg viewBox="0 0 1200 840" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1200" height="840" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Interactive CAD — the CAD image now rotates, zooms &amp; scales   v0.92.0</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Same renderer, now a turntable: grab the CAD image and spin it. It stays the real CAD render — shaded, coloured, textured, dimensioned.</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">HOW IT WORKS</text>
+<rect x="40" y="128" width="280" height="118" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="118" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">render(yaw=…)</text>
+<text x="56" y="170" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">EXISTING renderer + 3 new args:</text>
+<text x="56" y="185" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">yaw = spin about vertical axis,</text>
+<text x="56" y="200" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">pitch = tilt, title = drop the</text>
+<text x="56" y="215" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">footer for clean frames. (R1)</text>
+<text x="316" y="193" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="328" y="128" width="280" height="118" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="328" y="128" width="5" height="118" rx="2.5" fill="#caa24a"/>
+<text x="344" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">render_spin / ensure_spin</text>
+<text x="344" y="170" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">render N viewpoints around 360°</text>
+<text x="344" y="185" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">→ one TURNTABLE SPRITE SHEET,</text>
+<text x="344" y="200" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">cached &lt;nsn&gt;_spin&lt;n&gt;_&lt;style&gt;.png.</text>
+<text x="344" y="215" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Tier frames: 12 / 16 / 24.</text>
+<text x="604" y="193" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="616" y="128" width="280" height="118" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="616" y="128" width="5" height="118" rx="2.5" fill="#caa24a"/>
+<text x="632" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">/cadspin route</text>
+<text x="632" y="170" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">serves the sheet + X-CAD-Frames /</text>
+<text x="632" y="185" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">X-CAD-FrameW headers. Mirrors</text>
+<text x="632" y="200" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">/cadimg (nsn/chars/style/tier).</text>
+<text x="632" y="215" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">cached in index/cadcache/.</text>
+<text x="892" y="193" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="904" y="128" width="280" height="118" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="904" y="128" width="5" height="118" rx="2.5" fill="#2f7d4f"/>
+<text x="920" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">cadview.js</text>
+<text x="920" y="170" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">canvas + 1 PNG, NO WebGL, ES5.</text>
+<text x="920" y="185" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">drag=rotate · scroll/pinch=zoom</text>
+<text x="920" y="200" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">· pan when zoomed · auto-spin.</text>
+<text x="920" y="215" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">its own 🔄 Rotate CAD tab.</text>
+<text x="40" y="266" font-size="9.5" font-weight="400" fill="#7f8a99" text-anchor="start">green = built on what already existed · amber = the new pieces. BOTH stay: 🖼 CAD image (static, default) + 🔄 Rotate CAD (interactive) — separate tabs, like the 3-D / schematic viewers.</text>
+<line x1="40" y1="282" x2="1160" y2="282" stroke="#2b333f"/>
+<text x="40" y="310" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">WHAT THE MECHANIC CAN DO (same feel as the 3-D model)</text>
+<rect x="40" y="324" width="575" height="84" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="349" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">Rotate</text>
+<text x="56" y="370" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Drag left/right to spin the part through a full turn — see the back, the far side, how it seats.</text>
+<rect x="625" y="324" width="575" height="84" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="641" y="349" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">Zoom / scale</text>
+<text x="641" y="370" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Scroll or pinch to zoom into a feature; drag to pan when zoomed. Reset returns to the framed view.</text>
+<rect x="40" y="418" width="575" height="84" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="443" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Auto-rotate</text>
+<text x="56" y="464" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The spin button toggles a slow continuous turn — hands-free while you read the procedure.</text>
+<rect x="625" y="418" width="575" height="84" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="443" font-size="12.5" font-weight="700" fill="#7f77dd" text-anchor="start">Still the CAD</text>
+<text x="641" y="464" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Every frame is the real CAD render: material colour + texture, facet shading, and the H/L dimension callouts.</text>
+<line x1="40" y1="508" x2="1160" y2="508" stroke="#2b333f"/>
+<text x="40" y="536" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">SCALES WITH THE BUILD (RPS) — GPU-FREE ON EVERY TIER</text>
+<rect x="40" y="550" width="386" height="78" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="574" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">MODERN</text>
+<text x="56" y="594" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">24 frames (v3, textured + colour) — smoothest spin.</text>
+<rect x="432" y="550" width="386" height="78" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="448" y="574" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">LITE</text>
+<text x="448" y="594" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">16 frames (v2, specular/metallic) — lighter sheet.</text>
+<rect x="824" y="550" width="386" height="78" rx="12" fill="#171d26" stroke="#c4585a" stroke-width="1"/>
+<text x="840" y="574" font-size="12" font-weight="700" fill="#c4585a" text-anchor="start">LEGACY</text>
+<text x="840" y="594" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">12 frames (v1, flat) — same drag/zoom, no WebGL, runs on Win7/Vista.</text>
+<line x1="40" y1="644" x2="1160" y2="644" stroke="#2b333f"/>
+<text x="40" y="672" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED (host-side)</text>
+<rect x="40" y="686" width="1120" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="705" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="708" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-CADSPIN.bat → verify_cadspin.py rendered turntables for a bearing, a bolt and a gear.</text>
+<circle cx="56" cy="722" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="725" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Proof montage docs/cadspin_proof.png shows the hex head, gear teeth and bore VISIBLY rotating frame-to-frame.</text>
+<circle cx="56" cy="739" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="742" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Shading + the H/L dimension callouts are preserved on every frame — it&#x27;s still a CAD drawing, just rotatable.</text>
+<circle cx="56" cy="756" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="759" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Both pages&#x27; inline JS + cad_render.py + viewer_app.py parse host-side; cadview.js passes node --check. (R1)</text>
+<text x="40" y="828" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.92.0 · 2026-06-04 · cad_render.render_spin/ensure_spin · /cadspin · cadview.js · threed.html 🖼+🔄 tabs · cadcache. Complements the WebGL 3-D tab. R1.</text>
+</svg>

@@ -1,0 +1,47 @@
+<svg viewBox="0 0 1180 880" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="880" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">Schematic → interactive 3D: what&#x27;s actually possible (and what isn&#x27;t)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">The honest core: a 2D line drawing has no depth data. Accurate 3D must come from real 3D sources — never invented from a scan. Five approaches, grounded → speculative.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="100" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="100" width="6" height="140" rx="3" fill="#2f7d4f"/>
+<text x="60" y="126" font-size="13.5" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Interactive 2D — deep zoom + clickable callouts</text>
+<rect x="910" y="112" width="214" height="24" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1017" y="129" font-size="9.3" font-weight="700" fill="#0f1419" text-anchor="middle">RECOMMENDED · GROUNDED</text>
+<text x="60" y="148" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Tile-zoom the REAL scanned schematic (like a map); auto-place clickable hotspots on the FIG callout numbers (from OCR</text><text x="60" y="162" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">coordinates) that jump to the part row (NSN/part#). Pan, deep-zoom to fine detail on the authoritative drawing.</text>
+<text x="60" y="208" font-size="9.4" font-weight="700" fill="#8fae8f" text-anchor="start">Accuracy = the manual itself · Effort ~2–4 wks · Needs schematic OCR done</text>
+<text x="60" y="224" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Delivers the real job: inspect fine features + identify the exact part. Not rotation, but honest.</text>
+<rect x="40" y="248" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="248" width="6" height="140" rx="3" fill="#4f9dff"/>
+<text x="60" y="274" font-size="13.5" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · Multi-view switcher (where the TM has them)</text>
+<rect x="910" y="260" width="214" height="24" rx="6" fill="#4f9dff" stroke="#2b333f" stroke-width="1"/>
+<text x="1017" y="277" font-size="9.3" font-weight="700" fill="#0f1419" text-anchor="middle">GROUNDED, LIMITED</text>
+<text x="60" y="296" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Many TMs show front/side/section views. Stitch the views the manual already provides into a view switcher — several real angles,</text><text x="60" y="310" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">no invented geometry.</text>
+<text x="60" y="356" font-size="9.4" font-weight="700" fill="#9bb3d6" text-anchor="start">Accuracy = real drawing views · Effort ~1–2 wks</text>
+<text x="60" y="372" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Pseudo-3D from real art · only the angles the manual provides.</text>
+<rect x="40" y="396" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="396" width="6" height="140" rx="3" fill="#caa24a"/>
+<text x="60" y="422" font-size="13.5" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · True 3D from REAL CAD / 3D-TM assets</text>
+<rect x="910" y="408" width="214" height="24" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="1017" y="425" font-size="9.3" font-weight="700" fill="#0f1419" text-anchor="middle">ACCURATE 3D — if files exist</text>
+<text x="60" y="444" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Render actual 3D models (glTF/STEP→glTF, IETM/S1000D or OEM CAD) in a rotatable viewer, linked to the parts index. Real</text><text x="60" y="458" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">rotation, zoom, pick-a-part.</text>
+<text x="60" y="504" font-size="9.4" font-weight="700" fill="#cbb87a" text-anchor="start">Accuracy = the CAD · Viewer ~2–3 wks · BLOCKER: sourcing the files (controlled/availability)</text>
+<text x="60" y="520" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">True rotation &amp; feature zoom · depends on obtaining 3D data — an org/supply problem, not code.</text>
+<rect x="40" y="544" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="544" width="6" height="140" rx="3" fill="#caa24a"/>
+<text x="60" y="570" font-size="13.5" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · True 3D via photogrammetry of the real part</text>
+<rect x="910" y="556" width="214" height="24" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="1017" y="573" font-size="9.3" font-weight="700" fill="#0f1419" text-anchor="middle">ACCURATE 3D — capture workflow</text>
+<text x="60" y="592" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Photograph the actual part (many angles) → reconstruct an accurate textured mesh (COLMAP/RealityCapture). Build a library over</text><text x="60" y="606" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">time, prioritising look-alike parts. Rotate any captured part, zoom to holes/ports/connectors.</text>
+<text x="60" y="652" font-size="9.4" font-weight="700" fill="#cbb87a" text-anchor="start">Accuracy = the real part · Pipeline ~3–5 wks + per-part capture labor</text>
+<text x="60" y="668" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">The genuine &#x27;rotate &amp; zoom to the tiny difference&#x27; experience · grows part-by-part.</text>
+<rect x="40" y="692" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="692" width="6" height="140" rx="3" fill="#e0564f"/>
+<text x="60" y="718" font-size="13.5" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · AI single-image → 3D from the scan</text>
+<rect x="910" y="704" width="214" height="24" rx="6" fill="#e0564f" stroke="#2b333f" stroke-width="1"/>
+<text x="1017" y="721" font-size="9.3" font-weight="700" fill="#e6e9ee" text-anchor="middle">NOT RECOMMENDED</text>
+<text x="60" y="740" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Neural image-to-3D would generate a plausible mesh from one drawing — but it INVENTS geometry (wrong hole count, wrong port).</text><text x="60" y="754" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">For parts ID where the tiny difference is the whole point, a confident-but-wrong model is dangerous.</text>
+<text x="60" y="800" font-size="9.4" font-weight="700" fill="#d98a8a" text-anchor="start">Accuracy = hallucinated · Fast to demo, wrong in practice</text>
+<text x="60" y="816" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Breaks the project&#x27;s never-invent rule. The exact failure mode you care about (holes/ports) is what it gets wrong.</text>
+<text x="40" y="866" font-size="10" font-weight="400" fill="#caa24a" text-anchor="start">Bottom line: build the grounded interactive viewer now; treat true 3D as an optional module fed by REAL 3D data (CAD or photogrammetry). Avoid AI-from-scan. Proposal only — your call.</text>
+</svg>

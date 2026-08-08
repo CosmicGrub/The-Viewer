@@ -1,0 +1,69 @@
+<svg viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1200" height="720" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Retroactive Post-Support — run-mode as a saved Settings choice</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">v1.13.2 · sources → resolver → live feature flags · auto-pick from the hardware probe + a manual override that survives restarts (R1 additive).</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="112" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">SOURCES  (precedence ↓)</text>
+<rect x="40" y="128" width="300" height="60" rx="9" fill="#8a7dff" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="152" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · VIEWER_MODE (env / CLI)</text>
+<text x="52" y="172" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">concrete modern|lite|legacy — wins, back-compat</text>
+<rect x="40" y="196" width="300" height="60" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="220" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · VIEWER_RUN_MODE (env)</text>
+<text x="52" y="240" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">auto | performance | retro</text>
+<rect x="40" y="264" width="300" height="60" rx="9" fill="#1a2740" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="288" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · index/viewer_settings.json</text>
+<text x="52" y="308" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">the Settings-panel choice — persisted (settings.py)</text>
+<rect x="40" y="332" width="300" height="60" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="356" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · default</text>
+<text x="52" y="376" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">auto</text>
+<rect x="40" y="402" width="300" height="64" rx="9" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="52" y="424" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">engine/sysprobe.py</text>
+<text x="52" y="442.0" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">recommended_run_mode (Win10/11+RTX →</text><text x="52" y="454.5" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Performance; Win7/Vista/low-RAM → Retro).</text><text x="52" y="467.0" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Advisory.</text>
+<text x="380" y="112" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">RESOLVER  (pure, unit-testable)</text>
+<rect x="380" y="150" width="360" height="150" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1.4"/>
+<text x="396" y="178" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">viewer_app.rps_init()</text>
+<text x="396" y="198" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">concrete env override → rps.mode_for() · otherwise →</text><text x="396" y="211" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">rps.mode_for_setting(profile, setting)</text>
+<text x="396" y="242" font-size="12" font-weight="700" fill="#8a7dff" text-anchor="start">rps.mode_for_setting()</text>
+<text x="396" y="260.0" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">auto → hardware pick · performance → modern · retro</text><text x="396" y="272.5" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">→ compat, never full-effects (still lite vs legacy</text><text x="396" y="285.0" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">by OS)</text>
+<path d="M340,182 L380,190" stroke="#4f9dff" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<path d="M340,430 L380,270" stroke="#2f7d4f" stroke-width="1.8" fill="none" marker-end="url(#a)" stroke-dasharray="4 3"/>
+<rect x="380" y="318" width="360" height="54" rx="10" fill="#101a14" stroke="#2f7d4f" stroke-width="1"/>
+<text x="396" y="342" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">RPS_MODE  +  RPS_FLAGS</text>
+<text x="396" y="360" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">modern · lite · legacy   →   the on/off switches + tuning for this machine</text>
+<path d="M560.0,300 L560.0,318" stroke="#4f9dff" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<text x="770" y="112" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">APPLIED LIVE  (RPS_FLAGS)</text>
+<rect x="770" y="128" width="390" height="66" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="782" y="152" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">UI (rps.js, ES5/ polyfilled)</text>
+<text x="782" y="170.0" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">effects · animations · loupe (server|local) · default DPI</text>
+<rect x="770" y="202" width="390" height="66" rx="9" fill="#101a14" stroke="#2b333f" stroke-width="1"/>
+<text x="782" y="226" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Render (render_feature)</text>
+<text x="782" y="244.0" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">page-cache read/write + prefetch · render-DPI cap</text>
+<rect x="770" y="276" width="390" height="66" rx="9" fill="#1a2740" stroke="#2b333f" stroke-width="1"/>
+<text x="782" y="300" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">SQLite (_new_conn PRAGMAs)</text>
+<text x="782" y="318.0" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">cache_size · mmap_size · temp_store (new conns; full on</text><text x="782" y="330.5" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">restart)</text>
+<path d="M740,190 L770,152" stroke="#4f9dff" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="40" y="520" width="1120" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="548" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">MANUAL OVERRIDE  (Settings panel → status.html)</text>
+<rect x="56" y="568" width="205" height="74" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="68" y="592" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Run-mode card</text>
+<text x="68" y="614" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Auto · Performance · Retroactive</text><text x="68" y="626" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Post-Support</text>
+<path d="M261,605 L279,605" stroke="#caa24a" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="279" y="568" width="205" height="74" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="291" y="592" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">POST /api/rps_mode</text>
+<text x="291" y="614" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">{setting}</text>
+<path d="M484,605 L502,605" stroke="#caa24a" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="502" y="568" width="205" height="74" rx="9" fill="#1a2740" stroke="#2b333f" stroke-width="1"/>
+<text x="514" y="592" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">viewer_app.set_run_mode()</text>
+<text x="514" y="614" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">normalize → settings.set()</text><text x="514" y="626" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">(durable)</text>
+<path d="M707,605 L725,605" stroke="#caa24a" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="725" y="568" width="205" height="74" rx="9" fill="#101a14" stroke="#2b333f" stroke-width="1"/>
+<text x="737" y="592" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">rps_init() re-runs</text>
+<text x="737" y="614" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">new RPS_MODE + RPS_FLAGS, no</text><text x="737" y="626" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">restart</text>
+<path d="M930,605 L948,605" stroke="#caa24a" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="948" y="568" width="205" height="74" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="960" y="592" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /api/rps</text>
+<text x="960" y="614" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">reflects saved setting +</text><text x="960" y="626" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">resolved mode</text>
+<text x="56" y="660" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Fail-loud: set() returns saved=True/False so the UI can warn on a lost write. Fail-open on read: a corrupt settings file → auto, app still starts.</text>
+<text x="40" y="706" font-size="9.6" font-weight="400" fill="#6b7280" text-anchor="start">Verified: rps.mode_for unchanged; precedence env&gt;settings&gt;auto; additive keys only (R1/R6). Dark (R3) · CHANGELOG 1.13.2 (R4) · visual panel (R5).</text>
+</svg>

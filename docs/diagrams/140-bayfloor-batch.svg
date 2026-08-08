@@ -1,0 +1,91 @@
+<svg viewBox="0 0 1240 940" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="940" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9aa6b6"/></marker></defs>
+<text x="40" y="50" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER v1.4.0 — Bay-floor batch  (data flow)</text>
+<text x="40" y="76" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Four lanes shipped together: kiosk mode · offline QR · Masterfile spec-sheet + coverage · per-dimension confidence · ops polish. All additive &amp; rollbackable (R1); corpus read-only (R6).</text>
+<line x1="40" y1="92" x2="1200" y2="92" stroke="#2b333f"/>
+<text x="40" y="120" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">1  OFFLINE QR  —  part/NSN  -&gt;  scannable deep-link to the dossier ON THIS LAN</text>
+<rect x="40" y="132" width="250" height="74" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="158" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">part / NSN</text>
+<text x="56" y="178" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">packet header &lt;img&gt; or</text>
+<text x="56" y="192" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/qr?q=…</text>
+<line x1="290" y1="169" x2="340" y2="169" stroke="#4f9dff" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="340" y="132" width="250" height="74" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="356" y="158" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">qrgen.py</text>
+<text x="356" y="178" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">segno (SVG) -&gt; qrcode+PIL</text>
+<text x="356" y="192" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; degrade (503, app OK)</text>
+<line x1="590" y1="169" x2="640" y2="169" stroke="#4f9dff" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="640" y="132" width="260" height="74" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="656" y="158" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">QR image</text>
+<text x="656" y="178" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">encodes http://&lt;Host&gt;/dossier</text>
+<text x="656" y="192" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">?q=NSN  (same-LAN jump)</text>
+<line x1="900" y1="169" x2="950" y2="169" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="950" y="132" width="250" height="74" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="966" y="158" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">phone / 2nd tablet</text>
+<text x="966" y="178" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">camera scan -&gt; opens the</text>
+<text x="966" y="192" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">same part, no retyping</text>
+<line x1="40" y1="222" x2="1200" y2="222" stroke="#2b333f"/>
+<text x="40" y="250" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">2  MASTERFILE SPEC-SHEET + COVERAGE  —  the linkless Masterfile becomes printable &amp; auditable</text>
+<rect x="40" y="262" width="250" height="74" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="288" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">masterfile.db</text>
+<text x="56" y="308" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">consolidated dims</text>
+<text x="56" y="322" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(corpus + external, no links)</text>
+<line x1="290" y1="285" x2="340" y2="285" stroke="#1d9e75" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="340" y="262" width="260" height="40" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="356" y="287" font-size="10" font-weight="700" fill="#1d9e75" text-anchor="start">specsheet.for_subject -&gt; PDF</text>
+<rect x="340" y="306" width="260" height="30" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="356" y="326" font-size="10" font-weight="700" fill="#1d9e75" text-anchor="start">/api/master_coverage</text>
+<line x1="600" y1="282" x2="650" y2="282" stroke="#1d9e75" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="650" y="262" width="250" height="40" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="666" y="287" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">/api/specsheet  (1-page PDF)</text>
+<line x1="600" y1="321" x2="650" y2="321" stroke="#1d9e75" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="650" y="306" width="250" height="30" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="666" y="326" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">/mastercov  (gaps dashboard)</text>
+<rect x="950" y="262" width="250" height="74" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="966" y="288" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">on /master</text>
+<text x="966" y="308" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;Spec sheet PDF&#x27; button +</text>
+<text x="966" y="322" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;Coverage&#x27; link + palette</text>
+<line x1="900" y1="285" x2="950" y2="285" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="900" y1="321" x2="950" y2="321" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="40" y1="352" x2="1200" y2="352" stroke="#2b333f"/>
+<text x="40" y="380" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">3  CONFIDENCE  —  a per-dimension trust score, surfaced where the value is read</text>
+<rect x="40" y="392" width="300" height="66" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="416" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">masterfile.for_subject</text>
+<text x="56" y="436" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">each filtered row: authoritative?</text>
+<text x="56" y="449" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">n samples · spread(wide?)</text>
+<line x1="340" y1="425" x2="390" y2="425" stroke="#caa24a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="390" y="392" width="300" height="66" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="406" y="416" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">_confidence(f)</text>
+<text x="406" y="436" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">high / medium / review / low</text>
+<text x="406" y="449" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(no per-method tracking needed)</text>
+<line x1="690" y1="425" x2="740" y2="425" stroke="#caa24a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="740" y="392" width="460" height="66" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="756" y="416" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">/master — colored badge + legend</text>
+<text x="756" y="436" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">high=cited &amp; corroborated · medium=single cite · review=wide spread · low=external</text>
+<text x="40" y="476" font-size="9.5" font-weight="400" fill="#7f8a99" text-anchor="start">Deferred follow-ups (need index builds): hybrid keyword+semantic ranking · fold the acronym glossary into search.</text>
+<line x1="40" y1="492" x2="1200" y2="492" stroke="#2b333f"/>
+<text x="40" y="520" font-size="13" font-weight="700" fill="#7f77dd" text-anchor="start">4  BAY-FLOOR KIOSK MODE  &amp;  OPS POLISH</text>
+<rect x="40" y="532" width="570" height="118" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="58" y="556" font-size="12.5" font-weight="700" fill="#7f77dd" text-anchor="start">Kiosk / glove mode</text>
+<text x="58" y="578" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">palette.js command &#x27;Toggle kiosk mode&#x27; -&gt; toggles body.kiosk-mode + saves to localStorage; applied app-wide on load</text><text x="58" y="591" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">across all 29 palette pages. base.css: bigger text, &gt;=44px touch targets, higher-contrast subtext. Pure CSS, no</text><text x="58" y="604" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">dependency, instantly reversible.</text>
+<rect x="630" y="532" width="570" height="118" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="648" y="556" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">Ops polish</text>
+<text x="648" y="578" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">VIEWER-MENU.bat — one menu launcher for INSTALL/DOCTOR/RUN/VERIFY/RESUME-OCR/BUILD-*. verify_ui.py ASCII console</text><text x="648" y="591" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">guard: FAILs on any print() with a cp1252-incompatible char (no more Windows-console UnicodeEncodeError crashes).</text><text x="648" y="604" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-099.bat now self-tests qrgen + specsheet.</text>
+<line x1="40" y1="668" x2="1200" y2="668" stroke="#2b333f"/>
+<text x="40" y="696" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">GRACEFUL DEGRADE &amp; SAFETY (unchanged doctrine)</text>
+<rect x="40" y="710" width="575" height="74" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="734" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">QR</text>
+<text x="56" y="754" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">No QR backend installed? available()=False, /api/qr returns a friendly 503, the packet QR self-hides. The app never breaks.</text>
+<rect x="625" y="710" width="575" height="74" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="641" y="734" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">Spec sheet</text>
+<text x="641" y="754" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">No reportlab? 503. No consolidated dims for the subject yet? 404 telling you to build the Masterfile first.</text>
+<rect x="40" y="794" width="575" height="74" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="56" y="818" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">Confidence</text>
+<text x="56" y="838" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Falls back to authoritative-&gt;medium / external-&gt;low if the field is ever absent; the value display is never blocked.</text>
+<rect x="625" y="794" width="575" height="74" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="818" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">Rollback (R1)</text>
+<text x="641" y="838" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Delete qrgen.py/specsheet.py + their routes, or the kiosk CSS/palette lines — each removes cleanly with zero impact.</text>
+<rect x="40" y="874" width="1160" height="40" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="899" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 additive/rollbackable · R2 this diagram · R3 dark+PDF · R4 CHANGELOG [1.4.0] · R5 changelog-visual · R6 append-only/corpus RO · R7 legacy [1.4.0-legacy] · R9 tail sentinel + VERIFY-099 completeness · VERSION=1.4.0.</text>
+<text x="40" y="932" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Dark (R3). 2026-07-02 · qrgen.py · specsheet.py · /api/qr · /api/specsheet · /mastercov · masterfile._confidence · palette kiosk · verify_ui ASCII guard · VIEWER-MENU.bat.</text>
+</svg>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job packet — THE VIEWER</title>
+<script src="/shared.js"></script><!-- esc() etc.; base.css deliberately NOT linked — this page keeps its paper-preview look -->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#5b6470;color:#111;font:13px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .toolbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;padding:10px 16px;background:#171d26;color:#e6e9ee}
+  .toolbar .sp{flex:1}
+  .toolbar input{background:#1c2430;border:1px solid #2b333f;border-radius:8px;color:#e6e9ee;padding:8px 11px;font-size:14px}
+  .toolbar button,.toolbar a{background:#1c2430;color:#e6e9ee;border:1px solid #2b333f;border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;text-decoration:none}
+  .toolbar button.go{background:#4f9dff;border-color:#4f9dff;color:#06121f;font-weight:700}
+  .sheet{max-width:800px;margin:18px auto;background:#fff;padding:34px 40px;box-shadow:0 6px 24px rgba(0,0,0,.4);border-radius:4px}
+  .hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:6px}
+  .hd h1{font-size:20px;margin:0 0 2px} .hd .sub{font-size:12px;color:#555}
+  .hd .brand{text-align:right;font-size:11px;color:#555}
+  .fillrow{display:flex;gap:18px;margin:10px 0 4px;font-size:12px;color:#333;flex-wrap:wrap}
+  .fillrow .f{border-bottom:1px solid #999;min-width:150px;padding:2px 4px}
+  .fillrow label{color:#666;margin-right:4px}
+  h2.s{font-size:13px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid #bbb;padding-bottom:3px;margin:18px 0 8px;color:#222}
+  .kind{display:inline-block;font-size:11px;font-weight:700;border:1px solid #888;border-radius:3px;padding:1px 7px;margin-right:8px;text-transform:uppercase}
+  .cite{font-size:11px;color:#666}
+  .caut{border:1.5px solid #111;border-left-width:6px;padding:6px 10px;margin:7px 0;font-size:12.5px}
+  .caut.warning,.caut.danger{border-color:#a11}
+  .caut.caution{border-color:#a70}
+  .caut b{letter-spacing:.5px}
+  .tools{margin:6px 0} .tools .t{display:inline-block;border:1px solid #999;border-radius:3px;padding:1px 7px;margin:3px 6px 0 0;font-size:12px}
+  ol.steps{margin:8px 0;padding-left:24px} ol.steps li{margin:5px 0}
+  table.parts{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px}
+  table.parts th,table.parts td{border:1px solid #bbb;padding:5px 8px;text-align:left}
+  table.parts th{background:#eee}
+  .chk{font-size:18px;color:#111}
+  .foot{margin-top:22px;border-top:1px solid #bbb;padding-top:8px;font-size:10.5px;color:#555}
+  .muted{color:#888} .spin{padding:30px;text-align:center;color:#555}
+  @media print{ body{background:#fff} .toolbar{display:none!important} .sheet{box-shadow:none;margin:0;max-width:none;padding:0} @page{margin:14mm} }
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<div class="toolbar">
+  <input id="q" placeholder="Part name or NSN" style="width:300px">
+  <button class="go" onclick="load()">Build packet</button>
+  <button onclick="window.print()">🖨 Print / Save PDF</button>
+  <span class="sp"></span>
+  <a href="/jobcard" title="Prefer a generated Work Order PDF? The Work Order builder pulls procedures + torque + parts into one document">🧾 Work Order</a> <a href="/solve">← Solve it</a> <a href="/">Home</a>
+</div>
+<div class="sheet" id="sheet"><div class="spin">Enter a part or NSN and build the packet.</div></div>
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function kcls(k){return (k||"").toLowerCase().replace(/[^a-z]/g,"");}
+function load(){
+  var q=$("#q").value.trim(); if(!q)return;
+  history.replaceState(null,"","/packet?q="+encodeURIComponent(q));
+  $("#sheet").innerHTML='<div class="spin">Assembling the packet…</div>';
+  Promise.all([
+    fetch("/api/procedure?q="+encodeURIComponent(q)+"&limit=3").then(function(r){return r.json();}).catch(function(){return null;}),
+    fetch("/api/partdiff?q="+encodeURIComponent(q)).then(function(r){return r.json();}).catch(function(){return null;})
+  ]).then(function(res){ render(q,res[0]||{},res[1]||{}); });
+}
+function render(q,pr,pd){
+  var now=new Date(); var date=now.toLocaleDateString();
+  var title=(pr.nomenclature||pd.nomenclature||q);
+  var h='';
+  h+='<div class="hd"><div><h1>'+esc(title)+'</h1><div class="sub">Maintenance job packet</div></div>'+
+     '<div class="brand" style="display:flex;gap:10px;align-items:center">'+
+       '<img src="/api/qr?q='+encodeURIComponent(q)+'&scale=4" alt="Scan to open this part" '+
+         'title="Scan to open this part’s dossier on this network" '+
+         'style="width:74px;height:74px;background:#fff;border-radius:6px;padding:2px" '+
+         'onerror="this.style.display=\'none\'">'+
+       '<span>THE VIEWER<br>'+esc(date)+'</span></div></div>';
+  h+='<div class="fillrow"><span class="f"><label>Bumper #</label></span><span class="f"><label>Vehicle</label></span>'+
+     '<span class="f"><label>Mechanic</label></span><span class="f"><label>WO #</label></span></div>';
+  // parts to order
+  h+='<h2 class="s">Part to order — confirm the right NSN for THIS vehicle</h2>';
+  if(pd.found&&pd.variants&&pd.variants.length){
+    h+='<table class="parts"><tr><th>NSN</th><th>UOC</th><th>CAGEC</th><th>Note</th><th>✓</th></tr>';
+    pd.variants.slice(0,6).forEach(function(v){
+      h+='<tr><td>'+esc(v.nsn)+'</td><td>'+esc((v.uoc||[]).join(", ")||"—")+'</td><td>'+esc((v.cagec||[]).join(", ")||"—")+'</td><td>'+esc(v.relation||"")+'</td><td class="chk">☐</td></tr>';
+    });
+    h+='</table>';
+    if(pd.discriminators&&pd.discriminators.length) h+='<div class="muted" style="font-size:11.5px">These share the name "'+esc(pd.nomenclature)+'" — the UOC tells them apart. Pick the row matching your vehicle’s configuration.</div>';
+  } else h+='<div class="muted">No catalogued NSN variants found — confirm the stock number on the cited figure.</div>';
+  // procedures
+  h+='<h2 class="s">Procedure</h2>';
+  if(pr.found&&pr.procedures&&pr.procedures.length){
+    pr.procedures.forEach(function(p){
+      h+='<div style="margin:10px 0 4px"><span class="kind">'+esc(p.kind)+'</span><span class="cite">'+esc(p.vehicle||p.tm_number||"")+' · p.'+esc(p.page)+'</span></div>';
+      (p.cautions||[]).forEach(function(c){h+='<div class="caut '+kcls(c.kind)+'"><b>'+esc(c.kind)+'</b> — '+esc(c.text)+'</div>';});
+      if(p.tools&&p.tools.length){h+='<div class="tools"><b style="font-size:11px">TOOLS:</b> ';p.tools.forEach(function(t){h+='<span class="t">'+esc(t)+'</span>';});h+='</div>';}
+      if(p.steps&&p.steps.length){h+='<ol class="steps">';p.steps.forEach(function(s){h+='<li>'+esc(s)+'</li>';});h+='</ol>';}
+    });
+  } else h+='<div class="muted">No parsed procedure available yet (coverage grows as OCR completes). Open the cited catalog page on the device.</div>';
+  h+='<div class="foot">Generated by THE VIEWER from the cited technical manuals. <b>Verify every torque value, sequence, and CAUTION/WARNING against the actual TM page before working.</b> This packet is a convenience aid, not a substitute for the manual.</div>';
+  $("#sheet").innerHTML=h;
+}
+$("#q").addEventListener("keydown",function(e){if(e.key==="Enter")load();});
+(function(){var m=location.search.match(/[?&]q=([^&]+)/); if(m){$("#q").value=decodeURIComponent(m[1].replace(/\+/g," "));load(); if(/[?&]print=1/.test(location.search)) setTimeout(function(){window.print();},900);}})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

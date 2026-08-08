@@ -1,0 +1,50 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Where it can get better — while staying grounded</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Every option below pulls from real data (the manuals&#x27; own tables, your AMDF extract, your logs). None invent steps, specs, or stock numbers.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="540" height="192" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="104" width="6" height="192" rx="3" fill="#2f7d4f"/>
+<text x="62" y="134" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Structured RPSTL parts</text>
+<rect x="430" y="118" width="134" height="24" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="497" y="135" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">HIGH IMPACT</text>
+<text x="62" y="160" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Parse the parts catalogs (RPSTL) into a real parts table: NSN ↔</text><text x="62" y="175" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">part# ↔ FIG ↔ nomenclature ↔ vehicle. Adding a part auto-fills those</text><text x="62" y="190" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">fields exactly (cited), and powers look-alike variant warnings (your</text><text x="62" y="205" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;identical but different&#x27; goal).</text>
+<text x="62" y="278" font-size="9.2" font-weight="700" fill="#8fae8f" text-anchor="start">Grounded: the manual&#x27;s own parts tables · Effort: med-high · Helped by OCR</text>
+<rect x="600" y="104" width="540" height="192" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="104" width="6" height="192" rx="3" fill="#2f7d4f"/>
+<text x="622" y="134" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · FEDLOG / AMDF import</text>
+<rect x="990" y="118" width="134" height="24" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1057" y="135" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">HIGH IMPACT</text>
+<text x="622" y="160" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Import a FEDLOG/AMDF CSV the unit already has; auto-fill the FEDLOG</text><text x="622" y="175" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">row (unit price · AAC · ARC) by NSN. Today those three are typed by</text><text x="622" y="190" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">hand.</text>
+<text x="622" y="278" font-size="9.2" font-weight="700" fill="#8fae8f" text-anchor="start">Grounded: your authoritative AMDF extract · Effort: low-med · Offline</text>
+<rect x="40" y="312" width="540" height="192" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="312" width="6" height="192" rx="3" fill="#caa24a"/>
+<text x="62" y="342" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · Verbatim procedure panel</text>
+<rect x="430" y="326" width="134" height="24" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="497" y="343" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">VISION (goal C)</text>
+<text x="62" y="368" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">For a fault/part, surface the maintenance task verbatim &amp; cited:</text><text x="62" y="383" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">remove/install steps, tools, torque — never paraphrased. Uses the</text><text x="62" y="398" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">unused &#x27;procedures&#x27; table.</text>
+<text x="62" y="486" font-size="9.2" font-weight="700" fill="#cbb87a" text-anchor="start">Grounded: verbatim WP text, cited · Effort: high · OCR-dependent</text>
+<rect x="600" y="312" width="540" height="192" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="312" width="6" height="192" rx="3" fill="#4f9dff"/>
+<text x="622" y="342" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · Finish OCR + coverage meter</text>
+<rect x="990" y="326" width="134" height="24" rx="6" fill="#4f9dff" stroke="#2b333f" stroke-width="1"/>
+<text x="1057" y="343" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">UNLOCKS ALL</text>
+<text x="622" y="368" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Complete the GPU OCR pass and show a per-vehicle coverage meter</text><text x="622" y="383" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">(&#x27;72% searchable&#x27;). Sharpens search, schematics, and PMCS</text><text x="622" y="398" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">tech-status everywhere.</text>
+<text x="622" y="486" font-size="9.2" font-weight="700" fill="#9bb3d6" text-anchor="start">Grounded: makes scanned pages citable · Effort: med (CUDA runtime)</text>
+<rect x="40" y="520" width="540" height="192" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="520" width="6" height="192" rx="3" fill="#3a4d6e"/>
+<text x="62" y="550" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · Multi-sheet pagination</text>
+<rect x="430" y="534" width="134" height="24" rx="6" fill="#3a4d6e" stroke="#2b333f" stroke-width="1"/>
+<text x="497" y="551" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="middle">QUICK WIN</text>
+<text x="62" y="576" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">When a request exceeds 6 items, paginate cleanly across multiple</text><text x="62" y="591" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">104th sheets instead of capping at 6.</text>
+<text x="62" y="694" font-size="9.2" font-weight="700" fill="#9bb3d6" text-anchor="start">Grounded: mechanical · Effort: low</text>
+<rect x="600" y="520" width="540" height="192" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="520" width="6" height="192" rx="3" fill="#3a4d6e"/>
+<text x="622" y="550" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">6 · Capture confirm/override</text>
+<rect x="990" y="534" width="134" height="24" rx="6" fill="#3a4d6e" stroke="#2b333f" stroke-width="1"/>
+<text x="1057" y="551" font-size="9.5" font-weight="700" fill="#e6e9ee" text-anchor="middle">QUICK WIN</text>
+<text x="622" y="576" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Log when a mechanic accepts or overrides a tech-status (or part)</text><text x="622" y="591" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">suggestion, so the history signal and ranking get measurably better</text><text x="622" y="606" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">over time.</text>
+<text x="622" y="694" font-size="9.2" font-weight="700" fill="#9bb3d6" text-anchor="start">Grounded: your own confirmations · Effort: low</text>
+<text x="40" y="720" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">My recommendation: start with #2 (FEDLOG import) + #5/#6 (quick wins) for immediate end-to-end completeness,</text>
+<text x="40" y="736" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">then #1 (structured RPSTL parts) as the big grounded accuracy leap, with #4 (OCR) running in parallel to unlock #1 and #3.</text>
+</svg>

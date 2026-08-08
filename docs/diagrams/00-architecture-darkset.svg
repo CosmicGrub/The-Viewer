@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 936" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER — Architecture &amp; Data Flow (dark)</title>
+<desc>Dark-themed consolidated diagrams: system architecture, ingestion data-flow and queue, search query flow, and the data model.</desc>
+<style>
+  .bg{fill:#0f1419}
+  .title{font-size:20px;font-weight:700;fill:#e6e9ee}
+  .h{font-size:12px;font-weight:700;fill:#93a1b3;letter-spacing:.6px}
+  .lbl{font-size:12.5px;font-weight:600;fill:#e6e9ee}
+  .sub{font-size:10px;fill:#9aa6b6}
+  .mono{font-size:9.5px;fill:#dfe5ec;font-family:ui-monospace,Consolas,monospace}
+  .edge{stroke:#9aa5b1;stroke-width:1.7;fill:none;marker-end:url(#a)}
+  .edge.d{stroke-dasharray:5 4}
+  .leg{font-size:10.5px;fill:#9aa6b6}
+  .sec{font-size:14px;font-weight:700;fill:#e6e9ee}
+  .rule{stroke:#2a2f37;stroke-width:1}
+</style>
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker>
+</defs>
+<rect class="bg" x="0" y="0" width="1000" height="936"/>
+<text x="32" y="44" class="title">THE VIEWER — Architecture &amp; Data Flow</text>
+<text x="32" y="64" class="sub">Dark standard (rule R3) · offline · backwards-compatible (R1)</text>
+<line class="rule" x1="32" y1="78" x2="968" y2="78"/>
+
+<!-- SECTION A: system architecture -->
+<text x="32" y="108" class="sec">1 · System Architecture</text>
+<rect x="32" y="124" width="150" height="78" rx="10" fill="#1c2430" stroke="#38414e"/>
+<text x="107" y="150" text-anchor="middle" class="lbl">Corpus</text>
+<text x="107" y="168" text-anchor="middle" class="sub">E:\ALL MILITARY TMS</text>
+<text x="107" y="184" text-anchor="middle" class="sub">read-only · ~85 GB</text>
+
+<rect x="214" y="124" width="160" height="78" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="294" y="150" text-anchor="middle" class="lbl">Ingestion pipeline</text>
+<text x="294" y="168" text-anchor="middle" class="sub">crawl · extract text-first</text>
+<text x="294" y="184" text-anchor="middle" class="sub">queue scanned → OCR</text>
+
+<rect x="406" y="124" width="160" height="78" rx="10" fill="#1c2430" stroke="#38414e"/>
+<text x="486" y="150" text-anchor="middle" class="lbl">Index · viewer.db</text>
+<text x="486" y="168" text-anchor="middle" class="sub">SQLite + FTS5</text>
+<text x="486" y="184" text-anchor="middle" class="sub">versioned (migrations)</text>
+
+<rect x="598" y="124" width="160" height="78" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="678" y="150" text-anchor="middle" class="lbl">Local web engine</text>
+<text x="678" y="168" text-anchor="middle" class="sub">offline service</text>
+<text x="678" y="184" text-anchor="middle" class="sub">search + serve + export</text>
+
+<rect x="790" y="124" width="178" height="78" rx="10" fill="#1c2430" stroke="#38414e"/>
+<text x="879" y="150" text-anchor="middle" class="lbl">GUI (browser)</text>
+<text x="879" y="168" text-anchor="middle" class="sub">onboarding · search</text>
+<text x="879" y="184" text-anchor="middle" class="sub">viewer · parts request</text>
+
+<path class="edge" d="M182,163 L214,163"/>
+<path class="edge" d="M374,163 L406,163"/>
+<path class="edge" d="M566,163 L598,163"/>
+<path class="edge" d="M758,163 L790,163"/>
+
+<!-- SECTION B: ingestion queue -->
+<line class="rule" x1="32" y1="232" x2="968" y2="232"/>
+<text x="32" y="262" class="sec">2 · Ingestion Data Flow &amp; Queue</text>
+<rect x="32" y="280" width="120" height="56" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="92" y="304" text-anchor="middle" class="lbl">File</text>
+<text x="92" y="320" text-anchor="middle" class="sub">new / changed</text>
+<rect x="186" y="280" width="130" height="56" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="251" y="304" text-anchor="middle" class="lbl">Fingerprint</text>
+<text x="251" y="320" text-anchor="middle" class="sub">size+mtime, skip done</text>
+<rect x="350" y="280" width="130" height="56" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="415" y="304" text-anchor="middle" class="lbl">Classify</text>
+<text x="415" y="320" text-anchor="middle" class="sub">pdf / image / office</text>
+<rect x="514" y="252" width="170" height="50" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="599" y="272" text-anchor="middle" class="lbl">Extract text → FTS5</text>
+<text x="599" y="288" text-anchor="middle" class="sub">+ TM# / NSN / title</text>
+<rect x="514" y="312" width="170" height="50" rx="9" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="599" y="332" text-anchor="middle" class="lbl">OCR queue</text>
+<text x="599" y="348" text-anchor="middle" class="sub">pending → running → done</text>
+<rect x="718" y="280" width="160" height="56" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="798" y="304" text-anchor="middle" class="lbl">viewer.db</text>
+<text x="798" y="320" text-anchor="middle" class="sub">durable, resumable</text>
+
+<path class="edge" d="M152,308 L186,308"/>
+<path class="edge" d="M316,308 L350,308"/>
+<path class="edge" d="M480,300 L514,283"/>
+<path class="edge d" d="M480,316 L514,330"/>
+<path class="edge" d="M684,277 L718,300"/>
+<path class="edge d" d="M684,337 L718,316"/>
+
+<!-- SECTION C: search flow -->
+<line class="rule" x1="32" y1="392" x2="968" y2="392"/>
+<text x="32" y="422" class="sec">3 · Search Query Flow</text>
+<rect x="32" y="440" width="140" height="56" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="102" y="464" text-anchor="middle" class="lbl">Type query</text>
+<text x="102" y="480" text-anchor="middle" class="sub">part# · NSN · keyword</text>
+<rect x="206" y="440" width="150" height="56" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="281" y="464" text-anchor="middle" class="lbl">FTS5 prefix</text>
+<text x="281" y="480" text-anchor="middle" class="sub">predictive, BM25</text>
+<rect x="390" y="440" width="150" height="56" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="465" y="464" text-anchor="middle" class="lbl">Rank + boost</text>
+<text x="465" y="480" text-anchor="middle" class="sub">title / TM# / NSN</text>
+<rect x="574" y="440" width="160" height="56" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="654" y="464" text-anchor="middle" class="lbl">Results</text>
+<text x="654" y="480" text-anchor="middle" class="sub">vehicle · page · snippet</text>
+<rect x="768" y="440" width="200" height="56" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="868" y="464" text-anchor="middle" class="lbl">Open page · Ctrl+F</text>
+<text x="868" y="480" text-anchor="middle" class="sub">→ add to parts request</text>
+<path class="edge" d="M172,468 L206,468"/>
+<path class="edge" d="M356,468 L390,468"/>
+<path class="edge" d="M540,468 L574,468"/>
+<path class="edge" d="M734,468 L768,468"/>
+
+<!-- SECTION D: data model -->
+<line class="rule" x1="32" y1="528" x2="968" y2="528"/>
+<text x="32" y="558" class="sec">4 · Data Model (versioned · additive)</text>
+
+<!-- documents -->
+<rect x="32" y="576" width="210" height="150" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="42" y="596" class="lbl">documents</text><line x1="42" y1="604" x2="232" y2="604" stroke="#2a2f37"/>
+<text x="42" y="620" class="mono">id PK · path · fingerprint</text>
+<text x="42" y="636" class="mono">type · tm_number · nsn</text>
+<text x="42" y="652" class="mono">title · vehicle</text>
+<text x="42" y="668" class="mono">page_count · status</text>
+<text x="42" y="692" class="sub">one row per source file</text>
+
+<!-- pages -->
+<rect x="272" y="576" width="210" height="150" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="282" y="596" class="lbl">pages</text><line x1="282" y1="604" x2="472" y2="604" stroke="#2a2f37"/>
+<text x="282" y="620" class="mono">id PK · document_id FK</text>
+<text x="282" y="636" class="mono">page_number</text>
+<text x="282" y="652" class="mono">body_text · char_count</text>
+<text x="282" y="668" class="mono">source · ocr_status</text>
+<text x="282" y="692" class="sub">one row per page</text>
+
+<!-- pages_fts -->
+<rect x="512" y="576" width="210" height="72" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="522" y="596" class="lbl">pages_fts</text><line x1="522" y1="604" x2="712" y2="604" stroke="#2a3b2e"/>
+<text x="522" y="622" class="mono">FTS5 full-text index</text>
+<text x="522" y="638" class="mono">(mirrors pages.body_text)</text>
+
+<!-- jobs -->
+<rect x="512" y="660" width="210" height="66" rx="9" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="522" y="680" class="lbl">jobs</text><line x1="522" y1="688" x2="712" y2="688" stroke="#4a3c22"/>
+<text x="522" y="704" class="mono">page_id · stage · state</text>
+<text x="522" y="720" class="mono">attempts · last_error</text>
+
+<!-- right column: parts/variants/procedures/sessions -->
+<rect x="752" y="576" width="216" height="44" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="762" y="595" class="lbl">parts</text>
+<text x="762" y="611" class="mono">name · part_number · nsn</text>
+
+<rect x="752" y="628" width="216" height="44" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="762" y="647" class="lbl">part_variants</text>
+<text x="762" y="663" class="mono">differs_how · how_to_tell</text>
+
+<rect x="752" y="680" width="216" height="46" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="762" y="699" class="lbl">procedures</text>
+<text x="762" y="715" class="mono">kind · steps · tools</text>
+
+<!-- sessions row -->
+<rect x="32" y="744" width="330" height="64" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="42" y="764" class="lbl">sessions  (onboarding)</text><line x1="42" y1="772" x2="352" y2="772" stroke="#27344d"/>
+<text x="42" y="788" class="mono">mechanic · bumper_number · tm</text>
+<text x="42" y="802" class="mono">uoc · tech_status · motor_sergeant</text>
+
+<rect x="382" y="744" width="270" height="64" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="392" y="764" class="lbl">faults</text><line x1="392" y1="772" x2="642" y2="772" stroke="#27344d"/>
+<text x="392" y="788" class="mono">session_id FK</text>
+<text x="392" y="802" class="mono">description (damage/work)</text>
+
+<rect x="672" y="744" width="296" height="64" rx="9" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="682" y="764" class="lbl">request_items  (104th sheet)</text><line x1="682" y1="772" x2="958" y2="772" stroke="#27344d"/>
+<text x="682" y="788" class="mono">item_name · nsn · qty · fig · part</text>
+<text x="682" y="802" class="mono">unit_price · aac · arc (FEDLOG)</text>
+
+<!-- relationships -->
+<path class="edge" d="M242,650 L272,650"/>
+<path class="edge" d="M482,620 L512,612"/>
+<path class="edge d" d="M482,690 L512,690"/>
+<path class="edge" d="M362,776 L382,776"/>
+<path class="edge" d="M652,776 L672,776"/>
+
+<line class="rule" x1="32" y1="836" x2="968" y2="836"/>
+<rect x="32" y="852" width="14" height="11" rx="3" fill="#1c2430" stroke="#38414e"/><text x="52" y="861" class="leg">store / table</text>
+<rect x="180" y="852" width="14" height="11" rx="3" fill="#1a2740" stroke="#3a4d6e"/><text x="200" y="861" class="leg">engine / user data</text>
+<rect x="360" y="852" width="14" height="11" rx="3" fill="#16301f" stroke="#2f5a3e"/><text x="380" y="861" class="leg">text index / output</text>
+<rect x="540" y="852" width="14" height="11" rx="3" fill="#3a2f1a" stroke="#6b5526"/><text x="560" y="861" class="leg">queue (OCR/jobs)</text>
+<text x="32" y="896" class="sub">All tables added by numbered, additive migrations (R1). New columns are nullable; nothing is dropped destructively; the index is rebuildable from the read-only corpus.</text>
+<text x="32" y="914" class="sub">Rule R3 — professional dark theme + PDF export.  Rule R2 — a diagram ships with every addition.  Rule R1 — backwards-compatible, rollbackable.</text>
+</svg>

@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""OPTIONAL web-search provider for the enrichment crawler (build_enrich.py).
+
+Rename this file to `enrich_search.py` to enable web-search link discovery. It must expose:
+
+    search(query, limit) -> [url, ...]
+
+The crawler then routes every returned URL through the Wayback Machine before extracting measurements,
+so the running app never depends on this and stays offline. This sample uses DuckDuckGo's HTML endpoint
+(no API key). Swap in Bing/Google/SerpAPI/etc. if you have keys. Keep it polite and rate-limited.
+
+NOTE: this runs ONLY during ENRICH.bat (host-side, online) — never inside the app.
+"""
+import re
+import urllib.request
+import urllib.parse
+
+_UA = "THE-VIEWER-enrich/1.1 (offline TM index; dimensional gap-fill)"
+
+
+def search(query, limit=8):
+    url = "https://duckduckgo.com/html/?q=" + urllib.parse.quote(query)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _UA})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            html = r.read().decode("utf-8", "replace")
+    except Exception:
+        return []
+    # DuckDuckGo HTML results wrap the real URL in a uddg= redirect param
+    out, seen = [], set()
+    for m in re.finditer(r'href="https://duckduckgo\.com/l/\?uddg=([^&"]+)', html):
+        try:
+            u = urllib.parse.unquote(m.group(1))
+        except Exception:
+            continue
+        if u.startswith("http") and u not in seen:
+            seen.add(u); out.append(u)
+        if len(out) >= limit:
+            break
+    return out
+
+
+if __name__ == "__main__":
+    for u in search("HMMWV M998 specifications dimensions", 5):
+        print(u)
+# END OF FILE

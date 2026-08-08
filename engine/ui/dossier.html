@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part dossier — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:1060px;margin:0 auto;padding:20px}
+  .bar{display:flex;gap:10px;margin-bottom:8px}
+  #q{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:15px;font-family:ui-monospace,Consolas,monospace}
+  #q:focus{outline:none;border-color:var(--acc)}
+  button.go{background:var(--acc);border:none;color:#06121f;font-weight:700;border-radius:9px;padding:0 18px;cursor:pointer;font-size:14px}
+  .muted{color:var(--sub);font-size:12.5px}
+  .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:8px 0 2px}
+  .head .nom{font-size:22px;font-weight:700} .head .nsn{font:600 16px ui-monospace,Consolas,monospace;color:var(--acc)}
+  .actions a{display:inline-block;color:var(--acc);text-decoration:none;font-size:12.5px;border:1px solid var(--line);border-radius:7px;padding:6px 11px;margin:8px 8px 0 0}
+  .actions a:hover{border-color:var(--acc)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h3{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--amb);margin:0 0 8px}
+  .kv{display:flex;gap:8px;font-size:13px;margin:4px 0} .kv .k{color:var(--sub);min-width:96px}
+  .hit{padding:6px 0;border-bottom:1px solid var(--line);font-size:13px} .hit:last-child{border:none}
+  .hit a{color:var(--acc);text-decoration:none}
+  .pill{display:inline-block;font-size:11px;border-radius:20px;padding:2px 9px;margin:3px 5px 0 0;background:#3a2f1a;color:#e7c06a}
+  .kind{font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin-right:6px;background:#16223a;color:#9cc4ff}
+  .empty{color:var(--sub);font-size:12.5px} .spin{color:var(--sub);padding:20px 0}
+  .span2{grid-column:1 / -1}
+  .ground{font-size:11.5px;color:var(--sub);margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>📋 Part dossier</h1><span class="muted">everything we know about one part, in one place</span>
+  <span class="sp"></span>
+  <a class="nav" href="/solve">🛠 Solve it</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <!-- v1.13.0 UI coherence: cross-link to the canonical one-pane part hub (additive; nothing removed) -->
+  <div style="font-size:12px;color:var(--sub);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;margin-bottom:10px">
+    Full part pane (identity · specs · torque · procedure · kit):
+    <a id="vw-partlink" href="/part" style="color:var(--acc)">open /part ↗</a>
+  </div>
+  <div class="bar">
+    <input id="q" placeholder="Enter an NSN or part name (e.g. 2920-01-111-1111 or 'alternator')" autocomplete="off">
+    <button class="go" onclick="load()">Open dossier</button>
+  </div>
+  <div id="out"><div class="muted">A single page that pulls together the catalog references, reference data, how-to procedure, look-alike variants, the schematic and the 3-D model for a part.</div></div>
+</div>
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function kcls(k){return (k||"").toLowerCase().replace(/[^a-z]/g,"");}
+function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+function isNSN(s){return /\d{4}-?\d{2}-?\d{3}-?\d{4}/.test(s);}
+function load(){
+  var q=$("#q").value.trim(); if(!q)return;
+  history.replaceState(null,"","/dossier?q="+encodeURIComponent(q));
+  var pl=document.getElementById("vw-partlink"); if(pl) pl.href="/part?q="+encodeURIComponent(q);
+  $("#out").innerHTML='<div class="spin">Assembling the dossier…</div>';
+  var nsnP = isNSN(q)? gj("/api/part?nsn="+encodeURIComponent(q)) : Promise.resolve(null);
+  var refP = isNSN(q)? gj("/api/reference?nsn="+encodeURIComponent(q)) : Promise.resolve(null);
+  Promise.all([ nsnP, refP, gj("/api/partdiff?q="+encodeURIComponent(q)), gj("/api/procedure?q="+encodeURIComponent(q)+"&limit=2") ])
+    .then(function(r){ render(q, r[0], r[1], r[2]||{}, r[3]||{}); });
+}
+function render(q, part, ref, pd, pr){
+  var nom = (pd.nomenclature)||(pr.nomenclature)||((part&&part.nomenclature))||q;
+  var nsn = isNSN(q)? q : (pd.reference_nsn||"");
+  var vehicle = null;
+  (pd.variants||[]).forEach(function(v){ if(!vehicle&&v.vehicles&&v.vehicles.length) vehicle=v.vehicles[0]; });
+  (pr.procedures||[]).forEach(function(p){ if(!vehicle&&p.vehicle) vehicle=p.vehicle; });
+  var h='<div class="head"><span class="nom">'+esc(nom)+'</span>'+(nsn?'<span class="nsn">'+esc(nsn)+'</span>':'')+'</div>';
+  h+='<div class="actions">';
+  h+='<a href="/packet?q='+encodeURIComponent(q)+'" target="_blank">🖨 Job packet</a>';
+  h+='<a href="/procedure?q='+encodeURIComponent(nom)+'" target="_blank">🔧 How to do it</a>';
+  h+='<a href="/partdiff?q='+encodeURIComponent(nom)+'" target="_blank">🔍 Look-alike</a>';
+  h+='<a href="/exploded?q='+encodeURIComponent(nsn||nom)+'" target="_blank">🧩 Exploded view</a>';
+  h+='<a href="/part?q='+encodeURIComponent(nsn||nom)+'" target="_blank">🪪 One-pane part</a>';
+  h+='<a href="/api/jobpack?q='+encodeURIComponent(nsn||nom)+'" target="_blank">📦 Job-package PDF</a>';
+  h+='<a href="/solve?q='+encodeURIComponent(nom)+'" target="_blank">🛠 Solve it</a>';
+  h+='</div>';
+  h+='<div class="grid">';
+  // reference data
+  h+='<div class="card"><h3>Reference data</h3>';
+  var rn = ref && ref.nsn;
+  if(rn){
+    if(rn.item_name) h+=kv("Item name", rn.item_name);
+    if(rn.description) h+=kv("Description", rn.description);
+    if(rn.cagec) h+=kv("CAGEC", rn.cagec);
+    if(rn.part_no) h+=kv("Part #", rn.part_no);
+    if(rn.gsa_price) h+=kv("GSA price", "$"+rn.gsa_price);
+    if(rn.characteristics) h+=kv("Characteristics", rn.characteristics);
+    if(ref.versions) h+='<div class="muted">'+ref.versions+' historical versions retained</div>';
+  } else h+='<div class="empty">No external reference record'+(isNSN(q)?'':' (search by NSN for catalog reference data)')+'.</div>';
+  h+='</div>';
+  // catalog refs (figures/pages)
+  h+='<div class="card"><h3>Where it appears (catalog)</h3>';
+  var refs=(part&&part.refs)||[];
+  if(refs.length){ refs.slice(0,8).forEach(function(r){
+    h+='<div class="hit"><a href="/page?doc='+encodeURIComponent(r.document_id)+'&page='+encodeURIComponent(r.page||1)+'&dpi=150&clean=1" target="_blank">'+esc(r.vehicle||"")+(r.fig_no?(" · fig "+esc(r.fig_no)):"")+' · p.'+esc(r.page)+' ↗</a> <span class="muted">('+(r.n||1)+')</span></div>';
+  }); } else h+='<div class="empty">No catalog figure references'+(isNSN(q)?' yet':'')+'.</div>';
+  h+='</div>';
+  // look-alike
+  h+='<div class="card"><h3>Look-alike variants</h3>';
+  if(pd.found&&pd.variants&&pd.variants.length>1){
+    h+='<div class="muted">'+pd.n_variants+' share the name "'+esc(pd.nomenclature)+'". Watch: ';
+    (pd.discriminators||[]).forEach(function(d){h+='<span class="pill">'+esc(d.field)+'</span>';}); h+='</div>';
+    pd.variants.slice(0,5).forEach(function(v){ h+='<div class="hit"><b style="font-family:ui-monospace,Consolas,monospace">'+esc(v.nsn)+'</b> '+(v.uoc&&v.uoc.length?'<span class="muted">UOC '+esc(v.uoc.join(", "))+'</span>':'')+'</div>'; });
+  } else h+='<div class="empty">No confusing look-alikes for this name.</div>';
+  h+='</div>';
+  // procedure
+  h+='<div class="card"><h3>How to do it</h3>';
+  if(pr.found&&pr.procedures&&pr.procedures.length){ pr.procedures.forEach(function(p){
+    h+='<div style="margin:6px 0"><span class="kind">'+esc(p.kind)+'</span><a href="/page?doc='+encodeURIComponent(p.doc_id)+'&page='+encodeURIComponent(p.page)+'&dpi=150&clean=1" target="_blank" style="color:var(--acc);text-decoration:none;font-size:12.5px">p.'+esc(p.page)+' ↗</a> <span class="muted">'+(p.steps?p.steps.length:0)+' steps · '+(p.tools?p.tools.length:0)+' tools</span></div>';
+  }); } else h+='<div class="empty">No parsed procedure yet (grows with OCR).</div>';
+  h+='</div>';
+  // torque specs
+  h+='<div class="card"><h3>Torque specs (from the manuals)</h3><div id="torqb" class="empty">Looking…</div></div>';
+  // key dimensions (consolidated Masterfile)
+  h+='<div class="card"><h3>Key dimensions &amp; specs (Masterfile)</h3><div id="dimb" class="empty">Looking…</div></div>';
+  // federal catalog (PUBLOG/FLIS) — authoritative part identity
+  h+='<div class="card"><h3>Federal catalog — PUBLOG/FLIS <span class="muted" style="font-weight:400">(authoritative · offline)</span></h3><div id="publogb" class="empty">Looking…</div></div>';
+  // threads / fits / MIL-SPEC / fluids
+  h+='<div class="card"><h3>Specs &amp; standards (threads · MIL-SPEC · fluids)</h3><div id="specb" class="empty">Looking…</div></div>';
+  // safety callouts (WARNING/CAUTION/NOTE/DANGER)
+  h+='<div class="card"><h3>Safety callouts (WARNING · CAUTION · NOTE)</h3><div id="cautb" class="empty">Looking…</div></div>';
+  // schematic + 3d
+  h+='<div class="card"><h3>Breakdown image (cited figure)</h3><div id="figb" class="empty">Looking for the manual figure…</div></div>';
+  h+='<div class="card"><h3>Schematic &amp; 3-D</h3><div id="schb" class="empty">Looking for a schematic…</div><div id="d3b" class="empty" style="margin-top:6px">Looking for a 3-D model…</div></div>';
+  h+='<div class="card"><h3>Approximate model (from dimensions)</h3><div id="dcadb" class="empty">Building a dimensional sketch…</div></div>';
+  h+='</div>';
+  h+='<div class="ground">Every panel reads from the existing indexes and deep-links the real cited page — the manual stays the source of truth. Confirm the exact NSN (UOC) and any torque/sequence on the sheet before ordering or working. Sections fill in as OCR coverage grows.</div>';
+  $("#out").innerHTML=h;
+  // breakdown image: the part's cited exploded-view figure (the same crop the 3-D + part-card use)
+  if(nsn){ gj("/api/part_image?nsn="+encodeURIComponent(nsn)).then(function(pi){ var box=$("#figb"); if(!box)return;
+    if(pi&&pi.found&&pi.url){ box.className=""; box.innerHTML='<a href="/page?doc='+pi.doc_id+'&page='+pi.page+'&dpi=200" target="_blank"><img src="'+pi.url+'" style="max-width:100%;max-height:300px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"></a>'+
+      '<div class="muted" style="margin-top:4px">FIG '+esc(String(pi.fig_no||"?"))+' · '+esc(pi.tm||"")+' · cited, public-domain illustration</div>';
+    } else box.innerHTML='<span class="empty">No cited figure found for this NSN yet (grows with the parts index / BUILD-RPSTL).</span>';
+  }); }
+  // schematic
+  var sq=vehicle||nom;
+  gj("/api/schematics?q="+encodeURIComponent(sq)+"&limit=3").then(function(s){ var box=$("#schb"); if(!box)return;
+    var items=(s&&(s.items||s.results))||[];
+    if(items.length){ var hh=""; items.slice(0,3).forEach(function(it){var doc=it.doc_id||it.id; hh+='<div class="hit"><a href="/circuitlab?doc='+encodeURIComponent(doc)+'&page=1" target="_blank">'+esc(it.title||it.tm_number||("doc "+doc))+' ↗</a></div>';});
+      hh+='<div style="margin-top:6px"><a class="nav" href="/schematics?q='+encodeURIComponent(sq)+'" target="_blank">All schematics ↗</a></div>'; box.className=""; box.innerHTML=hh;
+    } else box.innerHTML='<span class="empty">No schematic matched.</span>';
+  });
+  // torque
+  gj("/api/torque?q="+encodeURIComponent(nom)).then(function(tq){ var box=$("#torqb"); if(!box)return;
+    var sp=(tq&&tq.specs)||[];
+    if(sp.length){ var hh=""; sp.slice(0,6).forEach(function(s){
+      hh+='<div class="hit"><b style="color:#e7c06a">'+esc(s.value)+'</b> <span class="muted">— '+esc(s.context)+'</span> <a href="/page?doc='+encodeURIComponent(s.doc_id)+'&page='+encodeURIComponent(s.page)+'&hl=torque&dpi=150" target="_blank" style="color:var(--acc);text-decoration:none">p.'+esc(s.page)+' ↗</a></div>';});
+      box.className=""; box.innerHTML=hh;
+    } else box.innerHTML='<span class="empty">No torque value parsed yet (grows with OCR). Check the cited procedure page.</span>';
+  });
+  // key dimensions & specs — consolidated Masterfile (authoritative + external), NO links
+  gj("/api/master?q="+encodeURIComponent(vehicle||nom)).then(function(mm){ var box=$("#dimb"); if(!box)return;
+    var f=(mm&&mm.filtered)||[];
+    if(f.length){ var hh=""; f.slice(0,14).forEach(function(d){
+      var span=(d.low&&d.high&&d.low!==d.high)?(' <span class="muted">('+esc(d.low)+'–'+esc(d.high)+')</span>'):'';
+      var tag=d.authoritative?'<span class="muted" style="color:#7fd6a0">manual</span>':'<span class="muted" style="color:#e8c07a">ext · unconfirmed</span>';
+      hh+='<div class="hit"><b>'+esc(d.type)+'</b> <b style="color:#7fd6a0">'+esc(d.value)+' '+esc(d.unit)+'</b>'+span+' — '+tag+'</div>';});
+      box.className=""; box.innerHTML=hh;
+    } else box.innerHTML='<span class="empty">No consolidated dimensions yet — build the Masterfile (BUILD-MEASURES → BUILD-MASTERFILE).</span>';
+  });
+  // federal catalog (PUBLOG/FLIS) — authoritative offline part identity (NSN only)
+  (function(){ var box=$("#publogb"); if(!box)return;
+    if(!isNSN(q)){ box.innerHTML='<span class="empty">Enter an NSN to pull its federal-catalog record.</span>'; return; }
+    gj("/api/publog?nsn="+encodeURIComponent(q)).then(function(pj){
+      if(!pj){ box.innerHTML='<span class="empty">Lookup failed.</span>'; return; }
+      if(pj.unavailable){ box.innerHTML='<span class="empty">PUBLOG not built yet — run BUILD-PUBLOG.bat (host-side).</span>'; return; }
+      var d=pj.record;
+      if(!pj.found||!d){ box.innerHTML='<span class="empty">No PUBLOG record for this NSN.</span>'; return; }
+      var hh='';
+      if(d.item_name) hh+='<div class="hit"><b>'+esc(d.item_name)+'</b>'+(d.fsc_title?(' <span class="muted">· '+esc(d.fsc_title)+'</span>'):'')+'</div>';
+      (d.parts||[]).slice(0,4).forEach(function(p){ hh+='<div class="hit"><b>P/N '+esc(p.part_number)+'</b> <span class="muted">CAGE '+esc(p.cage)+(p.company?(' · '+esc(p.company)):'')+'</span></div>'; });
+      (d.characteristics||[]).slice(0,6).forEach(function(c){ hh+='<div class="hit"><span class="muted">'+esc(c.requirement||c.mrc)+':</span> <b>'+esc(c.reply)+'</b></div>'; });
+      if(d.replaced_by&&d.replaced_by.length) hh+='<div class="hit" style="color:#e8c07a">⚠ replaced by '+esc(d.replaced_by.map(function(x){return x.niin;}).join(", "))+'</div>';
+      hh+='<div style="margin-top:6px"><a class="nav" href="/publog?nsn='+encodeURIComponent(q)+'" target="_blank">Full federal-catalog record ↗</a></div>';
+      box.className=""; box.innerHTML=hh;
+    });
+  })();
+  // approximate 3-D/CAD from the part's dimensional data (PUBLOG characteristics -> primitive + dimensioned SVG)
+  gj("/api/dimscad?q="+encodeURIComponent(nsn||nom)).then(function(dc){ var box=$("#dcadb"); if(!box)return;
+    if(dc&&dc.ok&&dc.enough&&dc.svg){ box.className="";
+      box.innerHTML='<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;max-width:460px">'+dc.svg+'</div>'
+        +'<div class="muted" style="margin-top:4px">'+esc(dc.primitive)+' approximation · <a href="/api/dimscad?obj=1&q='+encodeURIComponent(nsn||nom)+'" target="_blank" style="color:var(--acc)">download .OBJ ↗</a> — a dimensional sketch, confirm against the cited figure.</div>';
+    } else box.innerHTML='<span class="empty">Not enough named dimensional data yet (needs PUBLOG characteristics or Masterfile dims).</span>';
+  });
+  // threads / fits / MIL-SPEC / fluids (specparse, cited to the page)
+  gj("/api/specs?q="+encodeURIComponent(nom)).then(function(sp){ var box=$("#specb"); if(!box)return;
+    var r=(sp&&sp.results)||[];
+    if(r.length){ var lbl={thread:"Thread",fit_class:"Fit",diameter:"Ø",standard:"Std",fluid:"Fluid"}; var hh="";
+      r.slice(0,16).forEach(function(s){
+        var tol=s.tolerance?(' ±'+esc(s.tolerance)):'';
+        hh+='<div class="hit"><b style="color:#8fd6ab">'+esc(lbl[s.kind]||s.kind)+'</b> '+esc(s.value)+tol+' <a href="'+esc(s.page_url)+'" target="_blank" style="color:var(--acc);text-decoration:none">p.'+esc(s.page)+' ↗</a></div>';});
+      box.className=""; box.innerHTML=hh;
+    } else box.innerHTML='<span class="empty">No thread/MIL-SPEC/fluid specs parsed for this part yet (grows with OCR).</span>';
+  });
+  // safety callouts (severity-ranked, cited)
+  gj("/api/cautions?q="+encodeURIComponent(nom)).then(function(cj){ var box=$("#cautb"); if(!box)return;
+    var r=(cj&&cj.results)||[];
+    if(r.length){ var col={DANGER:"#f26d6d",WARNING:"#e8a06a",CAUTION:"#e8c07a",NOTE:"#8fbfe0"}; var hh="";
+      r.slice(0,10).forEach(function(c){
+        hh+='<div class="hit"><b style="color:'+(col[c.severity]||"#ccc")+'">'+esc(c.severity)+'</b> <span class="muted">'+esc((c.text||"").slice(0,150))+'</span> <a href="'+esc(c.page_url)+'" target="_blank" style="color:var(--acc);text-decoration:none">p.'+esc(c.page)+' ↗</a></div>';});
+      box.className=""; box.innerHTML=hh;
+    } else box.innerHTML='<span class="empty">No safety callouts parsed for this part yet (grows with OCR).</span>';
+  });
+  // 3d
+  gj("/api/threed?q="+encodeURIComponent(nom)+"&limit=3").then(function(s){ var box=$("#d3b"); if(!box)return;
+    var items=(s&&(s.items||s.parts))||[];
+    if(items.length){ box.className=""; box.innerHTML='<div class="hit"><a href="/3d?q='+encodeURIComponent(nom)+'" target="_blank">Open '+items.length+'+ 3-D model'+(items.length===1?'':'s')+' in the 3-D Library ↗</a></div>';
+    } else box.innerHTML='<span class="empty">No 3-D approximation for this part.</span>';
+  });
+}
+function kv(k,v){ return '<div class="kv"><span class="k">'+esc(k)+'</span><span>'+esc(v)+'</span></div>'; }
+$("#q").addEventListener("keydown",function(e){if(e.key==="Enter")load();});
+(function(){var m=location.search.match(/[?&]q=([^&]+)/); if(m){$("#q").value=decodeURIComponent(m[1].replace(/\+/g," "));load();}})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

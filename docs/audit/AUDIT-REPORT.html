@@ -1,0 +1,152 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Top-to-Bottom Audit + Mutation Testing (v0.72.3)</title>
+<style>
+:root{--bg:#0f1419;--panel:#171d26;--p2:#1c2430;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;
+--acc:#4f9dff;--amb:#caa24a;--grn:#2f9d63;--red:#e0564f;--pur:#a779e6;--teal:#3fb6b0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+.wrap{max-width:1000px;margin:0 auto;padding:32px 26px 64px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:30px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+h3{font-size:15px;margin:18px 0 6px}.muted{color:var(--sub)}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:2px 8px;margin-right:6px;letter-spacing:.03em}
+.high{background:rgba(224,86,79,.16);color:#ff8a84;border:1px solid var(--red)}
+.med{background:rgba(202,162,74,.16);color:var(--amb);border:1px solid var(--amb)}
+.low{background:rgba(79,157,255,.14);color:var(--acc);border:1px solid var(--acc)}
+.fixed{background:rgba(47,157,99,.16);color:#7fd6a6;border:1px solid var(--grn)}
+.flag{background:rgba(167,121,230,.16);color:var(--pur);border:1px solid var(--pur)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.card.l-high{border-left:4px solid var(--red)}.card.l-med{border-left:4px solid var(--amb)}
+.card.l-low{border-left:4px solid var(--acc)}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--sub);font-weight:600}
+code{background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12.5px}
+.bar{height:13px;border-radius:7px;background:var(--p2);overflow:hidden;display:inline-block;width:160px;vertical-align:middle;border:1px solid var(--line)}
+.bar>span{display:block;height:100%}
+.kgrn{background:var(--grn)}.kamb{background:var(--amb)}
+.lead{font-size:15px;color:#cfd6e0}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:3px 0}
+.foot{margin-top:30px;color:#6b7280;font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+@media print{body{background:#fff;color:#000}.card{border-color:#bbb}a{color:#000}h2{border-color:#ccc}}
+</style></head><body><div class="wrap">
+
+<h1>THE VIEWER — Top-to-Bottom Audit &amp; Mutation Testing</h1>
+<div class="muted">Code audit + automated mutation testing · audited at <b>v0.72.3</b> · 2026-06-03</div>
+
+<p class="lead">This audit was triggered by a startup hang on the preflight checks. It grew into a full sweep
+of the engine, an automated mutation-testing pass, and the fixing of every safe, clear-cut issue it turned up.
+Headline: <b>5 issues fixed</b>, <b>3 flagged</b> for your call, <b>0 critical left open</b>. The startup hang
+is resolved and the route that was throwing 500s is green.</p>
+
+<h2>1. What I did</h2>
+<ul>
+<li><b>Static bug-class sweep</b> across every <code>engine/*.py</code> file: orphaned imports left by the
+modularization, infinite-loop risks, connections opened but never closed, hang-prone full-database scans,
+and over-broad <code>except</code> blocks that could hide real errors.</li>
+<li><b>Automated mutation testing</b> — a new tool (<code>engine/tests/mutate.py</code>) that deliberately
+breaks one small thing at a time (a <code>&lt;</code> becomes <code>&gt;=</code>, a <code>+</code> becomes
+<code>-</code>, <code>True</code> becomes <code>False</code>) and re-runs the tests. If a test fails, the
+break was "killed"; if every test still passes, it "survived" — a blind spot in the tests.</li>
+<li><b>Ran the self-contained test suites in isolation</b> to confirm the fixes: <code>test_patterns</code>
+9/9, <code>test_features</code> 21/21, <code>test_routes</code> 34/34, new <code>test_procedure</code> 22/22.</li>
+</ul>
+
+<h2>2. Findings at a glance</h2>
+<table>
+<tr><th>ID</th><th>Severity</th><th>Status</th><th>What</th></tr>
+<tr><td>V-01</td><td><span class="tag high">HIGH</span></td><td><span class="tag fixed">FIXED</span></td><td>Preflight hang — full integrity scan of the 3.65&nbsp;GB index at startup</td></tr>
+<tr><td>V-02</td><td><span class="tag high">HIGH</span></td><td><span class="tag fixed">FIXED</span></td><td><code>/api/threed_refs</code> 500 — orphaned helper after modularization</td></tr>
+<tr><td>V-03</td><td><span class="tag med">MED</span></td><td><span class="tag fixed">RECOVERED</span></td><td><code>procedure_feature.py</code> infinite loop (introduced &amp; fixed during this audit)</td></tr>
+<tr><td>V-04</td><td><span class="tag low">LOW</span></td><td><span class="tag fixed">FIXED</span></td><td>Connection leak in <code>procedure_full</code></td></tr>
+<tr><td>V-05</td><td><span class="tag low">LOW</span></td><td><span class="tag fixed">FIXED</span></td><td>Connection leak in <code>threed_refs</code> (both return paths)</td></tr>
+<tr><td>V-06</td><td><span class="tag med">MED</span></td><td><span class="tag flag">FLAGGED</span></td><td><code>safeguard.py</code> still runs a full <code>quick_check</code> — same hang class as V-01</td></tr>
+<tr><td>V-07</td><td><span class="tag med">MED</span></td><td><span class="tag flag">FLAGGED</span></td><td>Procedure parser is weakly tested (20% mutation kill)</td></tr>
+<tr><td>V-08</td><td><span class="tag low">LOW</span></td><td><span class="tag flag">FLAGGED</span></td><td>Dev-only: sandbox mount tears reads/writes of host files</td></tr>
+</table>
+
+<h2>3. Fixed this pass</h2>
+
+<div class="card l-high"><h3><span class="tag high">HIGH</span> V-01 · Preflight hang on startup</h3>
+<p><b>Plain version:</b> the startup health check was reading and verifying <i>every page</i> of your 3.65&nbsp;GB
+index — fine when the database was small, but a multi-minute freeze once OCR filled it. The program wasn't
+broken; it was grinding through a needless full scan before letting the server start.</p>
+<p><b>Fix:</b> startup now does a millisecond open-and-read probe (can SQLite open it, is the header consistent,
+can it read the catalog and one real table). Databases over 512&nbsp;MB automatically skip the full scan. The
+deep scan is still available with <code>preflight.py --deep</code> and is time-budgeted (20&nbsp;s) so it can
+never hang — if it can't finish it downgrades to a warning. The watchdog and <code>/healthz</code> share this
+code, so they got faster too.</p></div>
+
+<div class="card l-high"><h3><span class="tag high">HIGH</span> V-02 · /api/threed_refs returned 500</h3>
+<p><b>Plain version:</b> the 3D→manual lookup called a helper that had moved to a new file during the v0.70
+clean-up and was never re-pointed. Python couldn't find the name and the route reported a generic 500.</p>
+<p><b>Fix:</b> one import line. <code>test_routes</code> went from 33/1 to <b>34/34</b>.</p></div>
+
+<div class="card l-med"><h3><span class="tag med">MED</span> V-03 · procedure_feature infinite loop (found &amp; fixed here)</h3>
+<p><b>Full honesty:</b> this one I caused during the audit and then caught. The <i>first</i> version of the
+mutation tool restored the original file only at the very end of its run. The sandbox killed that run for taking
+too long, the end-of-run restore never executed, and it left a single broken character on disk — the tools-header
+line read <code>i -= 1</code> instead of <code>i += 1</code>, which loops forever.</p>
+<p><b>How it was caught:</b> the new <code>test_procedure.py</code> (the parser had <i>no</i> test before this)
+hung instead of passing; a stack dump pointed at the loop; a one-line grep of the real file confirmed the bad
+character; I restored it. I then hardened the tool so this cannot recur — it now restores the original after
+<i>every</i> single test, keeps a <code>.orig</code> backup, verifies a checksum at the end, and is meant to be
+run on a throwaway copy. Verified: <code>test_procedure</code> 22/22, and the live <code>/api/procedure_full</code>
+route passes.</p></div>
+
+<div class="card l-low"><h3><span class="tag low">LOW</span> V-04 &amp; V-05 · Two database connection leaks</h3>
+<p><b>Plain version:</b> <code>procedure_full</code> and <code>threed_refs</code> each opened a database
+connection and never closed it — one leaked handle per request. Harmless for a while, but over a long-running
+session it slowly piles up. Both now close their connection on every path (including early returns).</p></div>
+
+<h2>4. Flagged for your call (not changed)</h2>
+
+<div class="card l-med"><h3><span class="tag med">MED</span> V-06 · safeguard.py still runs a full quick_check</h3>
+<p>The data-protection layer (<code>safeguard.py:140</code>) verifies databases with the same full
+page-by-page scan that caused the startup hang. If it's ever pointed at the 3.65&nbsp;GB live index during a
+verify or mirror, it will be slow in the same way. <b>Recommendation:</b> give it the same treatment as
+preflight — fast probe by default, size guard, deep scan time-budgeted. I left it alone because it's the
+safety layer and I'd rather you sign off before I touch it.</p></div>
+
+<div class="card l-med"><h3><span class="tag med">MED</span> V-07 · Procedure parser is under-tested (20% mutation kill)</h3>
+<p>Of the parser's mutation points, only ~20% are currently caught by tests. Most survivors are in
+<code>procedure_full</code> (which needs a database to test) and in the "cap" limits (keep at most 24 tools, 12
+warnings, 120 steps) and the step-continuation logic. Nothing is <i>wrong</i> today — but a future refactor
+could silently change behavior and no test would notice. <b>Recommendation:</b> add a small database-backed test
+for <code>procedure_full</code> and a few boundary assertions. I can do this on request; it raises the kill rate
+substantially.</p></div>
+
+<div class="card l-low"><h3><span class="tag low">LOW</span> V-08 · Dev-environment mount tearing (not shipped code)</h3>
+<p>The development sandbox occasionally serves a torn/truncated copy of large host files. This doesn't affect
+your installed program at all — but it's how V-03 happened, and it's why verification here is always done against
+the authoritative file (via the editing tools) and confirmed on your PC with <code>RUN-ALL-TESTS.bat</code>,
+never by trusting a raw sandbox read of a big file.</p></div>
+
+<h2>5. Mutation testing results</h2>
+<p>The new tool auto-generates mutations for any module. Run so far in isolation:</p>
+<table>
+<tr><th>Module</th><th>Mutants</th><th>Killed</th><th>Score</th><th></th></tr>
+<tr><td><code>patterns.py</code> (NSN/figure/part-number extractors)</td><td>13</td><td>13</td><td>100%</td>
+<td><span class="bar"><span class="kgrn" style="width:100%"></span></span></td></tr>
+<tr><td><code>procedure_feature.py</code> (Fix/how-to parser)</td><td>45 of 83</td><td>9</td><td>20%</td>
+<td><span class="bar"><span class="kamb" style="width:20%"></span></span></td></tr>
+</table>
+<p class="muted">100% on <code>patterns.py</code> means its tests genuinely pin down its behavior — break anything
+and a test fails. The 20% on the parser is the V-07 coverage gap. The curated suites for
+<code>core_pillars.py</code> (engine logic) and <code>safeguard.py</code> (data protection) run via
+<code>RUN-MUTATION.bat</code> on your PC, where the full index lives.</p>
+
+<h2>6. How to verify on your machine</h2>
+<ul>
+<li><b>Start the app</b> — it should no longer hang on preflight. (If you ever want the full integrity scan,
+run <code>engine\preflight.py --deep</code>; it's time-limited and safe.)</li>
+<li><b>Run <code>RUN-ALL-TESTS.bat</code></b> — confirms <code>test_routes</code> is 34/34 and the new
+<code>test_procedure</code> passes.</li>
+<li><b>Run <code>RUN-MUTATION.bat</code></b> — full mutation pass; writes <code>index\MUTATION-RESULTS.txt</code>.
+Paste the SUMMARY lines back if you'd like them reviewed.</li>
+</ul>
+
+<div class="foot">THE VIEWER · audit at v0.72.3 · 2026-06-03 · machine-readable findings: <code>docs/audit/findings.json</code> ·
+all fixes additive &amp; rollbackable (R1) · corpus and index untouched (R6).</div>
+
+</div></body></html>

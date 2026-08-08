@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Torque quick-reference — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button,a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600}
+  .conv{background:#10151c;border:1px solid #223;border-radius:12px;padding:14px 16px;margin:6px 0 16px}
+  .conv h3{margin:0 0 10px;font-size:13px;color:#7fbfff}
+  .conv .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .conv input{width:120px;background:#0c1116;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:9px 11px;font-size:15px}
+  .conv select{background:#0c1116;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:9px 11px;font-size:14px}
+  .conv .out{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap}
+  .conv .out .u{background:#16202b;border:1px solid #26333f;border-radius:9px;padding:9px 14px;min-width:120px}
+  .conv .out .u .v{font-size:20px;font-weight:700;color:#cfe} .conv .out .u .l{font-size:11px;color:#8a98a8}
+  .spec{background:#10151c;border:1px solid #223;border-radius:10px;padding:12px 15px;margin:9px 0}
+  .spec .val{font-size:17px;font-weight:700;color:#7fd6a0}
+  .spec .cv{color:#8a98a8;font-size:12.5px;margin-left:8px}
+  .spec .ctx{color:#cdd8e4;font-size:12.8px;margin:5px 0}
+  .spec .cite{color:#8a98a8;font-size:11.5px}
+  .spec .cite a{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:1px 7px;margin-left:6px}
+  .empty{color:#6b7787;font-size:12.5px;padding:8px 0}
+  .warn{color:#e8a06a;font-size:11.5px;margin-top:14px}
+</style></head><body>
+<div class="wrap">
+  <h1>🔩 Torque quick-reference</h1>
+  <div class="muted">Every torque value the manuals state for a part — each cited to its page — plus a unit converter. Manuals mix ft-lb / in-lb / N·m; this shows all three so you tighten to the right spec.</div>
+
+  <div class="conv">
+    <h3>Converter — ft-lb · in-lb · N·m</h3>
+    <div class="row">
+      <input id="cv" type="number" step="any" value="30" aria-label="torque value">
+      <select id="cu" aria-label="unit">
+        <option value="ftlb">ft-lb</option>
+        <option value="inlb">in-lb</option>
+        <option value="nm">N·m</option>
+      </select>
+      <span class="muted">→ converts live</span>
+    </div>
+    <div class="out" id="cout"></div>
+  </div>
+
+  <div class="search">
+    <input id="q" placeholder="part / NSN / fastener — e.g.  alternator   ·   2920-01-…   ·   drain plug" autofocus>
+    <button class="go" id="go">Find torque</button>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="results"></div>
+  <div class="warn">⚠ Always confirm on the cited page — values are parsed from OCR/manual text. Torque to the spec and sequence in the actual TM.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  // ---- pure unit conversion (ft-lb / in-lb / N·m) ----
+  var FTLB_NM=1.3558179483, FTLB_INLB=12.0;
+  function toFtlb(v,u){ if(u==='ftlb')return v; if(u==='inlb')return v/FTLB_INLB; if(u==='nm')return v/FTLB_NM; return NaN; }
+  function convert(v,u){ var f=toFtlb(v,u); return { ftlb:f, inlb:f*FTLB_INLB, nm:f*FTLB_NM }; }
+  function fmt(x){ if(!isFinite(x))return '—'; return (Math.round(x*100)/100).toString(); }
+  function renderConv(){
+    var v=parseFloat($('#cv').value), u=$('#cu').value;
+    if(isNaN(v)){ $('#cout').innerHTML='<span class="muted">enter a number</span>'; return; }
+    var c=convert(v,u);
+    $('#cout').innerHTML=
+      '<div class="u"><div class="v">'+fmt(c.ftlb)+'</div><div class="l">ft-lb</div></div>'+
+      '<div class="u"><div class="v">'+fmt(c.inlb)+'</div><div class="l">in-lb</div></div>'+
+      '<div class="u"><div class="v">'+fmt(c.nm)+'</div><div class="l">N·m</div></div>';
+  }
+  $('#cv').addEventListener('input',renderConv); $('#cu').addEventListener('change',renderConv);
+
+  // ---- parse a torque value string like "30–35 ft-lb", "18 in-lb", "45 N·m" ----
+  function unitOf(s){ s=s.toLowerCase().replace(/[\s.\-·]/g,''); if(s.indexOf('inlb')>=0||s.indexOf('inchpound')>=0)return 'inlb'; if(s.indexOf('nm')>=0||s.indexOf('newton')>=0)return 'nm'; if(s.indexOf('ftlb')>=0||s.indexOf('lbft')>=0||s.indexOf('footpound')>=0)return 'ftlb'; return null; }
+  function parseTorque(str){
+    if(!str)return null;
+    var m=str.match(/(\d+(?:\.\d+)?)\s*(?:[–\-]\s*(\d+(?:\.\d+)?))?\s*(ft[\s\-.]?lb[s]?|lb[s]?[\s\-.]?ft|in[\s\-.]?lb[s]?|inch[\s\-]?pound[s]?|n[\s·.]?m|newton[\s\-]?met(?:er|re)[s]?)/i);
+    if(!m)return null;
+    var u=unitOf(m[3]); if(!u)return null;
+    return { lo:parseFloat(m[1]), hi:m[2]?parseFloat(m[2]):null, unit:u };
+  }
+  function convLabel(p){
+    if(!p)return '';
+    function trip(v){ var c=convert(v,p.unit); var parts=[]; if(p.unit!=='ftlb')parts.push(fmt(c.ftlb)+' ft-lb'); if(p.unit!=='inlb')parts.push(fmt(c.inlb)+' in-lb'); if(p.unit!=='nm')parts.push(fmt(c.nm)+' N·m'); return parts.join(' · '); }
+    return p.hi!=null ? (trip(p.lo)+'  …  '+trip(p.hi)) : trip(p.lo);
+  }
+
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part or fastener.'; return; }
+    $('#head').textContent='Searching the manuals…'; $('#results').innerHTML='';
+    fetch('/api/torque?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      var specs=(j&&j.specs)||[];
+      if(!specs.length){ $('#head').textContent='No torque values found for “'+q+'”. Try the part name, or check /procedure.'; return; }
+      $('#head').textContent=specs.length+' torque value'+(specs.length===1?'':'s')+' cited for “'+(j.nomenclature||q)+'”:';
+      var h='';
+      specs.forEach(function(s){
+        var p=parseTorque(s.value||''); var cv=p?convLabel(p):'';
+        var cite=esc((s.vehicle||'?')+' · '+(s.tm_number||'')+' · p.'+(s.page||'?'));
+        var link=(s.doc_id&&s.page)?(' <a href="/deepzoom?doc='+encodeURIComponent(s.doc_id)+'&page='+encodeURIComponent(s.page)+'" target="_blank" title="Open the cited page">view page ↗</a>'):'';
+        h+='<div class="spec"><span class="val">'+esc(s.value||'?')+'</span>'+(cv?('<span class="cv">= '+esc(cv)+'</span>'):'')+
+           '<div class="ctx">'+esc((s.context||'').trim())+'</div>'+
+           '<div class="cite">'+cite+link+'</div></div>';
+      });
+      $('#results').innerHTML=h;
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=run;
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; }
+  renderConv();
+  if(pre) run();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

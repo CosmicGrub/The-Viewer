@@ -1,0 +1,72 @@
+{
+  "audit": "THE VIEWER — top-to-bottom audit + mutation testing",
+  "date": "2026-06-03",
+  "version_at_audit": "0.72.3",
+  "method": "static bug-class sweep across engine/*.py + tests, automated token-level mutation testing (engine/tests/mutate.py), self-contained suites run in isolation (test_patterns 9/9, test_features 21/21, test_routes 34/34, test_procedure 22/22).",
+  "summary": {"critical": 0, "high": 1, "medium": 3, "low": 4, "fixed": 5, "flagged": 3},
+  "findings": [
+    {"id": "V-01", "severity": "high", "status": "fixed", "version": "0.72.3",
+     "title": "Preflight hang on startup (full PRAGMA quick_check on 3.65 GB index)",
+     "where": "engine/preflight.py _quick_check / checks()",
+     "cause": "index check verified every page of the index; instant when small, minutes once OCR filled it to 3.65 GB.",
+     "fix": "fast _index_probe by default; auto-skip full scan above VIEWER_LARGE_DB_MB (512); --deep is time-budgeted via set_progress_handler so it cannot hang.",
+     "verified": "fast/large-skip/corrupt-FAIL and timeout->WARN paths tested on fixtures."},
+
+    {"id": "V-02", "severity": "high", "status": "fixed", "version": "0.72.2",
+     "title": "/api/threed_refs returns 500 for any valid NSN",
+     "where": "engine/viewer_app.py threed_refs() -> _collections_defs()",
+     "cause": "_collections_defs moved to collections_feature.py in v0.70 modularization but was never re-imported into viewer_app; NameError at request time -> 500.",
+     "fix": "re-import _collections_defs.",
+     "verified": "test_routes 34/34 (was 33/1)."},
+
+    {"id": "V-03", "severity": "medium", "status": "recovered", "version": "0.72.3",
+     "title": "procedure_feature.py infinite loop (i -= 1 on tools-header line)",
+     "where": "engine/procedure_feature.py parse_procedure()",
+     "cause": "a SIGKILL of the OLD mutation runner (restore only in finally, skipped on hard kill) left a one-token mutant on disk.",
+     "fix": "restored i += 1; added test_procedure.py (parser had no test); hardened mutate.py to restore after every run + .orig sidecar + SHA verify.",
+     "verified": "test_procedure 22/22; test_routes /api/procedure_full passes."},
+
+    {"id": "V-04", "severity": "low", "status": "fixed", "version": "0.72.3",
+     "title": "Connection leak in procedure_full",
+     "where": "engine/procedure_feature.py procedure_full()",
+     "cause": "core.db() opened, never closed (1 open / 0 close).",
+     "fix": "close in finally."},
+
+    {"id": "V-05", "severity": "low", "status": "fixed", "version": "0.72.3",
+     "title": "Connection leak in threed_refs (both return paths)",
+     "where": "engine/viewer_app.py threed_refs()",
+     "cause": "db() not closed on early-return or normal-return.",
+     "fix": "close on both paths."},
+
+    {"id": "V-06", "severity": "medium", "status": "flagged",
+     "title": "safeguard.py runs full PRAGMA quick_check",
+     "where": "engine/safeguard.py:140 _db_check",
+     "risk": "same hang-class as V-01 if invoked on the 3.65 GB live index during verify/mirror.",
+     "recommendation": "apply the same fast-probe + size-guard + --deep budget used in preflight, or only quick_check files below a size threshold."},
+
+    {"id": "V-07", "severity": "medium", "status": "flagged",
+     "title": "Low mutation kill rate on procedure_feature.py (20%)",
+     "where": "engine/procedure_feature.py + tests/test_procedure.py",
+     "risk": "parser behavior is under-pinned by tests; refactors could silently change output.",
+     "recommendation": "add a DB-backed test for procedure_full; assert caps ([:24]/[:12]/[:120]/[:400]) and step-continuation/enrichment so boundary mutants are killed."},
+
+    {"id": "V-08", "severity": "low", "status": "flagged",
+     "title": "Sandbox 9p mount tears reads/writes of host files",
+     "where": "dev/test environment only (not shipped code)",
+     "risk": "in-sandbox cp/run of host files can read a torn copy; writing through the mount during mutation could corrupt a real file (this is exactly how V-03 occurred).",
+     "recommendation": "always run mutation/tests on a sandbox-local copy or host-side; verify host files via the Read/Grep tools + RUN-ALL-TESTS.bat, never via raw mount reads of large files."},
+
+    {"id": "V-09", "severity": "low", "status": "ok",
+     "title": "No bare 'except:' and no leftover manual-counter decrements in shipped code",
+     "where": "engine/*.py",
+     "note": "sweep clean after fixes; broad 'except Exception' blocks exist but are intentional fail-open guards (documented)."}
+  ],
+  "mutation": [
+    {"target": "patterns.py", "sites": 13, "tested": 13, "killed": 13, "survived": 0, "score_pct": 100},
+    {"target": "procedure_feature.py", "sites": 83, "tested": 45, "killed": 9, "survived": 36, "timeouts": 1, "score_pct": 20,
+     "note": "most survivors in procedure_full (needs DB-backed test) + caps/continuation boundaries"},
+    {"target": "core_pillars.py", "via": "tests/mutation_xl.py", "note": "run host-side via RUN-MUTATION.bat"},
+    {"target": "safeguard.py", "via": "tests/mutation_xl.py", "note": "run host-side via RUN-MUTATION.bat"}
+  ],
+  "tests_status": {"test_patterns": "9/9", "test_features": "21/21", "test_routes": "34/34", "test_procedure": "22/22"}
+}

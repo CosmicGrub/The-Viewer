@@ -1,0 +1,52 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Retroactive Post-Support (RPS)  (v0.45.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">A Windows-11 program that stays responsive all the way back to Windows 7 / Vista — by auto-adapting to the machine, not by dropping features. Corpus &amp; index untouched.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · ONE PROBE → ONE MODE (auto, overridable)</text>
+<rect x="40" y="126" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="150" width="200" height="100" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="75" y="172" font-size="10" font-weight="700" fill="#7f77dd" text-anchor="start">sysprobe.py</text>
+<text x="75" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">OS rank · RAM · cores</text>
+<text x="75" y="207" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">render backend (PyMuPDF</text>
+<text x="75" y="222" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">/ Poppler) · GPU · Python</text>
+<path d="M262,200 L300,200" stroke="#7f77dd" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="305" y="150" width="265" height="100" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="318" y="172" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">modern</text>
+<text x="375" y="172" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">· capable + Win10/11</text>
+<text x="318" y="190" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">full effects · server hi-fi loupe ·</text><text x="318" y="201" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">prefetch 2 · big SQLite cache</text>
+<rect x="580" y="150" width="265" height="100" rx="10" fill="#1c2430" stroke="#caa24a" stroke-width="1"/>
+<text x="593" y="172" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">lite</text>
+<text x="650" y="172" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">· modern OS, weak HW</text>
+<text x="593" y="190" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">effects off · DPI 120 · local loupe ·</text><text x="593" y="201" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">small cache (low-RAM/HDD)</text>
+<rect x="855" y="150" width="265" height="100" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="868" y="172" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">legacy</text>
+<text x="925" y="172" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">· Win7/Vista / Poppler</text>
+<text x="868" y="190" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">lite + ES5 polyfills + Poppler render +</text><text x="868" y="201" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">minimal SQLite footprint</text>
+<text x="60" y="268" font-size="8.6" font-weight="400" fill="#2f7d4f" text-anchor="start">mode_for(profile, override) → modern | lite | legacy. Force with --mode or ?mode= ; the choice drives every switch below.</text>
+<text x="56" y="304" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · WHAT EACH MODE ACTUALLY CHANGES</text>
+<rect x="40" y="314" width="1100" height="210" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<circle cx="58" cy="335" r="3.5" fill="#1d9e75"/>
+<text x="70" y="338" font-size="9.8" font-weight="700" fill="#1d9e75" text-anchor="start">Page-render cache</text>
+<text x="230" y="338" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">index/pagecache/ — a full-page PNG is rendered ONCE then served from disk. Pre-bake hot pages ( --prebake N ) and warm-on-view</text><text x="230" y="349" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">renders the next page(s) in a background thread. The single biggest win on a slow HDD.</text>
+<circle cx="58" cy="365" r="3.5" fill="#4f9dff"/>
+<text x="70" y="368" font-size="9.8" font-weight="700" fill="#4f9dff" text-anchor="start">SQLite tuning</text>
+<text x="230" y="368" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">per-mode PRAGMAs on every connection: big mmap + MEMORY temp on modern; tiny cache, mmap off, FILE temp on legacy/low-RAM.</text><text x="230" y="379" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Read-only — the index is never rewritten.</text>
+<circle cx="58" cy="395" r="3.5" fill="#caa24a"/>
+<text x="70" y="398" font-size="9.8" font-weight="700" fill="#caa24a" text-anchor="start">Render path</text>
+<text x="230" y="398" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">PyMuPDF when present; Poppler (pdftoppm) auto-substituted on Win7/Vista. DPI capped per mode (400 / 220 / 150) so an old</text><text x="230" y="409" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">GPU-less box isn&#x27;t asked to rasterise huge pages.</text>
+<circle cx="58" cy="425" r="3.5" fill="#7f77dd"/>
+<text x="70" y="428" font-size="9.8" font-weight="700" fill="#7f77dd" text-anchor="start">ES5 polyfills</text>
+<text x="230" y="428" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">rps.js feature-detects and shims fetch / Promise / Object.assign / Array &amp; String helpers / URLSearchParams so the modern UI</text><text x="230" y="439" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">runs on old Firefox ESR / IE11. No-ops on modern browsers.</text>
+<circle cx="58" cy="455" r="3.5" fill="#2f7d4f"/>
+<text x="70" y="458" font-size="9.8" font-weight="700" fill="#2f7d4f" text-anchor="start">Lite effects</text>
+<text x="230" y="458" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">off the modern path, animations &amp; transitions are disabled (body.rps-lite/legacy) and the loupe stays local — the UI feels</text><text x="230" y="469" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">instant instead of janky.</text>
+<rect x="40" y="548" width="1100" height="90" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="572" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">COMPLETE compatibility, not a cut-down build (R1/R6)</text>
+<text x="58" y="592" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">RPS keeps the FULL feature set working back to Win7/Vista via engine substitution + adaptation — it changes HOW things run, never WHAT the manual says. Everything is additive and</text><text x="58" y="605" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">read-only: the page cache is a regenerable sidecar, the SQLite pragmas are connection-local, the polyfills are client-side. Rollback = delete index/pagecache and ignore rps.py. The</text><text x="58" y="618" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">dual-track changelog records exactly what each legacy version carries vs adapts.</text>
+<rect x="40" y="650" width="1100" height="76" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="672" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">VERIFIED</text>
+<text x="58" y="690" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">rps.py logic: 13/13 unit tests pass — mode decision (Nitro 5→modern, Win7/Poppler→legacy, 6 GB→lite, override wins/ignored-if-bad), feature flags, cache keys distinct by dpi/flags,</text><text x="58" y="702" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">cache round-trip, prebake renders then skips already-cached. Server-side cache/tuning/warm blocks compile &amp; run; rps.js lints clean.</text>
+<text x="40" y="748" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.45.0 · 2026-06-02 · engine/rps.py + sysprobe.py + viewer_app.py + engine/ui/rps.js. Reminder: boost with the desktop later (RTX 5070).</text>
+</svg>

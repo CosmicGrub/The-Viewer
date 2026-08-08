@@ -1,0 +1,36 @@
+<svg viewBox="0 0 1180 660" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="660" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Hardening, wider — fuzz the locator + coverage math   v0.99.18</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Extended the property/fuzz harness to the last untested read helpers. 206,300 cases, 0 violations — these modules are solid.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="116" width="1100" height="52" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="138" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">coverage.pct(a,b)</text>
+<text x="56" y="156" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">pct ∈ [0,100] for 0≤a≤b; exactly 0.0 when b==0; never raises. High-volume (per-iteration loop).</text>
+<rect x="40" y="176" width="1100" height="52" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="56" y="198" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">partlocate.locate</text>
+<text x="56" y="216" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">count == len(appearances) ≤ limit; every URL (deepzoom/vectorize/page) absolute; deduped by (doc,page,fig); never raises.</text>
+<rect x="40" y="236" width="1100" height="52" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="258" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">coverage.overview</text>
+<text x="56" y="276" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">never raises; every percentage-named value stays within [0,100]. DB-backed, sampled.</text>
+<line x1="40" y1="300" x2="1140" y2="300" stroke="#2b333f"/>
+<text x="40" y="324" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">RESULT</text>
+<rect x="40" y="338" width="545" height="118" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="60" y="376" font-size="32" font-weight="700" fill="#7fd8b6" text-anchor="start">206,300</text>
+<text x="60" y="398" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">cases executed against the REAL modules · 0 violations</text>
+<text x="60" y="422" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">No new bugs — unlike 0.99.15, where fuzzing vectorize caught a real cv2.resize crash. These read helpers</text><text x="60" y="435" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">hold.</text>
+<text x="604" y="324" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">WHERE IT RUNS</text>
+<rect x="604" y="338" width="536" height="118" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<circle cx="620" cy="359" r="2.4" fill="#4f9dff"/>
+<text x="632" y="362" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Guarded checks: skip cleanly if a module is absent.</text>
+<circle cx="620" cy="376" r="2.4" fill="#4f9dff"/>
+<text x="632" y="379" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">coverage.pct in the per-iteration loop (cheap, high-N).</text>
+<circle cx="620" cy="393" r="2.4" fill="#4f9dff"/>
+<text x="632" y="396" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">partlocate + coverage.overview sampled (DB-backed).</text>
+<circle cx="620" cy="410" r="2.4" fill="#4f9dff"/>
+<text x="632" y="413" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-099.bat runs a 3k fuzz smoke; RUN-HARDENING.bat</text>
+<circle cx="620" cy="427" r="2.4" fill="#4f9dff"/>
+<text x="632" y="430" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">runs the full N (--max = 1e6/property → millions).</text>
+<line x1="40" y1="474" x2="1140" y2="474" stroke="#2b333f"/>
+<text x="40" y="502" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 · test-only change; no product code touched. R9 tail sentinel intact; runs host-side (mount truncates the grown harness in-sandbox).</text>
+<text x="40" y="652" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.18 · 2026-07-01 · test_property_fuzz.py +partlocate/coverage/pct. Read-only. R1/R6.</text>
+</svg>

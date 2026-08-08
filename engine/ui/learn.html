@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Learn / quiz — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:220px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:11px 15px;cursor:pointer}
+  .q{background:#0e141c;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:10px 0}
+  .q h3{margin:0 0 8px;font-size:15px}
+  .ch{display:block;width:100%;text-align:left;background:#111823;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:10px 12px;margin:5px 0;cursor:pointer;font-size:14px}
+  .ch:hover{background:#141d29}.ch.right{background:#123020;border-color:#1d9e75;color:#7fd6a0}.ch.wrong{background:#2a1414;border-color:#6a2f2a;color:#e39b95}
+  .cite{color:#4f9dff;text-decoration:none;font-size:12px}
+  .score{background:#111823;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:12px 0;font-size:16px}
+  .none{color:#8a98a8;font-size:13px;padding:10px 0}
+</style></head><body>
+<div class="wrap">
+  <h1>🎓 Learn / quiz mode <span class="muted">— cited, from your manuals</span></h1>
+  <div class="muted">Build knowledge against the real TMs. Every question comes from a cited value; every answer links to
+    the page to learn from. Great for a new mechanic — and a quick check for a seasoned one.</div>
+  <div class="search">
+    <input id="q" placeholder="Topic (e.g. torque, brake, alternator)" value="torque">
+    <button class="go" id="go">New quiz</button>
+  </div>
+  <div id="out"><div class="none">Pick a topic and start.</div></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  var QUIZ=[], answered=[], correct=0;
+
+  function run(){
+    var q=$('#q').value.trim()||'torque';
+    $('#out').innerHTML='<div class="none">Building a quiz…</div>';
+    fetch('/api/quiz?q='+encodeURIComponent(q)+'&seed='+((Math.random()*100000)|0)).then(function(r){return r.json();}).then(function(j){
+      QUIZ=(j&&j.quiz)||[]; answered=[]; correct=0;
+      if(!QUIZ.length){ $('#out').innerHTML='<div class="none">Not enough cited values on “'+esc(q)+'” yet to build a quiz (grows as OCR + measures build). Try “torque” or “pressure”.</div>'; return; }
+      render();
+    });
+  }
+  function render(){
+    var h='';
+    QUIZ.forEach(function(it,i){
+      h+='<div class="q" id="q'+i+'"><h3>'+(i+1)+'. '+esc(it.question)+'</h3>';
+      it.choices.forEach(function(c,ci){ h+='<button class="ch" data-q="'+i+'" data-c="'+ci+'">'+esc(c)+'</button>'; });
+      h+='<div class="cite" id="cite'+i+'"></div></div>';
+    });
+    h+='<div class="score" id="score" hidden></div>';
+    $('#out').innerHTML=h;
+    $('#out').querySelectorAll('.ch').forEach(function(b){ b.onclick=function(){ pick(parseInt(b.getAttribute('data-q'),10), parseInt(b.getAttribute('data-c'),10)); }; });
+  }
+  function pick(qi, ci){
+    if(answered[qi]!=null) return;
+    answered[qi]=ci; var it=QUIZ[qi];
+    var btns=$('#q'+qi).querySelectorAll('.ch');
+    btns.forEach(function(b,bi){ b.disabled=true; if(bi===it.answer_idx) b.classList.add('right'); else if(bi===ci) b.classList.add('wrong'); });
+    if(ci===it.answer_idx) correct++;
+    if(it.cite&&it.cite.doc) $('#cite'+qi).innerHTML='<a class="cite" href="/deepzoom?doc='+encodeURIComponent(it.cite.doc)+'&page='+encodeURIComponent(it.cite.page)+'" target="_blank">learn more — p.'+esc(it.cite.page)+' ↗</a>';
+    if(answered.filter(function(x){return x!=null;}).length===QUIZ.length){
+      var pct=Math.round(100*correct/QUIZ.length);
+      var sc=$('#score'); sc.hidden=false; sc.innerHTML='Score: <b style="color:'+(pct>=80?'#7fd6a0':(pct>=50?'#e8c07a':'#e39b95'))+'">'+correct+' / '+QUIZ.length+' ('+pct+'%)</b> — <a class="cite" href="#" id="again">try another</a>';
+      $('#again').onclick=function(e){e.preventDefault();run();};
+    }
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; } run();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

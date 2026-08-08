@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Federal catalog (PUBLOG) — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px}.muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  h2{font-size:14px;margin:20px 0 6px;color:#9fb3c8}
+  .card{background:#111823;border:1px solid #1c2530;border-radius:10px;padding:14px 16px;margin:10px 0}
+  .idrow{display:flex;flex-wrap:wrap;gap:18px;align-items:baseline}
+  .nsn{font-size:22px;font-weight:800;color:#7fd6a0;letter-spacing:.5px}
+  .iname{font-size:15px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #1c2530;vertical-align:top}
+  th{color:#8a98a8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .tag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 7px;font-weight:700;background:#0e2233;color:#7fb8d6;border:1px solid #2f6a86}
+  .src{font-size:11px;color:#8a98a8;margin-left:8px}
+  .chip{display:inline-block;background:#182234;border:1px solid #2f4858;border-radius:14px;padding:2px 10px;margin:2px 4px 2px 0;font-size:12px}
+  .warn{color:#e8c07a}
+  .none{color:#8a98a8;font-size:12.5px;padding:8px 0}
+</style></head><body>
+<div class="wrap">
+  <h1>🗄 Federal catalog — PUBLOG / FLIS <span class="tag">authoritative · offline</span></h1>
+  <div class="muted">Official DLA Federal Logistics data for an <b>NSN / NIIN</b>, or a reverse lookup by
+    <b>manufacturer part number</b>. This is the authoritative source for part identity — separate from the TM
+    manuals (authoritative for procedures). Fully offline; no links.</div>
+  <div class="search">
+    <input id="q" placeholder="NSN · NIIN · or a manufacturer part number" autofocus>
+    <button class="go" id="go">Look up</button>
+    <button class="go" id="gopn" style="background:#1b2735;color:#cfe;border:1px solid #2f4858" title="Treat the box as a manufacturer part number">By part #</button>
+    <a class="btn" href="/scan">📷 Scan</a>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function chips(a){ return (a&&a.length)?a.map(function(x){return '<span class="chip">'+esc(x)+'</span>';}).join(''):''; }
+
+  function renderRecord(r){
+    if(!r || r.found===false || !r.record){ $('#out').innerHTML='<div class="none">No PUBLOG record for that NSN/NIIN. Try <b>By part #</b> if it’s a manufacturer part number.</div>'; return; }
+    var d=r.record, h='';
+    h+='<div class="card"><div class="idrow"><span class="nsn">'+esc(d.nsn||d.niin)+'</span>'
+      +'<span class="iname">'+esc(d.item_name||'')+'</span></div>';
+    var sub=[];
+    if(d.fsc_title) sub.push('FSC '+esc(d.fsc)+' — '+esc(d.fsc_title));
+    if(d.inc) sub.push('INC '+esc(d.inc));
+    if(d.end_item_name) sub.push('End item: '+esc(d.end_item_name));
+    if(sub.length) h+='<div class="muted" style="margin-top:6px">'+sub.join(' &nbsp;·&nbsp; ')+'</div>';
+    if(d.colloquial&&d.colloquial.length) h+='<div style="margin-top:8px">'+chips(d.colloquial)+'</div>';
+    var wc=[];
+    if(d.weight) wc.push('Weight '+esc(d.weight)+' lb');
+    if(d.cube) wc.push('Cube '+esc(d.cube)+' ft³');
+    if(wc.length) h+='<div class="muted" style="margin-top:8px">'+wc.join(' &nbsp;·&nbsp; ')+'</div>';
+    h+='</div>';
+
+    // part numbers + CAGE
+    if(d.parts&&d.parts.length){
+      h+='<h2>Manufacturer part numbers &amp; sources (CAGE)</h2><table><tr><th>Part number</th><th>CAGE</th><th>Company</th><th>Location</th></tr>';
+      d.parts.forEach(function(p){ h+='<tr><td><b>'+esc(p.part_number)+'</b></td><td>'+esc(p.cage)+'</td><td>'+esc(p.company||'—')+'</td><td>'+esc([p.city,p.state].filter(Boolean).join(', ')||'—')+'</td></tr>'; });
+      h+='</table>';
+    }
+    // characteristics (the differences gold)
+    if(d.characteristics&&d.characteristics.length){
+      h+='<h2>Item characteristics <span class="src">(the basis for telling look-alike parts apart)</span></h2><table><tr><th>Characteristic</th><th>Value</th></tr>';
+      d.characteristics.forEach(function(c){ h+='<tr><td>'+esc(c.requirement||c.mrc)+'</td><td><b>'+esc(c.reply)+'</b></td></tr>'; });
+      h+='</table>';
+    }
+    // replacement chain
+    if((d.replaced_by&&d.replaced_by.length)||(d.replaces&&d.replaces.length)){
+      h+='<h2 class="warn">⚠ Supersession</h2><div class="muted">';
+      if(d.replaced_by&&d.replaced_by.length) h+='This NIIN was <b>replaced by</b>: '+d.replaced_by.map(function(x){return '<a class="chip" href="/publog?nsn='+esc(x.niin)+'">'+esc(x.niin)+'</a>';}).join(' ')+'<br>';
+      if(d.replaces&&d.replaces.length) h+='This NIIN <b>replaces</b>: '+d.replaces.map(function(x){return '<a class="chip" href="/publog?nsn='+esc(x.niin)+'">'+esc(x.niin)+'</a>';}).join(' ');
+      h+='</div>';
+    }
+    h+='<div class="search" style="margin-top:14px"><input id="cmp" placeholder="Compare with another NSN / part…" style="flex:1;min-width:200px">'
+      +'<button class="go" id="cmpgo" style="background:#1b2735;color:#cfe;border:1px solid #2f4858">⇄ Compare</button>'
+      +'<a class="btn" href="/dossier?q='+encodeURIComponent(d.nsn||d.niin)+'">Full dossier →</a></div>';
+    h+='<div id="intel"></div><div id="cmpout"></div>';
+    $('#out').innerHTML=h;
+    var me=d.niin||d.nsn;
+    $('#cmpgo').onclick=function(){ var b=$('#cmp').value.trim(); if(b.length>=2) renderCompare(me,b); };
+    $('#cmp').addEventListener('keydown',function(e){ if(e.key==='Enter'){ var b=$('#cmp').value.trim(); if(b.length>=2) renderCompare(me,b); }});
+    loadIntel(me);
+  }
+
+  function loadIntel(nsn){
+    fetch('/api/publog_intel?nsn='+encodeURIComponent(nsn)).then(function(r){return r.json();}).then(function(j){
+      if(!j||j.unavailable||!j.ok) return; var h='';
+      var sup=j.supersession||{};
+      if(sup.available){
+        var badge = sup.status==='obsolete/terminal' ? '<span class="conf" style="background:#2a1414;color:#e39b95;border:1px solid #6a2f2a">OBSOLETE / TERMINAL</span>'
+                   : (sup.status==='active' ? '<span class="conf" style="background:#123020;color:#7fd6a0;border:1px solid #1d9e75">ACTIVE</span>' : '');
+        if(badge||sup.aac||(sup.replaced_by&&sup.replaced_by.length)){
+          h+='<h2>Supersession &amp; procurement</h2><div class="card">'+badge
+            +(sup.aac?(' <span class="src">AAC '+esc(sup.aac)+' — '+esc(sup.aac_meaning)+'</span>'):'');
+          if(sup.replaced_by&&sup.replaced_by.length) h+='<div class="muted" style="margin-top:6px">⚠ Replaced by: '+sup.replaced_by.map(function(x){return '<a class="chip" href="/publog?nsn='+esc(x)+'">'+esc(x)+'</a>';}).join('')+'</div>';
+          if(sup.replaces&&sup.replaces.length) h+='<div class="muted" style="margin-top:4px">Replaces: '+sup.replaces.map(function(x){return '<a class="chip" href="/publog?nsn='+esc(x)+'">'+esc(x)+'</a>';}).join('')+'</div>';
+          h+='</div>';
+        }
+      }
+      var subs=(j.substitutes&&j.substitutes.substitutes)||[];
+      if(subs.length){ h+='<h2>Usable substitutes (I&amp;S / supersession)</h2><table><tr><th>NSN</th><th>Item</th></tr>'
+        +subs.map(function(s){return '<tr><td><a class="chip" href="/publog?nsn='+esc(s.niin)+'">'+esc(s.nsn)+'</a></td><td>'+esc(s.item_name||'')+'</td></tr>';}).join('')+'</table>'; }
+      var vs=(j.vendors&&j.vendors.vendors)||[];
+      if(vs.length){ h+='<h2>Vendors (CAGE)</h2><table><tr><th>CAGE</th><th>Company</th><th>Status</th></tr>'
+        +vs.map(function(v){var st=v.active===true?'<span style="color:#7fd6a0">active</span>':(v.active===false?'<span style="color:#e39b95">inactive</span>':'—');return '<tr><td>'+esc(v.cage)+'</td><td>'+esc(v.company||'')+'</td><td>'+st+'</td></tr>';}).join('')+'</table>'; }
+      var td=(j.tech_docs&&j.tech_docs.tech_docs)||[];
+      if(td.length){ h+='<h2>Referenced in manuals <span class="src">(PUBLOG → TM crosslink)</span></h2>'
+        +td.map(function(t){return '<div class="chip"><a href="/?q='+encodeURIComponent(t.tech_doc)+'" title="'+esc(t.phrase)+'">'+esc(t.tech_doc)+' ↗</a></div>';}).join(''); }
+      var nk=j.nicknames||{};
+      if((nk.nicknames&&nk.nicknames.length)||(nk.clashes&&nk.clashes.length)){
+        h+='<h2>Shop-floor names</h2><div class="card">';
+        if(nk.nicknames&&nk.nicknames.length) h+='<div>'+chips(nk.nicknames)+'</div>';
+        if(nk.clashes&&nk.clashes.length) h+='<div class="warn" style="margin-top:6px">⚠ Nickname clash: '+nk.clashes.map(function(c){return '“'+esc(c.nickname)+'” names '+c.incs.length+' different items';}).join('; ')+'</div>';
+        h+='</div>';
+      }
+      $('#intel').innerHTML=h;
+    }).catch(function(){});
+  }
+
+  function renderCompare(a,b){
+    $('#cmpout').innerHTML='<div class="none">Comparing…</div>';
+    fetch('/api/publogdiff?a='+encodeURIComponent(a)+'&b='+encodeURIComponent(b)).then(function(r){return r.json();}).then(function(j){
+      if(!j||j.unavailable||!j.ok){ $('#cmpout').innerHTML='<div class="none">Compare unavailable.</div>'; return; }
+      var d=j.diff||{}, v=j.verdict||{}, h='';
+      var col={green:'#7fd6a0',amber:'#e8c07a',red:'#e39b95'}[v.verdict]||'#9fb3c8';
+      h+='<h2>Compare</h2><div class="card"><div style="font-size:15px;font-weight:800;color:'+col+'">'+esc(v.label||'')+'</div>'
+        +'<div class="muted" style="margin-top:4px">'+esc(v.reason||'')+'</div>'
+        +(d.similarity_pct!=null?('<div class="muted" style="margin-top:6px">Fit-fingerprint: <b style="color:'+col+'">'+d.similarity_pct+'% identical</b> across '+d.comparable+' comparable specs</div>'):'')+'</div>';
+      var rows=(d.rows||[]).filter(function(r){return r.both;});
+      if(rows.length){ h+='<table><tr><th>Characteristic</th><th>'+esc((d.a&&d.a.niin)||a)+'</th><th>'+esc((d.b&&d.b.niin)||b)+'</th></tr>'
+        +rows.map(function(r){var bg=r.differ?' style="background:#2a1e0c"':'';return '<tr'+bg+'><td>'+esc(r.characteristic)+'</td><td>'+esc(r.a)+'</td><td>'+esc(r.b)+(r.differ?' <span class="warn">◄ differs</span>':'')+'</td></tr>';}).join('')+'</table>'; }
+      $('#cmpout').innerHTML=h;
+    }).catch(function(){ $('#cmpout').innerHTML='<div class="none">Compare failed.</div>'; });
+  }
+
+  function renderParts(j){
+    var m=(j&&j.matches)||[];
+    if(!m.length){ $('#out').innerHTML='<div class="none">No NSN carries that part number in PUBLOG.</div>'; return; }
+    var h='<h2>Part number “'+esc(j.query)+'” → NSN(s)</h2><table><tr><th>NSN</th><th>Item</th><th>Part #</th><th>CAGE</th></tr>';
+    m.forEach(function(x){ h+='<tr><td><a class="chip" href="/publog?nsn='+esc(x.niin)+'">'+esc(x.nsn)+'</a></td><td>'+esc(x.item_name||'')+'</td><td>'+esc(x.part_number)+'</td><td>'+esc(x.cage)+'</td></tr>'; });
+    $('#out').innerHTML=h+'</table>';
+  }
+
+  function unavailable(j){ $('#head').innerHTML='<span class="warn">'+esc(j.error||'PUBLOG not built')+'</span>'; $('#out').innerHTML='<div class="none">Build it host-side with <b>BUILD-PUBLOG.bat</b> pointed at your PUBLOG CSV export, then reload.</div>'; }
+
+  function look(byPart){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type an NSN, NIIN, or part number.'; return; }
+    $('#head').textContent='Looking up…'; $('#out').innerHTML='';
+    var url=byPart?('/api/publog?pn='+encodeURIComponent(q)):('/api/publog?nsn='+encodeURIComponent(q));
+    fetch(url).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.unavailable){ unavailable(j); return; }
+      $('#head').textContent='';
+      if(byPart||j.kind==='part_number') renderParts(j); else renderRecord(j);
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=function(){ look(false); };
+  $('#gopn').onclick=function(){ look(true); };
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') look(false); });
+  var pre=new URLSearchParams(location.search).get('nsn')||new URLSearchParams(location.search).get('q');
+  if(pre){ $('#q').value=pre; look(false); }
+})();
+</script>
+<script src="/palette.js"></script>
+<script src="/scanner.js"></script>
+</body></html>

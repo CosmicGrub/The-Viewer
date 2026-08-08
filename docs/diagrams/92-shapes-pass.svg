@@ -1,0 +1,64 @@
+<svg viewBox="0 0 1180 640" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="640" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">3-D parametric shape pass  (v0.84.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Measured the classifier against the live index, then targeted the real offenders. No guessing — every change is data-driven.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="118" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Recognizable shape (vs. box fallback), 24,312 figure-bearing parts</text>
+<rect x="40" y="132" width="360" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="132" width="271" height="26" rx="6" fill="#caa24a" stroke="#caa24a" stroke-width="0"/>
+<text x="412" y="150" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">BEFORE  75.3%  (box 24.7%)</text>
+<rect x="40" y="168" width="360" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="168" width="326" height="26" rx="6" fill="#2f7d4f" stroke="#2f7d4f" stroke-width="0"/>
+<text x="412" y="186" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">AFTER   90.7%  (box 9.3%)</text>
+<text x="40" y="214" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">= 3,736 more parts now render as a recognizable shape instead of a blank box.</text>
+<text x="40" y="252" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Added 9 geometry families (22 total; all verified to build valid meshes)</text>
+<rect x="40" y="276" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="276" width="5" height="60" rx="2.5" fill="#4f9dff"/>
+<text x="56" y="297" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">plate</text>
+<text x="56" y="314" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">flat slab + bolt-holes</text>
+<text x="56" y="328" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">markers · decals · labels · armor</text>
+<rect x="412" y="276" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="412" y="276" width="5" height="60" rx="2.5" fill="#1d9e75"/>
+<text x="428" y="297" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">cover</text>
+<text x="428" y="314" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">open panel / pan</text>
+<text x="428" y="328" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">covers · doors · panels · guards</text>
+<rect x="784" y="276" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="784" y="276" width="5" height="60" rx="2.5" fill="#caa24a"/>
+<text x="800" y="297" font-size="12.5" font-weight="700" fill="#caa24a" text-anchor="start">pad</text>
+<text x="800" y="314" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">cushion slab</text>
+<text x="800" y="328" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">insulation · pads · straps</text>
+<rect x="40" y="348" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="348" width="5" height="60" rx="2.5" fill="#7f77dd"/>
+<text x="56" y="369" font-size="12.5" font-weight="700" fill="#7f77dd" text-anchor="start">link</text>
+<text x="56" y="386" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">bar + two end eyes</text>
+<text x="56" y="400" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">connecting links</text>
+<rect x="412" y="348" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="412" y="348" width="5" height="60" rx="2.5" fill="#2f7d4f"/>
+<text x="428" y="369" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">lever</text>
+<text x="428" y="386" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">arm + pivot + grip</text>
+<text x="428" y="400" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">levers · handles · cranks</text>
+<rect x="784" y="348" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="784" y="348" width="5" height="60" rx="2.5" fill="#c4585a"/>
+<text x="800" y="369" font-size="12.5" font-weight="700" fill="#c4585a" text-anchor="start">rivet</text>
+<text x="800" y="386" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">shank + button head</text>
+<text x="800" y="400" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">solid / blind rivets</text>
+<rect x="40" y="420" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="420" width="5" height="60" rx="2.5" fill="#4f9dff"/>
+<text x="56" y="441" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">switch</text>
+<text x="56" y="458" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">body + toggle + pins</text>
+<text x="56" y="472" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">switches · relays</text>
+<rect x="412" y="420" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="412" y="420" width="5" height="60" rx="2.5" fill="#1d9e75"/>
+<text x="428" y="441" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">cylinder</text>
+<text x="428" y="458" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">body + rims + port</text>
+<text x="428" y="472" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">motors · pumps · actuators · valves</text>
+<rect x="784" y="420" width="360" height="60" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="784" y="420" width="5" height="60" rx="2.5" fill="#caa24a"/>
+<text x="800" y="441" font-size="12.5" font-weight="700" fill="#caa24a" text-anchor="start">canister</text>
+<text x="800" y="458" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">domed cylinder</text>
+<text x="800" y="472" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">air cleaners · filters · tanks</text>
+<rect x="40" y="498" width="1100" height="56" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="520" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Also fixed</text>
+<text x="58" y="538" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">A real bug: CLAMP was read as a shaft because the pattern &#x27;LAMP&#x27; had no word boundary (matched cLAMP). Bounded LAMP/BULB/CAP/STUD/COIL. Residual box is large assemblies (engine, van, frame) that carry the</text><text x="58" y="550" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">real manual figure anyway. partgeo.js ?v= bumped so browsers reload.</text>
+<text x="40" y="632" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Diagram. Dark (R3). v0.84.0 · 2026-06-04 · engine/ui/partgeo.js (family + 9 builders) · measured by ANALYZE-SHAPES.bat. Additive &amp; rollbackable (R1).</text>
+</svg>

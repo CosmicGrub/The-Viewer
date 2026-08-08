@@ -1,0 +1,104 @@
+<svg viewBox="0 0 1240 950" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="950" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9aa6b6"/></marker></defs>
+<text x="40" y="50" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER v1.6.0 — Look-alike intelligence from PUBLOG + approximate 3-D  (data flow)</text>
+<text x="40" y="76" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Two same-name parts become a decisive answer; every part gets a dimensional 3-D sketch. Additive &amp; rollbackable (R1); read-only (R6).</text>
+<line x1="40" y1="92" x2="1200" y2="92" stroke="#2b333f"/>
+<text x="40" y="118" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">FOUNDATION — extended build_publog.py loads five more FLIS tables</text>
+<rect x="40" y="130" width="228" height="52" rx="9" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="150" font-size="9.5" font-weight="700" fill="#4f9dff" text-anchor="start">V_FLIS_STANDARDIZATION</text>
+<text x="52" y="168" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">ISC + related NSN (I&amp;S)</text>
+<rect x="272" y="130" width="228" height="52" rx="9" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="284" y="150" font-size="9.5" font-weight="700" fill="#4f9dff" text-anchor="start">V_MOE_RULE</text>
+<text x="284" y="168" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">AAC (obsolescence)</text>
+<rect x="504" y="130" width="228" height="52" rx="9" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="516" y="150" font-size="9.5" font-weight="700" fill="#4f9dff" text-anchor="start">V_FLIS_PHRASE</text>
+<text x="516" y="168" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">TECH_DOC_NBR (→ manual)</text>
+<rect x="736" y="130" width="228" height="52" rx="9" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="748" y="150" font-size="9.5" font-weight="700" fill="#4f9dff" text-anchor="start">V_H6_RELATED</text>
+<text x="748" y="168" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">related item names</text>
+<rect x="968" y="130" width="228" height="52" rx="9" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="980" y="150" font-size="9.5" font-weight="700" fill="#4f9dff" text-anchor="start">P_CAGE.status</text>
+<text x="980" y="168" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">vendor active?</text>
+<line x1="40" y1="196" x2="1200" y2="196" stroke="#2b333f"/>
+<text x="40" y="224" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">publogdiff.py  —  /api/publogdiff (two parts)  ·  /api/publog_intel (one part)</text>
+<rect x="40" y="238" width="285" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="238" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="260" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">1 · DIFF + FINGERPRINT</text>
+<text x="56" y="280" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">align characteristics by MRC,</text>
+<text x="56" y="295" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">highlight only differing rows,</text>
+<text x="56" y="310" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">score % identical (fit-fingerprint)</text>
+<rect x="333" y="238" width="285" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="333" y="238" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="349" y="260" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">2 · INTERCHANGE VERDICT</text>
+<text x="349" y="280" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">GREEN interchangeable (I&amp;S family)</text>
+<text x="349" y="295" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">AMBER one-way substitute (supersede)</text>
+<text x="349" y="310" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">RED not interchangeable + reason;</text>
+<text x="349" y="325" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">substitutes + AAC obsolescence</text>
+<rect x="626" y="238" width="285" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="626" y="238" width="5" height="116" rx="2.5" fill="#4f9dff"/>
+<text x="642" y="260" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">3 · REF# + VENDOR</text>
+<text x="642" y="280" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">decode RNCC/RNVC: exact vs</text>
+<text x="642" y="295" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;similar, may differ&#x27;;</text>
+<text x="642" y="310" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">flag inactive-vendor variants</text>
+<text x="642" y="325" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">via CAGE status</text>
+<rect x="919" y="238" width="285" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="919" y="238" width="5" height="116" rx="2.5" fill="#7f77dd"/>
+<text x="935" y="260" font-size="10.5" font-weight="700" fill="#7f77dd" text-anchor="start">4 · CROSSLINK + NICKNAME</text>
+<text x="935" y="280" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">TECH_DOC_NBR → the manual;</text>
+<text x="935" y="295" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">colloquial + related names;</text>
+<text x="935" y="310" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">WARN on nickname clashes;</text>
+<text x="935" y="325" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">/binaudit shelf scan</text>
+<line x1="40" y1="372" x2="1200" y2="372" stroke="#2b333f"/>
+<text x="40" y="400" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">WHERE IT SHOWS</text>
+<rect x="40" y="414" width="1160" height="40" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="439" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">/publog</text>
+<text x="180" y="439" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">supersession · substitutes · vendors · tech-docs · nicknames cards + a &#x27;⇄ Compare&#x27; box (two-part diff + verdict).</text>
+<rect x="40" y="462" width="1160" height="40" rx="10" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="56" y="487" font-size="11" font-weight="700" fill="#7f77dd" text-anchor="start">/binaudit</text>
+<text x="180" y="487" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">scan a shelf of NSNs (hand scanner drops them in) → flags look-alike GROUPS + superseded/obsolete items.</text>
+<rect x="40" y="510" width="1160" height="40" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="56" y="535" font-size="11" font-weight="700" fill="#1d9e75" text-anchor="start">/dossier</text>
+<text x="180" y="535" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">authoritative Federal-catalog card + the approximate-model card (below).</text>
+<line x1="40" y1="566" x2="1200" y2="566" stroke="#2b333f"/>
+<text x="40" y="594" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">5 · APPROXIMATE 3-D / CAD FROM DIMENSIONS  —  dimscad.py  ·  /api/dimscad</text>
+<rect x="40" y="606" width="260" height="92" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="630" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">PUBLOG characteristics</text>
+<text x="56" y="650" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;OVERALL LENGTH&#x27; → 3.00 IN</text>
+<text x="56" y="665" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;DIAMETER&#x27; → .50 IN</text>
+<text x="56" y="680" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(named dimensions parsed)</text>
+<line x1="300" y1="652" x2="350" y2="652" stroke="#caa24a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="350" y="606" width="260" height="92" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="366" y="630" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">pick primitive</text>
+<text x="366" y="650" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">cylinder / box / washer / hex</text>
+<text x="366" y="665" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">from item name + which dims</text>
+<text x="366" y="680" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">are present</text>
+<line x1="610" y1="652" x2="660" y2="652" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="660" y="606" width="260" height="92" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="676" y="630" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">dimensioned iso SVG</text>
+<text x="676" y="650" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">+ parametric OBJ mesh</text>
+<text x="676" y="665" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(?obj=1) → 3-D library</text>
+<text x="676" y="680" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(localmodel.py)</text>
+<line x1="920" y1="652" x2="970" y2="652" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="970" y="606" width="230" height="92" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="986" y="630" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">dossier card</text>
+<text x="986" y="650" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;Approximate model</text>
+<text x="986" y="665" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(from dimensions)&#x27;</text>
+<text x="986" y="680" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">— a sketch, not the figure</text>
+<line x1="40" y1="712" x2="1200" y2="712" stroke="#2b333f"/>
+<text x="40" y="740" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">GRACEFUL DEGRADE &amp; ROLLBACK</text>
+<rect x="40" y="754" width="575" height="72" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="777" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">PUBLOG not built</text>
+<text x="56" y="796" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Every /api/publog* + the cards say so and the app is unchanged. BUILD-PUBLOG.bat (now 5 more tables) builds it.</text>
+<rect x="625" y="754" width="575" height="72" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="641" y="777" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">Sparse data</text>
+<text x="641" y="796" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Missing ISC → verdict falls back to a characteristics-closeness estimate; missing dims → &#x27;not enough&#x27; note. Never fabricates.</text>
+<rect x="40" y="836" width="575" height="72" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="56" y="859" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">Authoritative, no links</text>
+<text x="56" y="878" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">PUBLOG is the official part-identity source; corpus stays authoritative for procedures. Offline, no links (R11).</text>
+<rect x="625" y="836" width="575" height="72" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="859" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">Rollback (R1)</text>
+<text x="641" y="878" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Delete publogdiff.py / dimscad.py + their routes/cards — each removes cleanly with zero impact on the rest.</text>
+<rect x="40" y="906" width="1160" height="34" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="928" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 rollbackable · R2 this diagram · R3 dark+PDF · R4 CHANGELOG [1.6.0] · R5 changelog-visual · R6 read-only · R7 legacy [1.6.0-legacy] · R9 VERIFY-099 (publogdiff/dimscad) · VERSION=1.6.0.</text>
+</svg>

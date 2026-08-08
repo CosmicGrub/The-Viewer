@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Code decoder — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}
+  .search input{flex:1;min-width:260px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button,a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600}
+  .kinds{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 14px}
+  .kind{background:#16202b;border:1px solid #26333f;border-radius:20px;padding:4px 11px;font-size:11.5px;color:#8a98a8;cursor:pointer}
+  .kind:hover{border-color:#2f6feb;color:#cfe}
+  .badge{display:inline-block;background:#16202b;border:1px solid #2f6feb;color:#7fbfff;border-radius:6px;padding:2px 9px;font-size:11.5px;margin-left:8px}
+  .card{background:#10151c;border:1px solid #223;border-radius:12px;padding:14px 16px;margin:10px 0}
+  .card h3{margin:0 0 10px;font-size:14px;color:#7fbfff}
+  .fields{display:grid;grid-template-columns:180px 1fr;gap:7px 14px;font-size:13.5px}
+  .fields .k{color:#8a98a8}
+  .fields .v{color:#cfe;font-weight:600}
+  .fields .v.null{color:#e8a06a;font-weight:400;font-style:italic}
+  .raw{color:#6b7787;font-size:11.5px;margin-top:10px;border-top:1px solid #1c2530;padding-top:8px;font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap}
+  .empty{color:#6b7787;font-size:12.5px;padding:10px 0}
+  .warn{color:#e8a06a;font-size:11.5px;margin-top:16px}
+  .note{color:#8a98a8;font-size:11.5px;margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #1c2530}
+  th{color:#8a98a8;font-weight:600;font-size:11.5px}
+</style></head><body>
+<div class="wrap">
+  <h1>🔣 Code decoder</h1>
+  <div class="muted">Paste any code off a manual page — NSN, SMR, CAGE, or a standard part/spec number — and this tells you what it means. It auto-detects which kind you pasted.</div>
+
+  <div class="search">
+    <input id="q" placeholder="e.g.  2320-01-565-4055  ·  PAOZZ  ·  19207  ·  MS35338-46  ·  MIL-PRF-2104" autofocus>
+    <button class="go" id="go">Decode</button>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div class="kinds">
+    <span class="kind" data-ex="2320-01-565-4055">NSN 2320-01-565-4055</span>
+    <span class="kind" data-ex="PAOZZ">SMR PAOZZ</span>
+    <span class="kind" data-ex="19207">CAGE 19207</span>
+    <span class="kind" data-ex="MS35338-46">MS35338-46</span>
+    <span class="kind" data-ex="MIL-PRF-2104">MIL-PRF-2104</span>
+  </div>
+
+  <div id="out"></div>
+  <div class="warn">⚠ Structure and published code tables only. Where a code isn't in the standard tables this says so rather than guessing — it never invents a meaning. Part identity (who makes it, what it is) comes from <a href="/publog" style="color:#4f9dff">PUBLOG</a>.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+
+  // --- which decoder does this token belong to? (mirrors the server-side rules) ---
+  function detect(t){
+    var s=(t||'').trim();
+    if(!s) return null;
+    var digits=s.replace(/\D/g,'');
+    if(digits.length===13 && /^[\d\s-]+$/.test(s)) return 'nsn';
+    if(/^(MIL-|MS|AN|NAS|NASM|SAE|ASTM|AMS|FED-STD|A-A)/i.test(s)) return 'standards';
+    if(/^[A-Za-z]{5}$/.test(s)) return 'smr';
+    if(/^[A-Za-z0-9]{5}$/.test(s)) return 'cage';
+    return 'standards';   // fall back to a text scan for designations
+  }
+  var LABEL={nsn:'NATO Stock Number',smr:'SMR code',cage:'CAGE code',standards:'Standard / specification'};
+  var URLS={nsn:'/api/nsndecode?q=',smr:'/api/smr?q=',cage:'/api/cage?q=',standards:'/api/standards?q='};
+
+  function row(k,v,nullNote){
+    var isNull=(v===null||v===undefined||v==='');
+    return '<div class="k">'+esc(k)+'</div><div class="v'+(isNull?' null':'')+'">'+
+           (isNull?esc(nullNote||'not in the published tables — not guessed'):esc(v))+'</div>';
+  }
+
+  function renderNsn(d){
+    if(!d) return '<div class="empty">Not a 13-digit NSN.</div>';
+    return '<div class="card"><h3>'+esc(d.nsn)+'<span class="badge">NSN structure</span></h3><div class="fields">'+
+      row('Federal Supply Class',d.fsc)+
+      row('Supply Group ('+esc(d.fsg)+')',d.fsg_name)+
+      row('Codified by (NCB '+esc(d.ncb)+')',d.ncb_country)+
+      row('NIIN',d.niin)+
+      row('Item serial',d.item_serial)+
+      '</div><div class="note">Deterministic split from the published FSG / NCB tables. What the item actually <em>is</em> comes from PUBLOG.</div></div>';
+  }
+  function renderSmr(d,summary){
+    if(!d) return '<div class="empty">Not a 5-character SMR code.</div>';
+    return '<div class="card"><h3>'+esc(d.code)+'<span class="badge">SMR</span></h3><div class="fields">'+
+      row('Source ('+esc(d.source)+')',d.source_meaning)+
+      row('Remove/replace at ('+esc(d.use_level)+')',d.use_meaning)+
+      row('Full repair at ('+esc(d.repair_level)+')',d.repair_meaning)+
+      row('When unserviceable ('+esc(d.recover)+')',d.recover_meaning)+
+      '</div>'+(summary?'<div class="note">'+esc(summary)+'</div>':'')+'</div>';
+  }
+  function renderCage(c){
+    if(!c) return '<div class="empty">No CAGE code.</div>';
+    var ok=c.valid;
+    return '<div class="card"><h3>'+esc(c.normalized||c.code)+'<span class="badge">'+(ok?esc(c.kind)+' CAGE':'invalid')+'</span></h3><div class="fields">'+
+      row('Valid format',ok?'yes':'no')+
+      row('Kind',ok?(c.kind==='US'?'Domestic (US-assigned)':(c.kind==='NCAGE'?'NATO / foreign-assigned':c.kind)):null,'—')+
+      (ok?'':'<div class="k">Problems</div><div class="v null">'+esc((c.reasons||[]).join('; '))+'</div>')+
+      '</div><div class="note">Structure only. The company this belongs to comes from PUBLOG — this never invents an assignee.</div></div>';
+  }
+  function renderStandards(one,list){
+    var h='';
+    if(one){
+      h+='<div class="card"><h3>'+esc(one.token)+'<span class="badge">'+esc(one.kind)+'</span></h3><div class="fields">'+
+         row('Family',one.family)+row('Series',one.series)+row('Kind',one.description)+
+         row('Item',one.item,'family is certain, but this exact number is not in our curated set — not guessed')+
+         '</div></div>';
+    }
+    if(list && list.length){
+      h+='<div class="card"><h3>Designations found on matching pages</h3><table><tr><th>Token</th><th>Kind</th><th>Item</th></tr>';
+      list.slice(0,25).forEach(function(x){
+        h+='<tr><td>'+esc(x.token)+'</td><td>'+esc(x.kind)+'</td><td>'+(x.item?esc(x.item):'<span class="v null">—</span>')+'</td></tr>';
+      });
+      h+='</table></div>';
+    }
+    return h||'<div class="empty">No standard designation recognised.</div>';
+  }
+
+  function run(){
+    var t=$('#q').value.trim();
+    if(!t){ $('#out').innerHTML=''; return; }
+    var kind=detect(t);
+    $('#out').innerHTML='<div class="empty">Decoding as '+esc(LABEL[kind])+'…</div>';
+    fetch(URLS[kind]+encodeURIComponent(t)).then(function(r){return r.json();}).then(function(j){
+      if(!j || j.ok===false){ $('#out').innerHTML='<div class="empty">Could not decode that.</div>'; return; }
+      var h='';
+      if(kind==='nsn')            h=renderNsn(j.decoded);
+      else if(kind==='smr')       h=renderSmr(j.decoded,j.summary);
+      else if(kind==='cage')      h=renderCage(j.cage);
+      else                        h=renderStandards(j.designation,j.standards);
+      $('#out').innerHTML=h||'<div class="empty">Nothing decoded.</div>';
+    }).catch(function(){ $('#out').innerHTML='<div class="empty">Decode failed (is the server running?).</div>'; });
+  }
+
+  $('#go').addEventListener('click',run);
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  document.querySelectorAll('.kind').forEach(function(el){
+    el.addEventListener('click',function(){ $('#q').value=el.getAttribute('data-ex'); run(); });
+  });
+  var pre=new URLSearchParams(location.search).get('q');
+  if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

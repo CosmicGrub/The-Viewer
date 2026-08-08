@@ -1,0 +1,33 @@
+<svg viewBox="0 0 1180 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="560" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">FIX — why /api/threed_refs returned 500  (v0.72.2)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">One red line in VERIFY-ALL. Plain version: a helper function moved to a new file, and one old caller never got the new address.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="116" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">What actually happened, step by step</text>
+<circle cx="62" cy="142" r="11" fill="none" stroke="#4f9dff" stroke-width="1.5"/>
+<text x="62" y="146" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="middle">1</text>
+<text x="86" y="138" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">A test asked the 3D viewer: where does part 5305-01-674-1467 show up in the manuals?</text>
+<circle cx="62" cy="163" r="11" fill="none" stroke="#1d9e75" stroke-width="1.5"/>
+<text x="62" y="167" font-size="11" font-weight="700" fill="#1d9e75" text-anchor="middle">2</text>
+<text x="86" y="159" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">That handler also lists which Smart Collections the part belongs to — so it calls a helper named _collections_defs().</text>
+<circle cx="62" cy="184" r="11" fill="none" stroke="#caa24a" stroke-width="1.5"/>
+<text x="62" y="188" font-size="11" font-weight="700" fill="#caa24a" text-anchor="middle">3</text>
+<text x="86" y="180" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">Back in v0.70 we split the big server file up; _collections_defs() MOVED into collections_feature.py.</text>
+<circle cx="62" cy="205" r="11" fill="none" stroke="#caa24a" stroke-width="1.5"/>
+<text x="62" y="209" font-size="11" font-weight="700" fill="#caa24a" text-anchor="middle">4</text>
+<text x="86" y="201" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">The move re-imported the 5 public collection functions back — but NOT this one internal helper.</text>
+<circle cx="62" cy="226" r="11" fill="none" stroke="#c4585a" stroke-width="1.5"/>
+<text x="62" y="230" font-size="11" font-weight="700" fill="#c4585a" text-anchor="middle">5</text>
+<text x="86" y="222" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">So at request time the server looked for _collections_defs(), couldn&#x27;t find the name -&gt; NameError.</text>
+<circle cx="62" cy="247" r="11" fill="none" stroke="#c4585a" stroke-width="1.5"/>
+<text x="62" y="251" font-size="11" font-weight="700" fill="#c4585a" text-anchor="middle">6</text>
+<text x="86" y="243" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">The route wraps everything in catch-any-error -&gt; return 500, so the user/test just saw HTTP 500.</text>
+<rect x="40" y="268" width="1100" height="70" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="290" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">THE FIX  (one line)</text>
+<text x="58" y="310" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Add the missing name to the import in viewer_app.py: from collections_feature import (…, _collections_defs). Nothing else changed — no new logic, no database touch. The page-search half of the same</text><text x="58" y="323" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">handler was always fine because it had its own error guard; that&#x27;s why only ONE of 86 checks was red.</text>
+<rect x="40" y="348" width="540" height="58" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="58" y="370" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Layman&#x27;s analogy: a department (the helper) moved to a new building. Most callers got the new</text><text x="58" y="382" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">address; this one kept dialing the old room number and got &#x27;no such extension&#x27; — which the</text><text x="58" y="394" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">switchboard reported as a generic &#x27;error 500&#x27;.</text>
+<rect x="596" y="348" width="544" height="58" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="614" y="370" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified: reproduced the import + injected-core mechanism in isolation (both resolve); grepped for</text><text x="614" y="382" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">any OTHER helpers left behind by the split — none. Re-run VERIFY-ALL.bat to see test_routes go</text><text x="614" y="394" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">34/34.</text>
+<text x="40" y="552" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">FIX diagram. Dark (R3). v0.72.2 · 2026-06-03 · viewer_app.py import line · root cause: v0.70 modularization left _collections_defs un-imported. Rollbackable (R1).</text>
+</svg>

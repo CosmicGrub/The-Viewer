@@ -1,0 +1,63 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="720" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Schematic orientation + HD  (v0.30.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Tilt on BOTH axes, a mirror for working from the opposite side with labels re-drawn readable (text pages), and on-demand HD that renders from the lossless source. All presentation-only; the page data is never altered.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · DUAL-AXIS TILT (honest flat-sheet)</text>
+<rect x="40" y="126" width="360" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<g transform="translate(150,200)">
+<g transform="matrix(0.92,0.14,-0.18,0.86,0,0)">
+<rect x="-90" y="-70" width="180" height="140" rx="4" fill="#11161d" stroke="#3a4452" stroke-width="1"/>
+<line x1="-74" y1="-50" x2="74" y2="-50" stroke="#46505f" stroke-width="1"/>
+<line x1="-74" y1="-24" x2="74" y2="-24" stroke="#46505f" stroke-width="1"/>
+<line x1="-74" y1="2" x2="74" y2="2" stroke="#46505f" stroke-width="1"/>
+<line x1="-74" y1="28" x2="74" y2="28" stroke="#46505f" stroke-width="1"/>
+<line x1="-74" y1="54" x2="74" y2="54" stroke="#46505f" stroke-width="1"/>
+</g></g>
+<text x="150" y="300" font-size="9.5" font-weight="400" fill="#caa24a" text-anchor="middle">rotateY (tilt Y) + rotateX (tilt X)</text>
+<text x="150" y="318" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="middle">-60 deg .. +60 deg each</text>
+<text x="150" y="348" font-size="8.6" font-weight="400" fill="#2f7d4f" text-anchor="middle">CSS perspective — not reconstructed depth</text>
+<text x="420" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · MIRROR + READABLE LABELS</text>
+<rect x="404" y="126" width="360" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="424" y="150" width="150" height="90" rx="6" fill="#0a0e12" stroke="#2b333f" stroke-width="1"/>
+<text x="499" y="170" font-size="11" font-weight="700" fill="#dfe6ee" text-anchor="middle">BOLT</text>
+<text x="499" y="200" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="middle">FIG 14</text>
+<text x="434" y="236" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">normal</text>
+<rect x="594" y="150" width="150" height="90" rx="6" fill="#0a0e12" stroke="#caa24a" stroke-width="1"/>
+<g transform="translate(669,195) scale(-1,1)">
+<text x="0" y="-22" font-size="11" font-weight="700" fill="#5a6675" text-anchor="middle">TLOB</text>
+</g>
+<rect x="636" y="164" width="66" height="18" rx="3" fill="rgba(255,255,255,.92)"/>
+<text x="669" y="178" font-size="10.5" font-weight="700" fill="#0a0e12" text-anchor="middle">BOLT</text>
+<text x="604" y="236" font-size="8.4" font-weight="400" fill="#caa24a" text-anchor="start">mirrored — label re-drawn readable</text>
+<text x="424" y="262" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">The drawing flips (scaleX -1) so you can orient from the</text><text x="424" y="274" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">opposite side. On pages with a text layer, each word box</text><text x="424" y="286" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(from PyMuPDF, /api/pagewords) is re-drawn un-mirrored at</text><text x="424" y="298" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">its mirrored position so labels stay readable.</text>
+<text x="424" y="340" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Honest: a mirror is an orientation aid, NOT a true rear</text><text x="424" y="352" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">view (that needs a different figure). Image-only pages</text><text x="424" y="364" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">show no overlay until OCR provides boxes.</text>
+<text x="784" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · ON-DEMAND HD</text>
+<rect x="768" y="126" width="372" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="788" y="150" width="150" height="80" rx="6" fill="#0a0e12" stroke="#2b333f" stroke-width="1"/>
+<text x="863" y="186" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="middle">default</text>
+<text x="863" y="202" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="middle">~150 dpi</text>
+<text x="948" y="196" font-size="16" font-weight="700" fill="#4f9dff" text-anchor="middle">→</text>
+<rect x="972" y="150" width="150" height="80" rx="6" fill="#0a0e12" stroke="#2f7d4f" stroke-width="1"/>
+<text x="1047" y="182" font-size="10" font-weight="700" fill="#bfe6cf" text-anchor="middle">✦ HD</text>
+<text x="1047" y="200" font-size="8.6" font-weight="400" fill="#8fbf9f" text-anchor="middle">up to 400 dpi</text>
+<text x="1047" y="216" font-size="8.2" font-weight="400" fill="#8fbf9f" text-anchor="middle">full page</text>
+<text x="788" y="256" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">HD re-renders the page from the lossless source PDF at high</text><text x="788" y="268" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">resolution on demand — full fidelity, no pre-baked</text><text x="788" y="280" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">duplicates (which would explode storage on the 85GB corpus</text><text x="788" y="292" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">with no quality gain). The loupe already goes to 700 dpi on</text><text x="788" y="304" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">the region under the cursor.</text>
+<text x="788" y="344" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Every file keeps its highest fidelity: we render from</text><text x="788" y="356" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">source, never from a downscaled copy.</text>
+<rect x="40" y="400" width="1100" height="108" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="424" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">INVARIANTS (R1 · R6)</text>
+<text x="58" y="446" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">All four controls (tilt X, tilt Y, mirror, HD) are presentation-only and reversible: the page bytes, the index, FTS search, and 104th sheet generation are untouched. Mirror</text><text x="58" y="459" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">labels are read-only overlays from the PDF text layer; HD changes only render resolution. Nothing is invented — tilt is a flat-sheet rotation, the mirror is a flip, HD is a</text><text x="58" y="472" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">higher-DPI render of the same source.</text>
+<rect x="40" y="520" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="544" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">NEW / CHANGED</text>
+<text x="58" y="566" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Toolbar: tilt Y + tilt X sliders</text>
+<text x="420" y="566" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">each -60..+60 deg, CSS perspective</text>
+<text x="58" y="586" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Toolbar: ↔ Mirror</text>
+<text x="420" y="586" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">flip + readable label overlay (text pages)</text>
+<text x="58" y="606" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Toolbar: ✦ HD</text>
+<text x="420" y="606" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">full-page render up to 400 dpi from source</text>
+<text x="58" y="626" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Server: /api/pagewords</text>
+<text x="420" y="626" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">normalized word boxes from PyMuPDF (OCR-gated)</text>
+<text x="58" y="646" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">• Server: /page full-page cap 300 -&gt; 400</text>
+<text x="420" y="646" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">HD headroom; clip loupe still 700</text>
+<text x="40" y="710" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.30.0 · 2026-06-02.</text>
+</svg>

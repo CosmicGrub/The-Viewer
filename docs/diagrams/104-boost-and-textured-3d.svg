@@ -1,0 +1,65 @@
+<svg viewBox="0 0 1200 780" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1200" height="780" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Hardware-aware boost + CAD-textured 3-D   v0.95.0</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Tuned to the machine: 16-core Alder Lake + RTX 4050. Use the cores for the CAD batch; graft the CAD look onto the WebGL model.</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">1 · PARALLEL CAD BATCH (the CPU-bound straggler, fixed)</text>
+<rect x="40" y="128" width="560" height="150" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="154" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">make_cad.py was single-threaded → now multiprocessing.Pool</text>
+<text x="58" y="178" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· auto-sized to cpu_count-1 (cap 12); --workers / --serial.</text>
+<text x="58" y="195" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· renders are independent → distinct cache files, no contention.</text>
+<text x="58" y="212" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· parent pre-filters cached parts (resumable).</text>
+<rect x="58" y="232" width="524" height="34" rx="8" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="72" y="254" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">MEASURED (16 cores): 120 parts  15.4s serial -&gt; 5.26s on 12 workers  =  2.9x</text>
+<rect x="620" y="128" width="540" height="150" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="638" y="154" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">Full re-render (98k images, 3 tiers)</text>
+<text x="638" y="182" font-size="12" font-weight="400" fill="#9aa6b6" text-anchor="start">serial      ~210 min</text>
+<text x="638" y="206" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">parallel    ~72 min</text>
+<text x="638" y="236" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">(+ per-worker startup amortizes further at full scale)</text>
+<text x="638" y="258" font-size="9.2" font-weight="400" fill="#7f8a99" text-anchor="start">GPU note: RTX 4050 already drives WebGL 3-D + GPU-tier OCR.</text>
+<line x1="40" y1="296" x2="1160" y2="296" stroke="#2b333f"/>
+<text x="40" y="324" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">2 · CAD COLOUR + TEXTURE GRAFTED ONTO THE 3-D MODEL</text>
+<rect x="40" y="338" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="338" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="360" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">cad_render.material_for()</text>
+<text x="56" y="380" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">colour + metal + material CLASS</text>
+<text x="56" y="395" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">(metal/rubber/wood/plastic/</text>
+<text x="56" y="410" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">paint/brass) + a gl vector.</text>
+<text x="56" y="425" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">route /api/cadmaterial.</text>
+<text x="316" y="402" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="328" y="338" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="328" y="338" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="344" y="360" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">gl3d.js shader</text>
+<text x="344" y="380" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">NEW klass uniform -&gt; procedural</text>
+<text x="344" y="395" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">texture: brushed metal, rubber</text>
+<text x="344" y="410" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">speckle, wood rings, CARC</text>
+<text x="344" y="425" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">orange-peel, brass. load/setKlass.</text>
+<text x="604" y="402" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="616" y="338" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="616" y="338" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="632" y="360" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">threed.html</text>
+<text x="632" y="380" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">applyCadMaterial(m) on open -&gt;</text>
+<text x="632" y="395" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">colour+class on the Interactive</text>
+<text x="632" y="410" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">3-D model. Rotate CAD stays</text>
+<text x="632" y="425" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">flat steel (klass 0).</text>
+<text x="892" y="402" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="904" y="338" width="280" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="904" y="338" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="920" y="360" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">RESULT</text>
+<text x="920" y="380" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">the WebGL 3-D model now MATCHES</text>
+<text x="920" y="395" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">the CAD image&#x27;s colour + surface.</text>
+<text x="920" y="410" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">graceful: a bad shader just</text>
+<text x="920" y="425" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">falls back to SVG (no crash).</text>
+<line x1="40" y1="472" x2="1160" y2="472" stroke="#2b333f"/>
+<text x="40" y="500" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED (host-side)</text>
+<rect x="40" y="514" width="1120" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="533" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="536" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-BOOST.bat -&gt; docs/boost_verify.log: cad_render / make_cad / viewer_app parse; gl3d.js passes node --check; both UI pages parse.</text>
+<circle cx="56" cy="550" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="553" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Benchmark printed the 2.9x speedup above (bench_cad_parallel.py).</text>
+<circle cx="56" cy="567" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="570" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">CAD texture is a gl3d shader add with a graceful fallback (compile-fail -&gt; SVG, never a crash) — and it compiles.</text>
+<circle cx="56" cy="584" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="587" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable (R1): revert the pool in make_cad, the shader klass block, material_for + /api/cadmaterial, applyCadMaterial.</text>
+<text x="40" y="768" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.95.0 · 2026-06-05 · make_cad.py multiprocessing · cad_render.material_for · /api/cadmaterial · gl3d klass texture · threed applyCadMaterial. R1.</text>
+</svg>

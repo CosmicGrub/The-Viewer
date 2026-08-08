@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look-Alike Parts — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header .sp{flex:1}
+  a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px}
+  .bar{display:flex;gap:10px;margin-bottom:8px}
+  #q{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:15px}
+  #q:focus{outline:none;border-color:var(--acc)}
+  button.go{background:var(--acc);border:none;color:#06121f;font-weight:700;border-radius:9px;padding:0 18px;cursor:pointer;font-size:14px}
+  .muted{color:var(--sub);font-size:12.5px}
+  .examples{margin:6px 0 18px}
+  .chip{display:inline-block;background:var(--p2);border:1px solid var(--line);border-radius:20px;padding:4px 11px;margin:3px 5px 0 0;cursor:pointer;font-size:12px;color:var(--sub)}
+  .chip:hover{border-color:var(--acc);color:var(--txt)}
+  .nomhead{font-size:20px;font-weight:700;margin:10px 0 2px}
+  .disc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 15px;margin:12px 0 18px}
+  .disc h3{margin:0 0 8px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--amb)}
+  .disc .d{display:flex;gap:9px;margin:5px 0;font-size:13px}
+  .disc .dk{font-weight:700;min-width:54px;color:var(--txt)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;border-left:4px solid var(--line)}
+  .card.ref{border-left-color:var(--acc)}
+  .card.var{border-left-color:var(--amb)}
+  .card.same{border-left-color:var(--grn)}
+  .card.diff{border-left-color:var(--teal)}
+  .nsn{font:700 16px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px}
+  .rel{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin-left:8px;vertical-align:2px}
+  .rel.ref{background:#16223a;color:#9cc4ff} .rel.var{background:#3a2f1a;color:#e7c06a}
+  .rel.same{background:#16301f;color:#7fd6a0} .rel.diff{background:#10302a;color:#6fd0b0}
+  table.attr{width:100%;border-collapse:collapse;margin:10px 0 6px;font-size:13px}
+  table.attr td{padding:3px 0;vertical-align:top}
+  table.attr td.k{color:var(--sub);width:74px}
+  .tells{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .tell{display:flex;gap:7px;font-size:12.5px;margin:5px 0;color:var(--txt)}
+  .tell .ic{color:var(--amb)}
+  .refs a{color:var(--acc);text-decoration:none;font-size:12px;display:inline-block;margin:4px 8px 0 0}
+  .refs a:hover{text-decoration:underline}
+  .ground{font-size:11.5px;color:var(--sub);margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
+  .empty{color:var(--sub);padding:30px 0;text-align:center}
+  .spin{color:var(--sub);padding:20px 0}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>🔍 Look-Alike Parts</h1>
+  <span class="muted">tell apart parts that look identical but aren't</span>
+  <span class="sp"></span>
+  <a class="nav" href="/schematics">📐 Schematics</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <div class="bar">
+    <input id="q" placeholder="Enter an NSN or a part name (e.g. 2815-01-644-2377 or 'ENGINE ASSEMBLY')" autocomplete="off">
+    <button class="go" onclick="run()">Compare</button>
+  </div>
+  <div class="muted">Finds parts that share a name but differ by <b>NSN</b>, <b>UOC</b> (which vehicle config), <b>CAGEC</b> (maker), <b>SMR</b>, or supply class — and tells you how to spot the difference. Always verify on the cited figure.</div>
+  <div class="examples" id="examples"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+var EX=["ENGINE ASSEMBLY","SENDING UNIT","FILTER ELEMENT","VALVE ASSEMBLY","GASKET"];
+(function(){var e=$("#examples");e.innerHTML='<span class="muted">try:</span> '+EX.map(function(x){return '<span class="chip" onclick="setq(\''+x.replace(/'/g,"")+'\')">'+esc(x)+'</span>';}).join("");})();
+function setq(v){$("#q").value=v;run();}
+$("#q").addEventListener("keydown",function(e){if(e.key==="Enter")run();});
+
+var REL={"reference":["ref","reference"],"different variant":["var","different variant — check carefully"],
+         "same item (format drift)":["same","same item — interchangeable"],"different item class":["diff","different item class — not a substitute"]};
+
+function run(){
+  var q=$("#q").value.trim(); if(!q){return;}
+  var out=$("#out"); out.innerHTML='<div class="spin">Comparing look-alikes…</div>';
+  fetch("/api/partdiff?q="+encodeURIComponent(q)).then(function(r){return r.json();}).then(render).catch(function(e){
+    out.innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>';});
+}
+function render(d){
+  var out=$("#out");
+  if(!d.found){ out.innerHTML='<div class="empty">No catalogued parts found for <b>'+esc(d.query)+'</b>.<br><span class="muted">Try the exact item name from a parts (RPSTL) figure, or a full NSN.</span></div>'; return; }
+  var h='';
+  h+='<div class="nomhead">'+esc(d.nomenclature)+'</div>';
+  h+='<div class="muted">'+d.n_variants+' catalogued variant'+(d.n_variants===1?'':'s')+' share this name'+(d.reference_nsn?' · anchored on '+esc(d.reference_nsn):'')+'</div>';
+  if(d.discriminators&&d.discriminators.length){
+    h+='<div class="disc"><h3>What sets them apart</h3>';
+    d.discriminators.forEach(function(x){h+='<div class="d"><span class="dk">'+esc(x.field)+'</span><span>'+esc(x.note)+'</span></div>';});
+    h+='</div>';
+  } else if(d.n_variants<=1){
+    h+='<div class="disc"><h3>Only one catalogued</h3><div class="d"><span>Just one stock number is on file under this name — no look-alike to confuse it with (in what\'s indexed so far).</span></div></div>';
+  }
+  h+='<div class="grid">';
+  (d.variants||[]).forEach(function(v){
+    var rel=REL[v.relation]||["var",v.relation];
+    h+='<div class="card '+rel[0]+'">';
+    h+='<div><span class="nsn">'+esc(v.nsn)+'</span><span class="rel '+rel[0]+'">'+esc(rel[1])+'</span></div>';
+    h+='<table class="attr">';
+    h+=row("UOC", v.uoc, "fits which configuration");
+    h+=row("CAGEC", v.cagec, "manufacturer");
+    h+=row("SMR", v.smr, "");
+    h+=row("part #", v.part_numbers, "");
+    h+=row("vehicles", v.vehicles, "");
+    if(v.interchangeable_across&&v.interchangeable_across.length) h+='<tr><td class="k">shared</td><td>interchangeable across: '+v.interchangeable_across.map(esc).join(", ")+'</td></tr>';
+    h+='</table>';
+    if(v.how_to_tell_apart&&v.how_to_tell_apart.length){
+      h+='<div class="tells">';
+      v.how_to_tell_apart.forEach(function(t){h+='<div class="tell"><span class="ic">▸</span><span>'+esc(t)+'</span></div>';});
+      h+='</div>';
+    }
+    if(v.refs&&v.refs.length){
+      h+='<div class="refs"><span class="muted">seen in:</span> ';
+      v.refs.slice(0,4).forEach(function(rf){
+        var lbl=(rf.vehicle?rf.vehicle:"doc")+(rf.fig_no?" · fig "+rf.fig_no:"")+(rf.page?" · p."+rf.page:"");
+        var url="/page?doc="+encodeURIComponent(rf.document_id)+"&page="+encodeURIComponent(rf.page||1)+"&dpi=150";
+        h+='<a href="'+url+'" target="_blank">'+esc(lbl)+'</a>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div class="ground">Grounded &amp; read-only: every variant points to the real cited figure/page — open it to confirm. "Different item class" means the items merely share a figure title; they are not substitutes. Interchangeability notes come from the optional correlations sidecar. As OCR coverage grows, item names sharpen and these comparisons get finer.</div>';
+  out.innerHTML=h;
+}
+function row(k, arr, hint){
+  if(!arr||!arr.length) return '';
+  return '<tr><td class="k">'+k+'</td><td>'+arr.map(esc).join(", ")+(hint?' <span class="muted">— '+hint+'</span>':'')+'</td></tr>';
+}
+// optional ?q= deep link
+(function(){var m=location.search.match(/[?&]q=([^&]+)/); if(m){$("#q").value=decodeURIComponent(m[1].replace(/\+/g," "));run();}})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

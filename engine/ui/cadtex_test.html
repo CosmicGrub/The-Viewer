@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>CAD texture test</title>
+<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode; page's own <style> below still wins (v1.13.0) -->
+<style>body{background:#10151c;color:#cfe;font:13px system-ui;margin:20px}
+.g{display:grid;grid-template-columns:repeat(3,310px);gap:14px}
+.c{background:#1a222d;border:1px solid #2f4858;border-radius:10px;padding:10px;text-align:center}
+canvas{width:290px;height:220px;display:block;background:#dfe6ee;border-radius:8px}</style>
+<script src="gl3d.js"></script></head><body>
+<h2>gl3d CAD-texture verification &mdash; material klass 1..6 (v0.95.0)</h2>
+<div class="g" id="g"></div>
+<script>
+function cyl(r,h,seg){var V=[],F=[],i,j;
+  for(i=0;i<seg;i++){var a=i/seg*Math.PI*2,c=Math.cos(a),s=Math.sin(a);V.push([c*r,-h/2,s*r]);V.push([c*r,h/2,s*r]);}
+  for(i=0;i<seg;i++){j=(i+1)%seg;F.push([i*2,j*2,j*2+1,i*2+1]);}
+  var b=V.length;V.push([0,-h/2,0]);for(i=0;i<seg;i++){j=(i+1)%seg;F.push([b,j*2,i*2]);}
+  var t=V.length;V.push([0,h/2,0]);for(i=0;i<seg;i++){j=(i+1)%seg;F.push([t,i*2+1,j*2+1]);}
+  return {V:V,F:F};}
+var cases=[[1,'#9aa6b2','metal (brushed)'],[2,'#2e2e34','rubber (speckle)'],[3,'#8a6238','wood (rings)'],
+           [4,'#4f6f8f','plastic'],[5,'#4a5d3a','painted / CARC'],[6,'#b08d3f','brass']];
+var ok=0,fail=0;
+cases.forEach(function(cs){
+  var d=document.createElement('div');d.className='c';
+  var cv=document.createElement('canvas');d.appendChild(cv);
+  var lab=document.createElement('div');lab.textContent='klass '+cs[0]+' — '+cs[2];d.appendChild(lab);
+  document.getElementById('g').appendChild(d);
+  var v=(window.GL3D&&GL3D.supported())?GL3D.create(cv):null;
+  if(v){var metal=(cs[0]===1||cs[0]===6)?1:0;v.load(cyl(0.7,1.25,48),cs[1],true,[0.5,40,metal],cs[0]);v.spin(true);ok++;}
+  else {lab.textContent+=' — WEBGL/SHADER FAILED';fail++;}
+});
+var h=document.createElement('div');
+h.textContent=fail?('✗ SHADER FAILED to compile ('+fail+'/6)')
+                  :('✓ SHADER COMPILED — '+ok+'/6 live models spinning with CAD material textures');
+h.style.cssText='margin-top:14px;font-weight:700;font-size:16px;color:'+(fail?'#ff7a59':'#5cf2c4');
+document.body.appendChild(h);
+document.title=(fail?'SHADER FAIL ':'SHADER OK ')+ok+'/6';
+</script></body></html>

@@ -1,0 +1,64 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="720" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">Tech Status — derived from fault + part, confirmed before the sheet — built</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.17.0 · PMCS &#x27;Not Fully Mission Capable If&#x27; (cited) + prior history · mandatory confirm gate · full codes. Additive (R1).</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="560" height="560" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="60" y="134" font-size="15" font-weight="700" fill="#e6e9ee" text-anchor="start">Confirm equipment status</text>
+<rect x="290" y="120" width="70" height="24" rx="6" fill="#5a2330" stroke="#2b333f" stroke-width="1"/>
+<text x="325" y="137" font-size="12" font-weight="700" fill="#f2b8b8" text-anchor="middle">NMCS</text>
+<text x="60" y="156" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">The fault matches a PMCS &#x27;Not Fully Mission Capable If&#x27; criterion — a deadlining</text><text x="60" y="170" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">fault. Parts are on order, so supply (NMCS) is suggested. Review the cited criteria</text><text x="60" y="184" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">and confirm.</text>
+<rect x="58" y="200" width="524" height="150" rx="9" fill="#141a23" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="220" font-size="8.5" font-weight="700" fill="#caa24a" text-anchor="start">CITED PMCS CRITERIA — &#x27;NOT FULLY MISSION CAPABLE IF&#x27;</text>
+<rect x="70" y="230" width="500" height="52" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="80" y="248" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">📄 TM 9-2320-327-10 · p.298 — open</text>
+<text x="80" y="264" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">…NOT FULLY MISSION CAPABLE IF: Steering hard to turn, steering wheel turns but</text><text x="80" y="276" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">vehicle doesn&#x27;t react, reaction is slow, steering wheel will not turn…</text>
+<rect x="70" y="290" width="500" height="46" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="80" y="308" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">📄 TM 9-2320-327-10 · p.292 — open</text>
+<text x="80" y="324" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">…NOT FULLY MISSION CAPABLE IF PROCEDURE … steering …</text>
+<text x="60" y="366" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">TECH STATUS — required to generate the sheet *</text>
+<rect x="60" y="376" width="520" height="40" rx="8" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="74" y="401" font-size="13" font-weight="700" fill="#e6e9ee" text-anchor="start">NMCS</text>
+<text x="546" y="401" font-size="13" font-weight="400" fill="#9aa6b6" text-anchor="start">▾</text>
+<text x="60" y="436" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">FMC fully mission capable · PMCM/PMCS partially (maint/supply) · NMCM/NMCS</text><text x="60" y="448" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">non-mission-capable (maint/supply). You confirm — the app never decides readiness on</text><text x="60" y="460" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">its own.</text>
+<rect x="240" y="474" width="150" height="36" rx="8" fill="none" stroke="#2b333f" stroke-width="1"/>
+<text x="315" y="497" font-size="12" font-weight="600" fill="#9aa6b6" text-anchor="middle">Cancel</text>
+<rect x="404" y="474" width="176" height="36" rx="8" fill="#2f7d4f" stroke="#2f7d4f" stroke-width="1"/>
+<text x="492" y="497" font-size="11.5" font-weight="700" fill="#eafff0" text-anchor="middle">Confirm &amp; generate sheet</text>
+<rect x="636" y="104" width="504" height="560" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="636" y="104" width="504" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="650" y="124" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">DATA FLOW</text>
+<rect x="654" y="148" width="468" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="169" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Export clicked</text>
+<text x="666" y="185" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">derive vehicle from cart items + the fault text</text>
+<path d="M888.0,200 L888.0,210" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="210" width="468" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="231" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">GET /api/techstatus</text>
+<text x="666" y="247" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">vehicle · fault · parts</text>
+<path d="M888.0,262 L888.0,272" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="272" width="468" height="52" rx="8" fill="#16301f" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="293" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">A · PMCS criteria (authoritative)</text>
+<text x="666" y="309" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">FTS over the vehicle&#x27;s pages: (&#x27;not fully mission capable&#x27; OR &#x27;mission</text><text x="666" y="321" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">capable&#x27;) AND fault-terms → cite the matched line</text>
+<path d="M888.0,324 L888.0,334" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="334" width="468" height="52" rx="8" fill="#1a2740" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="355" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">B · prior history</text>
+<text x="666" y="371" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">sessions+faults: status confirmed for similar faults before</text>
+<path d="M888.0,386 L888.0,396" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="396" width="468" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="417" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Suggest + evidence</text>
+<text x="666" y="433" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">NMCS (deadline) · or history · or none → manual</text>
+<path d="M888.0,448 L888.0,458" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="458" width="468" height="52" rx="8" fill="#3a2f1a" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="479" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">MANDATORY confirm gate</text>
+<text x="666" y="495" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">mechanic accepts/overrides; cannot proceed while blank</text>
+<path d="M888.0,510 L888.0,520" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="520" width="468" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="541" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">POST /api/request</text>
+<text x="666" y="557" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">server also rejects a blank tech status (belt + suspenders)</text>
+<path d="M888.0,572 L888.0,582" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="654" y="582" width="468" height="52" rx="8" fill="#16301f" stroke="#2b333f" stroke-width="1"/>
+<text x="666" y="603" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">104th PDF · TECH STATUS filled</text>
+<text x="666" y="619" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">always present, human-confirmed, cited basis</text>
+<text x="40" y="708" font-size="9.6" font-weight="400" fill="#6b7280" text-anchor="start">Verified on the live index: Buffalo steering/headlight faults → cited NMCS criteria; cosmetic faults → no auto-suggestion (manual). Dark (R3) · CHANGELOG 0.17.0 (R4) · visual panel (R5).</text>
+</svg>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER OCR indexing build and feature set</title>
+<desc>The shipped indexing engine: a read-only corpus feeds resumable crawl and OCR commands that write a versioned SQLite FTS5 index, which powers offline search. Includes the durable job queue, the database tables, the shipped files, and the real counts from this session.</desc>
+<style>
+  .h{font-size:12px;font-weight:700;fill:#7b8794;letter-spacing:.6px}
+  .lbl{font-size:12.5px;font-weight:600;fill:#1f2933}
+  .sub{font-size:10px;fill:#52606d}
+  .mono{font-size:10.5px;fill:#1f2933;font-family:ui-monospace,Consolas,monospace}
+  .edge{stroke:#9aa5b1;stroke-width:1.6;fill:none;marker-end:url(#a)}
+  .edge.d{stroke-dasharray:5 4}
+  .num{font-size:19px;font-weight:700;fill:#1f2933}
+  .cap{font-size:9.5px;fill:#52606d}
+  .leg{font-size:10.5px;fill:#52606d}
+  text{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+</style>
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">
+    <path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1000" height="660" fill="#ffffff"/>
+<text x="24" y="30" class="h">SOURCE · READ-ONLY</text>
+<rect x="24" y="40" width="158" height="92" rx="10" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="103" y="66" text-anchor="middle" class="lbl">ALL MILITARY TMS</text>
+<text x="103" y="86" text-anchor="middle" class="sub">~39,700 files · ~85 GB</text>
+<text x="103" y="102" text-anchor="middle" class="sub">7,315 PDFs · 13.7k images</text>
+<text x="103" y="120" text-anchor="middle" class="sub">never modified</text>
+<text x="232" y="30" class="h">ENGINE · viewer_ingest.py</text>
+<rect x="232" y="40" width="250" height="92" rx="10" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="240" y="62" class="mono">crawl</text><text x="300" y="62" class="sub">text-first, resumable</text>
+<text x="240" y="82" class="mono">ocr</text><text x="300" y="82" class="sub">parallel OCR workers</text>
+<text x="240" y="102" class="mono">run</text><text x="300" y="102" class="sub">crawl then OCR all</text>
+<text x="240" y="122" class="mono">status / search</text><text x="372" y="122" class="sub">progress &amp; query</text>
+<text x="24" y="178" class="h">PIPELINE &amp; DURABLE QUEUE</text>
+<rect x="24" y="190" width="120" height="58" rx="9" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="84" y="214" text-anchor="middle" class="lbl">Fingerprint</text>
+<text x="84" y="230" text-anchor="middle" class="sub">skip unchanged</text>
+<rect x="166" y="190" width="120" height="58" rx="9" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="226" y="214" text-anchor="middle" class="lbl">Classify</text>
+<text x="226" y="230" text-anchor="middle" class="sub">pdf / image / office</text>
+<rect x="312" y="166" width="150" height="50" rx="9" fill="#e3f1e6" stroke="#b3d9bd"/>
+<text x="387" y="186" text-anchor="middle" class="lbl">Extract text</text>
+<text x="387" y="202" text-anchor="middle" class="sub">+ TM# / NSN / title</text>
+<rect x="312" y="226" width="150" height="50" rx="9" fill="#fdf0dd" stroke="#eccfa0"/>
+<text x="387" y="246" text-anchor="middle" class="lbl">OCR queue</text>
+<text x="387" y="262" text-anchor="middle" class="sub">pending → running</text>
+<rect x="312" y="286" width="150" height="46" rx="9" fill="#fdf0dd" stroke="#eccfa0"/>
+<text x="387" y="305" text-anchor="middle" class="lbl">pdftoppm → tesseract</text>
+<text x="387" y="320" text-anchor="middle" class="sub">image → text (eng)</text>
+<text x="512" y="178" class="h">INDEX · viewer.db (versioned)</text>
+<rect x="512" y="190" width="220" height="142" rx="10" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="522" y="210" class="mono">documents</text><text x="640" y="210" class="cap">type · TM# · NSN</text>
+<text x="522" y="230" class="mono">pages</text><text x="640" y="230" class="cap">text / ocr / pending</text>
+<text x="522" y="250" class="mono">pages_fts</text><text x="640" y="250" class="cap">FTS5 full-text</text>
+<text x="522" y="270" class="mono">jobs</text><text x="640" y="270" class="cap">queue state</text>
+<text x="522" y="290" class="mono">runs · schema_meta</text>
+<text x="522" y="310" class="cap">+ parts / variants / procedures (future)</text>
+<text x="522" y="326" class="cap">additive migrations · rollbackable (R1)</text>
+<text x="762" y="178" class="h">OFFLINE SEARCH</text>
+<rect x="762" y="190" width="214" height="142" rx="10" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="769" y="210" class="lbl">"dual voltage alternator"</text>
+<text x="769" y="230" class="cap">[M998] TM 9-2320-280-20-2 p.205</text>
+<text x="769" y="248" class="cap">[Buffalo] p.31  high voltage/open</text>
+<text x="769" y="266" class="cap">[generators] TM 9-6115-643 p.28</text>
+<line x1="769" y1="278" x2="969" y2="278" stroke="#cbd2d9"/>
+<text x="769" y="296" class="sub">predictive · typo-tolerant</text>
+<text x="769" y="312" class="sub">+ in-doc Ctrl+F (GUI, next)</text>
+<text x="769" y="328" class="cap">snippets with hits highlighted</text>
+<path class="edge" d="M182,86 L232,86"/>
+<path class="edge" d="M357,132 C300,150 240,160 144,190"/>
+<path class="edge" d="M144,219 L166,219"/>
+<path class="edge" d="M286,210 L312,191"/>
+<path class="edge d" d="M286,228 L312,245"/>
+<path class="edge" d="M387,276 L387,286"/>
+<path class="edge" d="M462,190 C490,185 490,210 512,214"/>
+<path class="edge" d="M462,309 C490,300 490,250 512,242"/>
+<path class="edge" d="M732,260 L762,260"/>
+<text x="24" y="376" class="h">THIS SESSION — REAL INDEX BUILT (subset: HMMWV · Buffalo · M113 · Cummins · generators)</text>
+<rect x="24" y="388" width="170" height="64" rx="9" fill="#ffffff" stroke="#cbd2d9"/>
+<text x="109" y="418" text-anchor="middle" class="num">226</text>
+<text x="109" y="438" text-anchor="middle" class="cap">documents indexed</text>
+<rect x="206" y="388" width="190" height="64" rx="9" fill="#ffffff" stroke="#b3d9bd"/>
+<text x="301" y="418" text-anchor="middle" class="num">41,426</text>
+<text x="301" y="438" text-anchor="middle" class="cap">pages searchable (text)</text>
+<rect x="408" y="388" width="170" height="64" rx="9" fill="#ffffff" stroke="#eccfa0"/>
+<text x="493" y="418" text-anchor="middle" class="num">3,817</text>
+<text x="493" y="438" text-anchor="middle" class="cap">pages queued for OCR</text>
+<rect x="590" y="388" width="180" height="64" rx="9" fill="#ffffff" stroke="#eccfa0"/>
+<text x="680" y="418" text-anchor="middle" class="num">78+</text>
+<text x="680" y="438" text-anchor="middle" class="cap">scanned pages OCR'd</text>
+<rect x="782" y="388" width="194" height="64" rx="9" fill="#ffffff" stroke="#cbd2d9"/>
+<text x="879" y="414" text-anchor="middle" class="num">resumable</text>
+<text x="879" y="436" text-anchor="middle" class="cap">idempotent · integrity OK</text>
+<text x="24" y="484" class="h">SHIPPED IN engine\</text>
+<rect x="24" y="494" width="952" height="70" rx="10" fill="#f7f9fb" stroke="#cbd2d9"/>
+<text x="40" y="516" class="mono">viewer_ingest.py</text><text x="190" y="516" class="cap">pipeline: crawl / ocr / run / status / search</text>
+<text x="40" y="536" class="mono">run_indexing.bat</text><text x="190" y="536" class="cap">one-click Windows launcher (checks Poppler/Tesseract/Python)</text>
+<text x="40" y="556" class="mono">migrations\0001_init.sql</text><text x="240" y="556" class="cap">versioned schema · FTS5 · queue</text>
+<text x="560" y="536" class="mono">README.md</text><text x="660" y="536" class="cap">setup &amp; usage</text>
+<text x="560" y="556" class="mono">index\viewer_index.db</text><text x="730" y="556" class="cap">the sample index above</text>
+<rect x="24" y="582" width="14" height="11" rx="3" fill="#e3f1e6" stroke="#b3d9bd"/>
+<text x="44" y="591" class="leg">text-first (fast, now)</text>
+<rect x="180" y="582" width="14" height="11" rx="3" fill="#fdf0dd" stroke="#eccfa0"/>
+<text x="200" y="591" class="leg">OCR (heavy, over time)</text>
+<rect x="340" y="582" width="14" height="11" rx="3" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="360" y="591" class="leg">engine / compute</text>
+<line x1="470" y1="588" x2="498" y2="588" class="edge"/><text x="506" y="591" class="leg">flow</text>
+<line x1="556" y1="588" x2="584" y2="588" class="edge d"/><text x="592" y="591" class="leg">deferred flow</text>
+<text x="24" y="624" class="sub">Rule R1 — corpus read-only · schema versioned &amp; additive · index rebuildable from source (ultimate rollback).</text>
+<text x="24" y="642" class="sub">Rule R2 — this diagram accompanies the OCR-indexing addition. Full-scale OCR runs on the Windows machine via run_indexing.bat (resumable).</text>
+</svg>

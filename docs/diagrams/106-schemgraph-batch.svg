@@ -1,0 +1,64 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="720" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="18" font-weight="700" fill="#e6e9ee" text-anchor="start">Living Schematic → production  ·  step 1/3: netlist batch + coverage   v0.99.0</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The 0.91 PoC inferred a netlist per page on demand. Now we precompute the whole corpus once, cache it, and measure coverage.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="118" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="118" width="5" height="120" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="140" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">documents (index)</text>
+<text x="56" y="160" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">read id + path from viewer.db</text>
+<text x="56" y="175" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">(read-only, R1). One task per</text>
+<text x="56" y="190" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">document -&gt; the PDF is opened</text>
+<text x="56" y="205" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">once per worker.</text>
+<text x="308" y="184" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="320" y="118" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="320" y="118" width="5" height="120" rx="2.5" fill="#caa24a"/>
+<text x="336" y="140" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">scan pages</text>
+<text x="336" y="160" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">schem_overlay.schem_paths(page)</text>
+<text x="336" y="175" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; has_vector? enough segments?</text>
+<text x="336" y="190" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">MuPDF get_drawings; skip raster</text>
+<text x="336" y="205" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">scans fast.</text>
+<text x="588" y="184" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="600" y="118" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="118" width="5" height="120" rx="2.5" fill="#caa24a"/>
+<text x="616" y="140" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">infer netlist</text>
+<text x="616" y="160" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">schemgraph.graph_from_paths:</text>
+<text x="616" y="175" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">snap nodes, split T-junctions,</text>
+<text x="616" y="190" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">union-find nets, attach refs,</text>
+<text x="616" y="205" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">confidence score.</text>
+<text x="868" y="184" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="880" y="118" width="272" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="880" y="118" width="5" height="120" rx="2.5" fill="#2f7d4f"/>
+<text x="896" y="140" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">cache + coverage</text>
+<text x="896" y="160" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; index/schemcache/&lt;doc&gt;_&lt;pg&gt;.json</text>
+<text x="896" y="175" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">(same cache /api/schemgraph serves)</text>
+<text x="896" y="190" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; index/schemgraph_coverage.tsv</text>
+<text x="896" y="205" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">resumable via schemgraph_done.txt</text>
+<text x="40" y="256" font-size="9.5" font-weight="400" fill="#7f8a99" text-anchor="start">parallel: one worker per doc, cpu_count-1 (cap 12). BUILD-SCHEMGRAPH.bat (full) · VERIFY-SCHEMGRAPH.bat (--limit slice).</text>
+<line x1="40" y1="272" x2="1140" y2="272" stroke="#2b333f"/>
+<text x="40" y="300" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">WHY THIS MATTERS</text>
+<rect x="40" y="314" width="550" height="82" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="338" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">Instant Flow</text>
+<text x="56" y="358" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The ▶ Flow overlay reads a precomputed JSON instead of inferring on open — no per-open lag.</text>
+<rect x="600" y="314" width="550" height="82" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="616" y="338" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">Coverage truth</text>
+<text x="616" y="358" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The TSV says exactly which pages have a usable netlist (nets/edges/confidence) — a map for steps 2 &amp; 3.</text>
+<rect x="40" y="406" width="550" height="82" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="430" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">Feeds review</text>
+<text x="56" y="450" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Pages with wires-but-0-components (outlined label text) are the queue for step 2, the junction/label review.</text>
+<rect x="600" y="406" width="550" height="82" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="616" y="430" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">Feeds Circuit Lab</text>
+<text x="616" y="450" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">High-confidence netlists are the candidates to push into the live MNA simulator (step 3).</text>
+<line x1="40" y1="490" x2="1140" y2="490" stroke="#2b333f"/>
+<text x="40" y="518" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED (host-side, real corpus)</text>
+<rect x="40" y="532" width="1100" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="551" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="554" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-SCHEMGRAPH.bat (--limit 200): the batch runs and cached 4,743 schematic-page netlists (e.g. 287 segments / 11 nets / conf 0.80).</text>
+<circle cx="56" cy="568" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="571" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Cache is the exact format /api/schemgraph serves; coverage TSV + resumable done-file are plain text.</text>
+<circle cx="56" cy="585" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="588" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Known: many pages report 0 components (CAD-exported sheets outline label text) -&gt; the input to step 2 (review queue).</text>
+<circle cx="56" cy="602" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="605" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable (R1): delete build_schemgraph.py + the bats + the two sidecar files.</text>
+<text x="40" y="708" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.0 · 2026-07-01 · build_schemgraph.py · index/schemcache + schemgraph_coverage.tsv · resumable/parallel. R1/R6.</text>
+</svg>

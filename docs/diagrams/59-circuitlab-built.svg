@@ -1,0 +1,88 @@
+<svg viewBox="0 0 1180 940" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="940" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Circuit Lab: overlay editor + real-time circuit simulator  (v0.42.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Build or trace a circuit directly on top of a real TM schematic, then watch it run — a learning, advanced-viewing and display tool. 100% offline, custom MNA engine, no GPL.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · DATA FLOW — from a sheet to a live simulation</text>
+<rect x="40" y="126" width="1100" height="196" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="70" y="172" font-size="11" font-weight="700" fill="#7f77dd" text-anchor="start">1</text>
+<text x="86" y="172" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">Real TM schematic</text>
+<text x="70" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">optional backdrop:</text><text x="70" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">/page?doc&amp;page rendered</text><text x="70" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">behind the grid, dialable</text><text x="70" y="225" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">opacity</text>
+<path d="M226,220 L238,220" stroke="#7f77dd" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="238" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="250" y="172" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">2</text>
+<text x="266" y="172" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">Overlay editor</text>
+<text x="250" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">drop V/R/C/L/D/LED/SW/GND on</text><text x="250" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">a snap grid · draw wires</text><text x="250" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">pin-&gt;pin · tune values</text>
+<path d="M406,220 L418,220" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="418" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="430" y="172" font-size="11" font-weight="700" fill="#1d9e75" text-anchor="start">3</text>
+<text x="446" y="172" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">Graph -&gt; nodes</text>
+<text x="430" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">union-find merges wired &amp;</text><text x="430" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">coincident pins; a Ground pin</text><text x="430" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">fixes node 0</text>
+<path d="M586,220 L598,220" stroke="#1d9e75" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="598" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#caa24a" stroke-width="1"/>
+<text x="610" y="172" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">4</text>
+<text x="626" y="172" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">Netlist</text>
+<text x="610" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">each part becomes</text><text x="610" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">{type,name,n:[a,b],value} —</text><text x="610" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">the simulator&#x27;s input</text>
+<path d="M766,220 L778,220" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="778" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="790" y="172" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">5</text>
+<text x="806" y="172" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">MNA engine</text>
+<text x="790" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">circuitsim.js stamps G·v=i,</text><text x="790" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">companion models for C/L,</text><text x="790" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Newton for diodes</text>
+<path d="M946,220 L958,220" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="958" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#e0564f" stroke-width="1"/>
+<text x="970" y="172" font-size="11" font-weight="700" fill="#e0564f" text-anchor="start">6</text>
+<text x="986" y="172" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="start">Live render</text>
+<text x="970" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">node colours by voltage,</text><text x="970" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">current as moving dots,</text><text x="970" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">per-node scope, logic</text><text x="970" y="225" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">HIGH/LOW</text>
+<text x="58" y="308" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">The tuning loop closes here: drag a value slider -&gt; netlist re-stamps -&gt; engine re-solves -&gt; the render updates live (real-time on the 4050).</text>
+<text x="56" y="352" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · THE EDITOR SURFACE</text>
+<rect x="40" y="362" width="545" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="386" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Tools</text>
+<text x="58" y="406" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Select — move parts, click to tune value (log sliders for R/C/L)</text>
+<text x="58" y="424" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Wire — click pin to pin, or to bare grid points</text>
+<text x="58" y="442" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Rotate (R) / Delete (Del) / Esc to cancel</text>
+<text x="58" y="460" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Place palette: Source, R, C, L, Diode, LED, Switch, Ground</text>
+<text x="58" y="478" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• 6 demo circuits: divider, RC, RLC, rectifier, switch-&gt;lamp, logic</text>
+<text x="58" y="506" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Run controls</text>
+<text x="58" y="526" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• ▶ Run (animate transient) · DC (operating point) · Step</text>
+<text x="58" y="544" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Speed slider sets the timestep; Show = Analog or Logic view</text>
+<text x="58" y="562" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Scope: click any node to plot its voltage over time</text>
+<text x="620" y="352" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · WHAT THE ENGINE SOLVES (validated)</text>
+<rect x="604" y="362" width="536" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="622" y="386" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Unit tests — all pass</text>
+<circle cx="628" cy="403" r="3" fill="#2f7d4f"/>
+<text x="640" y="406" font-size="9" font-weight="600" fill="#e6e9ee" text-anchor="start">Voltage divider</text>
+<text x="880" y="406" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">2.500 V</text>
+<text x="980" y="406" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">exact</text>
+<circle cx="628" cy="423" r="3" fill="#2f7d4f"/>
+<text x="640" y="426" font-size="9" font-weight="600" fill="#e6e9ee" text-anchor="start">Ohm&#x27;s law</text>
+<text x="880" y="426" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">5.00 mA</text>
+<text x="980" y="426" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">exact</text>
+<circle cx="628" cy="443" r="3" fill="#2f7d4f"/>
+<text x="640" y="446" font-size="9" font-weight="600" fill="#e6e9ee" text-anchor="start">RC transient @ tau</text>
+<text x="880" y="446" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">3.159 V</text>
+<text x="980" y="446" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">&lt;1% vs 3.161</text>
+<circle cx="628" cy="463" r="3" fill="#2f7d4f"/>
+<text x="640" y="466" font-size="9" font-weight="600" fill="#e6e9ee" text-anchor="start">Diode drop @ 4.4 mA</text>
+<text x="880" y="466" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">0.574 V</text>
+<text x="980" y="466" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">exact for Is=1e-12</text>
+<circle cx="628" cy="483" r="3" fill="#2f7d4f"/>
+<text x="640" y="486" font-size="9" font-weight="600" fill="#e6e9ee" text-anchor="start">Series D + LED</text>
+<text x="880" y="486" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">3.34 mA</text>
+<text x="980" y="486" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">converges (pnjlim)</text>
+<circle cx="628" cy="503" r="3" fill="#2f7d4f"/>
+<text x="640" y="506" font-size="9" font-weight="600" fill="#e6e9ee" text-anchor="start">Underdamped RLC</text>
+<text x="880" y="506" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">overshoot-&gt;5 V</text>
+<text x="980" y="506" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">rings then settles</text>
+<text x="622" y="540" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Backward-Euler companion models for C/L; SPICE-style voltage limiting lets series</text>
+<text x="622" y="554" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">junctions and LEDs converge. Gaussian elimination w/ partial pivoting.</text>
+<text x="622" y="584" font-size="8.6" font-weight="400" fill="#2f7d4f" text-anchor="start">Dependency-free: runs as a browser global and as a Node module (how it&#x27;s tested).</text>
+<rect x="40" y="632" width="1100" height="128" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="656" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">GROUNDED — a teaching overlay, not a claim about the manual (R1/R6)</text>
+<text x="58" y="676" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">The circuit is GROUNDED in what YOU build or trace: your placement is the source of truth — ideal for &#x27;what happens if this relay coil opens, or this resistor doubles?&#x27;. The simulator</text><text x="58" y="689" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">never rewrites the TM, and the real cited sheet sits right behind the overlay. Auto-extracting a netlist straight from a raster TM (vision model) is deliberately NOT done here — that&#x27;s</text><text x="58" y="702" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">the deferred power feature for the desktop/RTX 5070, and any such netlist would be labelled &#x27;auto-extracted — verify against the TM&#x27; before use. Presentation-only and additive: the</text><text x="58" y="715" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">route is new, nothing existing changed.</text>
+<rect x="40" y="772" width="1100" height="118" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="796" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">RPS — Retroactive Post-Support degradation path</text>
+<text x="58" y="816" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">The live simulator is a modern-browser feature; on the 4050 it runs effortlessly. On the Win7/Vista LEGACY build it degrades gracefully: the editor still draws your circuit and the</text><text x="58" y="829" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">real schematic still opens in the static viewer — the animation simply turns off. So Circuit Lab is logged on the modern track from 0.42.0; the legacy track records it as</text><text x="58" y="842" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;static-overlay only (no live sim)&#x27;. Backwards-compatible and rollbackable (R1): delete the /circuitlab + /circuitsim.js routes and the two link buttons to fully revert.</text>
+<text x="40" y="926" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.42.0 · 2026-06-02 · engine/ui/circuitlab.html + circuitsim.js + viewer_app.py routes. Sources: MNA/SPICE method; EveryCircuit/CircuitJS/Scheme-it (concept refs).</text>
+</svg>

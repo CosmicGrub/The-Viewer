@@ -1,0 +1,42 @@
+<svg viewBox="0 0 1180 640" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="640" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — How to do it: the procedure view  (v0.47.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Closes the mission&#x27;s &#x27;complete instructional rundown&#x27; gap: find a part, then see HOW to remove/install it — steps, tools, and the WARNINGs — each cited to the real page.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · FROM A PART NAME TO THE STEPS  (/procedure · /api/procedure)</text>
+<rect x="40" y="126" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="150" width="250" height="108" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="70" y="172" font-size="10" font-weight="700" fill="#7f77dd" text-anchor="start">1 Part / NSN</text>
+<text x="70" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">what you searched</text>
+<path d="M308,204 L320,204" stroke="#7f77dd" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="320" y="150" width="250" height="108" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="332" y="172" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">2 FTS match</text>
+<text x="332" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">pages with this part AND a procedure</text><text x="332" y="203" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">word (removal/install/…)</text>
+<path d="M570,204 L582,204" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="582" y="150" width="250" height="108" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="594" y="172" font-size="10" font-weight="700" fill="#1d9e75" text-anchor="start">3 Parse the page</text>
+<text x="594" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">numbered steps · TOOLS REQUIRED block ·</text><text x="594" y="203" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">WARNING/CAUTION/NOTE · section kind</text>
+<path d="M832,204 L844,204" stroke="#1d9e75" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="844" y="150" width="250" height="108" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="856" y="172" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">4 Present + cite</text>
+<text x="856" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">kind-tagged cards, tools chips, caution</text><text x="856" y="203" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">callouts, link to the real page</text>
+<text x="56" y="308" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · WHAT IT EXTRACTS FROM EACH PAGE</text>
+<rect x="40" y="318" width="1100" height="170" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<circle cx="58" cy="339" r="3.5" fill="#caa24a"/>
+<text x="70" y="342" font-size="9.8" font-weight="700" fill="#caa24a" text-anchor="start">Section kind</text>
+<text x="220" y="342" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Removal / Installation / Disassembly / Assembly / Replacement / Adjustment / Repair / Service / Inspection / Cleaning — from a</text><text x="220" y="353" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">standalone heading (not &#x27;ENGINE ASSEMBLY&#x27;).</text>
+<circle cx="58" cy="371" r="3.5" fill="#2f7d4f"/>
+<text x="70" y="374" font-size="9.8" font-weight="700" fill="#2f7d4f" text-anchor="start">Numbered steps</text>
+<text x="220" y="374" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">lines like &#x27;1. Disconnect…&#x27; &#x27;2. Drain…&#x27; captured in order, in full.</text>
+<circle cx="58" cy="392" r="3.5" fill="#4f9dff"/>
+<text x="70" y="395" font-size="9.8" font-weight="700" fill="#4f9dff" text-anchor="start">Tools required</text>
+<text x="220" y="395" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the &#x27;TOOLS REQUIRED / Special Tools / TMDE&#x27; block — listed as chips so you can stage them before starting.</text>
+<circle cx="58" cy="413" r="3.5" fill="#e0564f"/>
+<text x="70" y="416" font-size="9.8" font-weight="700" fill="#e0564f" text-anchor="start">Cautions</text>
+<text x="220" y="416" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">WARNING / CAUTION / NOTE / DANGER callouts pulled out and colour-coded so safety text can&#x27;t be missed.</text>
+<rect x="40" y="500" width="1100" height="124" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="524" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">GROUNDED, AND HONEST ABOUT IT (R1/R6)</text>
+<text x="58" y="544" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">The procedures table shipped empty, so this parses the procedure straight from the manual page TEXT at query time — read-only, nothing invented or written back. Every card links to the</text><text x="58" y="557" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">real cited page and the UI says &#x27;verify torque, sequences and cautions on the actual sheet&#x27;. It&#x27;s a fast on-ramp to the page, not a replacement for it. Coverage grows as OCR makes more</text><text x="58" y="570" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">scanned procedure pages searchable. Parser verified on a representative work-package page: kind=Removal, 3 steps, tools + WARNING/CAUTION/NOTE all captured; the FTS query mirrors the</text><text x="58" y="583" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">proven search() path.</text>
+<text x="40" y="628" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.47.0 · 2026-06-02 · procedure_for()+_parse_procedure() in viewer_app.py + engine/ui/procedure.html. Read-only.</text>
+</svg>

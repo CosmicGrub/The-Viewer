@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER — OCR speedup: skip-the-junk + prioritized queue (dark)</title>
+<desc>Pending scanned pages are prioritized (parts catalogs first, then maintenance/troubleshooting, then operator, then the rest). Each page is checked for blankness at low DPI; blanks are skipped with no OCR inference; the rest are OCR'd and written to the index. A narrowed FTS trigger speeds status/priority updates.</desc>
+<style>
+  .bg{fill:#0f1419}.title{font-size:18px;font-weight:700;fill:#e6e9ee}
+  .sub{font-size:10px;fill:#9aa6b6}.lbl{font-size:12px;font-weight:600;fill:#e6e9ee}
+  .s{font-size:9.5px;fill:#9aa6b6}.h{font-size:11px;font-weight:700;fill:#93a1b3;letter-spacing:.5px}
+  .edge{stroke:#9aa5b1;stroke-width:1.7;fill:none;marker-end:url(#a)}.edge.d{stroke-dasharray:5 4}
+  .leg{font-size:10px;fill:#9aa6b6}.mono{font-size:9px;fill:#dfe5ec;font-family:ui-monospace,Consolas,monospace}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1000" height="470"/>
+<text x="32" y="40" class="title">THE VIEWER — OCR speedup: skip-the-junk + prioritized queue</text>
+<text x="32" y="60" class="sub">offline · additive (migration 0003) · same RapidOCR, less wasted work</text>
+<line x1="32" y1="74" x2="968" y2="74" stroke="#2a2f37"/>
+
+<rect x="32" y="98" width="150" height="64" rx="10" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="107" y="124" text-anchor="middle" class="lbl">Pending pages</text>
+<text x="107" y="142" text-anchor="middle" class="s">~120k scanned</text>
+
+<!-- prioritize -->
+<rect x="220" y="86" width="200" height="92" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="320" y="108" text-anchor="middle" class="lbl">③ Prioritize</text>
+<text x="236" y="128" class="mono">0  Parts (RPSTL / -24P)</text>
+<text x="236" y="143" class="mono">2  Maintenance / T-shoot</text>
+<text x="236" y="158" class="mono">3  Operator (-10)</text>
+<text x="236" y="172" class="mono">5  everything else</text>
+<path class="edge" d="M182,130 L220,132"/>
+
+<!-- per page blank check -->
+<rect x="460" y="92" width="170" height="56" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="545" y="114" text-anchor="middle" class="lbl">② Blank check</text>
+<text x="545" y="131" text-anchor="middle" class="s">render @50dpi · ink ratio</text>
+<rect x="460" y="160" width="170" height="40" rx="9" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="545" y="184" text-anchor="middle" class="s">blank → skip (no OCR)</text>
+<rect x="668" y="92" width="150" height="56" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="743" y="114" text-anchor="middle" class="lbl">RapidOCR</text>
+<text x="743" y="131" text-anchor="middle" class="s">only real pages</text>
+<rect x="856" y="92" width="112" height="56" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="912" y="114" text-anchor="middle" class="lbl">→ FTS5</text>
+<text x="912" y="131" text-anchor="middle" class="s">searchable</text>
+<path class="edge" d="M420,132 L460,120"/>
+<path class="edge" d="M630,120 L668,120"/>
+<path class="edge" d="M818,120 L856,120"/>
+<path class="edge d" d="M545,148 L545,160"/>
+
+<text x="545" y="84" class="s" fill="#caa24a">skip-the-junk: blanks cost ~0.01s, not ~1–3s</text>
+
+<line x1="32" y1="230" x2="968" y2="230" stroke="#2a2f37"/>
+<text x="32" y="256" class="h">WHY IT'S FASTER</text>
+<rect x="32" y="268" width="300" height="56" rx="10" fill="#16301f" stroke="#2f5a3e"/>
+<text x="182" y="290" text-anchor="middle" class="lbl">No inference on blanks</text>
+<text x="182" y="308" text-anchor="middle" class="s">covers/dividers/empty backs skipped (~0.01s each)</text>
+<rect x="352" y="268" width="300" height="56" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="502" y="290" text-anchor="middle" class="lbl">Useful pages first</text>
+<text x="502" y="308" text-anchor="middle" class="s">parts catalogs OCR'd before appendices</text>
+<rect x="672" y="268" width="296" height="56" rx="10" fill="#1c2430" stroke="#38414e"/>
+<text x="820" y="290" text-anchor="middle" class="lbl">Faster requeues</text>
+<text x="820" y="308" text-anchor="middle" class="s">FTS trigger now fires only on body_text change</text>
+
+<line x1="32" y1="352" x2="968" y2="352" stroke="#2a2f37"/>
+<rect x="32" y="368" width="14" height="11" rx="3" fill="#3a2f1a" stroke="#6b5526"/><text x="52" y="377" class="leg">queue / skip</text>
+<rect x="150" y="368" width="14" height="11" rx="3" fill="#1a2740" stroke="#3a4d6e"/><text x="170" y="377" class="leg">order / compute</text>
+<rect x="300" y="368" width="14" height="11" rx="3" fill="#16301f" stroke="#2f5a3e"/><text x="320" y="377" class="leg">OCR / output</text>
+<text x="32" y="406" class="sub">Commands: prioritize (auto in ocrall) · prefilter (optional upfront blank sweep) · OCR query ORDER BY ocr_priority, id.</text>
+<text x="32" y="426" class="sub">Pairs with GPU OCR (10–30× more). Rule R1 additive (migration 0003) · R2 this diagram · R3 dark+PDF · R4/R5 logged.</text>
+</svg>

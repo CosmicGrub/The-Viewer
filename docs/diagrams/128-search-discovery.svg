@@ -1,0 +1,45 @@
+<svg viewBox="0 0 1180 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="560" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Search &amp; discovery — three new ways to find a part   v0.99.25/28/29</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Beyond keyword search: by MEANING, by PHOTO, and by RELATIONSHIP. All offline.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="116" width="366" height="210" rx="11" fill="#171d26" stroke="#7fbfff" stroke-width="1"/>
+<text x="54" y="140" font-size="12" font-weight="700" fill="#7fbfff" text-anchor="start">🧠 Semantic search  /semantic</text>
+<text x="54" y="162" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">embed.py + /api/semantic. Search by meaning:</text>
+<text x="54" y="177.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;coolant leak at the water pump&#x27; finds the</text>
+<text x="54" y="193.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">right pages w/o those exact words.</text>
+<text x="54" y="208.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Local sentence-transformers model when</text>
+<text x="54" y="224.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">installed; deterministic hash fallback else.</text>
+<text x="54" y="239.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Build: BUILD-EMBEDDINGS.bat. Verified:</text>
+<text x="54" y="255.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">self-cos=1.0, related 0.73 &gt; unrelated 0.0.</text>
+<rect x="412" y="116" width="366" height="210" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="426" y="140" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">📷 Visual match  /visual</text>
+<text x="426" y="162" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">phash.py + POST /api/visualmatch. Drop a</text>
+<text x="426" y="177.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">photo of a part → closest figure crops by</text>
+<text x="426" y="193.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">64-bit DCT perceptual hash + Hamming.</text>
+<text x="426" y="208.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Pure numpy/PIL, offline, no model.</text>
+<text x="426" y="224.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Build: BUILD-VISUAL-INDEX.bat -&gt; phash.tsv.</text>
+<text x="426" y="239.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified: identical/resized = 0, unrelated = 31.</text>
+<text x="426" y="255.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">/figcrop serves the matched crop.</text>
+<rect x="784" y="116" width="366" height="210" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="798" y="140" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">🧩 Related  /related</text>
+<text x="798" y="162" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">xref.py + /api/xref. For a part: the</text>
+<text x="798" y="177.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">assemblies/figures it belongs to, its</text>
+<text x="798" y="193.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">SIBLINGS (same figure), and SEE-ALSO</text>
+<text x="798" y="208.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(same assembly elsewhere) — each links to</text>
+<text x="798" y="224.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">dossier / deep-zoom.</text>
+<text x="798" y="239.5" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified: siblings BOLT/NUT, see-also</text>
+<text x="798" y="255.0" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">VOLTAGE REGULATOR (self-inclusion bug fixed).</text>
+<line x1="40" y1="342" x2="1140" y2="342" stroke="#2b333f"/>
+<text x="40" y="370" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED / R1</text>
+<rect x="40" y="384" width="1100" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="403" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="406" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">All three cores verified in-sandbox against real logic (cosine / Hamming / xref on synthetic DBs); pages pass node --check.</text>
+<circle cx="56" cy="420" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="423" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Model/index BUILD steps run host-side (BUILD-EMBEDDINGS / BUILD-VISUAL-INDEX) — the app degrades gracefully with a clear &#x27;not built&#x27; state.</text>
+<circle cx="56" cy="437" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="440" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Wired: /semantic /visual /related in _PAGES + palette + Tools menu + verify_ui; /api/semantic /api/visualmatch /api/xref /figcrop.</text>
+<circle cx="56" cy="454" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="457" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; read-only: new modules + routes + pages. Nothing writes the index (R1/R6).</text>
+<text x="40" y="552" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.25/28/29 · 2026-07-01 · embed.py · phash.py · xref.py. Read-only. R1/R6.</text>
+</svg>

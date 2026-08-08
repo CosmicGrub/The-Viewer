@@ -1,0 +1,121 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — How to do it (reconstituted procedure)</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+:root{--grn:#2f9d63}  /* page keeps its brighter green; all other tokens from /base.css (v0.97.0) */
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+h1{font-size:22px;font-weight:600;margin:0}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:360px;max-width:60vw}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 13px;cursor:pointer}
+button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:var(--acc);border-color:var(--acc);color:#08111d;font-weight:600}
+.cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.steps{flex:1;min-width:340px}.side{width:420px;max-width:46vw}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.warn{border-left:4px solid var(--amb);border-radius:0 8px 8px 0;padding:8px 12px;margin:6px 0;background:var(--p2);font-size:13px}
+.warn.WARNING,.warn.DANGER{border-left-color:var(--red)}.warn.CAUTION{border-left-color:var(--amb)}.warn.NOTE{border-left-color:var(--acc)}
+.warn b{letter-spacing:.04em}
+.tool{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:9px;padding:1px 8px;margin:2px}
+.step{display:flex;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
+.step:last-child{border-bottom:none}
+.step .n{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--p2);border:1px solid var(--line);text-align:center;line-height:26px;font-size:12px;color:var(--sub)}
+.step.done .body{opacity:.5;text-decoration:line-through}
+.step .body{flex:1;font-size:14px;line-height:1.55}
+.step input[type=checkbox]{width:18px;height:18px;margin-top:4px;cursor:pointer}
+.sub{font-size:13px;color:var(--sub);margin:3px 0 0 6px;padding-left:8px;border-left:1px solid var(--line)}
+.chip{display:inline-block;font-size:11px;border-radius:8px;padding:1px 7px;margin:3px 4px 0 0}
+.chip.tq{background:rgba(202,162,74,.15);border:1px solid var(--amb);color:var(--amb)}
+.chip.fig{background:rgba(79,157,255,.12);border:1px solid var(--acc);color:var(--acc);cursor:pointer}
+.chip.nsn{background:rgba(47,157,99,.14);border:1px solid var(--grn);color:#7fd6a6;cursor:pointer}
+.side img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
+.sec h2{font-size:14px;font-weight:600;margin:0 0 8px}
+.empty{color:var(--sub);padding:24px;text-align:center}
+@media print{ .noprint{display:none!important} body{background:#fff;color:#000} .card{border-color:#bbb} .side{display:none} a{color:#000} }
+</style><script src="/rps.js"></script></head><body><div class="wrap">
+<div class="noprint" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>How to do it <span class="muted">— reconstituted from the manuals</span></h1>
+    <div class="muted">A clean, checkable step-by-step rebuilt from the OCR'd text, shown next to the original page so you can verify it. Steps are verbatim; nothing is invented.</div></div>
+  <div><a href="/solve">&#128296; Solve it</a> &nbsp; <a href="/">&larr; back to search</a></div>
+</div>
+<div class="bar noprint">
+  <input id="q" placeholder="Part or symptom — e.g. alternator replacement, brake bleed" autocomplete="off">
+  <button class="go" onclick="run()">Find the procedure</button>
+  <button onclick="window.print()" id="printbtn" style="display:none">&#128424; Print sheet</button>
+  <span class="muted" id="hint"></span>
+</div>
+<div id="out"><div class="empty">Type a part or symptom to rebuild its procedure.</div></div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function xget(url,cb,err){ var x=new XMLHttpRequest(); x.open('GET',url,true);
+  x.onreadystatechange=function(){ if(x.readyState===4){ if(x.status>=200&&x.status<300){ try{cb(JSON.parse(x.responseText));}catch(e){ if(err)err(e); } } else if(err){ err(x.status); } } }; x.send(); }
+var CUR=null;
+function ckey(src,n){ return 'proc:'+(src?src.doc_id+':'+src.page:'?')+':'+n; }
+function getck(k){ try{ return localStorage.getItem(k)==='1'; }catch(e){ return false; } }
+function setck(k,v){ try{ localStorage.setItem(k, v?'1':'0'); }catch(e){} }
+
+function render(d){
+  CUR=d;
+  if(!d || !d.found){ $("out").innerHTML='<div class="empty">No step-by-step procedure found in the text for that. Try the exact task name (e.g. "alternator removal") or a part.</div>'; $("printbtn").style.display='none'; return; }
+  $("printbtn").style.display='';
+  var src=d.source||{};
+  var h='<div class="cols"><div class="steps">';
+  h+='<div class="card"><h2 style="font-size:16px;margin:0 0 2px">'+esc(d.title||'Procedure')+' <span class="muted">('+esc(d.kind||'')+')</span></h2>'+
+     '<div class="muted">from '+esc(src.tm||src.vehicle||'the manual')+(src.page?(' &middot; p.'+esc(src.page)):'')+' &middot; verbatim, OCR-sourced</div></div>';
+  if(d.warnings&&d.warnings.length){ h+='<div class="card sec"><h2>Warnings &amp; cautions</h2>';
+    for(var w=0;w<d.warnings.length;w++){ var wr=d.warnings[w]; h+='<div class="warn '+esc(wr.level)+'"><b>'+esc(wr.level)+':</b> '+esc(wr.text)+'</div>'; } h+='</div>'; }
+  if(d.tools&&d.tools.length){ h+='<div class="card sec"><h2>Tools &amp; materials</h2><div>';
+    for(var t=0;t<d.tools.length;t++){ h+='<span class="tool">'+esc(d.tools[t])+'</span>'; } h+='</div></div>'; }
+  h+='<div class="card sec"><h2>Steps <span class="muted">('+d.steps.length+') — tick as you go</span></h2><div id="stepwrap">';
+  for(var i=0;i<d.steps.length;i++){ var s=d.steps[i], k=ckey(src,s.n), dn=getck(k);
+    h+='<div class="step'+(dn?' done':'')+'" id="st'+s.n+'"><input type="checkbox" data-k="'+esc(k)+'" data-n="'+s.n+'"'+(dn?' checked':'')+'>'+
+       '<div class="n">'+s.n+'</div><div class="body">'+esc(s.text);
+    if(s.subs&&s.subs.length){ for(var su=0;su<s.subs.length;su++){ h+='<div class="sub">'+String.fromCharCode(97+su)+'. '+esc(s.subs[su])+'</div>'; } }
+    if(s.torque){ for(var q=0;q<s.torque.length;q++){ h+='<span class="chip tq">&#128297; '+esc(s.torque[q])+'</span>'; } }
+    if(s.figs){ for(var f=0;f<s.figs.length;f++){ h+='<span class="chip fig" data-fig="'+esc(s.figs[f])+'">FIG '+esc(s.figs[f])+'</span>'; } }
+    if(s.nsns){ for(var nn=0;nn<s.nsns.length;nn++){ h+='<a class="chip nsn" href="/dossier?q='+encodeURIComponent(s.nsns[nn])+'" target="_blank">NSN '+esc(s.nsns[nn])+'</a>'; } }
+    h+='</div></div>';
+  }
+  h+='</div></div>';
+  if(d.parts&&d.parts.length){ h+='<div class="card sec"><h2>Parts in this procedure</h2><div>';
+    for(var p=0;p<d.parts.length;p++){ h+='<a class="chip nsn" href="/dossier?q='+encodeURIComponent(d.parts[p].nsn)+'" target="_blank">'+esc(d.parts[p].nsn)+'</a>'; }
+    h+='</div><div id="procxref" style="margin-top:6px"></div><div class="muted" style="margin-top:6px">Open a part for its manufacturer, interchangeable NSNs and where it appears (PUB LOG).</div></div>'; }
+  h+='</div>';
+  h+='<div class="side noprint"><div class="card sec"><h2>Original page <span class="muted">— verify against the source</span></h2>';
+  if(src.doc_id){ h+='<a href="/page?doc='+src.doc_id+'&page='+(src.page||1)+'&dpi=200" target="_blank"><img loading="lazy" src="/page?doc='+src.doc_id+'&page='+(src.page||1)+'&dpi=150" alt="source page"></a>'+
+    '<div class="muted" style="margin-top:6px">p.'+esc(src.page||1)+' &middot; click to open full size</div>'; }
+  h+='</div></div></div>';
+  $("out").innerHTML=h;
+  var cbs=$("out").querySelectorAll('input[type=checkbox]');
+  for(var c=0;c<cbs.length;c++){ cbs[c].onchange=function(){ setck(this.getAttribute('data-k'), this.checked);
+    var row=$("st"+this.getAttribute('data-n')); if(row){ row.className=this.checked?'step done':'step'; } }; }
+  var figs=$("out").querySelectorAll('.chip.fig');
+  for(var g=0;g<figs.length;g++){ figs[g].onclick=function(){ if(src.doc_id) window.open('/page?doc='+src.doc_id+'&page='+(src.page||1)+'&dpi=200&hl='+encodeURIComponent('FIG '+this.getAttribute('data-fig')),'_blank'); }; }
+  enrichProcParts(d);
+}
+// Cross-reference the procedure's parts: resolved name + vehicles per NSN (offline xref).
+function enrichProcParts(d){
+  var box=$("procxref"); if(!box||!d.parts||!d.parts.length) return;
+  var out=[]; var pending=Math.min(d.parts.length,6);
+  for(var i=0;i<pending;i++){ (function(nsn){
+    var x=new XMLHttpRequest(); x.open('GET','/api/part_record?nsn='+encodeURIComponent(nsn),true);
+    x.onreadystatechange=function(){ if(x.readyState===4){ pending--; try{ var j=JSON.parse(x.responseText);
+      if(j&&j.found){ out.push('<div style="font-size:12px;padding:3px 0;border-top:1px solid var(--line)"><b>'+esc(nsn)+'</b> '+esc(j.nomenclature||'')+
+        (j.vehicles&&j.vehicles.length?(' <span style="color:var(--sub)">· fits '+esc(j.vehicles.slice(0,4).join(', '))+'</span>'):'')+
+        (j.manufacturer?(' <span style="color:var(--sub)">· '+esc(j.manufacturer)+'</span>'):'')+'</div>'); }
+    }catch(e){} if(pending<=0&&out.length){ box.innerHTML='<div style="margin-top:4px">'+out.join('')+'</div>'; } } };
+    x.send();
+  })(d.parts[i].nsn); }
+}
+function run(){
+  var q=$("q").value.replace(/^\s+|\s+$/g,''); if(!q){ return; }
+  $("hint").textContent='rebuilding…'; $("out").innerHTML='<div class="empty">rebuilding the procedure…</div>';
+  xget('/api/procedure_full?q='+encodeURIComponent(q), function(d){ $("hint").textContent=''; render(d); }, function(){ $("hint").textContent=''; $("out").innerHTML='<div class="empty">Could not load (is the app running?)</div>'; });
+}
+$("q").addEventListener('keydown',function(e){ if(e.key==='Enter'||e.keyCode===13) run(); });
+(function(){ var m=location.search.match(/[?&]q=([^&]+)/); if(m){ $("q").value=decodeURIComponent(m[1].replace(/\+/g,' ')); run(); } })();
+</script><script src="/palette.js"></script></body></html>

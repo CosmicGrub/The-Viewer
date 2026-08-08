@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solve it — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:1060px;margin:0 auto;padding:20px}
+  .bar{display:flex;gap:10px;margin-bottom:8px}
+  #q{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:15px}
+  #q:focus{outline:none;border-color:var(--acc)}
+  button.go{background:var(--acc);border:none;color:#06121f;font-weight:700;border-radius:9px;padding:0 18px;cursor:pointer;font-size:14px}
+  .muted{color:var(--sub);font-size:12.5px}
+  .examples{margin:6px 0 16px}
+  .chip{display:inline-block;background:var(--p2);border:1px solid var(--line);border-radius:20px;padding:4px 11px;margin:3px 5px 0 0;cursor:pointer;font-size:12px;color:var(--sub)}
+  .chip:hover{border-color:var(--acc);color:var(--txt)}
+  .sec{margin:18px 0 8px;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--amb);font-weight:700}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px}
+  .pchip{display:inline-flex;align-items:center;gap:6px;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:4px 6px 0 0;cursor:pointer;font-size:13px}
+  .pchip:hover{border-color:var(--acc)} .pchip .n{font-size:11px;color:var(--sub)}
+  .hit{padding:7px 0;border-bottom:1px solid var(--line);font-size:13px} .hit:last-child{border:none}
+  .hit a{color:var(--acc);text-decoration:none} .hit .sn{color:var(--sub);font-size:12px}
+  .focus{border-left:4px solid var(--acc)}
+  .kind{font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin-right:7px}
+  .kind.removal,.kind.disassembly{background:#3a2f1a;color:#e7c06a}
+  .kind.installation,.kind.assembly{background:#16301f;color:#7fd6a0}
+  .kind.replacement,.kind.adjustment,.kind.repair,.kind.service,.kind.inspection,.kind.cleaning,.kind.procedure{background:#16223a;color:#9cc4ff}
+  .tool{display:inline-block;background:var(--p2);border:1px solid var(--line);border-radius:7px;padding:2px 8px;margin:3px 5px 0 0;font-size:12px}
+  .caut{border-radius:8px;padding:7px 10px;margin:6px 0;font-size:12px;border:1px solid}
+  .caut.warning,.caut.danger{background:#2a1414;border-color:#7a2b2b;color:#f0a6a6}
+  .caut.caution{background:#2a2412;border-color:#6b5526;color:#e7c06a}
+  .caut.note{background:#14202e;border-color:#2b486e;color:#9cc4ff}
+  ol.steps{margin:8px 0 4px;padding-left:22px} ol.steps li{margin:4px 0;font-size:13px}
+  .pill{display:inline-block;font-size:11px;border-radius:20px;padding:2px 9px;margin:3px 5px 0 0;background:#3a2f1a;color:#e7c06a}
+  .btnrow a{display:inline-block;color:var(--acc);text-decoration:none;font-size:12.5px;border:1px solid var(--line);border-radius:7px;padding:5px 10px;margin:8px 8px 0 0}
+  .btnrow a:hover{border-color:var(--acc)}
+  .spin{color:var(--sub);padding:14px 0} .empty{color:var(--sub);padding:14px 0}
+  .ground{font-size:11.5px;color:var(--sub);margin-top:20px;border-top:1px dashed var(--line);padding-top:10px}
+  h3.f{font-size:16px;margin:2px 0 2px} .step-note{font-size:12px;color:var(--sub)}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>🛠 Solve it</h1><span class="muted">symptom → parts → how-to → tools → schematic, in one place</span>
+  <span class="sp"></span>
+  <a class="nav" href="/procedure">🔧 Procedures</a>&nbsp;&nbsp;<a class="nav" href="/partdiff">🔍 Look-Alike</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <div class="bar">
+    <input id="q" placeholder="Describe the problem (e.g. 'no-start, not charging') or enter a part / NSN" autocomplete="off">
+    <button class="go" onclick="solve()">Solve</button>
+  </div>
+  <div class="muted">Starts from a symptom or a part and stitches the whole job together: likely parts, the troubleshooting pages, the remove/install steps with tools &amp; cautions, the look-alike warning, and the related schematic — each cited.</div>
+  <div class="examples" id="examples"></div>
+  <div id="stage1"></div>
+  <div id="focus"></div>
+</div>
+<script>
+var $=function(s){return document.querySelector(s);};
+/* esc() comes from /shared.js (v0.97.0, A2 — one copy) */
+function kcls(k){return (k||"procedure").toLowerCase().replace(/[^a-z]/g,"");}
+var EX=["no-start, not charging","brakes soft","overheating","won't shift","alternator"];
+$("#examples").innerHTML='<span class="muted">try:</span> '+EX.map(function(x){return '<span class="chip" onclick="setq(\''+x.replace(/'/g,"")+'\')">'+esc(x)+'</span>';}).join("");
+function setq(v){$("#q").value=v;solve();}
+$("#q").addEventListener("keydown",function(e){if(e.key==="Enter")solve();});
+function getj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+
+function solve(){
+  var q=$("#q").value.trim(); if(!q)return;
+  $("#focus").innerHTML=""; $("#stage1").innerHTML='<div class="spin">Working the problem…</div>';
+  Promise.all([ getj("/api/faultparts?fault="+encodeURIComponent(q)), getj("/api/search?q="+encodeURIComponent(q)+"&limit=6") ])
+    .then(function(res){
+      var fp=res[0]||{parts:[]}, sr=res[1]||{results:[]};
+      var h='<div class="sec">Step 1 — likely parts &amp; the pages that mention it</div><div class="grid">';
+      // likely parts
+      h+='<div class="card"><div class="muted" style="margin-bottom:6px">Parts often used for this (from your history)</div>';
+      if(fp.parts&&fp.parts.length){ fp.parts.slice(0,8).forEach(function(p){
+        var label=esc(p.item_name||p.nsn||"part"); var key=(p.nsn&&p.nsn.trim())?p.nsn:p.item_name;
+        h+='<span class="pchip" onclick="focusPart(\''+esc((key||"").replace(/'/g,"")).replace(/&#39;/g,"")+'\')">'+label+(p.n?' <span class="n">×'+p.n+'</span>':'')+'</span>';
+      }); } else h+='<div class="muted">No history match yet — type the part name below the results, or click a manual hit.</div>';
+      h+='<div style="margin-top:10px"><input id="partq" placeholder="…or enter the part to fix" style="width:100%;background:var(--p2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:8px 10px;font-size:13px"></div></div>';
+      // manual hits
+      h+='<div class="card"><div class="muted" style="margin-bottom:6px">Pages that mention it (troubleshooting &amp; more)</div>';
+      var rs=(sr.results||sr.items||[]);
+      if(rs.length){ rs.slice(0,6).forEach(function(r){
+        var doc=r.doc_id||r.doc||r.id, pg=r.page_number||r.page||1;
+        h+='<div class="hit"><a href="/page?doc='+encodeURIComponent(doc)+'&page='+encodeURIComponent(pg)+'&hl='+encodeURIComponent(q)+'&dpi=150" target="_blank">'+esc(r.vehicle||r.tm_number||r.title||"page")+' · p.'+esc(pg)+' ↗</a><div class="sn">'+esc((r.snip||"").replace(/[<>]/g,""))+'</div></div>';
+      }); } else h+='<div class="muted">No page hits — try different words.</div>';
+      h+='</div></div>';
+      $("#stage1").innerHTML=h;
+      var pq=$("#partq"); if(pq) pq.addEventListener("keydown",function(e){if(e.key==="Enter"&&pq.value.trim())focusPart(pq.value.trim());});
+      // if the query itself looks like a specific part/NSN, jump straight to the fix
+      if(/\d{4}-?\d{2}-?\d{3}-?\d{4}/.test(q) || (fp.parts&&fp.parts.length===0&&q.split(/\s+/).length<=2)) focusPart(q);
+    });
+}
+
+function focusPart(part){
+  part=(part||"").trim(); if(!part)return;
+  $("#focus").innerHTML='<div class="sec">Step 2 — fixing: '+esc(part)+'</div><div class="spin">Pulling the procedure, tools &amp; look-alike check…</div>';
+  Promise.all([ getj("/api/procedure?q="+encodeURIComponent(part)+"&limit=2"), getj("/api/partdiff?q="+encodeURIComponent(part)) ])
+    .then(function(res){
+      var pr=res[0]||{procedures:[]}, pd=res[1]||{variants:[]};
+      var vehicle=null;
+      var h='<div class="sec">Step 2 — fixing: '+esc(part)+'</div>';
+      // procedure
+      h+='<div class="card focus"><h3 class="f">🔧 How to do it</h3>';
+      if(pr.found&&pr.procedures.length){ pr.procedures.forEach(function(p){
+        if(!vehicle&&p.vehicle)vehicle=p.vehicle;
+        h+='<div style="margin:8px 0"><span class="kind '+kcls(p.kind)+'">'+esc(p.kind)+'</span><a href="/page?doc='+encodeURIComponent(p.doc_id)+'&page='+encodeURIComponent(p.page)+'&dpi=150&clean=1" target="_blank" style="color:var(--acc);text-decoration:none;font-size:12.5px">'+esc(p.vehicle||p.tm_number||"")+' · p.'+esc(p.page)+' ↗</a>';
+        (p.cautions||[]).slice(0,3).forEach(function(c){h+='<div class="caut '+kcls(c.kind)+'"><b>'+esc(c.kind)+'</b> — '+esc(c.text)+'</div>';});
+        if(p.tools&&p.tools.length){h+='<div style="margin:6px 0">';p.tools.slice(0,8).forEach(function(t){h+='<span class="tool">'+esc(t)+'</span>';});h+='</div>';}
+        if(p.steps&&p.steps.length){h+='<ol class="steps">';p.steps.slice(0,8).forEach(function(s){h+='<li>'+esc(s)+'</li>';});h+='</ol>';if(p.steps.length>8)h+='<div class="step-note">+'+(p.steps.length-8)+' more steps — open the full procedure.</div>';}
+        h+='</div>';
+      }); h+='<div class="btnrow"><a href="/procedure?q='+encodeURIComponent(part)+'" target="_blank">Full procedure ↗</a><a href="/packet?q='+encodeURIComponent(part)+'" target="_blank">🖨 Job packet ↗</a></div>'; }
+      else h+='<div class="empty">No parsed procedure yet (grows with OCR). <span class="btnrow"><a href="/procedure?q='+encodeURIComponent(part)+'" target="_blank">Search procedures ↗</a></span></div>';
+      h+='</div>';
+      // look-alike + schematic side by side
+      h+='<div class="grid" style="margin-top:12px">';
+      h+='<div class="card"><h3 class="f">🔍 Before you order — look-alike check</h3>';
+      if(pd.found&&pd.discriminators&&pd.discriminators.length){
+        h+='<div class="muted">'+pd.n_variants+' variants share this name. Watch:</div>';
+        pd.discriminators.forEach(function(x){h+='<span class="pill">'+esc(x.field)+'</span>';});
+        h+='<div class="muted" style="margin-top:6px">The UOC is usually the tell — confirm your vehicle\'s configuration.</div>';
+      } else h+='<div class="muted">No confusing look-alikes found for this name (in what\'s indexed).</div>';
+      h+='<div class="btnrow"><a href="/partdiff?q='+encodeURIComponent(part)+'" target="_blank">Compare variants ↗</a></div></div>';
+      h+='<div class="card"><h3 class="f">📐 Related schematic</h3><div id="schbox" class="muted">Looking…</div></div>';
+      h+='</div>';
+      h+='<div class="ground">Stitched from your manuals at query time — each link opens the real cited page. Verify torque, sequence, cautions and the exact NSN (UOC!) on the sheet before working or ordering.</div>';
+      $("#focus").innerHTML=h;
+      // schematic for the vehicle
+      var sq=vehicle||part;
+      getj("/api/schematics?q="+encodeURIComponent(sq)+"&limit=4").then(function(s){
+        var box=$("#schbox"); if(!box)return; var items=(s&&(s.items||s.results))||[];
+        if(items.length){ var hh="";
+          items.slice(0,4).forEach(function(it){ var doc=it.doc_id||it.id;
+            hh+='<div class="hit"><a href="/circuitlab?doc='+encodeURIComponent(doc)+'&page=1" target="_blank">'+esc(it.title||it.tm_number||("doc "+doc))+' ↗</a></div>';});
+          hh+='<div class="btnrow"><a href="/schematics?q='+encodeURIComponent(sq)+'" target="_blank">All schematics ↗</a></div>';
+          box.innerHTML=hh;
+        } else box.innerHTML='No schematic matched '+esc(sq)+'. <span class="btnrow"><a href="/schematics" target="_blank">Browse ↗</a></span>';
+      });
+    });
+}
+(function(){var m=location.search.match(/[?&]q=([^&]+)/); if(m){$("#q").value=decodeURIComponent(m[1].replace(/\+/g," "));solve();}})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

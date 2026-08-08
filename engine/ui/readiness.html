@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Readiness — fluids & intervals — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  h2{font-size:14px;margin:18px 0 8px;color:#9fb3c8}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:220px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:11px 15px;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #1c2530}
+  th{color:#8a98a8;font-weight:600;font-size:11px;text-transform:uppercase}
+  .cap{font-weight:700;color:#7fd6a0}.fl{color:#7fb8d6}
+  .pill{font-size:11px;border-radius:12px;padding:2px 8px;border:1px solid #2f4858;color:#9fb3c8}
+  .pill.usage{border-color:#2f6a86;color:#7fb8d6}.pill.calendar{border-color:#6a5417;color:#e8c07a}.pill.event{border-color:#1d9e75;color:#7fd6a0}
+  .none{color:#8a98a8;font-size:12.5px;padding:8px 0}
+</style></head><body>
+<div class="wrap">
+  <h1>🛢 Readiness — fluids &amp; service intervals</h1>
+  <div class="muted">One servicing view per vehicle: which fluid goes where (type + capacity) and how often each task is
+    due. Extracted from the LO / servicing sections, cited. Confirm on the page before servicing.</div>
+  <div class="search">
+    <input id="q" placeholder="Vehicle (e.g. HMMWV · M35 · M915)" autofocus>
+    <button class="go" id="go">Show</button>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a vehicle.'; return; }
+    history.replaceState(null,'','/readiness?q='+encodeURIComponent(q));
+    $('#head').textContent='Reading the servicing data…'; $('#out').innerHTML='';
+    Promise.all([gj('/api/fluids?q='+encodeURIComponent(q)), gj('/api/intervals?q='+encodeURIComponent(q))]).then(function(res){
+      var fl=(res[0]&&res[0].fluids)||{}, iv=(res[1]&&res[1].intervals)||[];
+      $('#head').textContent='';
+      var h='';
+      var keys=Object.keys(fl);
+      h+='<h2>Fluids matrix</h2>';
+      if(keys.length){ h+='<table><tr><th>System</th><th>Fluid / spec</th><th>Capacity</th></tr>'
+        +keys.map(function(k){var v=fl[k];return '<tr><td><b>'+esc(k)+'</b></td><td class="fl">'+esc(v.fluid||'—')+'</td><td class="cap">'+(v.capacity!=null?(esc(v.capacity)+' '+esc(v.unit||'')):'—')+'</td></tr>';}).join('')+'</table>'; }
+      else h+='<div class="none">No fluids/capacities found yet (grows with OCR of the LO / servicing pages).</div>';
+      h+='<h2>Service intervals</h2>';
+      if(iv.length){ h+='<table><tr><th>Every</th><th>Basis</th><th>Context</th></tr>'
+        +iv.map(function(x){return '<tr><td class="cap">'+esc(x.value)+' '+esc(x.unit)+'</td><td><span class="pill '+esc(x.basis)+'">'+esc(x.basis)+'</span></td><td class="muted">'+esc((x.context||'').slice(0,70))+(x.page?(' <span style="color:#4f9dff">p.'+esc(x.page)+'</span>'):'')+'</td></tr>';}).join('')+'</table>'; }
+      else h+='<div class="none">No service intervals found yet.</div>';
+      $('#out').innerHTML=h;
+    });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

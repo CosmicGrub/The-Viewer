@@ -1,0 +1,85 @@
+<svg viewBox="0 0 1180 900" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="900" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">How the 2D→3D representative viewer works</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">It does not guess geometry. It scales a bounding solid to the dimensions FLIS states, lists the real features verbatim, and lets you rotate it.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">THE VIEWER (marked up)</text>
+<rect x="40" y="126" width="520" height="360" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="142" width="360" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="72" y="159" font-size="10" font-weight="400" fill="#e6e9ee" text-anchor="start">Example part  ▾</text>
+<rect x="60" y="182" width="300" height="250" rx="8" fill="#0a0e12" stroke="#2b333f" stroke-width="1"/>
+<line x1="106" y1="272" x2="265" y2="225" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="265" y1="225" x2="265" y2="315" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="265" y1="315" x2="106" y2="361" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="106" y1="361" x2="106" y2="272" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="155" y1="299" x2="314" y2="253" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="314" y1="253" x2="314" y2="342" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="314" y1="342" x2="155" y2="389" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="155" y1="389" x2="155" y2="299" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="106" y1="272" x2="155" y2="299" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="265" y1="225" x2="314" y2="253" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="265" y1="315" x2="314" y2="342" stroke="#4f9dff" stroke-width="1.6"/>
+<line x1="106" y1="361" x2="155" y2="389" stroke="#4f9dff" stroke-width="1.6"/>
+<ellipse cx="210" cy="307" rx="10" ry="16" fill="none" stroke="#caa24a" stroke-width="1.4" opacity="0.75"/>
+<rect x="60" y="442" width="80" height="24" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="100" y="458" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="middle">▷ spin</text>
+<rect x="146" y="442" width="80" height="24" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="186" y="458" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="middle">↻ reset</text>
+<text x="236" y="458" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">zoom</text>
+<rect x="276" y="450" width="134" height="8" rx="4" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<circle cx="320" cy="454" r="7" fill="#4f9dff"/>
+<rect x="372" y="182" width="168" height="250" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="384" y="202" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">Dimensions used</text>
+<text x="384" y="216" font-size="8.5" font-weight="400" fill="#9aa6b6" text-anchor="start">L · W · H · ⌀ · bore</text>
+<text x="384" y="238" font-size="9" font-weight="700" fill="#caa24a" text-anchor="start">FLIS characteristics</text>
+<text x="384" y="254" font-size="7.6" font-weight="400" fill="#9aa6b6" text-anchor="start">OUTSIDE DIA: 0.865&quot;</text>
+<text x="384" y="268" font-size="7.6" font-weight="400" fill="#9aa6b6" text-anchor="start">HOLE DIA: 0.511&quot;</text>
+<text x="384" y="282" font-size="7.6" font-weight="400" fill="#9aa6b6" text-anchor="start">THICKNESS: 0.200&quot;</text>
+<text x="384" y="296" font-size="7.6" font-weight="400" fill="#9aa6b6" text-anchor="start">MATERIAL: STEEL</text>
+<text x="384" y="310" font-size="7.6" font-weight="400" fill="#9aa6b6" text-anchor="start">STYLE: SPLIT HELICAL</text>
+<rect x="384" y="332" width="80" height="18" rx="5" fill="#3a2f1a" stroke="#2b333f" stroke-width="1"/>
+<text x="424" y="344" font-size="8.5" font-weight="700" fill="#caa24a" text-anchor="middle">FLIS 2016</text>
+<text x="384" y="366" font-size="7.6" font-weight="400" fill="#7c8696" text-anchor="start">Representative — not a CAD</text><text x="384" y="376" font-size="7.6" font-weight="400" fill="#7c8696" text-anchor="start">model; only listed</text><text x="384" y="386" font-size="7.6" font-weight="400" fill="#7c8696" text-anchor="start">features asserted.</text>
+<path d="M360,300 L600,150" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 3" fill="none"/>
+<text x="606" y="150" font-size="9.5" font-weight="700" fill="#2f7d4f" text-anchor="start">① bounding solid scaled to stated L×W×H</text>
+<path d="M210.0,307.0 L600,190" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 3" fill="none"/>
+<text x="606" y="190" font-size="9.5" font-weight="700" fill="#caa24a" text-anchor="start">② amber ellipse = a stated bore (hole ⌀)</text>
+<path d="M320,454 L600,230" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 3" fill="none"/>
+<text x="606" y="230" font-size="9.5" font-weight="700" fill="#4f9dff" text-anchor="start">③ drag = rotate · scroll/slider = zoom · spin</text>
+<path d="M460,238 L600,270" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 3" fill="none"/>
+<text x="606" y="270" font-size="9.5" font-weight="700" fill="#2f7d4f" text-anchor="start">④ the distinguishing features, verbatim &amp; cited</text>
+<path d="M424,341 L600,310" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 3" fill="none"/>
+<text x="606" y="310" font-size="9.5" font-weight="700" fill="#caa24a" text-anchor="start">⑤ FLIS vintage tag (year the data is effective)</text>
+<text x="606" y="360" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">HOW IT&#x27;S BUILT (per part)</text>
+<rect x="606" y="376" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="397" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · FLIS characteristics (cited)</text>
+<text x="620" y="413" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;OUTSIDE DIAMETER: 0.865 IN; HOLE DIAMETER: 0.511 IN; THICKNESS: 0.200 IN…&#x27;</text>
+<path d="M873,428 L873,436" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="436" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="457" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · Parse stated dimensions</text>
+<text x="620" y="473" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">regex → L, W, H, ⌀, bore (only what FLIS actually states)</text>
+<path d="M873,488 L873,496" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="496" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="517" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · Bounding solid + bore</text>
+<text x="620" y="533" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">8 vertices of an L×W×H box + a centered ellipse for the hole</text>
+<path d="M873,548 L873,556" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="556" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="577" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · Rotate + orthographic project</text>
+<text x="620" y="593" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">rotation matrix (drag sets angles) → 2D points</text>
+<path d="M873,608 L873,616" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="616" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="637" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · Draw SVG wireframe</text>
+<text x="620" y="653" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">12 edges + bore → offline, no library, no WebGL</text>
+<rect x="40" y="690" width="1100" height="180" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="714" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">THE GROUNDING RULE (why this is honest)</text>
+<text x="58" y="736" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="736" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Model only what the documentation specifies. The solid is scaled to the dimensions FLIS states; nothing is invented.</text>
+<text x="58" y="753" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="753" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Surfaces are schematic — a bounding solid, not exact geometry. It conveys size + the stated bore, not unstated curves/features.</text>
+<text x="58" y="770" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="770" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">The distinguishing features (hole count, thread, material, style) are shown VERBATIM next to it and cited to FLIS, with the data&#x27;s year.</text>
+<text x="58" y="787" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="787" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">So it&#x27;s trustworthy exactly where it&#x27;s labeled trustworthy — and a true CAD/photogrammetry model can drop in later for parts that need exact surfaces.</text>
+<text x="40" y="888" font-size="9.4" font-weight="400" fill="#6b7280" text-anchor="start">The interactive version is live in the chat. Dark (R3). Matches the in-app &#x27;🧊 View representative 3D&#x27; on cart parts with FLIS dimensions.</text>
+</svg>

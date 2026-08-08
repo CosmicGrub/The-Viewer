@@ -1,0 +1,50 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Figure → Parts: closing the navigation loop   v0.99.8</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The locator sends you from a part to its figures. figureparts sends you from a figure back to ALL its parts — so you can walk the sheet both ways.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="118" width="272" height="150" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="56" y="142" font-size="12.5" font-weight="700" fill="#caa24a" text-anchor="start">🧭  Locate a part</text>
+<text x="56" y="160" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">/locate?q=NSN</text>
+<text x="56" y="182" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Enter NSN / P-N / name.</text>
+<text x="56" y="197" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">partlocate.py -&gt; every figure</text>
+<text x="56" y="212" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">&amp; page that calls it out.</text>
+<rect x="318" y="118" width="272" height="150" rx="11" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="334" y="142" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">🔎  Deep-zoom a figure</text>
+<text x="334" y="160" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">/deepzoom?doc&amp;page</text>
+<text x="334" y="182" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Open the page, pan/zoom,</text>
+<text x="334" y="197" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">progressive DPI + callout</text>
+<text x="334" y="212" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">hotspots on the drawing.</text>
+<rect x="596" y="118" width="272" height="150" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="612" y="142" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">🧩  Parts on this page</text>
+<text x="612" y="160" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/figureparts</text>
+<text x="612" y="182" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">NEW. figureparts.py lists</text>
+<text x="612" y="197" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">EVERY part on the sheet from</text>
+<text x="612" y="212" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">the parts index (deduped).</text>
+<rect x="874" y="118" width="272" height="150" rx="11" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="890" y="142" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">📇  Any part&#x27;s dossier</text>
+<text x="890" y="160" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">/dossier · /partdiff</text>
+<text x="890" y="182" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Each row links back to its</text>
+<text x="890" y="197" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">dossier / look-alike diff /</text>
+<text x="890" y="212" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">CAD — and back to /locate.</text>
+<line x1="310" y1="193" x2="320" y2="193" stroke="#1d9e75" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="588" y1="193" x2="598" y2="193" stroke="#1d9e75" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="866" y1="193" x2="876" y2="193" stroke="#1d9e75" stroke-width="2" marker-end="url(#ah)"/>
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1d9e75"/></marker></defs>
+<path d="M1010,268 C1010,302 176,302 176,272" stroke="#caa24a" stroke-width="2" fill="none" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+<text x="358" y="298" font-size="9.5" font-weight="400" fill="#caa24a" text-anchor="start">loop: any part → relocate → next figure</text>
+<line x1="40" y1="322" x2="1140" y2="322" stroke="#2b333f"/>
+<text x="40" y="350" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">WHAT IT RETURNS</text>
+<rect x="40" y="364" width="1100" height="92" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="388" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">GET /api/figureparts?doc=ID&amp;page=N -&gt; { doc, page, fig_no, fig_title, count, parts:[ {nsn, part_number, name, nomenclature, cagec, smr, uoc, dossier_url, locate_url, cad_url} ] }. Deduped by (nsn, part-no, name); NSN-first</text><text x="58" y="403" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">ordering. Read-only on parts; db_path passed explicitly. The /deepzoom drawer consumes it directly and refreshes on page-turn.</text>
+<line x1="40" y1="472" x2="1140" y2="472" stroke="#2b333f"/>
+<text x="40" y="500" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED / R1</text>
+<rect x="40" y="514" width="1100" height="74" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="533" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="536" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">figureparts.py logic-tested in-sandbox on a synthetic index: dup part counted once, fig metadata extracted (fig FIG 5, count 2).</text>
+<circle cx="56" cy="549" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="552" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">deepzoom.html inline JS passes node --check; the 🧩 drawer is pure ES5, no new deps. Route is one declarative @get (host-verify in VERIFY-099.bat).</text>
+<circle cx="56" cy="565" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="568" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable: one module + one read-only route + one UI drawer. Nothing writes the index (R1/R6).</text>
+<text x="40" y="690" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.8 · 2026-07-01 · figureparts.py //api/figureparts · /deepzoom drawer. Read-only. R1/R6.</text>
+</svg>

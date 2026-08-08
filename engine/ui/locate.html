@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part Locator — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{margin:0;background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:22px 18px 60px}
+  h1{font-size:22px;margin:0 0 2px}.sub{color:#8a98a8;font-size:12px;margin-bottom:16px}
+  .search{display:flex;gap:8px;margin-bottom:16px}
+  .search input{flex:1;background:#10151c;border:1px solid #2f4858;color:#e6edf4;border-radius:8px;padding:10px 12px;font-size:14px}
+  button,a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:6px;padding:6px 11px;cursor:pointer;font-size:12px;text-decoration:none}
+  button.go{background:#2f6db0;color:#fff;padding:10px 16px}
+  .hit{background:#10151c;border:1px solid #223;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .hit .meta{min-width:0}
+  .hit b{color:#cfe}.muted{color:#8a98a8;font-size:12px}
+  .fig{background:#16202b;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:12px;color:#8fb3d9}
+  .acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+</style></head><body>
+<div class="wrap">
+  <h1>🧭 Part Locator</h1>
+  <div class="sub">Find every figure / page in the corpus that calls out a part — by NSN, part number, or name.</div>
+  <div class="search">
+    <input id="q" placeholder="e.g.  5305-01-674-1467   ·   12420572-010   ·   ALTERNATOR" autofocus>
+    <button class="go" id="go">Locate</button>
+    <button id="sheet" title="Printable PDF of every figure this part appears on">🖨 Figure sheet</button>
+    <button id="wo" title="Full Work Order PDF: procedures + tools + cautions + torque + parts + figures">🧾 Work Order</button>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="results"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type at least 2 characters.'; return; }
+    $('#results').innerHTML=''; $('#head').textContent='searching…';
+    fetch('/api/partlocate?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(d){
+      if(!d){ $('#head').textContent='error.'; return; }
+      if(d.error){ $('#head').textContent='error: '+d.error; return; }
+      var nm=(d.names&&d.names.length)?(' — '+d.names.join(', ')):'';
+      $('#head').innerHTML='<b>'+d.count+'</b> appearance'+(d.count===1?'':'s')+' across <b>'+(d.documents||0)+'</b> document'+((d.documents===1)?'':'s')+(d.nsn?(' · NSN '+esc(d.nsn)):'')+esc(nm);
+      var h='';
+      (d.appearances||[]).forEach(function(a){
+        h+='<div class="hit"><div class="meta">'+
+          '<div><b>'+esc(a.vehicle||'—')+'</b> <span class="muted">'+esc(a.tm||'')+'</span></div>'+
+          '<div class="muted">'+esc(a.name||a.nomenclature||'')+(a.cagec?(' · CAGEC '+esc(a.cagec)):'')+(a.part_number?(' · P/N '+esc(a.part_number)):'')+'</div>'+
+          '</div>'+
+          '<span class="fig">'+(a.fig_no?esc(a.fig_no):'p.'+a.page)+(a.fig_title?(' · '+esc(a.fig_title)):'')+' · p.'+a.page+'</span>'+
+          '<span class="acts">'+
+          '<a class="btn" href="'+a.deepzoom_url+'" target="_blank">🔎 Deep Zoom</a>'+
+          '<a class="btn" href="'+a.vectorize_url+'" target="_blank">⛭ Vector</a>'+
+          '<a class="btn" href="'+a.page_url+'" target="_blank">open</a>'+
+          '</span></div>';
+      });
+      $('#results').innerHTML=h||'<div class="muted">No appearances found. Try the NSN, or a shorter name.</div>';
+    }).catch(function(){ $('#head').textContent='request failed.'; });
+  }
+  $('#go').onclick=run;
+  $('#sheet').onclick=function(){ var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part first.'; return; } window.open('/api/figuresheet?q='+encodeURIComponent(q),'_blank'); };
+  $('#wo').onclick=function(){ var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part or task first.'; return; } window.open('/jobcard?q='+encodeURIComponent(q),'_blank'); };
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var q0=new URLSearchParams(location.search).get('q'); if(q0){ $('#q').value=q0; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

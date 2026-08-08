@@ -1,0 +1,84 @@
+<svg viewBox="0 0 1180 860" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="860" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">MOCKUP — Dual-track changelog: Modern + Legacy (Retroactive Post-Support)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">The Legacy line BRANCHES at the exact version it was created, runs in parallel, and each entry notes what&#x27;s shared vs. backported from the modern track.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="118" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · BRANCHED VERSION TIMELINE (the canonical view, dark + PDF)</text>
+<rect x="40" y="128" width="1100" height="270" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="60" y="157" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">MODERN  (Performance · Win10/11)</text>
+<line x1="120" y1="185" x2="1000" y2="185" stroke="#3a5a44" stroke-width="2.5"/>
+<circle cx="140" cy="185" r="7" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="140" y="169" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.35.0</text>
+<circle cx="300" cy="185" r="7" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="300" y="169" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.36.0</text>
+<circle cx="460" cy="185" r="7" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="460" y="169" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.37.0</text>
+<circle cx="620" cy="185" r="7" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="620" y="169" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.38.0</text>
+<circle cx="780" cy="185" r="7" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="780" y="169" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.39.0</text>
+<circle cx="940" cy="185" r="7" fill="#16301f" stroke="#2f7d4f" stroke-width="2"/>
+<text x="940" y="169" font-size="8.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.40.0</text>
+<path d="M1000,185 L1020,185" stroke="#3a5a44" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<text x="60" y="364" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">LEGACY  (Retroactive Post-Support · Win7/Vista)</text>
+<line x1="460" y1="330" x2="1000" y2="330" stroke="#2b486e" stroke-width="2.5"/>
+<path d="M460,192 C460,235 460,280 460,323" stroke="#7f77dd" stroke-width="2" fill="none" stroke-dasharray="2 0"/>
+<text x="360" y="265" font-size="8.6" font-weight="700" fill="#7f77dd" text-anchor="start">branches here</text>
+<text x="360" y="279" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">(legacy created)</text>
+<circle cx="460" cy="330" r="7" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="460" y="352" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.37.0-legacy</text>
+<circle cx="620" cy="330" r="7" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="620" y="352" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.38.0-legacy</text>
+<circle cx="780" cy="330" r="7" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="780" y="352" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.39.0-legacy</text>
+<circle cx="940" cy="330" r="7" fill="#16223a" stroke="#4f9dff" stroke-width="2"/>
+<text x="940" y="352" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="middle">0.40.0-legacy</text>
+<path d="M1000,330 L1020,330" stroke="#2b486e" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<path d="M620,192 L620,323" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<path d="M780,192 L780,323" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<path d="M940,192 L940,323" stroke="#caa24a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#a)"/>
+<text x="625" y="260" font-size="7.8" font-weight="700" fill="#caa24a" text-anchor="start">backport</text>
+<text x="625" y="272" font-size="7.4" font-weight="400" fill="#9aa6b6" text-anchor="start">(adapted)</text>
+<text x="60" y="378" font-size="8.8" font-weight="700" fill="#9aa6b6" text-anchor="start">Parity badge per legacy entry:</text>
+<text x="250" y="378" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ same feature   ~ adapted (Poppler/Tesseract/lite)   – N/A (GPU-only, not applicable)</text>
+<text x="56" y="424" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · CHANGELOG-LEGACY.md — entry format (markup)</text>
+<rect x="40" y="434" width="560" height="340" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="458" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="start">## [0.37.0-legacy] — 2026-06-02 — Legacy track created</text>
+<text x="58" y="474.2" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Forked from modern 0.37.0 at the complete-compat point.</text>
+<text x="58" y="490.4" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Target: Windows 7 / Vista, comparable responsiveness.</text>
+<text x="58" y="506.59999999999997" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start"></text>
+<text x="58" y="522.8" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="start">### In this build</text>
+<text x="58" y="539.0" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="start">- Core search / vehicle hub / 104th sheet  ✓ same</text>
+<text x="58" y="555.2" font-size="8.4" font-weight="400" fill="#caa24a" text-anchor="start">- Page render via Poppler (pdftoppm)        ~ adapted</text>
+<text x="58" y="571.4000000000001" font-size="8.4" font-weight="400" fill="#caa24a" text-anchor="start">- OCR via Tesseract (CPU)                   ~ adapted</text>
+<text x="58" y="587.6000000000001" font-size="8.4" font-weight="400" fill="#caa24a" text-anchor="start">- ES5 UI bundle + Firefox ESR note          ~ adapted</text>
+<text x="58" y="603.8000000000002" font-size="8.4" font-weight="400" fill="#4f9dff" text-anchor="start">- Pre-baked page cache + warm-on-view       + new</text>
+<text x="58" y="620.0000000000002" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">- GPU acceleration                          – N/A</text>
+<text x="58" y="636.2000000000003" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start"></text>
+<text x="58" y="652.4000000000003" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="start">### Parity with modern</text>
+<text x="58" y="668.6000000000004" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Matches modern 0.37.0 features; GPU is the only</text>
+<text x="58" y="684.8000000000004" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">omission (speed, not a feature).</text>
+<text x="58" y="701.0000000000005" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start"></text>
+<text x="58" y="717.2000000000005" font-size="8.4" font-weight="700" fill="#e6e9ee" text-anchor="start">## [0.40.0-legacy] — later — backport</text>
+<text x="58" y="733.4000000000005" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Backported the alias map + status page from</text>
+<text x="58" y="749.6000000000006" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">modern 0.40.0 (adapted for the lite UI).</text>
+<text x="620" y="424" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · HOW IT FITS + MY RECOMMENDATION</text>
+<rect x="604" y="434" width="536" height="340" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="620" cy="454" r="3" fill="#2f7d4f"/>
+<text x="632" y="458" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Two files, one timeline</text>
+<text x="632" y="473.0" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">CHANGELOG.md (modern) + CHANGELOG-LEGACY.md (legacy), plus ONE branched visual</text><text x="632" y="484.5" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">timeline (this) that shows where legacy forked and every backport. Each stays</text><text x="632" y="496.0" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">readable; the diagram shows the relationship.</text>
+<circle cx="620" cy="508.5" r="3" fill="#2f7d4f"/>
+<text x="632" y="512.5" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Version as &lt;base&gt;-legacy</text>
+<text x="632" y="527.5" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Name legacy builds after the modern baseline they branch from (0.37.0-legacy) so the</text><text x="632" y="539.0" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">relationship is always explicit at a glance.</text>
+<circle cx="620" cy="551.5" r="3" fill="#2f7d4f"/>
+<text x="632" y="555.5" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Parity line on every entry</text>
+<text x="632" y="570.5" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Each legacy entry tags features same / adapted / N-A and ends with a &#x27;Parity with</text><text x="632" y="582.0" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">modern&#x27; summary — answers &#x27;is it caught up?&#x27; instantly.</text>
+<circle cx="620" cy="594.5" r="3" fill="#2f7d4f"/>
+<text x="632" y="598.5" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">Backports are first-class</text>
+<text x="632" y="613.5" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">When a modern feature lands in legacy, it gets its own dated legacy entry + a dashed</text><text x="632" y="625.0" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">cross-link on the timeline (your &#x27;added in conjunction with overall progress&#x27;).</text>
+<circle cx="620" cy="637.5" r="3" fill="#2f7d4f"/>
+<text x="632" y="641.5" font-size="9.8" font-weight="700" fill="#e6e9ee" text-anchor="start">R5 visual, automated</text>
+<text x="632" y="656.5" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Extend the visual-changelog generator to emit this branched timeline so it stays</text><text x="632" y="668.0" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">current with every release (fits rules R4/R5).</text>
+<text x="40" y="848" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">MOCKUP — your call. Dark (R3). Concept only; nothing built. Pairs with the Retroactive Post-Support plan (diagram 52).</text>
+</svg>

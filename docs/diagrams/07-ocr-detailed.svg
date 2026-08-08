@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>How OCR works in THE VIEWER (detailed)</title>
+<desc>Detailed OCR pipeline: a page is probed for embedded text; text pages index directly while scanned pages are queued. The OCR worker pulls a queued page, rasterizes it with PyMuPDF, runs RapidOCR detection then recognition to produce text plus confidence, and writes it back into the FTS5 index. A durable state machine and parallel workers make it resumable.</desc>
+<style>
+  .h{font-size:11px;font-weight:700;fill:#7b8794;letter-spacing:.6px}
+  .lbl{font-size:12px;font-weight:600;fill:#1f2933}
+  .sub{font-size:9.5px;fill:#52606d}
+  .tiny{font-size:8.5px;fill:#6b7682}
+  .edge{stroke:#9aa5b1;stroke-width:1.6;fill:none;marker-end:url(#a)}
+  .edge.d{stroke-dasharray:5 4}
+  .leg{font-size:10px;fill:#52606d}
+  .mono{font-size:9px;fill:#1f2933;font-family:ui-monospace,Consolas,monospace}
+  text{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+</style>
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker>
+</defs>
+<rect x="0" y="0" width="1000" height="760" fill="#ffffff"/>
+<text x="24" y="34" class="h">① DECIDE — IS THE PAGE ALREADY TEXT?</text>
+<rect x="24" y="44" width="150" height="56" rx="9" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="99" y="68" text-anchor="middle" class="lbl">PDF page</text>
+<text x="99" y="85" text-anchor="middle" class="sub">from the crawl</text>
+<rect x="200" y="44" width="160" height="56" rx="9" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="280" y="64" text-anchor="middle" class="lbl">Probe embedded text</text>
+<text x="280" y="80" text-anchor="middle" class="sub">PyMuPDF get_text</text>
+<text x="280" y="93" text-anchor="middle" class="tiny">chars &lt; 15 ? → scanned</text>
+<rect x="392" y="20" width="150" height="42" rx="9" fill="#e3f1e6" stroke="#b3d9bd"/>
+<text x="467" y="38" text-anchor="middle" class="lbl">Has text</text>
+<text x="467" y="53" text-anchor="middle" class="sub">index directly (no OCR)</text>
+<rect x="392" y="82" width="150" height="42" rx="9" fill="#fdf0dd" stroke="#eccfa0"/>
+<text x="467" y="100" text-anchor="middle" class="lbl">Scanned / image</text>
+<text x="467" y="115" text-anchor="middle" class="sub">queue: pending_ocr</text>
+<path class="edge" d="M174,72 L200,72"/>
+<path class="edge" d="M360,62 C378,52 380,46 392,42"/>
+<path class="edge d" d="M360,82 C378,92 380,98 392,100"/>
+<text x="24" y="160" class="h">② RASTERIZE</text>
+<rect x="24" y="172" width="170" height="70" rx="9" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="109" y="196" text-anchor="middle" class="lbl">Render page → image</text>
+<text x="109" y="213" text-anchor="middle" class="sub">PyMuPDF pixmap @ 200 dpi</text>
+<text x="109" y="229" text-anchor="middle" class="tiny">crisp enough for small part numbers</text>
+<text x="230" y="160" class="h">③ RapidOCR ENGINE (two neural stages, on CPU)</text>
+<rect x="230" y="172" width="520" height="118" rx="11" fill="#f3f8f4" stroke="#cfe6d6"/>
+<rect x="246" y="192" width="150" height="80" rx="8" fill="#e3f1e6" stroke="#b3d9bd"/>
+<text x="321" y="212" text-anchor="middle" class="lbl">Detection</text>
+<text x="321" y="228" text-anchor="middle" class="sub">find every text box</text>
+<text x="321" y="244" text-anchor="middle" class="tiny">DBNet — locates lines/words</text>
+<text x="321" y="260" text-anchor="middle" class="tiny">on the page image</text>
+<rect x="410" y="192" width="150" height="80" rx="8" fill="#e3f1e6" stroke="#b3d9bd"/>
+<text x="485" y="212" text-anchor="middle" class="lbl">Recognition</text>
+<text x="485" y="228" text-anchor="middle" class="sub">read each box → text</text>
+<text x="485" y="244" text-anchor="middle" class="tiny">CRNN — image crop to</text>
+<text x="485" y="260" text-anchor="middle" class="tiny">characters + confidence</text>
+<rect x="574" y="192" width="160" height="80" rx="8" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="654" y="212" text-anchor="middle" class="lbl">Assemble</text>
+<text x="654" y="228" text-anchor="middle" class="sub">lines + scores</text>
+<text x="654" y="244" text-anchor="middle" class="tiny">join in reading order;</text>
+<text x="654" y="260" text-anchor="middle" class="tiny">avg confidence kept</text>
+<path class="edge" d="M396,232 L410,232"/>
+<path class="edge" d="M560,232 L574,232"/>
+<path class="edge" d="M194,207 C212,210 214,228 246,232"/>
+<text x="790" y="160" class="h">④ INDEX</text>
+<rect x="790" y="172" width="186" height="118" rx="11" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="883" y="196" text-anchor="middle" class="lbl">Write to viewer.db</text>
+<text x="804" y="216" class="mono">pages.body_text = text</text>
+<text x="804" y="232" class="mono">source = 'ocr'</text>
+<text x="804" y="248" class="mono">ocr_status = 'done'</text>
+<text x="883" y="270" text-anchor="middle" class="sub">→ FTS5 makes it searchable</text>
+<path class="edge" d="M734,231 L790,231"/>
+<text x="24" y="330" class="h">⑤ DURABLE STATE MACHINE (per page) — nothing lost if stopped</text>
+<rect x="40" y="344" width="120" height="44" rx="20" fill="#fdf0dd" stroke="#eccfa0"/>
+<text x="100" y="370" text-anchor="middle" class="lbl">pending_ocr</text>
+<rect x="220" y="344" width="120" height="44" rx="20" fill="#fdf0dd" stroke="#eccfa0"/>
+<text x="280" y="370" text-anchor="middle" class="lbl">running</text>
+<rect x="400" y="344" width="120" height="44" rx="20" fill="#e3f1e6" stroke="#b3d9bd"/>
+<text x="460" y="370" text-anchor="middle" class="lbl">done</text>
+<rect x="400" y="404" width="120" height="40" rx="20" fill="#f9e3e3" stroke="#e6b3b3"/>
+<text x="460" y="429" text-anchor="middle" class="lbl">failed</text>
+<path class="edge" d="M160,366 L220,366"/>
+<path class="edge" d="M340,366 L400,366"/>
+<path class="edge d" d="M340,380 C370,400 372,420 400,424"/>
+<path class="edge d" d="M460,404 C470,398 470,392 462,388"/>
+<text x="556" y="360" class="sub">• committed every few pages → a crash/Ctrl+C just resumes</text>
+<text x="556" y="378" class="sub">• re-running skips 'done' pages (idempotent)</text>
+<text x="556" y="396" class="sub">• 'failed' pages keep last_error and are retryable</text>
+<text x="24" y="486" class="h">⑥ THROUGHPUT</text>
+<rect x="40" y="498" width="270" height="64" rx="10" fill="#e8eef9" stroke="#b9c8e6"/>
+<text x="175" y="520" text-anchor="middle" class="lbl">Parallel workers (= CPU cores)</text>
+<text x="175" y="538" text-anchor="middle" class="sub">each worker runs the full ②→③→④ chain</text>
+<text x="175" y="553" text-anchor="middle" class="tiny">--workers N · main process writes results to the index</text>
+<rect x="330" y="498" width="300" height="64" rx="10" fill="#eef2f6" stroke="#cbd2d9"/>
+<text x="480" y="520" text-anchor="middle" class="lbl">Why it is the slow pass</text>
+<text x="480" y="538" text-anchor="middle" class="sub">~1–3 s per page (two neural nets per page)</text>
+<text x="480" y="553" text-anchor="middle" class="tiny">vs text extraction at ~12 files/sec — so OCR runs in the background</text>
+<rect x="24" y="600" width="14" height="11" rx="3" fill="#fdf0dd" stroke="#eccfa0"/><text x="44" y="609" class="leg">queued / in-progress</text>
+<rect x="200" y="600" width="14" height="11" rx="3" fill="#e3f1e6" stroke="#b3d9bd"/><text x="220" y="609" class="leg">OCR compute / done</text>
+<rect x="370" y="600" width="14" height="11" rx="3" fill="#e8eef9" stroke="#b9c8e6"/><text x="390" y="609" class="leg">render / workers</text>
+<rect x="520" y="600" width="14" height="11" rx="3" fill="#eef2f6" stroke="#cbd2d9"/><text x="540" y="609" class="leg">index / page state</text>
+<rect x="660" y="600" width="14" height="11" rx="3" fill="#f9e3e3" stroke="#e6b3b3"/><text x="680" y="609" class="leg">failed (retryable)</text>
+<text x="24" y="648" class="sub">Engine: RapidOCR (ONNX, pip-installed, no admin) — replaces Tesseract; Tesseract kept only as a fallback. All offline.</text>
+<text x="24" y="667" class="sub">Verified on a scanned 815F parts page: 142 lines recovered at ~99% average confidence, including part numbers (5P8500, 9X2205).</text>
+<text x="24" y="686" class="sub">Rule R1 — additive: no schema/data change, fallbacks preserved.   Rule R2 — this is the detailed diagram for the OCR function.</text>
+</svg>

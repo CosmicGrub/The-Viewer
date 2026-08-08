@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Masterfile — consolidated data — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  h2{font-size:14px;margin:20px 0 6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #1c2530}
+  th{color:#8a98a8;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}
+  .val{font-weight:700;color:#7fd6a0}
+  .tag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 7px;font-weight:700}
+  .tag.auth{background:#123020;color:#7fd6a0;border:1px solid #1d9e75}
+  .tag.ext{background:#171207;color:#e8c07a;border:1px solid #4a3a17}
+  .row-ext .val{color:#e8c07a}
+  .cite{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:1px 7px;font-size:11px}
+  .note{color:#8a98a8;font-size:11px}
+  .lead{color:#8a98a8;font-size:12px;margin:2px 0 10px}
+  .conf{font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 6px;font-weight:700;margin-left:6px}
+  .conf.high{background:#123020;color:#7fd6a0;border:1px solid #1d9e75}
+  .conf.medium{background:#10202c;color:#7fb8d6;border:1px solid #2f6a86}
+  .conf.review{background:#2a2207;color:#e8c07a;border:1px solid #6a5417}
+  .conf.low{background:#2a1414;color:#e39b95;border:1px solid #6a2f2a}
+</style></head><body>
+<div class="wrap">
+  <h1>🗂 Masterfile — consolidated measurement & dimensional data</h1>
+  <div class="muted">One congruent view per subject: the manuals' <b>authoritative</b> figures (cited to the TM page)
+    merged with <b>external</b> values that only fill the gaps the manuals leave open. No external links — the manuals
+    remain the source of truth.</div>
+  <div class="search">
+    <input id="q" placeholder="vehicle / part — e.g. HMMWV · M35 · alternator" autofocus>
+    <button class="go" id="go">Open Masterfile</button>
+    <button class="go" id="sheet" title="Print a one-page spec sheet of this subject's dimensions" style="background:#1b2735;color:#cfe;border:1px solid #2f4858">📄 Spec sheet PDF</button>
+    <a class="btn" href="/mastercov">📊 Coverage</a>
+    <a class="btn" href="/measures">📐 Measurements</a><a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="filtered"></div>
+  <div id="raw"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function span(f){ return (f.low&&f.high&&f.low!==f.high)?(' <span class="note">(range '+esc(f.low)+'–'+esc(f.high)+')</span>'):''; }
+  function renderFiltered(rows){
+    if(!rows.length){ $('#filtered').innerHTML=''; return; }
+    var h='<h2>Filtered — canonical value per dimension</h2>'
+      +'<div class="lead">Confidence: <span class="conf high">high</span> cited &amp; corroborated · '
+      +'<span class="conf medium">medium</span> single authoritative cite · '
+      +'<span class="conf review">review</span> wide spread, check the page · '
+      +'<span class="conf low">low</span> external, unconfirmed.</div>'
+      +'<table><tr><th>Dimension</th><th>Value</th><th>Source</th><th>Confidence</th><th>Samples</th></tr>';
+    h+=rows.map(function(f){
+      var tag=f.authoritative?'<span class="tag auth">authoritative</span>':'<span class="tag ext">external · unconfirmed</span>';
+      var cf=(f.confidence||(f.authoritative?'medium':'low'));
+      var cfc=({high:'high',medium:'medium',review:'review',low:'low'})[cf]||'low';
+      return '<tr class="'+(f.authoritative?'':'row-ext')+'"><td>'+esc(f.type)+'</td>'
+        +'<td class="val">'+esc(f.value)+' '+esc(f.unit)+span(f)+'</td><td>'+tag+'</td>'
+        +'<td><span class="conf '+cfc+'">'+esc(cf)+'</span></td><td class="note">'+esc(f.n)+'</td></tr>';
+    }).join('');
+    $('#filtered').innerHTML=h+'</table>';
+  }
+  function renderRaw(rows){
+    if(!rows.length){ $('#raw').innerHTML=''; return; }
+    var h='<h2>Raw — every extracted value</h2><table><tr><th>Dimension</th><th>Value</th><th>Context</th><th>Source</th></tr>';
+    h+=rows.map(function(r){
+      var v=esc(r.value)+(r.value2?('–'+esc(r.value2)):'')+(r.tolerance?(' ±'+esc(r.tolerance)):'')+' '+esc(r.unit);
+      var src=r.origin==='corpus'
+        ? (r.page_url?('<a class="cite" href="'+esc(r.page_url)+'" target="_blank">manual p.'+esc(r.page)+' ↗</a>'):'<span class="tag auth">manual</span>')
+        : '<span class="tag ext">external</span>';
+      return '<tr class="'+(r.origin==='corpus'?'':'row-ext')+'"><td>'+esc(r.type)+'</td><td class="val">'+v+'</td>'
+        +'<td class="note">'+esc(r.context||'')+'</td><td>'+src+'</td></tr>';
+    }).join('');
+    $('#raw').innerHTML=h+'</table>';
+  }
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a vehicle or part.'; return; }
+    $('#head').textContent='Consolidating…'; $('#filtered').innerHTML=''; $('#raw').innerHTML='';
+    fetch('/api/master?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      var f=(j&&j.filtered)||[], raw=(j&&j.raw)||[];
+      if(!f.length&&!raw.length){ $('#head').textContent='Nothing in the Masterfile for “'+q+'” yet. Build it with BUILD-MASTERFILE.bat.'; return; }
+      var c=(j.counts||{});
+      $('#head').innerHTML='<b>'+esc((f[0]&&f[0].subject_label)||q)+'</b> — '+f.length+' dimensions · '
+        +(c.corpus||0)+' authoritative + '+(c.external||0)+' external raw values.';
+      renderFiltered(f); renderRaw(raw);
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  $('#sheet').onclick=function(){ var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a vehicle/part first, then Spec sheet PDF.'; return; } window.open('/api/specsheet?q='+encodeURIComponent(q),'_blank'); };
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

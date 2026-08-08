@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part — everything — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1040px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer}
+  a.btn,button.alt{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;cursor:pointer;font-size:13.5px;display:inline-block}
+  a.pkg{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:700}
+  .idcard{background:#111823;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:12px 0}
+  .nsn{font-size:22px;font-weight:800;color:#7fd6a0;letter-spacing:.5px}
+  .iname{font-size:16px;font-weight:700}
+  .links{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .alert{border-radius:8px;padding:9px 12px;margin:8px 0;font-size:13px}
+  .alert.obs{background:#2a1414;border:1px solid #6a2f2a;color:#e39b95}
+  .alert.verd{background:#1a130a;border:1px solid #4a3a17;color:#e8c07a}
+  h2{font-size:14px;margin:18px 0 6px;color:#9fb3c8}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  .card{background:#111823;border:1px solid #1c2530;border-radius:10px;padding:12px 14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 9px;border-bottom:1px solid #1c2530;vertical-align:top}
+  th{color:#8a98a8;font-weight:600;font-size:11px;text-transform:uppercase}
+  .val{font-weight:700;color:#7fd6a0}.tq{color:#e7c06a;font-weight:700}
+  .caut{border-left:3px solid #6a2f2a;padding:4px 8px;margin:4px 0;font-size:12.5px;color:#e6b9b4;background:#1a1010;border-radius:4px}
+  .none{color:#8a98a8;font-size:12.5px;padding:8px 0}
+  .proc{border-bottom:1px solid #1a222d;padding:6px 0;font-size:13px}
+  .kind{display:inline-block;background:#1c2836;border:1px solid #2f4858;border-radius:5px;padding:1px 7px;font-size:11px;color:#9fd0ff;margin-right:6px}
+</style></head><body>
+<div class="wrap">
+  <h1>🪪 Part — everything in one pane</h1>
+  <div class="muted">One authoritative summary per part: identity, alerts, parts-to-order, dimensions, torque, cautions,
+    and the procedure — plus one-click a <b>complete job-package PDF</b>. Every value cites the manual.</div>
+  <div class="search">
+    <input id="q" placeholder="Part name · NSN · part number" autofocus>
+    <button class="go" id="go">Open</button>
+    <a class="btn" href="/scan">📷 Scan</a><a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part / NSN.'; return; }
+    history.replaceState(null,'','/part?q='+encodeURIComponent(q));
+    $('#head').textContent='Assembling…'; $('#out').innerHTML='';
+    gj('/api/partsummary?q='+encodeURIComponent(q)).then(function(j){
+      if(!j||!j.ok){ $('#head').textContent='Nothing found.'; return; }
+      $('#head').textContent=''; render(q, j.summary||{});
+      lazyModel(q); lazyConflicts(q); lazyValidate(q); lazyOneuse(q);
+      lazyServiceability(q); lazyTorqueSeq(q); lazyKit(q); lazyNotes(q);
+    });
+  }
+
+  function render(q, s){
+    var enc=encodeURIComponent(q);
+    var h='<div class="idcard"><div><span class="nsn">'+esc(s.nsn||'')+'</span> <span class="iname">'+esc(s.item_name||s.title||q)+'</span></div>'
+      +(s.fsc_title?('<div class="muted" style="margin-top:4px">'+esc(s.fsc_title)+'</div>'):'');
+    // alerts
+    var sup=s.supersession||{};
+    if(sup.status==='obsolete/terminal') h+='<div class="alert obs">⚠ OBSOLETE / TERMINAL'+(sup.aac_meaning?(' — '+esc(sup.aac_meaning)):'')+(sup.replaced_by&&sup.replaced_by.length?('; replaced by '+esc(sup.replaced_by.join(', '))):'')+'. Confirm the current NSN before ordering.</div>';
+    // action buttons
+    h+='<div class="links"><a class="btn pkg" href="/api/jobpack?q='+enc+'" target="_blank">📦 Complete job-package PDF</a>'
+      +'<a class="btn" href="/procedure?q='+enc+'" target="_blank">🔧 How-to</a>'
+      +'<a class="btn" href="/exploded?q='+enc+'" target="_blank">🧩 Exploded</a>'
+      +'<a class="btn" href="/publog?nsn='+enc+'" target="_blank">🗄 Catalog</a>'
+      +'<a class="btn" href="/partdiff?q='+enc+'" target="_blank">🔍 Look-alike</a>'
+      +'<a class="btn" href="/dossier?q='+enc+'" target="_blank">📋 Dossier</a>'
+      +'<a class="btn" href="/packet?q='+enc+'" target="_blank">🖨 Packet</a></div></div>';
+
+    h+='<div id="conflictcard"></div><div id="oneusecard"></div>';
+    h+='<div class="grid2">';
+    // parts to order
+    h+='<div><h2>Part to order</h2>';
+    if(s.parts&&s.parts.length){ h+='<div class="card"><table><tr><th>NSN</th><th>UOC</th><th>CAGEC</th></tr>'
+      +s.parts.map(function(p){return '<tr><td>'+esc(p.nsn)+'</td><td>'+esc(p.uoc||'—')+'</td><td>'+esc(p.cagec||'—')+'</td></tr>';}).join('')+'</table>'
+      +(s.parts.length>1?'<div class="muted" style="margin-top:4px">Multiple variants — confirm the UOC for THIS vehicle.</div>':'')+'</div>'; }
+    else h+='<div class="none">No catalogued NSN variants — confirm on the cited figure.</div>';
+    h+='</div>';
+    // key dimensions
+    h+='<div><h2>Key dimensions</h2>';
+    if(s.dims&&s.dims.length){ h+='<div class="card"><table>'
+      +s.dims.map(function(d){var src=(d.authoritative?'manual':'ext');
+        var c=d.page_url?('<a href="'+esc(d.page_url)+'" target="_blank" style="color:#4f9dff">'+src+' · cited ↗</a>')
+                        :(src+' · <a href="/measures?q='+enc+'" target="_blank" style="color:#7fd6a0">verify</a>');
+        return '<tr><td>'+esc(d.type)+'</td><td class="val">'+esc(d.value)+' '+esc(d.unit||'')+'</td><td class="muted">'+c+'</td></tr>';}).join('')+'</table></div>'
+      +'<div class="muted" style="font-size:11px;margin-top:3px">Cited values deep-link to the manual page. "verify" opens the cited measurements on /measures — consolidated values are never shown as if page-cited.</div>'; }
+    else h+='<div class="none">No consolidated dimensions yet (build the Masterfile).</div>';
+    h+='</div></div>';
+
+    // torque
+    if(s.torque&&s.torque.length){ h+='<h2>Torque (cited)</h2><div class="card">'
+      +s.torque.slice(0,10).map(function(t){return '<div class="proc"><span class="tq">'+esc(t.value)+'</span> <span class="muted">— '+esc(t.context||'')+(t.page?(' · p.'+esc(t.page)):'')+'</span></div>';}).join('')+'</div>'; }
+    // cautions
+    if(s.cautions&&s.cautions.length){ h+='<h2>Safety callouts</h2>'
+      +s.cautions.slice(0,8).map(function(c){var cite=c.page?(' <span class="muted">· p.'+esc(c.page)+(c.doc?(' <a href="/deepzoom?doc='+esc(c.doc)+'&page='+esc(c.page)+'" target="_blank" style="color:#4f9dff">open ↗</a>'):'')+'</span>'):'';
+        return '<div class="caut"><b>'+esc(c.kind||'NOTE')+'</b> — '+esc(c.text||'')+cite+'</div>';}).join(''); }
+    // procedures
+    if(s.procedures&&s.procedures.length){ h+='<h2>Procedure</h2><div class="card">'
+      +s.procedures.map(function(p){return '<div class="proc"><span class="kind">'+esc(p.kind||'')+'</span>'+esc(p.vehicle||'')+(p.page?(' · p.'+esc(p.page)):'')+' <span class="muted">— '+(p.n_steps||0)+' steps · '+(p.n_tools||0)+' tools</span> <a href="/procedure?q='+enc+'" target="_blank" style="color:#4f9dff">open ↗</a></div>';}).join('')+'</div>'; }
+
+    h+='<div id="svccard"></div><div id="seqcard"></div><div id="kitcard"></div><div id="notescard"></div>';
+    h+='<div id="modelcard"></div>';
+    h+='<div class="muted" style="margin-top:16px">Assembled from the cited manuals + PUBLOG. Verify torque, sequence &amp; CAUTIONS on the actual page before working.</div>';
+    $('#out').innerHTML=h;
+  }
+
+  function lazyValidate(q){
+    gj('/api/validate?q='+encodeURIComponent(q)).then(function(j){ var box=$('#conflictcard'); if(!box||!j||!j.ok)return;
+      var c=j.counts||{}; if(!(c.quarantine||c.suspect)) return;
+      var held=(j.rows||[]).filter(function(r){return r.validation&&r.validation.status!=='ok';}).slice(0,6);
+      var h='<div class="alert obs" style="background:#241016;border-color:#8a1c1c"><b>⚠ Data-integrity check</b> — '
+        +(c.quarantine||0)+' value(s) HELD (garbled/impossible), '+(c.suspect||0)+' to verify. These are withheld or flagged, not shown as fact.';
+      held.forEach(function(r){ h+='<div class="muted" style="margin-top:4px">'+esc(r.type)+' <b>'+esc(r.value)+'</b> — <span class="warn">'+esc(r.validation.status)+'</span>: '+esc(r.validation.reason)+'</div>'; });
+      h+='</div>';
+      box.insertAdjacentHTML('beforeend', h);
+    });
+  }
+  function lazyConflicts(q){
+    gj('/api/conflicts?q='+encodeURIComponent(q)).then(function(j){ var box=$('#conflictcard'); if(!box||!j)return;
+      var cs=(j.conflicts||[]); if(!cs.length) return;
+      var h='<div class="alert obs" style="background:#2a1414;border-color:#8a1c1c"><b>⚠ Cross-manual conflict — verify before working</b>';
+      cs.slice(0,5).forEach(function(c){
+        h+='<div style="margin-top:6px">'+esc(c.type)+' ('+esc(c.unit)+'): '
+          +c.values.map(function(v){return '<b>'+esc(v.value)+'</b>'+(v.tm?(' <span class="muted">'+esc(v.tm)+(v.page?(' p.'+esc(v.page)):'')+'</span>'):'');}).join(' &nbsp;vs&nbsp; ')
+          +' <span class="muted">('+esc(c.spread_pct)+'% apart, '+esc(c.severity)+')</span></div>';
+      });
+      h+='<div class="muted" style="margin-top:6px;color:#e39b95">The manuals disagree on these values. Use the one for YOUR vehicle/serial; when in doubt, the newest applicable TM governs.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyOneuse(q){
+    // v1.13 (#41/#42 SAFETY): one-time-use / torque-to-yield fastener flags — each is the manual's
+    // own sentence, cited to its page (extractive; nothing inferred).
+    gj('/api/oneuse?q='+encodeURIComponent(q)).then(function(j){ var box=$('#oneusecard'); if(!box||!j||!j.ok)return;
+      var fs=(j.flags||[]); if(!fs.length) return;
+      var lbl={one_time_use:'ONE-TIME USE',torque_to_yield:'TORQUE-TO-YIELD',discard_after_removal:'DISCARD AFTER REMOVAL'};
+      var h='<div class="alert obs" style="background:#2a1414;border:1px solid #c0392b"><b>⚠ One-time-use / TTY fasteners — replace, never reuse</b>';
+      fs.slice(0,6).forEach(function(f){
+        h+='<div style="margin-top:6px"><b>'+esc(lbl[f.kind]||f.kind)+'</b> — “'+esc(f.sentence)+'”'
+          +' <span class="muted">'+esc(f.tm||'')+(f.page?(' p.'+esc(f.page)):'')
+          +((f.doc_id&&f.page)?(' <a href="/deepzoom?doc='+esc(f.doc_id)+'&page='+esc(f.page)+'" target="_blank" style="color:#4f9dff">open ↗</a>'):'')
+          +'</span></div>';
+      });
+      h+='<div class="muted" style="margin-top:6px;color:#e39b95">Each flag is the manual’s exact sentence with its page cite. Verify on the cited page; order replacements before starting the job.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyServiceability(q){
+    gj('/api/serviceability?q='+encodeURIComponent(q)).then(function(j){ var box=$('#svccard'); if(!box||!j||!j.ok||!j.limits||!j.limits.length)return;
+      var h='<h2>Serviceable / wear limits <span class="muted" style="font-weight:400">— when to replace</span></h2><div class="card">'
+        +j.limits.slice(0,8).map(function(l){return '<div class="proc"><b>'+esc(l.bound.toUpperCase())+'</b> '+esc(l.value)+' '+esc(l.unit||'')+' <span class="muted">— '+esc(l.kind)+(l.page?(' · p.'+esc(l.page)):'')+'</span></div>';}).join('')
+        +'<div class="muted" style="margin-top:4px">Confirm the limit on the cited TM page before condemning a part.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyTorqueSeq(q){
+    gj('/api/torqueseq?q='+encodeURIComponent(q)).then(function(j){ var box=$('#seqcard'); if(!box||!j||!j.ok||!j.enough||!j.svg)return;
+      box.innerHTML='<h2>Torque sequence '+(j.stages&&j.stages.length?('· stages '+j.stages.join(' → ')):'')+'</h2><div class="card"><div style="max-width:340px;border:1px solid #24303c;border-radius:8px;overflow:hidden">'+j.svg+'</div><div class="muted" style="margin-top:4px">'+esc(j.pattern)+' pattern · numbered = tightening order · confirm against the TM figure'+(j.page?(' (p.'+esc(j.page)+')'):'')+'.</div></div>';
+    });
+  }
+  function lazyKit(q){
+    gj('/api/bom?q='+encodeURIComponent(q)).then(function(j){ var box=$('#kitcard'); if(!box||!j||!j.ok)return; var k=j.kit||{};
+      if(!(k.counts&&(k.counts.parts||k.counts.tools||k.counts.consumables||k.counts.warnings))) return;
+      var h='<h2>Job kit / bill of materials</h2><div class="card">';
+      if(k.warnings&&k.warnings.length) h+='<div class="proc" style="color:#e39b95"><b>⚠ Replace-only fasteners:</b> '+k.warnings.slice(0,3).map(function(w){return '“'+esc(w.sentence)+'”'+(w.page?(' (p.'+esc(w.page)+')'):'');}).join(' · ')+'</div>';
+      if(k.consumables&&k.consumables.length) h+='<div class="proc"><b>Consumables:</b> '+k.consumables.map(function(c){return esc(c.item);}).join(', ')+'</div>';
+      if(k.tools&&k.tools.length) h+='<div class="proc"><b>Tools:</b> '+k.tools.slice(0,20).map(esc).join(', ')+'</div>';
+      if(k.parts&&k.parts.length) h+='<div class="proc"><b>Parts:</b> '+k.parts.length+' line(s), '+(k.counts.total_pieces||0)+' pieces</div>';
+      h+='<div class="muted" style="margin-top:4px">Included in the <a href="/api/jobpack?q='+encodeURIComponent(q)+'" target="_blank" style="color:#4f9dff">job-package PDF</a>. Confirm consumables per the procedure.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyNotes(q){
+    gj('/api/notes?q='+encodeURIComponent(q)).then(function(j){ var box=$('#notescard'); if(!box||!j)return; var ns=(j.notes||[]);
+      var h='<h2>Field notes <a href="/review" style="font-size:12px;color:#4f9dff" title="add/endorse notes">＋ add / endorse</a></h2>';
+      if(!ns.length){ h+='<div class="card muted">No field notes yet for this part. Seasoned mechanics can add cited tips (endorsed by an SME) via the review page.</div>'; }
+      else { h+='<div class="card">'+ns.slice(0,6).map(function(n){return '<div class="proc">'+(n.verified?'✅ ':'• ')+esc(n.text)+' <span class="muted">— '+esc(n.by||'')+(n.endorsements?(' · '+n.endorsements+' endorsement(s)'):'')+(n.retracted?' · RETRACTED':'')+'</span></div>';}).join('')+'</div>'; }
+      box.innerHTML=h;
+    });
+  }
+  function lazyModel(q){
+    gj('/api/dimscad?q='+encodeURIComponent(q)).then(function(dc){ var box=$('#modelcard'); if(!box)return;
+      if(dc&&dc.ok&&dc.enough&&dc.svg){ box.innerHTML='<h2>Approximate model (from dimensions)</h2><div class="card"><div style="max-width:420px;border:1px solid #24303c;border-radius:8px;overflow:hidden">'+dc.svg+'</div><div class="muted" style="margin-top:4px">'+esc(dc.primitive)+' sketch · <a href="/api/dimscad?obj=1&q='+encodeURIComponent(q)+'" target="_blank" style="color:#4f9dff">.OBJ ↗</a></div></div>'; }
+    });
+  }
+
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+<script src="/scanner.js"></script>
+</body></html>

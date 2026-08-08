@@ -1,0 +1,51 @@
+<svg viewBox="0 0 1180 660" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="660" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="18" font-weight="700" fill="#e6e9ee" text-anchor="start">Cross-reference &amp; verification engine (proposal)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Take every OCR-noisy / low-confidence row and decisively resolve it — part ↔ NSN ↔ vehicle ↔ figure/schematic/photo/procedure/tags.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="110" width="250" height="120" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="132" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">A noisy row</text>
+<text x="58" y="154" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">• P/N ~12420572-010 (OCR)</text>
+<text x="58" y="172" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">• name &#x27;HOSE NONMET&#x27;</text>
+<text x="58" y="190" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">• NSN maybe wrong digit</text>
+<text x="58" y="208" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">• vehicle? confidence 40%</text>
+<text x="312" y="128" font-size="16" font-weight="700" fill="#9aa6b6" text-anchor="start">→</text>
+<rect x="340" y="104" width="500" height="260" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="358" y="126" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">OFFLINE resolver — PUB LOG / FLIS (authoritative, on disk)</text>
+<text x="358" y="148" font-size="9.5" font-weight="700" fill="#1d9e75" text-anchor="start">• PN + CAGEC → NSN</text>
+<text x="640" y="148" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">V_FLIS_PART — recover/confirm the NSN</text>
+<text x="358" y="166" font-size="9.5" font-weight="700" fill="#1d9e75" text-anchor="start">• NSN → official name</text>
+<text x="640" y="166" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">P_H6_PICK INC — fix &#x27;HOSE NONMET&#x27; → HOSE,NONMETALLIC</text>
+<text x="358" y="184" font-size="9.5" font-weight="700" fill="#1d9e75" text-anchor="start">• NSN → VEHICLES</text>
+<text x="640" y="184" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">nsn_platforms (45,068) + FLIS applicability — decisive</text>
+<text x="358" y="202" font-size="9.5" font-weight="700" fill="#1d9e75" text-anchor="start">• NSN → interchangeable / superseded</text>
+<text x="640" y="202" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">V_FLIS_STANDARDIZATION / CANCELLED_NIIN</text>
+<text x="358" y="220" font-size="9.5" font-weight="700" fill="#1d9e75" text-anchor="start">• CAGEC → manufacturer</text>
+<text x="640" y="220" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">P_CAGE — maker name, disambiguate same P/N</text>
+<text x="358" y="238" font-size="9.5" font-weight="700" fill="#1d9e75" text-anchor="start">• NSN → colloquial names</text>
+<text x="640" y="238" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">V_COLLOQUIAL_NAME — feeds tags/aliases</text>
+<text x="358" y="260" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Each confirming source RAISES confidence; conflicts are flagged, never silently changed (provenance kept).</text>
+<text x="852" y="128" font-size="16" font-weight="700" fill="#9aa6b6" text-anchor="start">→</text>
+<rect x="880" y="104" width="260" height="260" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="898" y="126" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">Unified part record</text>
+<text x="898" y="150" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ part# + CAGEC + NSN</text>
+<text x="898" y="170" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ official nomenclature</text>
+<text x="898" y="190" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ vehicle(s) it fits</text>
+<text x="898" y="210" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ figure / breakdown image</text>
+<text x="898" y="230" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ schematic set</text>
+<text x="898" y="250" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ procedure / how-to</text>
+<text x="898" y="270" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ tags + colloquial names</text>
+<text x="898" y="290" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ manufacturer</text>
+<text x="898" y="310" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">✓ interchangeable / superseded</text>
+<text x="898" y="330" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">+ confidence &amp; source per field</text>
+<rect x="40" y="378" width="1100" height="84" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="400" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">Residual unknowns only → OPTIONAL internet pass (cached, gated, ITAR/copyright-aware)</text>
+<text x="58" y="420" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">What FLIS can&#x27;t resolve goes to an optional online cross-reference for PUBLIC data only — NSN catalogs, manufacturer cross-reference, colloquial names. Results are CACHED into a sidecar so the offline</text><text x="58" y="432" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">system keeps them; never fetched at runtime, never controlled technical data. Anything still unresolved → the Part# review queue (human-confirmed).</text>
+<rect x="40" y="474" width="1100" height="90" rx="12" fill="#171d26" stroke="#c4585a" stroke-width="1"/>
+<text x="58" y="495" font-size="11.5" font-weight="700" fill="#c4585a" text-anchor="start">Hard caveats</text>
+<text x="58" y="514" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Offline-first: FLIS does ~all of it; the internet is optional + cached + gated, NEVER a runtime dependency, and ITAR/copyright-aware (no controlled CAD/tech data).</text>
+<text x="58" y="526" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Many-to-many: one part fits many vehicles; one NSN has many P/Ns; superseded chains — modeled as links, not a single value.</text>
+<text x="58" y="538" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• OCR residue will never fully zero out → the review queue is the backstop. Every repaired field keeps its source + confidence (auditable, reversible).</text>
+<text x="58" y="550" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">• Scale: a host-side batch over the 16 GB PUB LOG + the index (can&#x27;t run in the sandbox). Sidecar xref.db; the main index is never written (R1/R6).</text>
+<text x="40" y="654" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Proposal diagram. Dark (R3). Cross-reference/verification engine for THE VIEWER. No build yet — for your call. Sources: DLA FLIS/PUB LOG (offline); ITAR per pmddtc.state.gov.</text>
+</svg>

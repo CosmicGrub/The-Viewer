@@ -1,0 +1,80 @@
+%% THE VIEWER - Data Model (Milestone M1)
+%% Additive / versioned schema. New columns nullable; nothing dropped destructively.
+erDiagram
+    documents ||--o{ pages : has
+    documents ||--o{ figures : has
+    documents ||--o{ jobs : tracked_by
+    pages ||--|| pages_fts : indexed_in
+    parts ||--o{ part_variants : disambiguated_by
+    parts ||--o{ procedures : described_by
+    parts ||--o{ figures : illustrated_by
+    procedures ||--o{ figures : illustrated_by
+    pages ||--o{ parts : mentions
+
+    documents {
+        int id PK
+        string path
+        string fingerprint
+        string type
+        string tm_number
+        string nsn
+        string title
+        string vehicle
+        int page_count
+        string status
+    }
+    pages {
+        int id PK
+        int document_id FK
+        int page_number
+        text body_text
+        string ocr_status
+    }
+    pages_fts {
+        text body_text "FTS5 virtual table"
+    }
+    parts {
+        int id PK
+        string name
+        string part_number
+        string nsn
+    }
+    part_variants {
+        int id PK
+        int part_id FK
+        string differs_how
+        string how_to_tell_apart
+    }
+    procedures {
+        int id PK
+        int part_id FK
+        string kind "disassembly|assembly|install"
+        text steps
+        text tools_required
+    }
+    figures {
+        int id PK
+        int document_id FK
+        int page_number
+        string source_ref "svgz|svg|embedded"
+    }
+    jobs {
+        int id PK
+        int document_id FK
+        string stage
+        string state
+        int attempts
+        string last_error
+    }
+    schema_meta {
+        int schema_version
+        text migration_history
+    }
+    runs {
+        int id PK
+        datetime started_at
+        int files_seen
+        int indexed
+        int queued
+        int failed
+    }

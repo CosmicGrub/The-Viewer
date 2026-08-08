@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER — Search GUI + Document Viewer (dark)</title>
+<desc>The browser GUI: search the index, click a result to render and view the actual manual page with PyMuPDF, navigate pages, and add parts to the 104th request. All served offline by the local engine.</desc>
+<style>
+  .bg{fill:#0f1419}
+  .title{font-size:19px;font-weight:700;fill:#e6e9ee}
+  .sub{font-size:10px;fill:#9aa6b6}
+  .lbl{font-size:12.5px;font-weight:600;fill:#e6e9ee}
+  .s{font-size:9.5px;fill:#9aa6b6}
+  .mono{font-size:9px;fill:#dfe5ec;font-family:ui-monospace,Consolas,monospace}
+  .edge{stroke:#9aa5b1;stroke-width:1.7;fill:none;marker-end:url(#a)}
+  .h{font-size:11px;font-weight:700;fill:#93a1b3;letter-spacing:.5px}
+  .leg{font-size:10px;fill:#9aa6b6}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1000" height="560"/>
+<text x="32" y="42" class="title">THE VIEWER — Search GUI + Document Viewer</text>
+<text x="32" y="62" class="sub">offline · dark (R3) · served by the local engine over viewer.db</text>
+<line x1="32" y1="76" x2="968" y2="76" stroke="#2a2f37"/>
+
+<text x="32" y="104" class="h">BROWSER GUI</text>
+<rect x="32" y="116" width="180" height="92" rx="10" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="122" y="142" text-anchor="middle" class="lbl">Search box</text>
+<text x="122" y="160" text-anchor="middle" class="s">part# · NSN · keyword</text>
+<text x="122" y="178" text-anchor="middle" class="s">predictive, as-you-type</text>
+<text x="122" y="196" text-anchor="middle" class="s">dark, dynamic</text>
+
+<rect x="32" y="232" width="180" height="78" rx="10" fill="#1c2430" stroke="#38414e"/>
+<text x="122" y="258" text-anchor="middle" class="lbl">Results list</text>
+<text x="122" y="276" text-anchor="middle" class="s">vehicle · TM# · page</text>
+<text x="122" y="294" text-anchor="middle" class="s">highlighted snippet</text>
+
+<text x="270" y="104" class="h">LOCAL ENGINE (viewer_app.py)</text>
+<rect x="270" y="116" width="210" height="56" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="375" y="139" text-anchor="middle" class="lbl">GET /api/search</text>
+<text x="375" y="156" text-anchor="middle" class="s">FTS5 query → JSON</text>
+
+<rect x="270" y="186" width="210" height="60" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="375" y="208" text-anchor="middle" class="lbl">GET /page?doc=&amp;page=</text>
+<text x="375" y="225" text-anchor="middle" class="s">PyMuPDF renders that</text>
+<text x="375" y="239" text-anchor="middle" class="s">PDF page → PNG (on demand)</text>
+
+<rect x="270" y="260" width="210" height="56" rx="9" fill="#16301f" stroke="#2f5a3e"/>
+<text x="375" y="283" text-anchor="middle" class="lbl">POST /api/request</text>
+<text x="375" y="300" text-anchor="middle" class="s">save session → 104th PDF</text>
+
+<text x="540" y="104" class="h">INDEX / CORPUS</text>
+<rect x="540" y="116" width="150" height="60" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="615" y="140" text-anchor="middle" class="lbl">viewer.db</text>
+<text x="615" y="157" text-anchor="middle" class="s">FTS5 + metadata</text>
+<rect x="540" y="190" width="150" height="56" rx="9" fill="#1c2430" stroke="#38414e"/>
+<text x="615" y="213" text-anchor="middle" class="lbl">E:\ PDF on disk</text>
+<text x="615" y="230" text-anchor="middle" class="s">read-only source</text>
+
+<text x="730" y="104" class="h">DOCUMENT VIEWER PANE</text>
+<rect x="730" y="116" width="238" height="230" rx="10" fill="#11161d" stroke="#2b333f"/>
+<rect x="748" y="134" width="202" height="150" rx="5" fill="#1c2430" stroke="#38414e"/>
+<text x="849" y="210" text-anchor="middle" class="s">rendered page image</text>
+<text x="849" y="226" text-anchor="middle" class="s">(the actual manual page)</text>
+<rect x="748" y="294" width="96" height="34" rx="6" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="796" y="315" text-anchor="middle" class="s">◀ prev / next ▶</text>
+<rect x="854" y="294" width="96" height="34" rx="6" fill="#16301f" stroke="#2f5a3e"/>
+<text x="902" y="315" text-anchor="middle" class="s">+ add to request</text>
+
+<path class="edge" d="M212,150 L270,144"/>
+<path class="edge" d="M480,144 L540,146"/>
+<path class="edge" d="M375,172 L375,186"/>
+<path class="edge" d="M480,216 L540,214"/>
+<path class="edge" d="M690,210 L730,222"/>
+<path class="edge" d="M212,262 C240,255 250,210 270,206"/>
+<path class="edge" d="M620,300 C680,330 700,300 730,270"/>
+<path class="edge" d="M730,180 C520,180 360,250 212,272"/>
+<text x="300" y="360" class="s" fill="#7b8794">click a result → render its page → view it; navigate pages; add parts to the 104th sheet</text>
+
+<line x1="32" y1="392" x2="968" y2="392" stroke="#2a2f37"/>
+<rect x="32" y="408" width="14" height="11" rx="3" fill="#1a2740" stroke="#3a4d6e"/><text x="52" y="417" class="leg">GUI input</text>
+<rect x="150" y="408" width="14" height="11" rx="3" fill="#16301f" stroke="#2f5a3e"/><text x="170" y="417" class="leg">engine endpoint</text>
+<rect x="300" y="408" width="14" height="11" rx="3" fill="#1c2430" stroke="#38414e"/><text x="320" y="417" class="leg">index / file</text>
+<rect x="430" y="408" width="14" height="11" rx="3" fill="#11161d" stroke="#2b333f"/><text x="450" y="417" class="leg">viewer pane</text>
+<text x="32" y="450" class="sub">Pages are rendered on demand (no pre-rendering) straight from the read-only PDFs — fast and storage-free. Fully offline.</text>
+<text x="32" y="470" class="sub">Rule R1 — read-only corpus, additive. Rule R2 — diagram for this addition. Rule R3 — dark theme + PDF.</text>
+</svg>

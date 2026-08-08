@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" font-family="Segoe UI,Arial,sans-serif">
+<rect width="1000" height="560" fill="#0d1117"/>
+<text x="500" y="42" fill="#e6edf3" font-size="26" font-weight="700" text-anchor="middle">smrdecode.py &#8212; Source / Maintenance / Recoverability Decoder</text>
+<text x="500" y="70" fill="#8b949e" font-size="14" text-anchor="middle">v1.12.4 &#183; roadmap Vol.2 #53 &#183; GET /api/smr &#183; every RPSTL line carries an SMR code; R13 null-over-fabrication</text>
+
+<text x="500" y="112" fill="#8b949e" font-size="13" text-anchor="middle">P A O Z Z</text>
+<rect x="180" y="122" width="130" height="48" rx="6" fill="#1f6feb" opacity="0.22" stroke="#1f6feb"/>
+<rect x="360" y="122" width="100" height="48" rx="6" fill="#238636" opacity="0.22" stroke="#238636"/>
+<rect x="510" y="122" width="100" height="48" rx="6" fill="#8957e5" opacity="0.2" stroke="#8957e5"/>
+<rect x="660" y="122" width="150" height="48" rx="6" fill="#f0883e" opacity="0.2" stroke="#f0883e"/>
+<text x="245" y="152" fill="#58a6ff" font-size="18" font-weight="700" text-anchor="middle">PA</text>
+<text x="410" y="152" fill="#3fb950" font-size="18" font-weight="700" text-anchor="middle">O</text>
+<text x="560" y="152" fill="#a371f7" font-size="18" font-weight="700" text-anchor="middle">Z</text>
+<text x="735" y="152" fill="#f0883e" font-size="18" font-weight="700" text-anchor="middle">Z</text>
+
+<rect x="60" y="205" width="215" height="120" rx="10" fill="#161b22" stroke="#1f6feb"/>
+<text x="167" y="232" fill="#58a6ff" font-size="14" font-weight="700" text-anchor="middle">Source (1-2)</text>
+<text x="167" y="256" fill="#c9d1d9" font-size="11.5" text-anchor="middle">how it is obtained</text>
+<text x="167" y="276" fill="#c9d1d9" font-size="11.5" text-anchor="middle">PA = procured &amp; stocked</text>
+<text x="167" y="296" fill="#8b949e" font-size="11" text-anchor="middle">25 curated source codes</text>
+<text x="167" y="314" fill="#8b949e" font-size="11" text-anchor="middle">(P*/K*/M*/A*/X*)</text>
+
+<rect x="285" y="205" width="215" height="120" rx="10" fill="#161b22" stroke="#238636"/>
+<text x="392" y="232" fill="#3fb950" font-size="14" font-weight="700" text-anchor="middle">Use (3)</text>
+<text x="392" y="256" fill="#c9d1d9" font-size="11.5" text-anchor="middle">who may R&amp;R</text>
+<text x="392" y="276" fill="#c9d1d9" font-size="11.5" text-anchor="middle">O = unit/org level</text>
+<text x="392" y="298" fill="#8b949e" font-size="11" text-anchor="middle">C/O/F/H/L/D/Z/B</text>
+
+<rect x="510" y="205" width="215" height="120" rx="10" fill="#161b22" stroke="#8957e5"/>
+<text x="617" y="232" fill="#a371f7" font-size="14" font-weight="700" text-anchor="middle">Repair (4)</text>
+<text x="617" y="256" fill="#c9d1d9" font-size="11.5" text-anchor="middle">lowest full-repair level</text>
+<text x="617" y="276" fill="#c9d1d9" font-size="11.5" text-anchor="middle">Z = no repair authorized</text>
+<text x="617" y="298" fill="#8b949e" font-size="11" text-anchor="middle">shared level table</text>
+
+<rect x="735" y="205" width="205" height="120" rx="10" fill="#161b22" stroke="#f0883e"/>
+<text x="837" y="232" fill="#f0883e" font-size="14" font-weight="700" text-anchor="middle">Recoverability (5)</text>
+<text x="837" y="256" fill="#c9d1d9" font-size="11.5" text-anchor="middle">what to do on failure</text>
+<text x="837" y="276" fill="#c9d1d9" font-size="11.5" text-anchor="middle">Z = discard (nonreparable)</text>
+<text x="837" y="298" fill="#8b949e" font-size="11" text-anchor="middle">Z/O/F/H/D/L/A</text>
+
+<rect x="230" y="370" width="540" height="86" rx="10" fill="#161b22" stroke="#f0883e"/>
+<text x="500" y="399" fill="#f0883e" font-size="15" font-weight="700" text-anchor="middle">R13 safety guard</text>
+<text x="500" y="424" fill="#c9d1d9" font-size="12.5" text-anchor="middle">unknown source pair / level letter &#8594; raw code, meaning = None.</text>
+<text x="500" y="444" fill="#c9d1d9" font-size="12.5" text-anchor="middle">A mis-decoded SMR could scrap a repairable part &#8212; so never guess.</text>
+
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8b949e"/></marker></defs>
+<line x1="245" y1="170" x2="180" y2="203" stroke="#1f6feb" stroke-width="2" marker-end="url(#a)"/>
+<line x1="410" y1="170" x2="392" y2="203" stroke="#238636" stroke-width="2" marker-end="url(#a)"/>
+<line x1="560" y1="170" x2="617" y2="203" stroke="#8957e5" stroke-width="2" marker-end="url(#a)"/>
+<line x1="735" y1="170" x2="820" y2="203" stroke="#f0883e" stroke-width="2" marker-end="url(#a)"/>
+<line x1="500" y1="325" x2="500" y2="368" stroke="#f0883e" stroke-width="2" marker-end="url(#a)"/>
+<text x="500" y="500" fill="#8b949e" font-size="12" text-anchor="middle">stdlib only &#183; pure + unit-testable &#183; additive (R1) &#183; complements rpstl.py / publog.py / nsndecode.py</text>
+<text x="500" y="524" fill="#8b949e" font-size="12" text-anchor="middle">self-test: PAOZZ / PAFDD / XBFZZ decode; unknown source QQ &#8594; meaning None; scan ignores the word HELLO</text>
+</svg>

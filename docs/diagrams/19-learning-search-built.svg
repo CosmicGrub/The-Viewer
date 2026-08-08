@@ -1,0 +1,55 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Self-learning search — built</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.16.0 · learns from successful 104th sheets (request_items) · rotating example · quick-picks · popularity-ranked results. Additive, no migration (R1).</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="112" width="330" height="120" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="136" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">CAPTURE (already happens)</text>
+<rect x="58" y="150" width="294" height="30" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="170" font-size="10.5" font-weight="400" fill="#e6e9ee" text-anchor="start">POST /api/request → build the 104th PDF</text>
+<path d="M205,180 L205,192" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="194" width="294" height="30" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="214" font-size="10.2" font-weight="400" fill="#e6e9ee" text-anchor="start">save_request → request_items (nsn · name · date)</text>
+<path d="M370,170 L420,170" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="420" y="112" width="330" height="120" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="438" y="136" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">LEARN</text>
+<rect x="438" y="150" width="294" height="30" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="450" y="170" font-size="10.5" font-weight="700" fill="#cfe0ff" text-anchor="start">GET /api/popular</text>
+<rect x="438" y="186" width="294" height="38" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="450" y="204" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">GROUP BY nsn / nomenclature,</text>
+<text x="450" y="217" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">rank by frequency + recency</text>
+<path d="M585,232 L585,256" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="420" y="256" width="330" height="40" rx="9" fill="#16223a" stroke="#2c3f5e" stroke-width="1"/>
+<text x="585" y="281" font-size="10.5" font-weight="700" fill="#9bc0ff" text-anchor="middle">POPULAR  ·  top parts (cold-start SEED until logged)</text>
+<text x="40" y="300" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">SURFACE (three ways)</text>
+<rect x="40" y="316" width="355" height="150" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="316" width="5" height="150" rx="2" fill="#caa24a"/>
+<text x="58" y="344" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Rotating example</text>
+<text x="58" y="366" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">One real example in the search &amp; modal field —</text>
+<text x="58" y="382" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">a random common part, rotates each open.</text>
+<text x="58" y="398" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Replaces the 4 static examples.</text>
+<rect x="56" y="428" width="323" height="26" rx="6" fill="#10151c" stroke="#2b333f" stroke-width="1"/>
+<text x="64" y="445" font-size="8.6" font-weight="400" fill="#8fae8f" text-anchor="start">placeholder = &#x27;BATTERY, STORAGE · 6140-01-485-1472&#x27;</text>
+<path d="M217.5,296 L217.5,316" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="412" y="316" width="355" height="150" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="412" y="316" width="5" height="150" rx="2" fill="#caa24a"/>
+<text x="430" y="344" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · &#x27;Commonly requested&#x27; quick-picks</text>
+<text x="430" y="366" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">A thin row of ★ chips on Home — tap to search</text>
+<text x="430" y="382" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">instantly.</text>
+<rect x="428" y="428" width="323" height="26" rx="6" fill="#10151c" stroke="#2b333f" stroke-width="1"/>
+<text x="436" y="445" font-size="8.6" font-weight="400" fill="#8fae8f" text-anchor="start">top 6 from POPULAR (or SEED)</text>
+<path d="M589.5,296 L589.5,316" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="784" y="316" width="355" height="150" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="784" y="316" width="5" height="150" rx="2" fill="#caa24a"/>
+<text x="802" y="344" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · Popularity-ranked results</text>
+<text x="802" y="366" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Keyword results you&#x27;ve requested before float</text>
+<text x="802" y="382" font-size="9.8" font-weight="400" fill="#9aa6b6" text-anchor="start">to the top, marked ★ requested.</text>
+<rect x="800" y="428" width="323" height="26" rx="6" fill="#10151c" stroke="#2b333f" stroke-width="1"/>
+<text x="808" y="445" font-size="8.6" font-weight="400" fill="#8fae8f" text-anchor="start">popular_nsns() boost · stable sort</text>
+<path d="M961.5,296 L961.5,316" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="40" y="500" width="1100" height="46" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="60" y="528" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">More sheets generated  →  better signal  →  the parts your shop reaches for surface first.  Offline &amp; private (stays in your index).</text>
+<path d="M900,466 L900,500" stroke="#5d6675" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<text x="40" y="686" font-size="10" font-weight="400" fill="#6b7280" text-anchor="start">Also: search/modal copy trimmed; single rotating example does the teaching. Dark (R3) · CHANGELOG 0.16.0 (R4) · visual panel (R5).</text>
+</svg>

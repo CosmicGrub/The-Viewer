@@ -1,0 +1,53 @@
+/* THE VIEWER -- base.css: the ONE canonical token sheet (backlog A3/A4, v0.96.0).
+   Mirrors engine/theme.py (single source of truth). Served at /base.css.
+   Pages adopt it with <link rel="stylesheet" href="/base.css">; their inline :root blocks
+   keep working during the transition (identical values), then get stripped page-by-page. */
+:root{
+  --bg:#0f1419; --panel:#171d26; --p2:#1c2430; --panel2:#1f2733; --chip:#243042;
+  --line:#2b333f; --txt:#e6e9ee; --sub:#9aa6b6; --mut:#6b7280;
+  --acc:#4f9dff; --accent:#4f9dff; --accent2:#2f7d4f;
+  --grn:#2f7d4f; --amb:#caa24a; --warn:#caa24a; --red:#e0564f;
+  --teal:#1d9e75; --pur:#7f77dd; --mark:#5a4a1e;
+}
+*{box-sizing:border-box}
+/* APP-WIDE GUARANTEE: the HTML `hidden` attribute ALWAYS wins over any display rule.
+   A class like `.menupop{display:flex}` otherwise overrides the browser's default
+   `[hidden]{display:none}`, which left the Tools dropdown stuck open. `!important` makes
+   `hidden` authoritative for EVERY toggled menu/popover/drawer/modal in the app, so a
+   `display:` class can never leave a `hidden` element on screen again. (verify_ui.py guards this.) */
+[hidden]{display:none !important}
+/* KIOSK / GLOVE MODE (bay-floor tablet): bigger text, larger touch targets, higher contrast.
+   Toggled from the command palette ("Toggle kiosk mode"); persisted in localStorage; applied app-wide. */
+body.kiosk-mode{font-size:16px; --sub:#c3cede; --mut:#8c99a8}
+body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{
+  min-height:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
+body.kiosk-mode a{text-decoration:underline}
+body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
+a{color:var(--acc)}
+code,pre{font-family:ui-monospace,Consolas,Menlo,monospace}
+/* WCAG 2.4.7 — visible keyboard focus everywhere (mouse clicks stay clean via :focus-visible) */
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+/* shared toast (used by shared.js toast()) */
+#vw-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+  background:var(--panel);color:var(--txt);border:1px solid var(--line);
+  border-radius:8px;padding:9px 16px;font-size:13px;z-index:9999;
+  box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;transition:opacity .2s}
+#vw-toast.show{opacity:1}
+/* universal footer nav (shared.js injects on every non-home page; v1.13.0 UI coherence).
+   bottom:52px keeps it clear of palette.js's "⌘K jump"/"☆ pin" pills (bottom:12px, right);
+   toasts are bottom-center, so nothing overlaps. */
+#vw-footer{position:fixed;right:12px;bottom:52px;z-index:9998;background:var(--panel,#171d26);
+  color:var(--sub,#9aa6b6);border:1px solid var(--line,#2b333f);border-radius:20px;
+  padding:6px 12px;font-size:11px;line-height:1.4;opacity:.8;
+  box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#vw-footer:hover{opacity:1}
+#vw-footer a{color:var(--sub,#9aa6b6);text-decoration:none}
+#vw-footer a:hover,#vw-footer span:hover{color:var(--txt,#e6e9ee)}
+@media print{#vw-footer{display:none}}
+/* honor reduced motion (backlog F46; ties to the RPS lite "animations off") */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

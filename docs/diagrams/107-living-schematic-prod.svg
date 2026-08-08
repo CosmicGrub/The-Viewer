@@ -1,0 +1,49 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="18" font-weight="700" fill="#e6e9ee" text-anchor="start">Living Schematic → production: review + Circuit Lab bridge   v0.99.1</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Three steps, now complete: (1) precompute netlists corpus-wide, (2) human review/override, (3) hand off to Circuit Lab.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="118" width="366" height="130" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="142" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">STEP 1  ·  precompute</text>
+<text x="56" y="164" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">build_schemgraph.py (0.99.0)</text>
+<text x="56" y="179" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; index/schemcache + coverage TSV.</text>
+<text x="56" y="194" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">4,743 pages cached (verified).</text>
+<text x="404" y="190" font-size="22" fill="#9aa6b6">&#8594;</text>
+<rect x="412" y="118" width="366" height="130" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="428" y="142" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">STEP 2  ·  review / override</text>
+<text x="428" y="164" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">schemreview.py: append-only sidecar.</text>
+<text x="428" y="179" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/schemgraph_review (queue) +</text>
+<text x="428" y="194" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">_decision (POST). schemflow ⚑ Correct:</text>
+<text x="428" y="209" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">drop missed refs, mark good/bad.</text>
+<text x="428" y="224" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">r_schemgraph MERGES overrides.</text>
+<text x="776" y="190" font-size="22" fill="#9aa6b6">&#8594;</text>
+<rect x="784" y="118" width="366" height="130" rx="11" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="800" y="142" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">STEP 3  ·  Circuit Lab bridge</text>
+<text x="800" y="164" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">⚡ Circuit Lab shows the inferred</text>
+<text x="800" y="179" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">netlist (nets/comps/conf) + JSON</text>
+<text x="800" y="194" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">download; build the live circuit</text>
+<text x="800" y="209" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">over the page. (values not inferred)</text>
+<line x1="40" y1="262" x2="1140" y2="262" stroke="#2b333f"/>
+<text x="40" y="290" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">THE REVIEW LOOP (closes the 0-components gap)</text>
+<rect x="40" y="304" width="1100" height="78" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="328" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">CAD-exported sheets outline their label text, so schemgraph finds wires but 0 components. The coverage TSV flags those pages; the review queue surfaces them; a reviewer drops the missing ref-designators (R12, K3…) which are</text><text x="58" y="343" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">stored append-only and merged back into the served graph — so the Flow overlay and Circuit Lab bridge get the human-corrected netlist next time. (R1/R6: index never written.)</text>
+<line x1="40" y1="398" x2="1140" y2="398" stroke="#2b333f"/>
+<text x="40" y="426" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">OBSERVABILITY + TESTS</text>
+<rect x="40" y="440" width="550" height="78" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="463" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">/api/schemgraph_coverage</text>
+<text x="56" y="482" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">schematic pages · pages-with-components · avg confidence · nets total · pages reviewed.</text>
+<rect x="600" y="440" width="550" height="78" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="616" y="463" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">test_features_modules.py</text>
+<text x="616" y="482" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">every features/ module imports; registry populated; new routes registered; schemreview round-trip.</text>
+<rect x="40" y="526" width="550" height="78" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="56" y="549" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">test_features_integration.py</text>
+<text x="56" y="568" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">the 0.90-0.95 imagery/CAD/schematic stack still wired through the v0.98 registry (16 checks).</text>
+<rect x="600" y="526" width="550" height="78" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="616" y="549" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">VERIFY-099.bat</text>
+<text x="616" y="568" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">one host-side button: syntax + UI JS + all suites -&gt; docs/verify_099.log. (run after the USB copy)</text>
+<line x1="40" y1="612" x2="1140" y2="612" stroke="#2b333f"/>
+<text x="40" y="640" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">STATUS</text>
+<rect x="40" y="654" width="1100" height="66" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="676" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Built + logic-verified in-sandbox (schemreview queue/record/override/coverage; schemflow node --check; 4,743 pages cached). Full host suite pending VERIFY-099.bat (deferred: USB copy in progress). Additive &amp; rollbackable</text><text x="58" y="691" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">(R1). Remaining backlog item: deep-zoom + callout hotspots (step 4).</text>
+<text x="40" y="750" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.1 · 2026-07-01 · schemreview.py · /api/schemgraph_review(_decision)/_coverage · schemflow ⚑ · circuitlab bridge. R1/R6.</text>
+</svg>

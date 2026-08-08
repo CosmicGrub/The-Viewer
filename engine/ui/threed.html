@@ -1,0 +1,507 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — 3D Library</title>
+<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode; page's own <style> below still wins (v1.13.0) -->
+<script src="/shared.js"></script>
+<style>
+:root{--bg:#0f1419;--panel:#171d26;--p2:#1c2430;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;--acc:#4f9dff;--amb:#caa24a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+h1{font-size:22px;font-weight:600;margin:0}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}
+input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 12px;width:340px;max-width:60vw}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 13px;cursor:pointer}
+button:hover{border-color:var(--acc);background:var(--p2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;transition:border-color .12s,transform .06s}
+.card:hover{border-color:var(--acc)}.card:active{transform:scale(.99)}
+.thumb{height:150px;background:#0a0e12;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cn{font-size:12.5px;font-weight:600;margin:8px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs{font-size:11px;color:var(--sub);margin:0 2px}
+.tag{display:inline-block;font-size:10px;color:var(--sub);border:1px solid var(--line);border-radius:9px;padding:0 6px;margin-top:4px}
+/* modal */
+.gate{position:fixed;inset:0;background:rgba(5,8,12,.86);display:none;z-index:60;flex-direction:column}
+.gate.on{display:flex}
+.gbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.gmain{flex:1;display:flex;overflow:hidden}
+.gstage{flex:1;display:flex;align-items:center;justify-content:center;background:#0a0e12;cursor:grab}
+.gstage:active{cursor:grabbing}
+.gside{width:320px;min-width:320px;border-left:1px solid var(--line);padding:14px;overflow:auto;background:var(--panel);font-size:12px;line-height:1.55}
+.sh-h{font-size:11px;color:var(--amb);font-weight:700;letter-spacing:.04em;margin-bottom:8px}
+.k{color:var(--sub);font-weight:600;margin-top:8px}
+.note{color:var(--sub);font-size:11px;margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.gside mark{background:rgba(202,162,74,.32);color:#fff;border-radius:3px;padding:0 2px}
+</style><script src="/rps.js"></script></head><body><div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>3D Library <span class="muted" id="count"></span></h1>
+    <div class="muted">CAD images of every part — shape inferred from the name/NSN, scaled to FLIS dimensions, textured by material. Click a part for the interactive 3-D and the cited manual figure.</div></div>
+  <div><a href="/">← back to search</a></div>
+</div>
+<div class="bar">
+  <input id="q" placeholder="Search the 3D library by NSN, name, or part #…" autocomplete="off">
+  <button onclick="search()">Search</button>
+  <label class="muted" style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><input type="checkbox" id="showall"> include parts without a manual figure</label>
+  <span class="muted" id="hint">showing the collection</span>
+</div>
+<div class="grid" id="grid"></div>
+<div style="text-align:center;margin:18px 0"><button id="more" style="display:none" onclick="loadMore()">Load more</button></div>
+</div>
+
+<div class="gate" id="gate">
+  <div class="gbar"><div style="flex:1;font-size:14px" id="gtitle"></div>
+    <span class="muted">drag to rotate · scroll to zoom · double-click to reset</span>
+    <button id="greset">⟲ Reset</button><button id="gclose">Close ✕</button></div>
+  <div class="gmain"><div class="gstage" id="gstage"></div><div class="gside" id="gside"></div></div>
+</div>
+<script src="/gl3d.js?v=0841"></script>
+<script src="/cadview.js"></script>
+<script src="/partgeo.js?v=0841"></script>
+<script src="/tagger.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+/* esc()/toast() from /shared.js */
+function num(ch,labels){ ch=(ch||'').toUpperCase(); for(const lab of labels){ const i=ch.indexOf(lab); if(i>=0){ const m=ch.slice(i+lab.length).match(/[-+]?\d*\.?\d+/); if(m){ const v=parseFloat(m[0]); if(v>0) return v; } } } return 0; }
+function family(nm){ nm=(nm||'').toUpperCase();
+  if(/\bNUT\b|HEX/.test(nm)) return 'hex';
+  if(/WASHER|DISC|DISK|SHIM|GASKET|\bRING\b|SEAL|O-RING|PLATE/.test(nm)) return 'disc';
+  if(/BOLT|SCREW|\bPIN\b|SHAFT|\bROD\b|STUD|DOWEL|TUBE|PIPE|HOSE|CYLINDER|BEARING|BUSHING|SPACER|SLEEVE|MOTOR|\bPUMP\b|FILTER|CARTRIDGE|CANISTER|ACTUATOR|SOLENOID|COMPRESSOR|RIVET|\bLAMP\b|\bBULB\b/.test(nm)) return 'cyl';
+  return 'box'; }
+// Parse colour + material + finish from the scan's description into {fill, src, gl:[spec,shininess,metal]}.
+// Mirrors the server material_feature so cards, the SVG fallback AND the modal all read consistently offline.
+function appearance(ch,nm){ var blob=((ch||'')+' '+(nm||'')).toUpperCase();
+  var COLORS={BLACK:'#2a2a2a',GRAY:'#8a9099',GREY:'#8a9099',WHITE:'#dcdcdc',SILVER:'#c0c4c8',RED:'#8a2f2f',BLUE:'#33506e',GREEN:'#3b5a3b',YELLOW:'#c2a83a',ORANGE:'#c2702a',BROWN:'#5a4632',TAN:'#b79b6e',SAND:'#c2b280',GOLD:'#c9a24a',OLIVE:'#5a5a32'};
+  var MULTI=[['OLIVE DRAB','#3b3b22'],['FOREST GREEN','#2e4a2e'],['GLOSS BLACK','#1c1c1c'],['FLAT BLACK','#262626'],['CARC GREEN','#4b5320'],['DESERT SAND','#c9b08a'],['DESERT TAN','#c2a878'],['FIELD DRAB','#6c5d3f']];
+  var color=null,clabel=null,i;
+  for(i=0;i<MULTI.length;i++){ if(blob.indexOf(MULTI[i][0])>=0){ color=MULTI[i][1]; clabel=MULTI[i][0]; break; } }
+  if(!color){ var cm=blob.match(/COLOR[^:]*:\s*([A-Z][A-Z ]{2,})/); var cw=cm?cm[1].trim().split(/[ ,]/)[0]:''; if(COLORS[cw]){ color=COLORS[cw]; clabel=cw; }
+    else { var bare=['BLACK','OLIVE','GREEN','RED','GRAY','GREY','TAN','SAND','BROWN','WHITE','YELLOW']; for(i=0;i<bare.length;i++){ if(new RegExp('\\b'+bare[i]+'\\b').test(blob)){ color=COLORS[bare[i]]; clabel=bare[i]; break; } } } }
+  var MATS=[[/STAINLESS|CRES\b/,[0.95,0.25,0.7,'#b4b8bd','stainless']],[/STEEL|IRON|ALLOY STEEL/,[0.9,0.4,0.6,'#9aa0a6','steel']],[/ALUMIN/,[0.8,0.45,0.5,'#b8bcc2','aluminium']],[/TITAN/,[0.85,0.45,0.5,'#9a9ea3','titanium']],[/BRASS/,[0.9,0.35,0.65,'#b5933f','brass']],[/BRONZE|COPPER/,[0.9,0.35,0.6,'#b0703f','bronze']],[/RUBBER|ELASTOMER|NEOPRENE|SILICONE/,[0,0.95,0.1,'#2c2c2c','rubber']],[/NYLON|PLASTIC|POLY|PVC|PHENOLIC|ACETAL/,[0,0.6,0.3,'#3a3a3a','plastic']],[/GLASS/,[0.15,0.12,0.8,'#b8c4cc','glass']],[/\bWOOD|PLYWOOD/,[0,0.8,0.2,'#6a4f32','wood']]];
+  var metal=null,rough=0.5,sheen=0.4,base=null,mlabel=null;
+  var mm=blob.match(/MATERIAL[^:]*:\s*([A-Z][A-Z 0-9,\/.\-]{2,})/); var mtext=mm?mm[1]:blob;
+  for(i=0;i<MATS.length;i++){ if(MATS[i][0].test(mtext)){ var a=MATS[i][1]; metal=a[0];rough=a[1];sheen=a[2];base=a[3];mlabel=a[4]; break; } }
+  var FIN=[[/CHROM/,['#cfd3d8',0.98,0.15,0.85,'chrome']],[/ZINC|GALVANIZ/,['#c8ccd0',0.85,0.4,0.6,'zinc plated']],[/CADMIUM/,['#c8b06a',0.8,0.4,0.6,'cadmium']],[/NICKEL/,['#cdd0d2',0.9,0.3,0.7,'nickel']],[/PHOSPHAT|PARKERIZ/,['#3a3d40',0.3,0.75,0.25,'phosphate']],[/BLACK OXIDE|OXIDE/,['#1e1e1e',0.4,0.55,0.3,'black oxide']],[/ANODIZ/,[null,0.5,0.4,0.5,'anodized']],[/\bPAINT|ENAMEL|\bCARC\b|POWDER COAT/,[null,0,0.85,0.1,'painted']]];
+  var flabel=null;
+  for(i=0;i<FIN.length;i++){ if(FIN[i][0].test(blob)){ var f=FIN[i][1]; if(f[0])base=f[0]; metal=f[1];rough=f[2];sheen=f[3];flabel=f[4]; break; } }
+  if(metal===null){ metal=0.4; }
+  var fill=color||base||'#8a9099';
+  var bits=[]; if(clabel) bits.push(clabel.toLowerCase()); if(mlabel) bits.push(mlabel); if(flabel) bits.push(flabel);
+  var shin=Math.round(8+(1-rough)*88), spec=Math.round((0.15+Math.max(metal,sheen)*0.65)*100)/100;
+  return {fill:fill, src:(bits.length?('scan: '+bits.join(' · ')):'representative tint'), gl:[spec,shin,Math.round(metal*100)/100]}; }
+function geom(fam,L,W,H,R){
+  if(fam==='box'){ const x=(W/2)||.5,y=(H/2)||.5,z=(L/2)||.5;
+    const V=[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]];
+    const F=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]]; return {V,F}; }
+  const n=fam==='hex'?6:(fam==='disc'?30:24);
+  const rr=(R||Math.max(W,H)/2||.5); const half=(fam==='disc'?((H||L)/2||.15):((L/2)||.5));
+  const V=[],F=[];
+  for(let i=0;i<n;i++){ const a=i/n*Math.PI*2; V.push([Math.cos(a)*rr,Math.sin(a)*rr,-half]); }
+  for(let i=0;i<n;i++){ const a=i/n*Math.PI*2; V.push([Math.cos(a)*rr,Math.sin(a)*rr,half]); }
+  for(let i=0;i<n;i++){ const j=(i+1)%n; F.push([i,j,n+j,n+i]); }
+  F.push(Array.from({length:n},(_,i)=>i)); F.push(Array.from({length:n},(_,i)=>n+i)); return {V,F};
+}
+function buildModel(p){
+  const ch=(p.characteristics||''), nm=(p.item_name&&p.item_name.trim())||p.nsn||'Part';
+  const dia=num(ch,['OVERALL DIAMETER:','BODY DIAMETER:','OUTSIDE DIAMETER:','HEAD DIAMETER:','BASE DIAMETER:','THREAD DIAMETER:','DIAMETER:']);
+  const bore=num(ch,['HOLE DIAMETER:','INSIDE DIAMETER:','BORE DIAMETER:']);
+  let L=num(ch,['OVERALL LENGTH:','BODY LENGTH:','FASTENER LENGTH:','LENGTH:']);
+  let W=num(ch,['OVERALL WIDTH:','BODY WIDTH:','WIDTH:'])||dia;
+  let H=num(ch,['OVERALL HEIGHT:','BODY HEIGHT:','HEAD HEIGHT:','HEIGHT:','THICKNESS:'])||dia;
+  if(dia){ W=dia; H=dia; if(!L) L=dia; }
+  L=L||1; W=W||1; H=H||1;
+  // family classification: prefer the detailed PartGeo classifier (12 families); thumbnails keep the light
+  // primitive (fast in the grid). The opened modal upgrades to the detailed mesh in open3D().
+  // name first; if the name is missing/generic and yields a box, recover the shape from the NSN supply class.
+  var fam=(window.PartGeo?(PartGeo.classify?PartGeo.classify(nm,ch,p.nsn):PartGeo.family(nm,ch)):family(nm));
+  const R=(dia||Math.max(W,H))/2;
+  // Detail in BOTH views: the grid thumbnail (the drawn "artist approximation") uses the SAME detailed PartGeo
+  // mesh as the opened modal (the "representative rendering") — not the light primitive — so they always match.
+  var _g=null, _sm=false, _det=false;
+  if(window.PartGeo){ try{ var _pg=PartGeo.build(fam,{L:L,W:W,H:H,dia:dia,bore:bore});
+    if(_pg&&_pg.V&&_pg.V.length){ _g={V:_pg.V,F:_pg.F}; _sm=(_pg.smooth!==false); _det=true; } }catch(e){} }
+  if(!_g) _g=geom((window.PartGeo?family(nm):fam),L,W,H,R);
+  return {geom:_g, smooth:_sm, detailed:_det, app:appearance(ch,nm), bore:bore, fam:fam,
+          L:L,W:W,H:H,dia:dia, name:nm, nsn:p.nsn, partno:p.part_no, chars:p.characteristics, date:p.data_date};
+}
+function renderSVG(m,rx,ry,z,w,h){
+  const V=m.geom.V,F=m.geom.F, cy=Math.cos(ry),sy=Math.sin(ry),cx=Math.cos(rx),sx=Math.sin(rx);
+  const P=V.map(v=>{const x=v[0],y=v[1],zz=v[2];const x1=x*cy+zz*sy,z1=-x*sy+zz*cy,y1=y*cx-z1*sx,z2=y*sx+z1*cx;return [x1,y1,z2];});
+  const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);
+  const minx=Math.min.apply(null,xs),maxx=Math.max.apply(null,xs),miny=Math.min.apply(null,ys),maxy=Math.max.apply(null,ys);
+  const span=Math.max(maxx-minx,maxy-miny,.001),sc=Math.min(h*0.42,300)/span*(z||1);
+  const cX=w/2,cY=h/2,mx=(minx+maxx)/2,my=(miny+maxy)/2, sp=p=>[cX+(p[0]-mx)*sc,cY+(p[1]-my)*sc];
+  const fa=F.map(f=>{let zc=0;f.forEach(i=>zc+=P[i][2]);return {f,z:zc/f.length};}).sort((a,b)=>a.z-b.z);
+  const zmin=fa.length?fa[0].z:0,zmax=fa.length?fa[fa.length-1].z:1,zr=(zmax-zmin)||1;
+  let s='<svg width="100%" height="100%" viewBox="0 0 '+w+' '+h+'">';
+  fa.forEach(o=>{const pts=o.f.map(i=>{const q=sp(P[i]);return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ');
+    const op=(0.5+0.45*((o.z-zmin)/zr)).toFixed(2);
+    s+='<polygon points="'+pts+'" fill="'+m.app.fill+'" fill-opacity="'+op+'" stroke="#0a0e12" stroke-width="0.6" stroke-linejoin="round"/>';});
+  if(m.bore&&!m.detailed){const c=sp([0,0]);s+='<ellipse cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" rx="'+Math.max(m.bore/2*sc*Math.abs(cy),2).toFixed(1)+'" ry="'+Math.max(m.bore/2*sc,2).toFixed(1)+'" fill="#0a0e12" stroke="#caa24a" stroke-width="1.2"/>';}
+  return s+'</svg>';
+}
+// gallery state
+let OFF=0, Q='', LIMIT=60, total=0;
+function card(p){
+  const m=buildModel(p);
+  const div=document.createElement('div'); div.className='card';
+  const f=x=>Math.round(x*100)/100;
+  var paramSVG=renderSVG(m,-0.5,0.6,1,200,150);
+  div.innerHTML='<div class="thumb" data-param="1">'+paramSVG+'</div>'+
+    '<div class="cn" title="'+esc(m.name)+'">'+esc(m.name)+'</div>'+
+    '<div class="cs">'+esc(p.nsn)+'</div>'+
+    '<div class="tag">'+m.fam+' · L'+f(m.L)+'″ W'+f(m.W)+'″ H'+f(m.H)+'″'+(m.dia?(' · ⌀'+f(m.dia)+'″'):'')+'</div>';
+  // Preview = the part's REAL cited manual figure. Use the URL the server already attached (p.image_url);
+  // fall back to a per-card lookup only if it wasn't included. Parametric shape is the labeled fallback.
+  if(p.nsn) m._nsn=p.nsn;
+  function showFig(url,fig){
+    var th=div.querySelector('.thumb'); if(!th||!url) return;
+    var img=new Image(); img.onload=function(){ th.innerHTML=''; img.style.cssText='width:100%;height:150px;object-fit:contain;background:#fff;border-radius:6px'; th.appendChild(img);
+      var b=document.createElement('div'); b.textContent='📄 manual figure'; b.style.cssText='position:absolute;left:6px;bottom:6px;font-size:10px;background:rgba(15,20,25,.78);color:#7fd6a6;border:1px solid #2b333f;border-radius:5px;padding:1px 6px'; th.style.position='relative'; th.appendChild(b);
+      m._figUrl=url; m._fig=fig||{url:url}; th.setAttribute('data-param','0'); };
+    img.onerror=function(){}; img.src=url;
+  }
+  // representative parts with no cited figure get a rendered CAD image (scaled to FLIS dims), parametric SVG behind it
+  function showCAD(nsn){
+    if(!nsn) return; var th=div.querySelector('.thumb'); if(!th) return;
+    var img=new Image(); img.onload=function(){ th.innerHTML=''; th.style.position='relative';
+      img.style.cssText='width:100%;height:150px;object-fit:contain;background:#f4f6f8;border-radius:6px'; th.appendChild(img);
+      var b=document.createElement('div'); b.textContent='CAD'; b.style.cssText='position:absolute;left:6px;bottom:6px;font-size:10px;background:rgba(15,20,25,.8);color:#9ec7ff;border:1px solid #2b333f;border-radius:5px;padding:1px 6px'; th.appendChild(b);
+      m._cadUrl=img.src; th.setAttribute('data-param','0'); };
+    img.onerror=function(){}; img.src='/cadimg?nsn='+encodeURIComponent(nsn)+((window.RPS&&RPS.mode)?('&tier='+RPS.mode):'');
+  }
+  // CAD-FIRST: every card leads with the rendered CAD image. The cited manual figure (if any) is remembered for
+  // the modal's "Manual illustration" tab; the parametric SVG stays only as the instant loading placeholder.
+  if(p.image_url){ m._figUrl=p.image_url; m._fig={url:p.image_url,fig_no:p.fig_no}; }
+  if(p.nsn){
+    showCAD(p.nsn);
+    if(!p.image_url){ fetch('/api/part_image?nsn='+encodeURIComponent(p.nsn)).then(function(r){return r.json();})
+      .then(function(j){ if(j&&j.found&&j.url){ m._figUrl=j.url; m._fig=j; } }).catch(function(){}); }
+  }
+  div.onclick=()=>open3D(m);
+  if(window.Tagger){ div.style.position='relative'; const tg=Tagger.button({nsn:p.nsn, name:(p.item_name||m.name||'')});
+    tg.style.position='absolute'; tg.style.top='6px'; tg.style.right='6px'; div.appendChild(tg); }
+  return div;
+}
+async function fetchPage(reset){
+  if(reset){ OFF=0; $("#grid").innerHTML=''; }
+  $("#hint").textContent='loading…';
+  try{
+    var allp=($("#showall")&&$("#showall").checked)?'&all=1':'';
+    const j=await (await fetch('/api/threed?limit='+LIMIT+'&offset='+OFF+allp+(Q?('&q='+encodeURIComponent(Q)):''))).json();
+    total=j.total||0;
+    $("#count").textContent='('+total.toLocaleString()+(Q?' matches':' parts')+')';
+    var modetxt=(j.mode==='figures')?'working examples — parts with a real manual figure':'all parts (representative shapes; some have no figure)';
+    $("#hint").textContent=Q?('search: '+Q):modetxt;
+    const g=$("#grid"); (j.items||[]).forEach(p=>g.appendChild(card(p)));
+    OFF+=(j.items||[]).length;
+    $("#more").style.display=(OFF<total)?'inline-block':'none';
+  }catch(e){ $("#hint").textContent='could not load (is the app running?)'; }
+}
+function loadMore(){ fetchPage(false); }
+function search(){ Q=$("#q").value.trim(); fetchPage(true); }
+if(document.getElementById('showall')) document.getElementById('showall').addEventListener('change',function(){ fetchPage(true); });
+$("#q").addEventListener('keydown',e=>{ if(e.key==='Enter') search(); });
+
+// interactive modal — real-time WebGL when available, SVG fallback otherwise (Win7/Vista safe)
+let G={rx:-0.5,ry:0.6,z:1,drag:false,px:0,py:0,model:null,w:600,h:500};
+let GLV=null, glCanvas=null;
+try{ if(window.GL3D && GL3D.supported()){ glCanvas=document.createElement('canvas'); glCanvas.style.cssText='width:100%;height:100%;display:block'; GLV=GL3D.create(glCanvas); } }catch(e){ GLV=null; }
+function drawG(){ if(!G.model) return; const s=$("#gstage"); G.w=s.clientWidth||600; G.h=s.clientHeight||500; s.innerHTML=renderSVG(G.model,G.rx,G.ry,G.z,G.w,G.h); }
+function reset3D(){ if(GLV){ GLV.reset(); return; } G.rx=-0.5; G.ry=0.6; G.z=1; drawG(); }
+function open3D(m){
+  G.model=m; G.rx=-0.5; G.ry=0.6; G.z=1;
+  // Upgrade the opened part to the DETAILED parametric mesh (hex-headed bolt, races+balls bearing, toothed
+  // gear, helical spring, holed gasket…) driven by the FLIS dims. Both WebGL and the SVG fallback use it.
+  if(window.PartGeo){ try{ var _pg=PartGeo.build(m.fam,{L:m.L,W:m.W,H:m.H,dia:m.dia,bore:m.bore});
+    if(_pg&&_pg.V&&_pg.V.length){ G.model.geom={V:_pg.V,F:_pg.F}; G.model.smooth=_pg.smooth; } }catch(e){} }
+  const f=x=>Math.round(x*100)/100, yr=(m.date||'').match(/\d{4}/);
+  $("#gtitle").innerHTML='<b>'+esc(m.name)+'</b> &nbsp;<span class="muted">'+esc(m.nsn||'')+'</span>';
+  $("#gside").innerHTML='<div class="sh-h">REPRESENTATIVE CAD &amp; INTERACTIVE 3-D</div>'+
+    '<div class="muted">Shape: '+m.fam+' · scaled to FLIS dims (L '+f(m.L)+'″ · W '+f(m.W)+'″ · H '+f(m.H)+'″'+(m.dia?(' · ⌀'+f(m.dia)+'″'):'')+(m.bore?(' · bore ⌀'+f(m.bore)+'″'):'')+').</div>'+
+    '<div class="k">Appearance <span class="muted">(colour + material from the scan)</span></div><div id="appval"><span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:'+m.app.fill+';border:1px solid #2b333f;vertical-align:middle"></span> '+esc(m.app.src)+'</div>'+
+    (m.chars?('<div class="k">FLIS characteristics (cited)</div><div class="muted">'+esc(m.chars).replace(/; /g,'<br>')+'</div>'):'')+
+    (yr?('<div class="note">Data vintage: <b style="color:#caa24a">FLIS '+yr[0]+'</b> · DLA FLIS, cited</div>'):'')+
+    (GLV?'<div class="note" style="color:#2f9d63">Rendered live in 3D (WebGL) — drag to orbit, scroll to zoom.</div>':'')+
+    '<div class="note">Surfaces &amp; colour are representative — colour from FLIS where stated, else a material-based tint.</div>'+
+    (m.nsn?('<div class="k">Download representative CAD</div><div class="dl" style="font-size:12px">'+
+      '<a href="/cadimg?nsn='+encodeURIComponent(m.nsn)+'" target="_blank">CAD image (PNG)</a> · '+
+      '<a href="/cadstl?nsn='+encodeURIComponent(m.nsn)+'">STL</a> · '+
+      '<a href="/cadobj?nsn='+encodeURIComponent(m.nsn)+'">OBJ</a></div>'):'');
+  $("#gate").classList.add('on');
+  // Tabs: Manual illustration (the cited figure) | Representative 3D (parametric) | opt-in Approximation.
+  if(m._figUrl){ setupTabs(m); }
+  else if(m.nsn){ fetch('/api/part_image?nsn='+encodeURIComponent(m.nsn)).then(function(r){return r.json();})
+    .then(function(j){ if(j&&j.found&&j.url){ m._figUrl=j.url; m._fig=j; } setupTabs(m); }).catch(function(){ setupTabs(m); }); }
+  else { setupTabs(m); }
+  loadRefs(m);
+  loadXref(m);
+  loadMaterial(m);
+  applyCadMaterial(m);
+  buildParamPanel(m);
+  loadLocalModel(m);
+}
+// Graft the CAD image's colour + material-class texture onto the WebGL 3-D model so the two match.
+function applyCadMaterial(m){
+  if(!m||!m.nsn) return;
+  fetch('/api/cadmaterial?nsn='+encodeURIComponent(m.nsn)).then(function(r){return r.json();}).then(function(j){
+    if(!j||!j.color) return;
+    m._matcolor=j.color; m._matgl=j.gl; m._klass=j.klass_id||0; m._cadmat=j;
+    if(m.app){ m.app.fill=j.color; }
+    if(GLV && G.model===m){ if(GLV.setColor)GLV.setColor(j.color); if(GLV.setMaterial&&j.gl)GLV.setMaterial(j.gl); if(GLV.setKlass)GLV.setKlass(m._klass); }
+    var ap=document.getElementById('appval');
+    if(ap){ ap.innerHTML='<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:'+j.color+';border:1px solid #2b333f;vertical-align:middle"></span> CAD material: '+esc(j.klass||'tinted')+(j.metal>0.4?' · metallic':''); }
+  }).catch(function(){});
+}
+// Rebuild the procedural geometry from the current parameters (live parametric CAD).
+function rebuildGeom(m){
+  if(!window.PartGeo||!m) return;
+  var d={L:m.L,W:m.W,H:m.H,dia:m.dia,bore:m.bore,teeth:m.teeth,turns:m.turns};
+  try{ var g=PartGeo.build(m.fam,d); if(g&&g.V&&g.V.length){ m.geom={V:g.V,F:g.F}; m.smooth=g.smooth; } }catch(e){}
+  if(GLV && G.model===m && m.geom){ GLV.load(m.geom, m._matcolor||(m.app&&m.app.fill)||'#8a9099', m.smooth!==false, m._matgl, (m._klass||0)); }
+  else { drawG(); }
+}
+function buildParamPanel(m){
+  var gs=$("#gside"); if(!gs||!window.PartGeo) return;
+  if(!m._origDims) m._origDims={L:m.L,W:m.W,H:m.H,dia:m.dia,bore:m.bore,teeth:m.teeth,turns:m.turns};
+  var old=document.getElementById('parambox'); if(old) old.parentNode.removeChild(old);
+  var fams=Object.keys(PartGeo.BUILDERS);
+  var rnd=function(v){ return (v!=null&&!isNaN(v))?(Math.round(v*100)/100):''; };
+  var num=function(id,lab,val,step){ return '<label style="display:block;font-size:11px;color:var(--sub);margin-top:5px">'+lab+
+    '<input id="'+id+'" type="number" step="'+(step||0.05)+'" value="'+rnd(val)+'" style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 7px;font-size:12px"></label>'; };
+  var box=document.createElement('div'); box.id='parambox'; box.style.cssText='margin-top:12px;border-top:1px solid var(--line);padding-top:10px';
+  var h='<div class="sh-h">PARAMETRIC CAD <span class="muted">(procedural — edit to rebuild)</span></div>';
+  h+='<label style="display:block;font-size:11px;color:var(--sub)">Family<select id="p_fam" style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 7px;font-size:12px">'+
+     fams.map(function(f){return '<option'+(f===m.fam?' selected':'')+'>'+f+'</option>';}).join('')+'</select></label>';
+  h+=num('p_L','Length / depth (in)',m.L)+num('p_W','Width (in)',m.W)+num('p_H','Height / thickness (in)',m.H)+num('p_dia','Diameter (in)',m.dia)+num('p_bore','Bore / hole (in)',m.bore);
+  if(m.fam==='gear') h+=num('p_teeth','Teeth',m.teeth||Math.round((m.dia||1)*0.5*16),1);
+  if(m.fam==='spring') h+=num('p_turns','Coils / turns',m.turns||0,1);
+  h+='<div style="margin-top:8px"><button class="ghost" id="p_reset" style="font-size:12px;padding:5px 10px">↺ Reset to FLIS dims</button></div>';
+  h+='<div class="note" style="margin-top:5px">Dimensions are cited from FLIS; edit any value to rebuild the geometry live. The mesh is generated procedurally (parametric CAD), not a fixed model.</div>';
+  box.innerHTML=h; gs.appendChild(box);
+  var gid=function(id){ return document.getElementById(id); };
+  var readNum=function(id){ var e=gid(id); var v=e?parseFloat(e.value):NaN; return isNaN(v)?undefined:v; };
+  var rd=function(){ m.L=readNum('p_L'); m.W=readNum('p_W'); m.H=readNum('p_H'); m.dia=readNum('p_dia'); m.bore=readNum('p_bore');
+    var te=gid('p_teeth'); if(te) m.teeth=parseInt(te.value,10)||undefined;
+    var tu=gid('p_turns'); if(tu) m.turns=parseInt(tu.value,10)||undefined;
+    rebuildGeom(m); };
+  ['p_L','p_W','p_H','p_dia','p_bore','p_teeth','p_turns'].forEach(function(id){ var e=gid(id); if(e) e.oninput=rd; });
+  var fs=gid('p_fam'); if(fs) fs.onchange=function(){ m.fam=fs.value; rebuildGeom(m); buildParamPanel(m); };
+  var rs=gid('p_reset'); if(rs) rs.onclick=function(){ var o=m._origDims||{}; m.L=o.L;m.W=o.W;m.H=o.H;m.dia=o.dia;m.bore=o.bore;m.teeth=o.teeth;m.turns=o.turns; rebuildGeom(m); buildParamPanel(m); };
+}
+// Unified cross-reference record for the opened part: vehicles it fits, manufacturer, interchange/supersession.
+function loadXref(m){
+  var side=$("#gside"); if(!side||!m.nsn) return;
+  var box=document.createElement('div'); box.id='xrefbox'; box.style.cssText='margin-top:12px;border-top:1px solid var(--line);padding-top:10px';
+  box.innerHTML='<div class="sh-h">CROSS-REFERENCE</div><div class="muted" id="xrefbody">resolving…</div>'; side.appendChild(box);
+  fetch('/api/part_record?nsn='+encodeURIComponent(m.nsn)).then(function(r){return r.json();}).then(function(j){
+    var b=$("#xrefbody"); if(!b) return; if(!j||!j.found){ b.textContent='No cross-reference found.'; return; }
+    var h='';
+    if(j.nomenclature) h+='<div><b>'+esc(j.nomenclature)+'</b>'+(j.name_conflict?(' <span style="color:#caa24a">(OCR: '+esc(j.ocr_nomenclature||'')+')</span>'):'')+'</div>';
+    if(j.cagec) h+='<div class="k">Manufacturer</div><div>CAGEC '+esc(j.cagec)+(j.manufacturer?(' · '+esc(j.manufacturer)):'')+'</div>';
+    if(j.vehicles&&j.vehicles.length) h+='<div class="k">Fits vehicles</div><div>'+j.vehicles.slice(0,10).map(function(v){return '<span style="display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:1px 7px;margin:2px 3px 0 0">'+esc(v)+'</span>';}).join('')+'</div>';
+    if(j.interchangeable&&j.interchangeable.length) h+='<div class="k">Interchangeable</div><div class="muted">'+j.interchangeable.slice(0,5).map(esc).join(' · ')+'</div>';
+    if(j.superseded_by) h+='<div class="k">Superseded by</div><div style="color:#caa24a">'+esc(j.superseded_by)+'</div>';
+    if(j.colloquial) h+='<div class="k">Also called</div><div class="muted">'+esc(j.colloquial)+'</div>';
+    h+='<div class="note" style="margin-top:6px">confidence '+Math.round((j.confidence||0)*100)+'% · sources: '+esc(Object.values(j.provenance||{}).join(', ')||'OCR')+'</div>';
+    b.innerHTML=h;
+  }).catch(function(){ var b=$("#xrefbody"); if(b) b.textContent='(cross-reference unavailable)'; });
+}
+function render3D(){
+  var st=$("#gstage"); if(!st) return; st.style.position='relative';
+  var col=(G.model&&G.model._matcolor)||(G.model&&G.model.app&&G.model.app.fill)||'#8a9099';
+  var mat=(G.model&&G.model._matgl)||(G.model&&G.model.app&&G.model.app.gl)||null;
+  if(GLV && G.model && G.model.geom){ st.innerHTML=''; st.appendChild(glCanvas); GLV.load(G.model.geom, col, G.model.smooth!==false, mat, (G.model._klass||0)); }
+  else { drawG(); }
+}
+// Map the scan's colour + material + finish onto the model (procedural finish: metallic/matte/rubber/plated).
+function loadMaterial(m){
+  if(!m) return; var q=[]; if(m.nsn) q.push('nsn='+encodeURIComponent(m.nsn));
+  if(m.chars) q.push('chars='+encodeURIComponent(m.chars)); if(m.name) q.push('name='+encodeURIComponent(m.name));
+  if(!q.length) return;
+  fetch('/api/part_material?'+q.join('&')).then(function(r){return r.json();}).then(function(j){
+    if(!j) return;
+    m._matcolor=j.color; m._matgl=j.gl;
+    if(m.app){ m.app.fill=j.color; m.app.src=(j.found?('scan: '+j.label):m.app.src); }
+    if(GLV && G.model===m){ if(GLV.setColor)GLV.setColor(j.color); if(GLV.setMaterial&&j.gl)GLV.setMaterial(j.gl); }
+    else { var st=$("#gstage"); if(st && st.querySelector('svg')) drawG(); }
+    var ap=document.getElementById('appval');
+    if(ap){ ap.innerHTML='<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:'+j.color+';border:1px solid #2b333f;vertical-align:middle"></span> '+esc(j.found?('scan: '+j.label):'representative tint'); }
+  }).catch(function(){});
+}
+// AUTHORITATIVE local model: if the user dropped index/models3d/<NSN>.obj|.stl, load THAT in place of the
+// representative placeholder geometry in the Interactive 3-D tab (gl3d auto-centres/auto-fits it).
+function loadLocalModel(m){
+  if(!m||!m.nsn) return;
+  fetch('/api/localmodel?nsn='+encodeURIComponent(m.nsn)).then(function(r){return r.json();}).then(function(s){
+    if(!s||!s.exists||!s.mesh_url) return;
+    m._hasLocal=true; m._localFmt=s.fmt; m._localFile=s.filename;
+    m._localTier=s.tier||'authoritative'; m._localIllus=!!s.illustrative; m._localCaveat=s.caveat||'';
+    fetch(s.mesh_url).then(function(r){return r.json();}).then(function(vf){
+      if(!vf||!vf.V||!vf.F||!vf.F.length) return;
+      m._paramGeom=m._paramGeom||m.geom; m._paramSmooth=(m.smooth!==false);   // remember the placeholder
+      m._localGeom={V:vf.V,F:vf.F}; m._localFaces=vf.faces||vf.F.length; m._usingLocal=true;
+      m.geom=m._localGeom; m.smooth=true;
+      localBadge(m);
+      if(G.model===m && document.querySelector('#gtabs .gtab[data-t="3d"][style*="--acc"]')) showStage('3d');
+      else if(G.model===m && !document.getElementById('gtabs')) { /* tabs not built yet */ }
+    }).catch(function(){});
+  }).catch(function(){});
+}
+function localBadge(m){
+  var side=$("#gside"); if(!side) return;
+  var old=document.getElementById('localbox'); if(old) old.parentNode.removeChild(old);
+  var box=document.createElement('div'); box.id='localbox'; box.style.cssText='margin-top:12px;border-top:1px solid var(--line);padding-top:10px';
+  if(m._localIllus){
+    box.innerHTML='<div style="background:#2a1414;border:1px solid #8a1c1c;border-radius:8px;padding:9px 11px;margin-bottom:8px">'+
+      '<div class="sh-h" style="color:#f26d6d">⚠ AI-GENERATED APPROXIMATION — illustrative only</div>'+
+      '<div style="color:#e8b0b0;font-size:12px;margin-top:3px">'+esc(m._localCaveat||'Not to scale, not verified — NOT for part identification or measurement.')+'</div></div>'+
+      '<div class="muted">Showing <b>'+esc(m._localFile||'')+'</b> ('+esc((m._localFmt||'').toUpperCase())+' · '+(m._localFaces||0)+' faces, from models3d/ai/) as a visual aid only.</div>'+
+      '<div style="margin-top:6px"><button class="ghost" id="lm_toggle" style="font-size:12px;padding:5px 10px"></button></div>';
+  } else {
+    box.innerHTML='<div class="sh-h" style="color:#2f9d63">🧩 LOCAL 3-D MODEL <span class="muted">(your file — authoritative)</span></div>'+
+      '<div class="muted">Showing <b>'+esc(m._localFile||'')+'</b> ('+esc((m._localFmt||'').toUpperCase())+' · '+(m._localFaces||0)+' faces) in the Interactive 3-D tab, in place of the representative placeholder.</div>'+
+      '<div style="margin-top:6px"><button class="ghost" id="lm_toggle" style="font-size:12px;padding:5px 10px"></button></div>';
+  }
+  side.appendChild(box);
+  var btn=document.getElementById('lm_toggle');
+  function lbl(){ btn.textContent = m._usingLocal ? '↺ Show representative placeholder' : '🧩 Show my local model'; }
+  lbl();
+  btn.onclick=function(){ m._usingLocal=!m._usingLocal;
+    m.geom = m._usingLocal ? m._localGeom : m._paramGeom;
+    m.smooth = m._usingLocal ? true : m._paramSmooth;
+    lbl(); if(G.model===m) showStage('3d'); };
+}
+function destroyCadView(){ if(G._cadview){ try{ G._cadview.destroy(); }catch(e){} G._cadview=null; } }
+function showStage(which){
+  var st=$("#gstage"); if(!st) return;
+  if(which!=='cadspin') destroyCadView();
+  if(which==='cad'){
+    var cn=(G.model&&G.model.nsn)||'';
+    st.style.position='relative';
+    st.innerHTML='<div style="width:100%;height:100%;display:flex;flex-direction:column;background:#f4f6f8;border-radius:8px;overflow:hidden">'+
+      '<img src="/cadimg?nsn='+encodeURIComponent(cn)+((window.RPS&&RPS.mode)?("&tier="+RPS.mode):"")+'" style="flex:1;min-height:0;width:100%;object-fit:contain" alt="CAD image">'+
+      '<div style="color:#333;font-size:11px;text-align:center;padding:5px">Representative CAD &mdash; '+esc((G.model&&G.model.fam)||'')+' &middot; static image &middot; scaled to FLIS dims &middot; textured by material. Not a manufacturing drawing.</div></div>';
+  } else if(which==='cadspin'){
+    var cn2=(G.model&&G.model.nsn)||'';
+    st.style.position='relative';
+    destroyCadView();
+    // Smooth WebGL orbit — EXACTLY the same renderer/controls as the Interactive 3-D tab, on the CAD mesh.
+    if(GLV && G.model && G.model.geom){
+      // CAD look = flat-faceted neutral machined STEEL, matte (technical) — deliberately distinct from the
+      // Interactive 3-D tab, which shows the realistic FLIS colour + smooth scanned-material finish. Same motion.
+      st.innerHTML='<div style="width:100%;height:100%;display:flex;flex-direction:column;background:#e9eef4;border-radius:8px;overflow:hidden">'+
+        '<div id="cadGl" style="flex:1;min-height:0;width:100%;position:relative;background:#dfe6ee"></div>'+
+        '<div style="color:#333;font-size:11px;text-align:center;padding:5px">Interactive CAD &mdash; '+esc((G.model&&G.model.fam)||'')+' &middot; flat technical shading (machined steel) &middot; drag to rotate, scroll to zoom &middot; scaled to FLIS dims.</div></div>';
+      var holder=document.getElementById('cadGl'); if(holder){ holder.appendChild(glCanvas); }
+      GLV.load(G.model.geom, '#9aa6b2', false, [0.18, 14.0, 0.30], 0);   // flat + neutral steel + matte + NO texture = the technical CAD look
+    } else {
+      // No WebGL (legacy / unsupported) — fall back to the GPU-free sprite turntable so it still rotates.
+      st.innerHTML='<div style="width:100%;height:100%;display:flex;flex-direction:column;background:#f4f6f8;border-radius:8px;overflow:hidden">'+
+        '<div id="cadStage" style="flex:1;min-height:0;width:100%;position:relative"></div>'+
+        '<div style="color:#333;font-size:11px;text-align:center;padding:5px">Interactive CAD &mdash; '+esc((G.model&&G.model.fam)||'')+' &middot; drag to rotate, scroll to zoom &middot; scaled to FLIS dims &middot; not a manufacturing drawing.</div></div>';
+      var host=document.getElementById('cadStage');
+      if(window.CadView && cn2){ G._cadview=CadView.mount(host, cn2, {tier:(window.RPS&&RPS.mode)||''}); }
+      else if(host){ host.innerHTML='<img src="/cadimg?nsn='+encodeURIComponent(cn2)+((window.RPS&&RPS.mode)?("&tier="+RPS.mode):"")+'" style="width:100%;height:100%;object-fit:contain" alt="CAD image">'; }
+    }
+  } else if(which==='figure' && G.model && G.model._figUrl){
+    var fg=G.model._fig||{};
+    st.style.position='relative';
+    st.innerHTML='<div style="width:100%;height:100%;display:flex;flex-direction:column;background:#fff;border-radius:8px;overflow:hidden">'+
+      '<img src="'+G.model._figUrl+'" style="flex:1;min-height:0;width:100%;object-fit:contain" alt="manual figure">'+
+      '<div style="color:#333;font-size:11px;text-align:center;padding:5px">Manual figure'+(fg.fig_no?(' '+esc(String(fg.fig_no))):'')+' — '+esc(fg.tm||'')+' · cited, public-domain illustration</div></div>';
+  } else if(which==='approx'){
+    render3D(); setupApprox();
+  } else { render3D(); }
+  var tabs=document.querySelectorAll('#gtabs .gtab');
+  for(var i=0;i<tabs.length;i++){ var on=tabs[i].getAttribute('data-t')===which; tabs[i].style.background=on?'var(--acc)':'transparent'; tabs[i].style.color=on?'#08111d':'var(--txt)'; }
+}
+function setupApprox(){
+  var st=$("#gstage"); if(!st) return; st.style.position='relative';
+  var wm=document.createElement('div'); wm.textContent='ARTISTIC APPROXIMATION — NOT TO SCALE';
+  wm.style.cssText='position:absolute;top:8px;left:8px;z-index:5;background:rgba(224,86,79,.16);color:#ff8a84;border:1px solid #e0564f;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700';
+  st.appendChild(wm);
+  var bar=document.createElement('div'); bar.id='approxbar';
+  bar.style.cssText='position:absolute;left:8px;right:8px;bottom:8px;z-index:5;background:rgba(15,20,25,.86);border:1px solid #2b333f;border-radius:7px;padding:6px 9px;font-size:11px;color:#9aa6b6';
+  bar.textContent='checking local image→3D…'; st.appendChild(bar);
+  var nsn=(G.model&&G.model.nsn)||''; if(!nsn){ bar.textContent='No NSN — approximation unavailable. (Parametric shown.)'; return; }
+  fetch('/api/image3d?nsn='+encodeURIComponent(nsn)).then(function(r){return r.json();}).then(function(s){
+    if(s.exists && s.mesh_url){
+      bar.innerHTML='Generated approximation (experimental). <span style="color:#caa24a">Not to scale.</span>';
+      fetch(s.mesh_url).then(function(r){return r.json();}).then(function(vf){
+        if(vf&&vf.V&&GLV){ GLV.load({V:vf.V,F:vf.F}, '#a779e6', false); } }).catch(function(){});
+    } else if(s.configured){
+      bar.innerHTML='No approximation yet for this part. ';
+      var b=document.createElement('button'); b.textContent='⚙ Generate (experimental)'; b.style.cssText='font-size:11px;padding:3px 8px;margin-left:4px';
+      b.onclick=function(){ b.disabled=true; b.textContent='generating… (GPU)'; genApprox(nsn,bar); }; bar.appendChild(b);
+    } else {
+      bar.innerHTML='Local image→3D model not configured — showing the parametric shape as a placeholder. '+
+        'See <b>docs/IMAGE3D-SETUP.md</b> to wire a local model (e.g. TripoSR) on your GPU.';
+    }
+  }).catch(function(){ bar.textContent='(approximation status unavailable)'; });
+}
+function genApprox(nsn,bar){
+  fetch('/api/image3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nsn:nsn})})
+    .then(function(r){return r.json();}).then(function(res){
+      if(res.ok){ bar.innerHTML='Approximation generated ('+(res.seconds||'?')+'s). Reloading…'; showStage('approx'); }
+      else { bar.innerHTML='Could not generate: '+esc(res.error||'unknown')+(res.setup?(' (see '+res.setup+')'):''); }
+    }).catch(function(){ if(bar) bar.textContent='generation failed.'; });
+}
+function approxOn(){ try{ return localStorage.getItem('viewer_approx')==='1'; }catch(e){ return false; } }
+function setupTabs(m){
+  var gs=$("#gside"); if(!gs) return;
+  var bar=document.getElementById('gtabs');
+  if(!bar){ bar=document.createElement('div'); bar.id='gtabs'; bar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px'; gs.insertBefore(bar, gs.firstChild); }
+  var btn=function(tag,lbl){ return '<button class="gtab" data-t="'+tag+'" style="font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--txt);cursor:pointer">'+lbl+'</button>'; };
+  var h='';
+  h+=btn('cad','🖼 CAD image');
+  h+=btn('cadspin','🔄 Rotate CAD');
+  h+=btn('3d','◳ Interactive 3D');
+  if(m._figUrl) h+=btn('figure','📄 Manual illustration');
+  if(approxOn()) h+=btn('approx','⚠ Approximation');
+  h+='<label style="font-size:11px;color:var(--sub);display:inline-flex;align-items:center;gap:4px;margin-left:auto"><input type="checkbox" id="approxTg"'+(approxOn()?' checked':'')+'> approximation view</label>';
+  bar.innerHTML=h;
+  var bs=bar.querySelectorAll('.gtab'); for(var i=0;i<bs.length;i++){ bs[i].onclick=function(){ showStage(this.getAttribute('data-t')); }; }
+  var tg=document.getElementById('approxTg'); if(tg){ tg.onchange=function(){ try{ localStorage.setItem('viewer_approx', this.checked?'1':'0'); }catch(e){} setupTabs(m); }; }
+  showStage('cad');   // CAD image is the default representation
+}
+// OCR hookup: connect this representative 3D part to the REAL manuals — pages that mention its NSN (live
+// from the text layer), the collections it falls into, and jumps to the part dossier / Look-Alike Parts.
+function loadRefs(m){
+  const side=$("#gside"); if(!side) return;
+  const box=document.createElement('div'); box.id='refsbox'; box.style.marginTop='12px'; box.style.borderTop='1px solid var(--line)'; box.style.paddingTop='10px';
+  const nq=encodeURIComponent(m.nsn||'');
+  box.innerHTML='<div class="sh-h">FOUND IN THE MANUALS</div>'+
+    '<div style="margin:2px 0 8px"><a href="/dossier?q='+nq+'" target="_blank">📋 Part dossier</a> &nbsp; <a href="/partdiff?q='+nq+'" target="_blank">🔍 Look-Alike Parts</a></div>'+
+    '<div class="muted" id="refsbody">searching the text layer…</div>';
+  side.appendChild(box);
+  fetch('/api/threed_refs?nsn='+nq+'&part='+encodeURIComponent(m.partno||'')).then(r=>r.json()).then(j=>{
+    const b=$("#refsbody"); if(!b) return; let html='';
+    const cols=j.collections||[];
+    if(cols.length){ html+='<div style="margin-bottom:8px">In collections: '+cols.map(c=>'<a href="/collections" title="appears on pages in this collection">🗂 '+esc(c.name)+'</a>').join(' · ')+'</div>'; }
+    const pg=j.pages||[];
+    if(!pg.length){ html+='<div class="muted">No manual page mentions this NSN yet. As OCR reaches more pages, references will appear here automatically.</div>'; }
+    else {
+      html+='<div class="muted" style="margin-bottom:4px">'+pg.length+(pg.length>=40?'+':'')+' page'+(pg.length===1?'':'s')+' reference this part:</div>';
+      html+=pg.map(r=>{ const sn=esc(r.snip||'').replace(/&lt;&lt;/g,'<mark>').replace(/&gt;&gt;/g,'</mark>');
+        return '<div style="border-top:1px solid var(--line);padding:6px 0">'+
+          '<a href="/page?doc='+r.doc_id+'&page='+r.page_number+'&dpi=200&hl='+nq+'" target="_blank">'+
+          esc(r.vehicle||'?')+(r.tm_number?(' · '+esc(r.tm_number)):'')+' · p.'+r.page_number+(r.source==='ocr'?' · OCR':'')+'</a>'+
+          '<div class="muted" style="font-size:11px;margin-top:2px">'+sn+'</div></div>'; }).join('');
+    }
+    b.innerHTML=html;
+  }).catch(()=>{ const b=$("#refsbody"); if(b) b.textContent='(could not load references)'; });
+}
+(function(){ const s=$("#gstage");
+  // SVG-path interaction (skipped when WebGL is driving — GL3D has its own canvas controls)
+  s.addEventListener('mousedown',e=>{ if(GLV) return; G.drag=true;G.px=e.clientX;G.py=e.clientY;});
+  window.addEventListener('mousemove',e=>{ if(GLV||!G.drag)return; G.ry+=(e.clientX-G.px)*0.01;G.rx+=(e.clientY-G.py)*0.01;G.px=e.clientX;G.py=e.clientY;drawG();});
+  window.addEventListener('mouseup',()=>{G.drag=false;});
+  s.addEventListener('wheel',e=>{ if(GLV) return; e.preventDefault();G.z*=(e.deltaY<0?1.1:0.9);G.z=Math.max(0.3,Math.min(4,G.z));drawG();},{passive:false});
+  s.addEventListener('dblclick',()=>{ if(!GLV) reset3D(); });
+  $("#greset").onclick=reset3D;
+  $("#gclose").onclick=()=>$("#gate").classList.remove('on');
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') $("#gate").classList.remove('on'); });
+  window.addEventListener('resize',()=>{ if(!GLV && $("#gate").classList.contains('on')) drawG(); });
+})();
+fetchPage(true);
+</script><script src="/palette.js"></script></body></html>

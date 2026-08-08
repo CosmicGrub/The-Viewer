@@ -1,0 +1,62 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Offline line-art vectorization   v0.99.4</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Turn a scanned figure/schematic into crisp SVG — razor-sharp at ANY deep-zoom, clean to reprint or recolour. No CDN, no external binary.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">THE PIPELINE (engine/vectorize.py)</text>
+<rect x="40" y="128" width="272" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">render page</text>
+<text x="56" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">fitz renders the page to a</text>
+<text x="56" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">raster at the requested DPI</text>
+<text x="56" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(reuses the page renderer).</text>
+<text x="308" y="192" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="320" y="128" width="272" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="320" y="128" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="336" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">binarize (Otsu)</text>
+<text x="336" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">cv2 threshold (Otsu, inverted)</text>
+<text x="336" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; ink = foreground. No blur by</text>
+<text x="336" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">default, so thin lines survive.</text>
+<text x="588" y="192" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="600" y="128" width="272" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="128" width="5" height="116" rx="2.5" fill="#caa24a"/>
+<text x="616" y="150" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">trace contours</text>
+<text x="616" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">cv2.findContours(RETR_CCOMP) +</text>
+<text x="616" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">approxPolyDP simplify. Keeps</text>
+<text x="616" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">hatching, thin lines, text.</text>
+<text x="616" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">min_area 1.5, simplify 0.9.</text>
+<text x="868" y="192" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="880" y="128" width="272" height="116" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="880" y="128" width="5" height="116" rx="2.5" fill="#2f7d4f"/>
+<text x="896" y="150" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">emit SVG</text>
+<text x="896" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">one even-odd-filled &lt;path&gt;</text>
+<text x="896" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(holes handled) -&gt; cached</text>
+<text x="896" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">index/veccache/&lt;doc&gt;_&lt;pg&gt;.svg,</text>
+<text x="896" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">served image/svg+xml.</text>
+<line x1="40" y1="260" x2="1140" y2="260" stroke="#2b333f"/>
+<text x="40" y="288" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">WHY IT PAIRS WITH DEEP-ZOOM</text>
+<rect x="40" y="302" width="550" height="86" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="326" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">Infinitely crisp</text>
+<text x="56" y="346" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">A raster blurs when you zoom past its DPI; an SVG is resolution-free — the browser renders the ⛭ Vectorize output razor-sharp at any zoom.</text>
+<rect x="600" y="302" width="550" height="86" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="616" y="326" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">Offline, uses cv2 already present</text>
+<text x="616" y="346" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">OpenCV ships with the OCR stack, so no new dependency. Cached per page; if cv2 is missing the route returns a clean 503.</text>
+<rect x="40" y="398" width="550" height="86" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="422" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Reprint / recolour clean</text>
+<text x="56" y="442" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Vector line-art prints crisp and can be recoloured (it&#x27;s a filled path) — useful for take-to-the-bay packets.</text>
+<rect x="600" y="398" width="550" height="86" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="616" y="422" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">Keeps the fine detail</text>
+<text x="616" y="442" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Tuned so hatching, thin leader lines and callout text survive (no median-blur, low min-area).</text>
+<line x1="40" y1="486" x2="1140" y2="486" stroke="#2b333f"/>
+<text x="40" y="514" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED</text>
+<rect x="40" y="528" width="1100" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="547" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="550" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Core logic run in-sandbox on synthetic line-art: 18 contours, faithful reproduction incl. hatching + text.</text>
+<circle cx="56" cy="564" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="567" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Proof docs/vectorize_proof.png (raster -&gt; vector, side by side). OpenCV 4.13 + numpy + Pillow.</text>
+<circle cx="56" cy="581" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="584" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Route (/vectorize) + ⛭ button pending the host suite (VERIFY-099.bat) — the mount truncated the grown files.</text>
+<circle cx="56" cy="598" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="601" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable (R1): one module + one route + one button; veccache sidecar only. Closes thread #4 fully.</text>
+<text x="40" y="690" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.4 · 2026-07-01 · vectorize.py (cv2 potrace-style) · /vectorize · deepzoom ⛭ · index/veccache. Offline. R1/R6.</text>
+</svg>

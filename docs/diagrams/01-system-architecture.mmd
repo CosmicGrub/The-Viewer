@@ -1,0 +1,41 @@
+%% THE VIEWER - System Architecture (Milestone M1)
+%% Backwards-compatible note: source corpus is READ-ONLY and never modified.
+flowchart TB
+    subgraph SRC["SOURCE OF TRUTH (read-only, never modified)"]
+        CORPUS[("E:\ALL MILITARY TMS<br/>~39,700 files / ~85 GB<br/>PDFs, images, docs, legacy IETM")]
+    end
+
+    subgraph ING["INGESTION PIPELINE (background worker)"]
+        CRAWL["Crawl / Watch"]
+        EXTRACT["Classify + Extract<br/>text-first"]
+        OCRQ["OCR queue<br/>(deferred)"]
+    end
+
+    subgraph STORE["INDEX STORE (versioned)"]
+        DB[("viewer.db<br/>SQLite + FTS5<br/>schema_meta + migrations")]
+        ASSETS[("derived assets<br/>figures / thumbnails")]
+    end
+
+    subgraph APP["APPLICATION SERVICE (local, offline)"]
+        ENGINE["Local web engine<br/>search + serve docs"]
+    end
+
+    subgraph GUI["GUI (browser)"]
+        SEARCH["Predictive search + Ctrl+F"]
+        VIEW["Document viewer"]
+        PROC["Procedures + part variants"]
+        GFX["Dynamic graphics layer"]
+    end
+
+    CORPUS -->|read only| CRAWL
+    CRAWL --> EXTRACT
+    EXTRACT --> DB
+    EXTRACT --> ASSETS
+    EXTRACT -.scanned PDFs.-> OCRQ
+    OCRQ -.later.-> DB
+    DB --> ENGINE
+    ASSETS --> ENGINE
+    ENGINE --> SEARCH
+    ENGINE --> VIEW
+    ENGINE --> PROC
+    ENGINE --> GFX

@@ -1,0 +1,69 @@
+<svg viewBox="0 0 1200 820" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1200" height="820" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Higher-quality CAD across all tiers + CAD vs 3-D, made distinct   v0.93.0</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The CAD renderer got a quality pass on every tier; the rotating CAD and the 3-D model now read as different things.</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">THE QUALITY PASS — engine/cad_render.py (CAD_VERSION 4)</text>
+<rect x="40" y="128" width="280" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="112" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="150" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Anti-aliasing</text>
+<text x="56" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Supersample 2× → 3×.</text>
+<text x="56" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Cleaner edges everywhere.</text>
+<rect x="328" y="128" width="280" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="328" y="128" width="5" height="112" rx="2.5" fill="#2f7d4f"/>
+<text x="344" y="150" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Finer mesh</text>
+<text x="344" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">cyl 28→48 · tube 32→52 ·</text>
+<text x="344" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">torus 30×16→48×26 · sphere</text>
+<text x="344" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">16×12→28×20 · helix sv 8→12.</text>
+<text x="344" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Round parts look round.</text>
+<rect x="616" y="128" width="280" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="616" y="128" width="5" height="112" rx="2.5" fill="#caa24a"/>
+<text x="632" y="150" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">CAD ink-line</text>
+<text x="632" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Crisp silhouette + hole</text>
+<text x="632" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">outline from the part mask —</text>
+<text x="632" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the technical-drawing line.</text>
+<rect x="904" y="128" width="280" height="112" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="904" y="128" width="5" height="112" rx="2.5" fill="#caa24a"/>
+<text x="920" y="150" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">Depth + clean faces</text>
+<text x="920" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Soft contact shadow under</text>
+<text x="920" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the part; facet edges = a</text>
+<text x="920" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">subtle tint, not a black wire.</text>
+<text x="40" y="260" font-size="9.5" font-weight="400" fill="#7f8a99" text-anchor="start">Applies to ALL tiers, ladder preserved: v1 flat (legacy) · v2 +specular/metallic (lite) · v3 +FLIS colour/texture (modern). Proof: docs/cad_quality_v4.png.</text>
+<line x1="40" y1="276" x2="1160" y2="276" stroke="#2b333f"/>
+<text x="40" y="304" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">THE TIER LADDER (each now higher quality)</text>
+<rect x="40" y="318" width="386" height="84" rx="12" fill="#171d26" stroke="#c4585a" stroke-width="1"/>
+<text x="56" y="342" font-size="12" font-weight="700" fill="#c4585a" text-anchor="start">LEGACY · v1</text>
+<text x="56" y="362" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Flat diffuse, head-down, no colour/texture — but now SS3, rounder mesh, silhouette + shadow.</text>
+<rect x="432" y="318" width="386" height="84" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="448" y="342" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">LITE · v2</text>
+<text x="448" y="362" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Everything in v1 + right-side-up + specular / metallic highlights.</text>
+<rect x="824" y="318" width="386" height="84" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="840" y="342" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">MODERN · v3</text>
+<text x="840" y="362" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Everything in v2 + FLIS colour + per-material procedural surface texture.</text>
+<line x1="40" y1="418" x2="1160" y2="418" stroke="#2b333f"/>
+<text x="40" y="446" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">CAD vs 3-D — now visually DISTINCT (same smooth WebGL motion)</text>
+<rect x="40" y="460" width="560" height="150" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="58" y="486" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">🔄  ROTATE CAD  (technical)</text>
+<text x="58" y="512" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Flat-faceted, neutral machined STEEL, matte.</text>
+<text x="58" y="530" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· GLV.load(geom, &#x27;#9aa6b2&#x27;, false, [0.18,14,0.30]).</text>
+<text x="58" y="548" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Cool blueprint-grey stage. Reads as a CAD model.</text>
+<text x="58" y="566" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Carries shape + FLIS dimensions, not the part colour.</text>
+<rect x="620" y="460" width="540" height="150" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="638" y="486" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">◳  INTERACTIVE 3-D  (realistic)</text>
+<text x="638" y="512" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· The part&#x27;s FLIS colour, smooth shading.</text>
+<text x="638" y="530" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· The scanned MATERIAL finish (metallic/matte/rubber).</text>
+<text x="638" y="548" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Looks like the real object&#x27;s surface.</text>
+<text x="638" y="566" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">· Unchanged from before.</text>
+<line x1="40" y1="632" x2="1160" y2="632" stroke="#2b333f"/>
+<text x="40" y="660" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED (host-side)</text>
+<rect x="40" y="674" width="1120" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="693" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="696" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">VERIFY-CAD-QUALITY.bat: cad_render.py parses, both UI pages&#x27; inline JS parse (exit 0).</text>
+<circle cx="56" cy="710" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="713" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">All-tiers quality grid renders to docs/cad_quality_v4.png — round parts round, crisp silhouettes, soft shadows.</text>
+<circle cx="56" cy="727" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="730" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Re-render the full library with RUN-CAD-TIERS.bat (clears + re-renders v1/v2/v3) to push v4 quality everywhere.</text>
+<circle cx="56" cy="744" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="747" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Additive &amp; rollbackable (R1): revert the render edits + the cadspin GLV.load line + CAD_VERSION.</text>
+<text x="40" y="808" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.93.0 · 2026-06-04 · cad_render.py SS3+mesh+silhouette+shadow · CAD_VERSION 4 · threed.html cadspin flat-steel · RUN-CAD-TIERS to refresh. R1.</text>
+</svg>

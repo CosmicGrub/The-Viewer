@@ -1,0 +1,76 @@
+<svg viewBox="0 0 1200 880" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1200" height="880" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">“Living Schematic” — SHIPPED (PoC)   v0.91.0</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">A flat vector schematic → an inferred netlist → an interactive overlay whose wires animate in the direction of flow.</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">THE PIPELINE (per page, cached)</text>
+<rect x="40" y="128" width="280" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="120" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="150" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">schem_overlay.py</text>
+<text x="56" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">EXISTING. Pure read of the</text>
+<text x="56" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">PDF vectors → lines / polylines /</text>
+<text x="56" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">rects + text words, normalized</text>
+<text x="56" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">0..1.  /api/schempaths</text>
+<text x="316" y="194" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="328" y="128" width="280" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="328" y="128" width="5" height="120" rx="2.5" fill="#caa24a"/>
+<text x="344" y="150" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">schemgraph.py</text>
+<text x="344" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">NEW. segments → snap endpoints</text>
+<text x="344" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">to NODES → split T-junctions →</text>
+<text x="344" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">union-find NETS → attach R/C/K</text>
+<text x="344" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">labels → CONFIDENCE score</text>
+<text x="604" y="194" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="616" y="128" width="280" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="616" y="128" width="5" height="120" rx="2.5" fill="#caa24a"/>
+<text x="632" y="150" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">/api/schemgraph</text>
+<text x="632" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">NEW route. Serves the graph,</text>
+<text x="632" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">cached to index/schemcache/</text>
+<text x="632" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">&lt;doc&gt;_&lt;page&gt;.json.  &amp;fresh=1</text>
+<text x="632" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">rebuilds. R1 sidecar-only.</text>
+<text x="892" y="194" font-size="20" fill="#9aa6b6">&#8594;</text>
+<rect x="904" y="128" width="280" height="120" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="904" y="128" width="5" height="120" rx="2.5" fill="#2f7d4f"/>
+<text x="920" y="150" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">schemflow.js</text>
+<text x="920" y="170" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">NEW overlay. Draws the graph</text>
+<text x="920" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">over the page image; wires</text>
+<text x="920" y="200" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">ANIMATE power→load; click a</text>
+<text x="920" y="215" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">wire=isolate net; click part.</text>
+<text x="40" y="268" font-size="9.5" font-weight="400" fill="#7f8a99" text-anchor="start">green = built on what already existed · amber = the new pieces.</text>
+<line x1="40" y1="282" x2="1160" y2="282" stroke="#2b333f"/>
+<text x="40" y="310" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">THE OVERLAY SCALES WITH THE BUILD (RPS)</text>
+<rect x="40" y="324" width="386" height="84" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="348" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">MODERN</text>
+<text x="56" y="368" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">requestAnimationFrame dash flow — smooth traveling dashes along every wire, in the current&#x27;s</text><text x="56" y="381" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">direction.</text>
+<rect x="432" y="324" width="386" height="84" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="448" y="348" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">LITE</text>
+<text x="448" y="368" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Browser-driven SMIL &lt;animate&gt; on stroke-dashoffset — same direction + speed, no JS loop.</text>
+<rect x="824" y="324" width="386" height="84" rx="12" fill="#171d26" stroke="#c4585a" stroke-width="1"/>
+<text x="840" y="348" font-size="12" font-weight="700" fill="#c4585a" text-anchor="start">LEGACY</text>
+<text x="840" y="368" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">No loop at all: static highlight + a ▸ STEP button that advances the flow one hop at a time.</text>
+<line x1="40" y1="424" x2="1160" y2="424" stroke="#2b333f"/>
+<text x="40" y="452" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">WHAT THE MECHANIC DOES</text>
+<rect x="40" y="466" width="575" height="86" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="491" font-size="12.5" font-weight="700" fill="#4f9dff" text-anchor="start">Watch the flow</text>
+<text x="56" y="512" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Wires animate power → load (direction inferred by BFS from power/ground labels). The page reads as a system, not a static picture.</text>
+<rect x="625" y="466" width="575" height="86" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="641" y="491" font-size="12.5" font-weight="700" fill="#1d9e75" text-anchor="start">Isolate a net</text>
+<text x="641" y="512" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Click any wire: its whole net lights amber end-to-end, everything else dims. Click empty space to clear.</text>
+<rect x="40" y="562" width="575" height="86" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="56" y="587" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">Break down a part</text>
+<text x="56" y="608" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Click a component marker (R12, K3…): a panel opens with the reference and a one-click ‘find every mention in this manual’.</text>
+<rect x="625" y="562" width="575" height="86" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="587" font-size="12.5" font-weight="700" fill="#7f77dd" text-anchor="start">Confidence read-out</text>
+<text x="641" y="608" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The toolbar shows nets · parts · confidence% so you know how much to trust the inference on this particular sheet.</text>
+<line x1="40" y1="656" x2="1160" y2="656" stroke="#2b333f"/>
+<text x="40" y="684" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED ON THE REAL CORPUS</text>
+<rect x="40" y="698" width="1120" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="717" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="720" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Self-test: a synthetic loop + a mid-wire tap collapses to ONE connected net — the T-junction split works.</text>
+<circle cx="56" cy="734" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="737" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Engine Wiring Harness p1 → 77 components · 1,652 wire-segments · 65 nets · confidence 0.97. Many wiring pages score ≥0.94.</text>
+<circle cx="56" cy="751" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="754" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Visual proof (docs/schemflow_proof.png): the inferred netlist traces the actual Caterpillar C7 engine schematic.</text>
+<circle cx="56" cy="768" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="771" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Known PoC limit: CAD-exported sheets with OUTLINED label text yield wires/nets but no components — breakdown needs an OCR text layer.</text>
+<text x="40" y="868" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.91.0 · 2026-06-04 · schemgraph.py · /api/schemgraph · schemflow.js · schematics.html ▶ Flow · builds on schem_overlay/circuitsim/cadimg. R1.</text>
+</svg>

@@ -1,0 +1,57 @@
+<svg viewBox="0 0 1200 780" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1200" height="780" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Post-restructure gap-fill   v0.98.1</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">A paused 0.95 session re-synced to the real v0.98.0 tree, confirmed THE RESTRUCTURE kept the 0.90–0.95 stack intact, and closed two overlooked gaps.</text>
+<line x1="40" y1="86" x2="1160" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">1 · RE-SYNC &amp; AUDIT (read-only) — did the monolith→features/ split drop anything?</text>
+<rect x="40" y="128" width="1120" height="92" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="147" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="150" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Routes: /cadimg /cadspin /cadstl /cadobj /api/cadmaterial /api/schempaths /api/schemgraph /api/localmodel(_mesh) — ALL registered in the new registry.</text>
+<circle cx="56" cy="164" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="167" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Modules: schemgraph · localmodel · cad_render · schem_overlay — present + referenced by features/.</text>
+<circle cx="56" cy="181" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="184" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">cad_render CAD_VERSION 7 · render()/material_for/render_spin/ensure_spin intact · make_cad parallel (multiprocessing/--force) intact.</text>
+<circle cx="56" cy="198" r="2.6" fill="#2f7d4f"/>
+<text x="66" y="201" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">UI: threed/schematics + cadview/schemflow/schemhl/gl3d served. → Nothing dropped by the split.</text>
+<line x1="40" y1="232" x2="1160" y2="232" stroke="#2b333f"/>
+<text x="40" y="260" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">2 · GAPS FILLED (additive — no engine code touched)</text>
+<rect x="40" y="274" width="364" height="150" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="274" width="5" height="150" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="296" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">tests/test_features_integration.py</text>
+<text x="56" y="318" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">16 checks spanning the imagery/CAD/</text>
+<text x="56" y="333" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">schematic features THROUGH the new</text>
+<text x="56" y="348" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">registry: routes registered, CAD v7,</text>
+<text x="56" y="363" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">material_for, render_spin, a v1 render,</text>
+<text x="56" y="378" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">schemgraph one-net, localmodel OBJ.</text>
+<text x="56" y="393" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">A permanent regression guard.</text>
+<rect x="414" y="274" width="364" height="150" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="414" y="274" width="5" height="150" rx="2.5" fill="#4f9dff"/>
+<text x="430" y="296" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">VERIFY-V098.bat</text>
+<text x="430" y="318" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">one host-side button: parse shell +</text>
+<text x="430" y="333" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">features/*.py, then run the core</text>
+<text x="430" y="348" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">suites + the new test to a log.</text>
+<text x="430" y="363" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start"></text>
+<text x="430" y="378" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">RESULT: 21+16+59+15+12 =</text>
+<text x="430" y="393" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">123 checks · 0 failures.</text>
+<rect x="788" y="274" width="364" height="150" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="788" y="274" width="5" height="150" rx="2.5" fill="#caa24a"/>
+<text x="804" y="296" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">Refreshed hand-off docs</text>
+<text x="804" y="318" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">PROJECT-SUMMARY.md + PORTING.md</text>
+<text x="804" y="333" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">were stale (0.95 monolith).</text>
+<text x="804" y="348" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">Now describe the v0.98 thin shell</text>
+<text x="804" y="363" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">+ engine/features/ package,</text>
+<text x="804" y="378" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">registry/routes, new backups,</text>
+<text x="804" y="393" font-size="8.7" font-weight="400" fill="#9aa6b6" text-anchor="start">nav consolidation.</text>
+<line x1="40" y1="444" x2="1160" y2="444" stroke="#2b333f"/>
+<text x="40" y="472" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">3 · SAFETY — why this couldn&#x27;t collide with the restructure session</text>
+<rect x="40" y="486" width="1120" height="96" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<circle cx="56" cy="505" r="2.6" fill="#4f9dff"/>
+<text x="66" y="508" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The restructure (0.96→0.98, 2026-06-10) was already complete on disk — this session DISREGARDED redoing it (per instruction).</text>
+<circle cx="56" cy="522" r="2.6" fill="#4f9dff"/>
+<text x="66" y="525" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">This pass is purely ADDITIVE: two NEW files + doc/changelog edits. No feature module, route, or shell code was modified (R1).</text>
+<circle cx="56" cy="539" r="2.6" fill="#4f9dff"/>
+<text x="66" y="542" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Rollback = delete the 2 new files + revert the doc/changelog entries. Everything verified green host-side (coherent files).</text>
+<circle cx="56" cy="556" r="2.6" fill="#4f9dff"/>
+<text x="66" y="559" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 backwards-compatible · R4 changelog · R7 legacy parity entry · this diagram (R2/R3).</text>
+<text x="40" y="768" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.98.1 · 2026-07-01 · tests/test_features_integration.py · VERIFY-V098.bat · PROJECT-SUMMARY/PORTING refresh. Additive, R1.</text>
+</svg>

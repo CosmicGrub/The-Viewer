@@ -1,0 +1,1020 @@
+<svg viewBox="0 0 1020 7146" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1020" height="7146" fill="#0f1419"/>
+<text x="40" y="52" font-size="24" font-weight="700" fill="#e6e9ee">THE VIEWER - Visual Changelog</text>
+<text x="40" y="78" font-size="12" fill="#9aa6b6">A functioning data-flow panel for every version (chronological). Dark (R3) - PDF (R5) - accompanies docs/CHANGELOG.md (R4).</text>
+<line x1="40" y1="98" x2="980" y2="98" stroke="#2a2f37"/>
+<rect x="40" y="104" width="12" height="10" rx="2" fill="#16301f" stroke="#2f5a3e"/><text x="58" y="113" font-size="10" fill="#9aa6b6">feature</text>
+<rect x="120" y="104" width="12" height="10" rx="2" fill="#3a2f1a" stroke="#6b5526"/><text x="138" y="113" font-size="10" fill="#9aa6b6">fix</text>
+<rect x="178" y="104" width="12" height="10" rx="2" fill="#1a2740" stroke="#3a4d6e"/><text x="196" y="113" font-size="10" fill="#9aa6b6">rule/standard</text>
+<line x1="150" y1="120" x2="150" y2="252" stroke="#2a2f37"/>
+<circle cx="150" cy="154" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="138" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="158" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.1.0</text>
+<text x="172" y="150" font-size="14.5" font-weight="700" fill="#e6e9ee">Architecture &amp; diagrams</text>
+<text x="172" y="170" font-size="10.5" fill="#9aa6b6">Locked: local web app + SQLite/FTS5 + text-first. Established rules R1 (backwards-compatible) and R2 (diagram</text>
+<text x="172" y="185" font-size="10.5" fill="#9aa6b6">per addition).</text>
+<rect x="172" y="204" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="227" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Corpus (read-only)</text>
+<path d="M332,222 L358,222" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="204" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="227" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Design decisions</text>
+<path d="M518,222 L544,222" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="204" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="227" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Versioned schema</text>
+<path d="M704,222 L730,222" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="204" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="227" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Diagrams (R1/R2)</text>
+<line x1="150" y1="252" x2="150" y2="384" stroke="#2a2f37"/>
+<circle cx="150" cy="286" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="270" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="290" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.2.0</text>
+<text x="172" y="282" font-size="14.5" font-weight="700" fill="#e6e9ee">Indexing engine + OCR pipeline</text>
+<text x="172" y="302" font-size="10.5" fill="#9aa6b6">viewer_ingest + migration 0001 (documents/pages/pages_fts/jobs/runs). Text-first, resumable, idempotent; durable</text>
+<text x="172" y="317" font-size="10.5" fill="#9aa6b6">OCR job queue.</text>
+<rect x="172" y="336" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="359" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Crawl</text>
+<path d="M332,354 L358,354" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="336" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="359" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Extract text</text>
+<path d="M518,354 L544,354" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="336" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="359" text-anchor="middle" font-size="10.5" fill="#e6e9ee">FTS5 index</text>
+<path d="M704,354 L730,354" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="336" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="359" text-anchor="middle" font-size="10.5" fill="#e6e9ee">OCR queue</text>
+<line x1="150" y1="384" x2="150" y2="516" stroke="#2a2f37"/>
+<circle cx="150" cy="418" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="402" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="422" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.3.0</text>
+<text x="172" y="414" font-size="14.5" font-weight="700" fill="#e6e9ee">Onboarding + 104th parts request</text>
+<text x="172" y="434" font-size="10.5" fill="#9aa6b6">Migration 0002 (sessions/faults/request_items). Offline app + dark UI; clean PDF replica of the 104th ECC sheet,</text>
+<text x="172" y="449" font-size="10.5" fill="#9aa6b6">header from the modal.</text>
+<rect x="172" y="468" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="491" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Onboarding modal</text>
+<path d="M332,486 L358,486" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="468" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="491" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Search</text>
+<path d="M518,486 L544,486" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="468" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="491" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Parts cart</text>
+<path d="M704,486 L730,486" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="468" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="491" text-anchor="middle" font-size="10.5" fill="#e6e9ee">104th PDF</text>
+<line x1="150" y1="516" x2="150" y2="648" stroke="#2a2f37"/>
+<circle cx="150" cy="550" r="7" fill="#3a2f1a" stroke="#6b5526"/>
+<rect x="40" y="534" width="92" height="30" rx="7" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="86" y="554" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.4.0</text>
+<text x="172" y="546" font-size="14.5" font-weight="700" fill="#e6e9ee">Full-corpus extraction + durability</text>
+<text x="172" y="566" font-size="10.5" fill="#9aa6b6">Time-boxed resumable batches + cheap skip (size+mtime). Fixed corruption by switching to EXCLUSIVE + on-disk</text>
+<text x="172" y="581" font-size="10.5" fill="#9aa6b6">TRUNCATE journal.</text>
+<rect x="172" y="600" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="623" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Batch crawl</text>
+<path d="M332,618 L358,618" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="600" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="623" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Cheap skip</text>
+<path d="M518,618 L544,618" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="600" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="623" text-anchor="middle" font-size="10.5" fill="#e6e9ee">TRUNCATE journal</text>
+<path d="M704,618 L730,618" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="600" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="623" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Resumable</text>
+<line x1="150" y1="648" x2="150" y2="780" stroke="#2a2f37"/>
+<circle cx="150" cy="682" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="666" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="686" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.5.0</text>
+<text x="172" y="678" font-size="14.5" font-weight="700" fill="#e6e9ee">PyMuPDF text backend</text>
+<text x="172" y="698" font-size="10.5" fill="#9aa6b6">Text extraction moved to PyMuPDF (pip) with Poppler fallback - faster and removes the Poppler hard dependency.</text>
+<rect x="172" y="732" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="755" text-anchor="middle" font-size="10.5" fill="#e6e9ee">PDF</text>
+<path d="M332,750 L358,750" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="732" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="755" text-anchor="middle" font-size="10.5" fill="#e6e9ee">PyMuPDF get_text</text>
+<path d="M518,750 L544,750" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="732" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="755" text-anchor="middle" font-size="10.5" fill="#e6e9ee">pages text</text>
+<line x1="150" y1="780" x2="150" y2="912" stroke="#2a2f37"/>
+<circle cx="150" cy="814" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="798" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="818" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.6.0</text>
+<text x="172" y="810" font-size="14.5" font-weight="700" fill="#e6e9ee">RapidOCR engine; full run</text>
+<text x="172" y="830" font-size="10.5" fill="#9aa6b6">OCR engine = RapidOCR (pip, no admin). Full crawl COMPLETED on PC: 40,291 docs, ~1.87M searchable text pages,</text>
+<text x="172" y="845" font-size="10.5" fill="#9aa6b6">~133k queued for OCR.</text>
+<rect x="172" y="864" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="887" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Scanned page</text>
+<path d="M332,882 L358,882" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="864" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="887" text-anchor="middle" font-size="10.5" fill="#e6e9ee">PyMuPDF render</text>
+<path d="M518,882 L544,882" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="864" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="887" text-anchor="middle" font-size="10.5" fill="#e6e9ee">RapidOCR</text>
+<path d="M704,882 L730,882" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="864" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="887" text-anchor="middle" font-size="10.5" fill="#e6e9ee">FTS5</text>
+<line x1="150" y1="912" x2="150" y2="1044" stroke="#2a2f37"/>
+<circle cx="150" cy="946" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="930" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="950" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.6.1</text>
+<text x="172" y="942" font-size="14.5" font-weight="700" fill="#e6e9ee">OCR detail + example</text>
+<text x="172" y="962" font-size="10.5" fill="#9aa6b6">Detailed OCR diagram + a real before/after example page (recovered part numbers from a scanned parts page).</text>
+<rect x="172" y="996" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1019" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Scan</text>
+<path d="M332,1014 L358,1014" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="996" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1019" text-anchor="middle" font-size="10.5" fill="#e6e9ee">OCR</text>
+<path d="M518,1014 L544,1014" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="996" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1019" text-anchor="middle" font-size="10.5" fill="#e6e9ee">142 lines @99%</text>
+<line x1="150" y1="1044" x2="150" y2="1176" stroke="#2a2f37"/>
+<circle cx="150" cy="1078" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="1062" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="1082" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.7.0</text>
+<text x="172" y="1074" font-size="14.5" font-weight="700" fill="#e6e9ee">Dark diagram standard (R3)</text>
+<text x="172" y="1094" font-size="10.5" fill="#9aa6b6">Rule R3: all diagrams dark-themed + a PDF version. Converted existing diagrams; viewer.html switched to dark.</text>
+<rect x="172" y="1128" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1151" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Dark SVG</text>
+<path d="M332,1146 L358,1146" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1128" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1151" text-anchor="middle" font-size="10.5" fill="#e6e9ee">cairosvg</text>
+<path d="M518,1146 L544,1146" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="1128" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1151" text-anchor="middle" font-size="10.5" fill="#e6e9ee">PDF</text>
+<line x1="150" y1="1176" x2="150" y2="1308" stroke="#2a2f37"/>
+<circle cx="150" cy="1210" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="1194" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="1214" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.8.0</text>
+<text x="172" y="1206" font-size="14.5" font-weight="700" fill="#e6e9ee">Search GUI: document viewer</text>
+<text x="172" y="1226" font-size="10.5" fill="#9aa6b6">On-demand page rendering (PyMuPDF) + viewer pane: click a result to see the real manual page, navigate, add the</text>
+<text x="172" y="1241" font-size="10.5" fill="#9aa6b6">part to the request.</text>
+<rect x="172" y="1260" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1283" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Result</text>
+<path d="M332,1278 L358,1278" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1260" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1283" text-anchor="middle" font-size="10.5" fill="#e6e9ee">/page render</text>
+<path d="M518,1278 L544,1278" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="1260" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1283" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Viewer pane</text>
+<path d="M704,1278 L730,1278" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="1260" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="1283" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Add part</text>
+<line x1="150" y1="1308" x2="150" y2="1440" stroke="#2a2f37"/>
+<circle cx="150" cy="1342" r="7" fill="#3a2f1a" stroke="#6b5526"/>
+<rect x="40" y="1326" width="92" height="30" rx="7" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="86" y="1346" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.8.1</text>
+<text x="172" y="1338" font-size="14.5" font-weight="700" fill="#e6e9ee">OCR reliability fixes</text>
+<text x="172" y="1358" font-size="10.5" fill="#9aa6b6">Root cause: orphan sandbox-path rows failed instantly. Added cleanup + switched to thread-based OCR. Verified</text>
+<text x="172" y="1373" font-size="10.5" fill="#9aa6b6">real text, zero failures.</text>
+<rect x="172" y="1392" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1415" text-anchor="middle" font-size="10.5" fill="#e6e9ee">cleanup (drop /tmp rows)</text>
+<path d="M332,1410 L358,1410" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1392" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1415" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Thread OCR</text>
+<path d="M518,1410 L544,1410" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="1392" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1415" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Live progress</text>
+<path d="M704,1410 L730,1410" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="1392" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="1415" text-anchor="middle" font-size="10.5" fill="#e6e9ee">done, failed=0</text>
+<line x1="150" y1="1440" x2="150" y2="1572" stroke="#2a2f37"/>
+<circle cx="150" cy="1474" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="1458" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="1478" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.9.0</text>
+<text x="172" y="1470" font-size="14.5" font-weight="700" fill="#e6e9ee">Forked: GPU + Lite</text>
+<text x="172" y="1490" font-size="10.5" fill="#9aa6b6">One codebase, two profiles: GPU/production (priority) and Lite/portable (self-contained folder + finished</text>
+<text x="172" y="1505" font-size="10.5" fill="#9aa6b6">index). Flags --gpu/--dpi.</text>
+<rect x="172" y="1524" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1547" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Shared core</text>
+<path d="M332,1542 L358,1542" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1524" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1547" text-anchor="middle" font-size="10.5" fill="#e6e9ee">GPU build (--gpu)</text>
+<path d="M518,1542 L544,1542" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="1524" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1547" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Lite portable</text>
+<path d="M704,1542 L730,1542" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="1524" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="1547" text-anchor="middle" font-size="10.5" fill="#e6e9ee">make_portable</text>
+<line x1="150" y1="1572" x2="150" y2="1704" stroke="#2a2f37"/>
+<circle cx="150" cy="1606" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="1590" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="1610" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.9.1</text>
+<text x="172" y="1602" font-size="14.5" font-weight="700" fill="#e6e9ee">Changelog standard (R4)</text>
+<text x="172" y="1622" font-size="10.5" fill="#9aa6b6">Rule R4: a versioned changelog entry accompanies every change. Retroactive CHANGELOG.md created.</text>
+<rect x="172" y="1656" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1679" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Change</text>
+<path d="M332,1674 L358,1674" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1656" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1679" text-anchor="middle" font-size="10.5" fill="#e6e9ee">CHANGELOG.md entry</text>
+<line x1="150" y1="1704" x2="150" y2="1836" stroke="#2a2f37"/>
+<circle cx="150" cy="1738" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="1722" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="1742" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.9.2</text>
+<text x="172" y="1734" font-size="14.5" font-weight="700" fill="#e6e9ee">Visual changelog (R5)</text>
+<text x="172" y="1754" font-size="10.5" fill="#9aa6b6">Rule R5: every changelog entry also gets a detailed graphical explanation + a functioning diagram PDF (this</text>
+<text x="172" y="1769" font-size="10.5" fill="#9aa6b6">document).</text>
+<rect x="172" y="1788" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1811" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Change</text>
+<path d="M332,1806 L358,1806" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1788" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1811" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Changelog entry</text>
+<path d="M518,1806 L544,1806" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="1788" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1811" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Graphical panel</text>
+<path d="M704,1806 L730,1806" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="1788" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="1811" text-anchor="middle" font-size="10.5" fill="#e6e9ee">PDF</text>
+<line x1="150" y1="1836" x2="150" y2="1968" stroke="#2a2f37"/>
+<circle cx="150" cy="1870" r="7" fill="#3a2f1a" stroke="#6b5526"/>
+<rect x="40" y="1854" width="92" height="30" rx="7" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="86" y="1874" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.9.3</text>
+<text x="172" y="1866" font-size="14.5" font-weight="700" fill="#e6e9ee">Launcher pip self-upgrade</text>
+<text x="172" y="1886" font-size="10.5" fill="#9aa6b6">All setup/launch files now run pip install --upgrade pip before installing packages, so nothing is missing and</text>
+<text x="172" y="1901" font-size="10.5" fill="#9aa6b6">the app launches cleanly.</text>
+<rect x="172" y="1920" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="1943" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Launch .bat</text>
+<path d="M332,1938 L358,1938" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="1920" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="1943" text-anchor="middle" font-size="10.5" fill="#e6e9ee">upgrade pip</text>
+<path d="M518,1938 L544,1938" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="1920" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="1943" text-anchor="middle" font-size="10.5" fill="#e6e9ee">install deps</text>
+<path d="M704,1938 L730,1938" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="1920" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="1943" text-anchor="middle" font-size="10.5" fill="#e6e9ee">run</text>
+<line x1="150" y1="1968" x2="150" y2="2100" stroke="#2a2f37"/>
+<circle cx="150" cy="2002" r="7" fill="#3a2f1a" stroke="#6b5526"/>
+<rect x="40" y="1986" width="92" height="30" rx="7" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="86" y="2006" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.9.4</text>
+<text x="172" y="1998" font-size="14.5" font-weight="700" fill="#e6e9ee">Nomenclature carries to the sheet</text>
+<text x="172" y="2018" font-size="10.5" fill="#9aa6b6">Part nomenclature now auto-fills the cart Item Name from the matched manual line (or search term), so it carries</text>
+<text x="172" y="2033" font-size="10.5" fill="#9aa6b6">onto the parts request sheet.</text>
+<rect x="172" y="2052" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2075" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Search match (snippet)</text>
+<path d="M332,2070 L358,2070" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2052" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2075" text-anchor="middle" font-size="10.5" fill="#e6e9ee">deriveName</text>
+<path d="M518,2070 L544,2070" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2052" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2075" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Item name (editable)</text>
+<path d="M704,2070 L730,2070" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2052" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2075" text-anchor="middle" font-size="10.5" fill="#e6e9ee">104th PDF</text>
+<line x1="150" y1="2100" x2="150" y2="2232" stroke="#2a2f37"/>
+<circle cx="150" cy="2134" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2118" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2138" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.10.0</text>
+<text x="172" y="2130" font-size="14.5" font-weight="700" fill="#e6e9ee">NSN search + Vehicle breakdown hub</text>
+<text x="172" y="2150" font-size="10.5" fill="#9aa6b6">Type a full NSN (part or whole-vehicle); vehicle NSN opens a hub grouping the entire manual set</text>
+<text x="172" y="2165" font-size="10.5" fill="#9aa6b6">(operator/maint/parts/troubleshooting/schematics), each opening the actual page.</text>
+<rect x="172" y="2184" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2207" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Full NSN</text>
+<path d="M332,2202 L358,2202" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2184" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2207" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Exact match + classify</text>
+<path d="M518,2202 L544,2202" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2184" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2207" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Vehicle hub (grouped)</text>
+<path d="M704,2202 L730,2202" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2184" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2207" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Open real page</text>
+<line x1="150" y1="2232" x2="150" y2="2364" stroke="#2a2f37"/>
+<circle cx="150" cy="2266" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2250" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2270" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.11.0</text>
+<text x="172" y="2262" font-size="14.5" font-weight="700" fill="#e6e9ee">Express modal + Schematics on every page</text>
+<text x="172" y="2282" font-size="10.5" fill="#9aa6b6">Modal &#x27;What do you need?&#x27; jumps straight to the page/hub on exact NSN/part#; the viewer always shows a</text>
+<text x="172" y="2297" font-size="10.5" fill="#9aa6b6">Schematics &amp; install panel (cited figure -&gt; page -&gt; vehicle schematic set), verbatim &amp; cited.</text>
+<rect x="172" y="2316" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2339" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Express field (NSN/part)</text>
+<path d="M332,2334 L358,2334" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2316" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2339" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Bypass -&gt; page/hub</text>
+<path d="M518,2334 L544,2334" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2316" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2339" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Viewer schematics panel</text>
+<path d="M704,2334 L730,2334" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2316" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2339" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Always a graphic</text>
+<line x1="150" y1="2364" x2="150" y2="2496" stroke="#2a2f37"/>
+<circle cx="150" cy="2398" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2382" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2402" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.12.0</text>
+<text x="172" y="2394" font-size="14.5" font-weight="700" fill="#e6e9ee">OCR speedup: skip-junk + prioritize</text>
+<text x="172" y="2414" font-size="10.5" fill="#9aa6b6">Skip-the-junk: blank pages skipped with no OCR inference (~0.01s). Prioritized queue OCRs parts catalogs first.</text>
+<text x="172" y="2429" font-size="10.5" fill="#9aa6b6">Migration 0003 + narrowed FTS trigger (faster requeues).</text>
+<rect x="172" y="2448" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2471" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Pending</text>
+<path d="M332,2466 L358,2466" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2448" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2471" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Prioritize (parts first)</text>
+<path d="M518,2466 L544,2466" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2448" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2471" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Blank? skip</text>
+<path d="M704,2466 L730,2466" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2448" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2471" text-anchor="middle" font-size="10.5" fill="#e6e9ee">OCR real pages</text>
+<line x1="150" y1="2496" x2="150" y2="2628" stroke="#2a2f37"/>
+<circle cx="150" cy="2530" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2514" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2534" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.13.0</text>
+<text x="172" y="2526" font-size="14.5" font-weight="700" fill="#e6e9ee">Dynamic front-end UX pass</text>
+<text x="172" y="2546" font-size="10.5" fill="#9aa6b6">Home screen browses every vehicle + recents (/api/vehicles, /api/sessions). Results gain filters/counts by</text>
+<text x="172" y="2561" font-size="10.5" fill="#9aa6b6">vehicle/type/source. Viewer adds zoom, a thumbnail strip, and highlight-the-hit (/page?hl via PyMuPDF</text>
+<rect x="172" y="2580" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2603" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Home (browse-by-vehicle)</text>
+<path d="M332,2598 L358,2598" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2580" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2596" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Smart results</text>
+<text x="438.0" y="2608" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(filters+counts)</text>
+<path d="M518,2598 L544,2598" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2580" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2596" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Viewer</text>
+<text x="624.0" y="2608" text-anchor="middle" font-size="9.5" fill="#e6e9ee">zoom/thumbs/highlight</text>
+<path d="M704,2598 L730,2598" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2580" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2603" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Responsive + large text</text>
+<line x1="150" y1="2628" x2="150" y2="2760" stroke="#2a2f37"/>
+<circle cx="150" cy="2662" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2646" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2666" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.14.0</text>
+<text x="172" y="2658" font-size="14.5" font-weight="700" fill="#e6e9ee">Search upgrades: Last-4 + smart key terms</text>
+<text x="172" y="2678" font-size="10.5" fill="#9aa6b6">Type 4 digits for a Last-4 cover/end-item NSN lookup (with a full-text escape hatch). Key-term search gains</text>
+<text x="172" y="2693" font-size="10.5" fill="#9aa6b6">synonyms (synonyms.json), offline fuzzy typo tolerance (fts5vocab, edit-distance 1), part#/FIG/callout phrase</text>
+<rect x="172" y="2712" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2735" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Query (one box)</text>
+<path d="M332,2730 L358,2730" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2712" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2735" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Router by shape</text>
+<path d="M518,2730 L544,2730" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2712" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2735" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Last-4 / NSN / key-terms</text>
+<path d="M704,2730 L730,2730" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2712" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2735" text-anchor="middle" font-size="10.5" fill="#e6e9ee">build_match -&gt; FTS5</text>
+<line x1="150" y1="2760" x2="150" y2="2892" stroke="#2a2f37"/>
+<circle cx="150" cy="2794" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2778" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2798" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.15.0</text>
+<text x="172" y="2790" font-size="14.5" font-weight="700" fill="#e6e9ee">Modal aligned to the 104th sheet header</text>
+<text x="172" y="2810" font-size="10.5" fill="#9aa6b6">Onboarding modal now mirrors the 104th sheet header 1:1 (exact labels &amp; order); header fields always shown</text>
+<text x="172" y="2825" font-size="10.5" fill="#9aa6b6">(Simple only hides cart FEDLOG); a live paper-style header preview fills in as you type. Field IDs/SESSION keys</text>
+<rect x="172" y="2844" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2867" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Modal field</text>
+<path d="M332,2862 L358,2862" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2844" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2867" text-anchor="middle" font-size="10.5" fill="#e6e9ee">SESSION key</text>
+<path d="M518,2862 L544,2862" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2844" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2867" text-anchor="middle" font-size="10.5" fill="#e6e9ee">104th header block</text>
+<path d="M704,2862 L730,2862" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2844" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2867" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Live preview + 104th PDF</text>
+<line x1="150" y1="2892" x2="150" y2="3024" stroke="#2a2f37"/>
+<circle cx="150" cy="2926" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="2910" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="2930" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.16.0</text>
+<text x="172" y="2922" font-size="14.5" font-weight="700" fill="#e6e9ee">Self-learning search + calmer UI</text>
+<text x="172" y="2942" font-size="10.5" fill="#9aa6b6">Surfaces what you already log: GET /api/popular ranks parts that reached a generated sheet by frequency+recency.</text>
+<text x="172" y="2957" font-size="10.5" fill="#9aa6b6">Drives a single rotating example, a &#x27;commonly requested&#x27; quick-pick row, and popularity-ranked results</text>
+<rect x="172" y="2976" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="2999" text-anchor="middle" font-size="10.5" fill="#e6e9ee">104th sheet generated</text>
+<path d="M332,2994 L358,2994" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="2976" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="2999" text-anchor="middle" font-size="10.5" fill="#e6e9ee">request_items (the log)</text>
+<path d="M518,2994 L544,2994" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="2976" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="2992" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/api/popular</text>
+<text x="624.0" y="3004" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(freq+recency)</text>
+<path d="M704,2994 L730,2994" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="2976" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="2992" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Rotating example -</text>
+<text x="810.0" y="3004" text-anchor="middle" font-size="9.5" fill="#e6e9ee">quick-picks - ranked</text>
+<line x1="150" y1="3024" x2="150" y2="3156" stroke="#2a2f37"/>
+<circle cx="150" cy="3058" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="3042" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="3062" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.17.0</text>
+<text x="172" y="3054" font-size="14.5" font-weight="700" fill="#e6e9ee">Tech Status from fault+part (PMCS-cited)</text>
+<text x="172" y="3074" font-size="10.5" fill="#9aa6b6">Suggests equipment status from the fault: searches the vehicle&#x27;s PMCS &#x27;Not Fully Mission Capable If&#x27; criteria</text>
+<text x="172" y="3089" font-size="10.5" fill="#9aa6b6">(cited, TM+page) -&gt; deadline=NMCS; else prior history; else manual. Mandatory confirm gate at export (server</text>
+<rect x="172" y="3108" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3131" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Fault + parts</text>
+<path d="M332,3126 L358,3126" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3108" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3131" text-anchor="middle" font-size="10.5" fill="#e6e9ee">GET /api/techstatus</text>
+<path d="M518,3126 L544,3126" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3108" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3124" text-anchor="middle" font-size="9.5" fill="#e6e9ee">PMCS criteria</text>
+<text x="624.0" y="3136" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(cited) / history</text>
+<path d="M704,3126 L730,3126" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3108" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3124" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Mandatory confirm</text>
+<text x="810.0" y="3136" text-anchor="middle" font-size="9.5" fill="#e6e9ee">-&gt; 104th</text>
+<line x1="150" y1="3156" x2="150" y2="3288" stroke="#2a2f37"/>
+<circle cx="150" cy="3190" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="3174" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="3194" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.18.0</text>
+<text x="172" y="3186" font-size="14.5" font-weight="700" fill="#e6e9ee">Switchable layouts behind Settings</text>
+<text x="172" y="3206" font-size="10.5" fill="#9aa6b6">A Settings panel consolidates the toggles + 4 named presets (Simple/Advanced/Shopfloor/Compact), per-device</text>
+<text x="172" y="3221" font-size="10.5" fill="#9aa6b6">persist + Reset, legacy keys migrated. Presentation only: a layout is just CSS classes + 2 defaults; the</text>
+<rect x="172" y="3240" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3256" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Settings (preset /</text>
+<text x="252.0" y="3268" text-anchor="middle" font-size="9.5" fill="#e6e9ee">fine-tune)</text>
+<path d="M332,3258 L358,3258" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3240" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3263" text-anchor="middle" font-size="10.5" fill="#e6e9ee">applySettings()</text>
+<path d="M518,3258 L544,3258" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3240" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3256" text-anchor="middle" font-size="9.5" fill="#e6e9ee">body CSS classes +</text>
+<text x="624.0" y="3268" text-anchor="middle" font-size="9.5" fill="#e6e9ee">2 JS vars</text>
+<path d="M704,3258 L730,3258" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3240" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3256" text-anchor="middle" font-size="9.5" fill="#e6e9ee">localStorage (per device)</text>
+<text x="810.0" y="3268" text-anchor="middle" font-size="9.5" fill="#e6e9ee">- core untouched</text>
+<line x1="150" y1="3288" x2="150" y2="3420" stroke="#2a2f37"/>
+<circle cx="150" cy="3322" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="3306" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="3326" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.19.0</text>
+<text x="172" y="3318" font-size="14.5" font-weight="700" fill="#e6e9ee">Structured parts index (Phase 1) + coverage</text>
+<text x="172" y="3338" font-size="10.5" fill="#9aa6b6">Extracts a cited NSN-&gt;figure-&gt;page-&gt;vehicle index from RPSTL pages (migration 0004; 28,330 records on the</text>
+<text x="172" y="3353" font-size="10.5" fill="#9aa6b6">sample). Cart shows the cited catalog figure + auto-fills FIG; vehicle hub shows &#x27;% searchable&#x27;. Multi-sheet</text>
+<rect x="172" y="3372" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3395" text-anchor="middle" font-size="10.5" fill="#e6e9ee">RPSTL pages</text>
+<path d="M332,3390 L358,3390" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3372" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3395" text-anchor="middle" font-size="10.5" fill="#e6e9ee">viewer_ingest parts</text>
+<path d="M518,3390 L544,3390" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3372" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3388" text-anchor="middle" font-size="9.5" fill="#e6e9ee">parts: NSN-&gt;figure</text>
+<text x="624.0" y="3400" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(cited)</text>
+<path d="M704,3390 L730,3390" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3372" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3388" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/api/part - cart ref</text>
+<text x="810.0" y="3400" text-anchor="middle" font-size="9.5" fill="#e6e9ee">- coverage</text>
+<line x1="150" y1="3420" x2="150" y2="3552" stroke="#2a2f37"/>
+<circle cx="150" cy="3454" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="3438" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="3458" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.20.0</text>
+<text x="172" y="3450" font-size="14.5" font-weight="700" fill="#e6e9ee">Online -&gt; offline reference enrichment</text>
+<text x="172" y="3470" font-size="10.5" fill="#9aa6b6">One-time online enrichment, offline after: public-domain FED-STD-H28 hardware/thread dims + official GSA NSN</text>
+<text x="172" y="3485" font-size="10.5" fill="#9aa6b6">extract (filtered to in-index NSNs). Separate cited tables (migration 0005), labeled &#x27;External reference&#x27;;</text>
+<rect x="172" y="3504" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3527" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Official sources (once)</text>
+<path d="M332,3522 L358,3522" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3504" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3527" text-anchor="middle" font-size="10.5" fill="#e6e9ee">viewer_ingest enrich</text>
+<path d="M518,3522 L544,3522" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3504" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3520" text-anchor="middle" font-size="9.5" fill="#e6e9ee">ref_hardware +</text>
+<text x="624.0" y="3532" text-anchor="middle" font-size="9.5" fill="#e6e9ee">ref_nsn (cited)</text>
+<path d="M704,3522 L730,3522" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3504" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3520" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/api/reference -</text>
+<text x="810.0" y="3532" text-anchor="middle" font-size="9.5" fill="#e6e9ee">cart label</text>
+<line x1="150" y1="3552" x2="150" y2="3684" stroke="#2a2f37"/>
+<circle cx="150" cy="3586" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="3570" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="3590" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.21.0</text>
+<text x="172" y="3582" font-size="14.5" font-weight="700" fill="#e6e9ee">Append-only NSN enrichment (rule R6)</text>
+<text x="172" y="3602" font-size="10.5" fill="#9aa6b6">Rule R6: always add, never remove info (even outdated). NSN enrichment is now append-only/versioned (migration</text>
+<text x="172" y="3617" font-size="10.5" fill="#9aa6b6">0006, ref_nsn_log) - old + new both kept; current = latest. Space/scope: NSNs are cheap text (tens of MB); whole</text>
+<rect x="172" y="3636" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3659" text-anchor="middle" font-size="10.5" fill="#e6e9ee">GSA extract (re-fetch)</text>
+<path d="M332,3654 L358,3654" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3636" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3652" text-anchor="middle" font-size="9.5" fill="#e6e9ee">ref_nsn_log (append</text>
+<text x="438.0" y="3664" text-anchor="middle" font-size="9.5" fill="#e6e9ee">every version)</text>
+<path d="M518,3654 L544,3654" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3636" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3659" text-anchor="middle" font-size="10.5" fill="#e6e9ee">ref_nsn current pointer</text>
+<path d="M704,3654 L730,3654" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3636" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3652" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/api/reference + &#x27;N</text>
+<text x="810.0" y="3664" text-anchor="middle" font-size="9.5" fill="#e6e9ee">versions&#x27;</text>
+<line x1="150" y1="3684" x2="150" y2="3816" stroke="#2a2f37"/>
+<circle cx="150" cy="3718" r="7" fill="#3a2f1a" stroke="#6b5526"/>
+<rect x="40" y="3702" width="92" height="30" rx="7" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="86" y="3722" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.21.1</text>
+<text x="172" y="3714" font-size="14.5" font-weight="700" fill="#e6e9ee">One-time enrichment reads GSA XLSX</text>
+<text x="172" y="3734" font-size="10.5" fill="#9aa6b6">enrich now reads the official GSA NSN Extract directly as .xlsx (the actual data.gov format) as well as csv.</text>
+<text x="172" y="3749" font-size="10.5" fill="#9aa6b6">Engine stays offline; one-shot hand-run filler. Source is public-domain (CC0) but the GSA Advantage subset,</text>
+<rect x="172" y="3768" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3784" text-anchor="middle" font-size="9.5" fill="#e6e9ee">data.gov GSA</text>
+<text x="252.0" y="3796" text-anchor="middle" font-size="9.5" fill="#e6e9ee">extract (.xlsx)</text>
+<path d="M332,3786 L358,3786" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3768" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3784" text-anchor="middle" font-size="9.5" fill="#e6e9ee">enrich --gsa</text>
+<text x="438.0" y="3796" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(streams xlsx/csv)</text>
+<path d="M518,3786 L544,3786" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3768" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3791" text-anchor="middle" font-size="10.5" fill="#e6e9ee">match in-index NSNs</text>
+<path d="M704,3786 L730,3786" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3768" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3791" text-anchor="middle" font-size="10.5" fill="#e6e9ee">append (R6)</text>
+<line x1="150" y1="3816" x2="150" y2="3948" stroke="#2a2f37"/>
+<circle cx="150" cy="3850" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="3834" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="3854" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.22.0</text>
+<text x="172" y="3846" font-size="14.5" font-weight="700" fill="#e6e9ee">PUB LOG reference ingest (POC)</text>
+<text x="172" y="3866" font-size="10.5" fill="#9aa6b6">POC: enrich --publog ingests the authoritative DLA PUB LOG export - fills NSN-&gt;item name, part#/CAGE (MCRD),</text>
+<text x="172" y="3881" font-size="10.5" fill="#9aa6b6">characteristics=size for Tier 2.5 (CHAR), AAC + substitutes (MDI&amp;S). Migration 0007; append-only/cited (R6);</text>
+<rect x="172" y="3900" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="3916" text-anchor="middle" font-size="9.5" fill="#e6e9ee">PUB LOG export</text>
+<text x="252.0" y="3928" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(CSV/XLSX)</text>
+<path d="M332,3918 L358,3918" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="3900" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="3916" text-anchor="middle" font-size="9.5" fill="#e6e9ee">enrich --publog</text>
+<text x="438.0" y="3928" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(in-index NSNs)</text>
+<path d="M518,3918 L544,3918" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="3900" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="3916" text-anchor="middle" font-size="9.5" fill="#e6e9ee">ref_nsn</text>
+<text x="624.0" y="3928" text-anchor="middle" font-size="9.5" fill="#e6e9ee">+part#/CAGE/char/AAC/subs</text>
+<path d="M704,3918 L730,3918" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="3900" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="3916" text-anchor="middle" font-size="9.5" fill="#e6e9ee">cart auto-fills</text>
+<text x="810.0" y="3928" text-anchor="middle" font-size="9.5" fill="#e6e9ee">part# + AAC</text>
+<line x1="150" y1="3948" x2="150" y2="4080" stroke="#2a2f37"/>
+<circle cx="150" cy="3982" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="3966" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="3986" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.23.0</text>
+<text x="172" y="3978" font-size="14.5" font-weight="700" fill="#e6e9ee">PUB LOG via FLIS Reading Room (direct CSVs)</text>
+<text x="172" y="3998" font-size="10.5" fill="#9aa6b6">Correction: no PUB LOG Windows app needed - the FLIS Reading Room publishes monthly CSVs</text>
+<text x="172" y="4013" font-size="10.5" fill="#9aa6b6">(Identification/Reference/Characteristics/Management/CAGE/History). enrich --publog-dir reads the folder, keeps</text>
+<rect x="172" y="4032" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4048" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Reading Room</text>
+<text x="252.0" y="4060" text-anchor="middle" font-size="9.5" fill="#e6e9ee">monthly CSVs</text>
+<path d="M332,4050 L358,4050" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4032" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4055" text-anchor="middle" font-size="10.5" fill="#e6e9ee">enrich --publog-dir</text>
+<path d="M518,4050 L544,4050" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4032" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4048" text-anchor="middle" font-size="9.5" fill="#e6e9ee">merge per NSN</text>
+<text x="624.0" y="4060" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(non-clobbering)</text>
+<path d="M704,4050 L730,4050" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4032" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4055" text-anchor="middle" font-size="10.5" fill="#e6e9ee">cited offline reference</text>
+<line x1="150" y1="4080" x2="150" y2="4212" stroke="#2a2f37"/>
+<circle cx="150" cy="4114" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4098" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4118" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.24.0</text>
+<text x="172" y="4110" font-size="14.5" font-weight="700" fill="#e6e9ee">PUB LOG enrichment RUN on the live index</text>
+<text x="172" y="4130" font-size="10.5" fill="#9aa6b6">Ran the real DLA FLIS catalog into the live index: 468 NSNs got item names (406), part numbers (463), AAC (451),</text>
+<text x="172" y="4145" font-size="10.5" fill="#9aa6b6">decoded characteristics/dimensions (421), unit prices. enrich_flis() productizes the NIIN-keyed ingest</text>
+<rect x="172" y="4164" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4187" text-anchor="middle" font-size="10.5" fill="#e6e9ee">16 GB FLIS Reading Room</text>
+<path d="M332,4182 L358,4182" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4164" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4187" text-anchor="middle" font-size="10.5" fill="#e6e9ee">enrich_flis (NIIN-keyed)</text>
+<path d="M518,4182 L544,4182" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4164" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4187" text-anchor="middle" font-size="10.5" fill="#e6e9ee">468 NSNs enriched</text>
+<path d="M704,4182 L730,4182" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4164" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4187" text-anchor="middle" font-size="10.5" fill="#e6e9ee">live in viewer.db (R6)</text>
+<line x1="150" y1="4212" x2="150" y2="4344" stroke="#2a2f37"/>
+<circle cx="150" cy="4246" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4230" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4250" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.25.0</text>
+<text x="172" y="4242" font-size="14.5" font-weight="700" fill="#e6e9ee">Overnight: full-catalog enrichment + 2D-&gt;3D + rollback</text>
+<text x="172" y="4262" font-size="10.5" fill="#9aa6b6">On the live index: 227,908 parts records (45,068 NSNs); FLIS enrichment of 41,701 NSNs (names, part#/CAGE,</text>
+<text x="172" y="4277" font-size="10.5" fill="#9aa6b6">dimensions, AAC, price, vintage date, supersession cross-refs, multiple part choices). New: FLIS year tag +</text>
+<rect x="172" y="4296" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4312" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Parts on full index</text>
+<text x="252.0" y="4324" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(45k NSNs)</text>
+<path d="M332,4314 L358,4314" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4296" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4312" text-anchor="middle" font-size="9.5" fill="#e6e9ee">FLIS enrichment</text>
+<text x="438.0" y="4324" text-anchor="middle" font-size="9.5" fill="#e6e9ee">41,701 NSNs</text>
+<path d="M518,4314 L544,4314" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4296" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4312" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Supersession/vintage/</text>
+<text x="624.0" y="4324" text-anchor="middle" font-size="9.5" fill="#e6e9ee">multi-choice + 2D-&gt;3D</text>
+<path d="M704,4314 L730,4314" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4296" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4319" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Rollback (R1) ready</text>
+<line x1="150" y1="4344" x2="150" y2="4476" stroke="#2a2f37"/>
+<circle cx="150" cy="4378" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4362" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4382" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.26.0</text>
+<text x="172" y="4374" font-size="14.5" font-weight="700" fill="#e6e9ee">3D viewer: family shapes + material/colour</text>
+<text x="172" y="4394" font-size="10.5" fill="#9aa6b6">Representative 3D viewer upgraded: renders family shapes from the item name with depth-sorted filled faces;</text>
+<text x="172" y="4409" font-size="10.5" fill="#9aa6b6">tints to the FLIS-stated colour (cited) or a material-based representative tint (steel-&gt;grey, aluminium-&gt;silver,</text>
+<rect x="172" y="4428" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4451" text-anchor="middle" font-size="10.5" fill="#e6e9ee">FLIS dims (expanded)</text>
+<path d="M332,4446 L358,4446" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4428" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4444" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Family shape</text>
+<text x="438.0" y="4456" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(cyl/hex/disc/box)</text>
+<path d="M518,4446 L544,4446" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4428" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4444" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Material/colour</text>
+<text x="624.0" y="4456" text-anchor="middle" font-size="9.5" fill="#e6e9ee">tint (cited)</text>
+<path d="M704,4446 L730,4446" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4428" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4451" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Depth-shaded solid</text>
+<line x1="150" y1="4476" x2="150" y2="4608" stroke="#2a2f37"/>
+<circle cx="150" cy="4510" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4494" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4514" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.27.0</text>
+<text x="172" y="4506" font-size="14.5" font-weight="700" fill="#e6e9ee">Schematic legibility viewer</text>
+<text x="172" y="4526" font-size="10.5" fill="#9aa6b6">Same drawing, made readable: a Clean toggle + contrast slider re-render the page through a grounded enhancement</text>
+<text x="172" y="4541" font-size="10.5" fill="#9aa6b6">pipeline (grayscale, auto-contrast, de-speckle, unsharp, optional high-contrast/binarize); a flat-sheet 3D tilt</text>
+<rect x="172" y="4560" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4583" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Real page (PyMuPDF)</text>
+<path d="M332,4578 L358,4578" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4560" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4576" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Clean + contrast</text>
+<text x="438.0" y="4588" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(Pillow)</text>
+<path d="M518,4578 L544,4578" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4560" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4583" text-anchor="middle" font-size="10.5" fill="#e6e9ee">3D tilt (CSS)</text>
+<path d="M704,4578 L730,4578" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4560" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4583" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Hover loupe 2.6x</text>
+<line x1="150" y1="4608" x2="150" y2="4740" stroke="#2a2f37"/>
+<circle cx="150" cy="4642" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4626" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4646" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.28.0</text>
+<text x="172" y="4638" font-size="14.5" font-weight="700" fill="#e6e9ee">Hi-fi loupe + correlations + tests</text>
+<text x="172" y="4658" font-size="10.5" fill="#9aa6b6">Three additive wins: (1) the loupe re-rasterises just the page region under the cursor at high DPI (~21x more</text>
+<text x="172" y="4673" font-size="10.5" fill="#9aa6b6">pixels - sharp at any zoom, nothing invented); (2) a deletable correlations sidecar connects links the flat</text>
+<rect x="172" y="4692" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4708" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/page clip @ high</text>
+<text x="252.0" y="4720" text-anchor="middle" font-size="9.5" fill="#e6e9ee">DPI (21x px)</text>
+<path d="M332,4710 L358,4710" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4692" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4715" text-anchor="middle" font-size="10.5" fill="#e6e9ee">correlations.db sidecar</text>
+<path d="M518,4710 L544,4710" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4692" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4715" text-anchor="middle" font-size="10.5" fill="#e6e9ee">/api/correlations</text>
+<path d="M704,4710 L730,4710" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4692" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4708" text-anchor="middle" font-size="9.5" fill="#e6e9ee">17 pillar tests +</text>
+<text x="810.0" y="4720" text-anchor="middle" font-size="9.5" fill="#e6e9ee">100% mutants</text>
+<line x1="150" y1="4740" x2="150" y2="4872" stroke="#2a2f37"/>
+<circle cx="150" cy="4774" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4758" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4778" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.29.0</text>
+<text x="172" y="4770" font-size="14.5" font-weight="700" fill="#e6e9ee">Data protection: safeguard + recovery</text>
+<text x="172" y="4790" font-size="10.5" fill="#9aa6b6">Root cause of the &#x27;truncation&#x27; found: a sandbox read-cache artifact at the host-&gt;guest boundary - the Windows</text>
+<text x="172" y="4805" font-size="10.5" fill="#9aa6b6">files were never damaged. Built real protection anyway: engine/safeguard.py does atomic writes, SHA-256</text>
+<rect x="172" y="4824" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4840" text-anchor="middle" font-size="9.5" fill="#e6e9ee">atomic write</text>
+<text x="252.0" y="4852" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(temp+fsync+replace)</text>
+<path d="M332,4842 L358,4842" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4824" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4847" text-anchor="middle" font-size="10.5" fill="#e6e9ee">snapshot vault (SHA-256)</text>
+<path d="M518,4842 L544,4842" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4824" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4840" text-anchor="middle" font-size="9.5" fill="#e6e9ee">verify -&gt;</text>
+<text x="624.0" y="4852" text-anchor="middle" font-size="9.5" fill="#e6e9ee">classify damage</text>
+<path d="M704,4842 L730,4842" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4824" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4847" text-anchor="middle" font-size="10.5" fill="#e6e9ee">recover byte-for-byte</text>
+<line x1="150" y1="4872" x2="150" y2="5004" stroke="#2a2f37"/>
+<circle cx="150" cy="4906" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="4890" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="4910" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.30.0</text>
+<text x="172" y="4902" font-size="14.5" font-weight="700" fill="#e6e9ee">Schematic orientation + HD</text>
+<text x="172" y="4922" font-size="10.5" fill="#9aa6b6">Schematic viewing controls: dual-axis tilt (rotateY + rotateX, honest flat-sheet); a horizontal mirror to orient</text>
+<text x="172" y="4937" font-size="10.5" fill="#9aa6b6">from the opposite side, with each word box (new /api/pagewords from PyMuPDF) re-drawn un-mirrored so labels stay</text>
+<rect x="172" y="4956" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="4972" text-anchor="middle" font-size="9.5" fill="#e6e9ee">tilt Y + tilt X</text>
+<text x="252.0" y="4984" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(-60..60)</text>
+<path d="M332,4974 L358,4974" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="4956" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="4979" text-anchor="middle" font-size="10.5" fill="#e6e9ee">mirror + readable labels</text>
+<path d="M518,4974 L544,4974" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="4956" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="4972" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/api/pagewords</text>
+<text x="624.0" y="4984" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(OCR-gated)</text>
+<path d="M704,4974 L730,4974" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="4956" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="4972" text-anchor="middle" font-size="9.5" fill="#e6e9ee">on-demand HD up to</text>
+<text x="810.0" y="4984" text-anchor="middle" font-size="9.5" fill="#e6e9ee">400 dpi</text>
+<line x1="150" y1="5004" x2="150" y2="5136" stroke="#2a2f37"/>
+<circle cx="150" cy="5038" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="5022" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="5042" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.31.0</text>
+<text x="172" y="5034" font-size="14.5" font-weight="700" fill="#e6e9ee">Status page + auto-snapshots + suggestions</text>
+<text x="172" y="5054" font-size="10.5" fill="#9aa6b6">System Status page (counts, coverage, OCR progress, snapshot, correlations, NIIN-drift queue, fault-&gt;parts) via</text>
+<text x="172" y="5069" font-size="10.5" fill="#9aa6b6">fast indexed queries. Automatic snapshots (daily Windows task + pre-op hooks). OCR finishing (ocrall to 0</text>
+<rect x="172" y="5088" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5111" text-anchor="middle" font-size="10.5" fill="#e6e9ee">/status + /api/status</text>
+<path d="M332,5106 L358,5106" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5088" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5104" text-anchor="middle" font-size="9.5" fill="#e6e9ee">daily snapshot task +</text>
+<text x="438.0" y="5116" text-anchor="middle" font-size="9.5" fill="#e6e9ee">pre-op hooks</text>
+<path d="M518,5106 L544,5106" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5088" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5104" text-anchor="middle" font-size="9.5" fill="#e6e9ee">ocrall finisher</text>
+<text x="624.0" y="5116" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(resumable)</text>
+<path d="M704,5106 L730,5106" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5088" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5104" text-anchor="middle" font-size="9.5" fill="#e6e9ee">nomenclature/fault</text>
+<text x="810.0" y="5116" text-anchor="middle" font-size="9.5" fill="#e6e9ee">-parts/NIIN-review</text>
+<line x1="150" y1="5136" x2="150" y2="5268" stroke="#2a2f37"/>
+<circle cx="150" cy="5170" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="5154" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="5174" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.32.0</text>
+<text x="172" y="5166" font-size="14.5" font-weight="700" fill="#e6e9ee">NIIN-review workflow + OCR run guide</text>
+<text x="172" y="5186" font-size="10.5" fill="#9aa6b6">The 884 NIIN-drift findings become an actionable confirm/reject queue; decisions persist append-only in</text>
+<text x="172" y="5201" font-size="10.5" fill="#9aa6b6">reviews.db (latest wins, history kept). Plus an OCR run guide. Additive (R1/R6).</text>
+<rect x="172" y="5220" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5236" text-anchor="middle" font-size="9.5" fill="#e6e9ee">884 drift queue on</text>
+<text x="252.0" y="5248" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/status</text>
+<path d="M332,5238 L358,5238" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5220" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5236" text-anchor="middle" font-size="9.5" fill="#e6e9ee">decide</text>
+<text x="438.0" y="5248" text-anchor="middle" font-size="9.5" fill="#e6e9ee">distinct/interchange/error/dismiss</text>
+<path d="M518,5238 L544,5238" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5220" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5243" text-anchor="middle" font-size="10.5" fill="#e6e9ee">reviews.db (append-only)</text>
+<path d="M704,5238 L730,5238" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5220" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5243" text-anchor="middle" font-size="10.5" fill="#e6e9ee">OCR-RUN-GUIDE.md</text>
+<line x1="150" y1="5268" x2="150" y2="5400" stroke="#2a2f37"/>
+<circle cx="150" cy="5302" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="5286" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="5306" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.33.0</text>
+<text x="172" y="5298" font-size="14.5" font-weight="700" fill="#e6e9ee">NSN alias map + GPU readiness</text>
+<text x="172" y="5318" font-size="10.5" fill="#9aa6b6">Confirmed-interchangeable NSNs find each other in search (grounded, reversible). gpu_check.py GPU verdict.</text>
+<text x="172" y="5333" font-size="10.5" fill="#9aa6b6">Prioritized the live OCR queue; OCR 1.6%. 23/23 pillar tests.</text>
+<rect x="172" y="5352" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5368" text-anchor="middle" font-size="9.5" fill="#e6e9ee">mark NIIN</text>
+<text x="252.0" y="5380" text-anchor="middle" font-size="9.5" fill="#e6e9ee">interchangeable</text>
+<path d="M332,5370 L358,5370" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5352" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5375" text-anchor="middle" font-size="10.5" fill="#e6e9ee">reviews.db decision</text>
+<path d="M518,5370 L544,5370" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5352" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5368" text-anchor="middle" font-size="9.5" fill="#e6e9ee">nsn_aliases()</text>
+<text x="624.0" y="5380" text-anchor="middle" font-size="9.5" fill="#e6e9ee">expands lookup</text>
+<path d="M704,5370 L730,5370" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5352" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5375" text-anchor="middle" font-size="10.5" fill="#e6e9ee">gpu_check.py</text>
+<line x1="150" y1="5400" x2="150" y2="5532" stroke="#2a2f37"/>
+<circle cx="150" cy="5434" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="5418" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="5438" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.34.0</text>
+<text x="172" y="5430" font-size="14.5" font-weight="700" fill="#e6e9ee">Tight, seamless loupe</text>
+<text x="172" y="5450" font-size="10.5" fill="#9aa6b6">Loupe reworked: instant local magnification every frame, high-DPI crop sharpens on pause, cached, wheel-zoom.</text>
+<text x="172" y="5465" font-size="10.5" fill="#9aa6b6">Cohesive control styling. Presentation-only (R1/R6).</text>
+<rect x="172" y="5484" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5507" text-anchor="middle" font-size="10.5" fill="#e6e9ee">instant local zoom (rAF)</text>
+<path d="M332,5502 L358,5502" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5484" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5507" text-anchor="middle" font-size="10.5" fill="#e6e9ee">sharpen-on-pause (60ms)</text>
+<path d="M518,5502 L544,5502" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5484" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5507" text-anchor="middle" font-size="10.5" fill="#e6e9ee">crop cache + wheel zoom</text>
+<path d="M704,5502 L730,5502" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5484" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5507" text-anchor="middle" font-size="10.5" fill="#e6e9ee">cohesive controls</text>
+<line x1="150" y1="5532" x2="150" y2="5664" stroke="#2a2f37"/>
+<circle cx="150" cy="5566" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="5550" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="5570" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.35.0</text>
+<text x="172" y="5562" font-size="14.5" font-weight="700" fill="#e6e9ee">Page zoom: slider + scroll-to-cursor</text>
+<text x="172" y="5582" font-size="10.5" fill="#9aa6b6">Continuous zoom slider + scroll-to-zoom centered on the cursor (loupe off); double-click reset; stacks into the</text>
+<text x="172" y="5597" font-size="10.5" fill="#9aa6b6">CSS transform with tilt/mirror. Presentation-only (R1/R6).</text>
+<rect x="172" y="5616" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5639" text-anchor="middle" font-size="10.5" fill="#e6e9ee">zoom slider 100-400%</text>
+<path d="M332,5634 L358,5634" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5616" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5632" text-anchor="middle" font-size="9.5" fill="#e6e9ee">hover + scroll</text>
+<text x="438.0" y="5644" text-anchor="middle" font-size="9.5" fill="#e6e9ee">toward the spot</text>
+<path d="M518,5634 L544,5634" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5616" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5639" text-anchor="middle" font-size="10.5" fill="#e6e9ee">double-click reset</text>
+<path d="M704,5634 L730,5634" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5616" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5632" text-anchor="middle" font-size="9.5" fill="#e6e9ee">composes with</text>
+<text x="810.0" y="5644" text-anchor="middle" font-size="9.5" fill="#e6e9ee">tilt/mirror</text>
+<line x1="150" y1="5664" x2="150" y2="5796" stroke="#2a2f37"/>
+<circle cx="150" cy="5698" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="5682" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="5702" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.36.0</text>
+<text x="172" y="5694" font-size="14.5" font-weight="700" fill="#e6e9ee">Hardware probe + autonomous adaptive GPU OCR</text>
+<text x="172" y="5714" font-size="10.5" fill="#9aa6b6">sysprobe scans OS/Python/CPU/RAM/GPU/laptop+battery -&gt; resource profile; run_ocr_auto.bat probes, installs the</text>
+<text x="172" y="5729" font-size="10.5" fill="#9aa6b6">GPU stack (PP-OCRv5 + v4 fallback), runs to 100% unattended (self-restarting), reports. Tuned to RTX 4050: 8</text>
+<rect x="172" y="5748" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5764" text-anchor="middle" font-size="9.5" fill="#e6e9ee">sysprobe.py</text>
+<text x="252.0" y="5776" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(OS/CPU/GPU/RAM)</text>
+<path d="M332,5766 L358,5766" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5748" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5771" text-anchor="middle" font-size="10.5" fill="#e6e9ee">hardware_profile.json</text>
+<path d="M518,5766 L544,5766" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5748" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5771" text-anchor="middle" font-size="10.5" fill="#e6e9ee">run_ocr_auto.bat -&gt; 100%</text>
+<path d="M704,5766 L730,5766" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5748" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5764" text-anchor="middle" font-size="9.5" fill="#e6e9ee">PP-OCRv5 (self-test</text>
+<text x="810.0" y="5776" text-anchor="middle" font-size="9.5" fill="#e6e9ee">guarded)</text>
+<line x1="150" y1="5796" x2="150" y2="5928" stroke="#2a2f37"/>
+<circle cx="150" cy="5830" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="5814" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="5834" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.37.0</text>
+<text x="172" y="5826" font-size="14.5" font-weight="700" fill="#e6e9ee">COMPLETE backward compatibility: Win11 -&gt; Vista</text>
+<text x="172" y="5846" font-size="10.5" fill="#9aa6b6">Complete feature compatibility Win11 down to Win7/Vista via per-OS engine substitution (PyMuPDF&lt;-&gt;Poppler,</text>
+<text x="172" y="5861" font-size="10.5" fill="#9aa6b6">RapidOCR&lt;-&gt;Tesseract; stdlib core). Only GPU acceleration is Win10+ - a speed booster, not a feature.</text>
+<rect x="172" y="5880" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="5896" text-anchor="middle" font-size="9.5" fill="#e6e9ee">per-OS engine</text>
+<text x="252.0" y="5908" text-anchor="middle" font-size="9.5" fill="#e6e9ee">substitution</text>
+<path d="M332,5898 L358,5898" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="5880" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="5903" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Poppler render fallback</text>
+<path d="M518,5898 L544,5898" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="5880" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="5903" text-anchor="middle" font-size="10.5" fill="#e6e9ee">Tesseract OCR fallback</text>
+<path d="M704,5898 L730,5898" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="5880" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="5903" text-anchor="middle" font-size="10.5" fill="#e6e9ee">stdlib core everywhere</text>
+<line x1="150" y1="5928" x2="150" y2="6060" stroke="#2a2f37"/>
+<circle cx="150" cy="5962" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="5946" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="5966" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.38.0</text>
+<text x="172" y="5958" font-size="14.5" font-weight="700" fill="#e6e9ee">Dual-track changelog scaffolding (R7)</text>
+<text x="172" y="5978" font-size="10.5" fill="#9aa6b6">Rule R7: legacy builds get a dual-track changelog that branches at creation and shows backports. Scaffolding:</text>
+<text x="172" y="5993" font-size="10.5" fill="#9aa6b6">CHANGELOG-LEGACY.md starts at 0.37.0-legacy; branched-timeline generator -&gt; CHANGELOG-DUALTRACK.pdf; parity line</text>
+<rect x="172" y="6012" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6028" text-anchor="middle" font-size="9.5" fill="#e6e9ee">R7: legacy gets its</text>
+<text x="252.0" y="6040" text-anchor="middle" font-size="9.5" fill="#e6e9ee">own track</text>
+<path d="M332,6030 L358,6030" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6012" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6028" text-anchor="middle" font-size="9.5" fill="#e6e9ee">CHANGELOG-LEGACY.md</text>
+<text x="438.0" y="6040" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(0.37.0-legacy)</text>
+<path d="M518,6030 L544,6030" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6012" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6028" text-anchor="middle" font-size="9.5" fill="#e6e9ee">branched timeline</text>
+<text x="624.0" y="6040" text-anchor="middle" font-size="9.5" fill="#e6e9ee">generator</text>
+<path d="M704,6030 L730,6030" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6012" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6035" text-anchor="middle" font-size="10.5" fill="#e6e9ee">parity + backport notes</text>
+<line x1="150" y1="6060" x2="150" y2="6192" stroke="#2a2f37"/>
+<circle cx="150" cy="6094" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="6078" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="6098" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.39.0</text>
+<text x="172" y="6090" font-size="14.5" font-weight="700" fill="#e6e9ee">3D Library + Schematics Library + Reset</text>
+<text x="172" y="6110" font-size="10.5" fill="#9aa6b6">Reset buttons everywhere (schematic viewer clears tilt/zoom/mirror; 3D viewer Reset + double-click). 3D Library</text>
+<text x="172" y="6125" font-size="10.5" fill="#9aa6b6">(/3d): searchable gallery of 20,869 dimensioned parts, live mini 3D thumbnails. Schematics Library</text>
+<rect x="172" y="6144" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6160" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Reset on every</text>
+<text x="252.0" y="6172" text-anchor="middle" font-size="9.5" fill="#e6e9ee">moveable view</text>
+<path d="M332,6162 L358,6162" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6144" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6167" text-anchor="middle" font-size="10.5" fill="#e6e9ee">3D Library /3d (20,869)</text>
+<path d="M518,6162 L544,6162" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6144" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6160" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Schematics Library</text>
+<text x="624.0" y="6172" text-anchor="middle" font-size="9.5" fill="#e6e9ee">/schematics (1,093)</text>
+<path d="M704,6162 L730,6162" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6144" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6167" text-anchor="middle" font-size="10.5" fill="#e6e9ee">linked from header</text>
+<line x1="150" y1="6192" x2="150" y2="6324" stroke="#2a2f37"/>
+<circle cx="150" cy="6226" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="6210" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="6230" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.40.0</text>
+<text x="172" y="6222" font-size="14.5" font-weight="700" fill="#e6e9ee">Make it pop: WebGL 3D + dynamic schematics</text>
+<text x="172" y="6242" font-size="10.5" fill="#9aa6b6">Real-time WebGL 3D viewer (engine/ui/gl3d.js, dependency-free, served at /gl3d.js): glossy multi-light shading,</text>
+<text x="172" y="6257" font-size="10.5" fill="#9aa6b6">antialiasing, smooth normals for round families, idle turntable, orbit/zoom/reset; the 3D Library uses it with</text>
+<rect x="172" y="6276" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6292" text-anchor="middle" font-size="9.5" fill="#e6e9ee">gl3d.js (no</text>
+<text x="252.0" y="6304" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Three.js, offline)</text>
+<path d="M332,6294 L358,6294" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6276" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6292" text-anchor="middle" font-size="9.5" fill="#e6e9ee">glossy lights +</text>
+<text x="438.0" y="6304" text-anchor="middle" font-size="9.5" fill="#e6e9ee">turntable + smooth</text>
+<path d="M518,6294 L544,6294" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6276" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6292" text-anchor="middle" font-size="9.5" fill="#e6e9ee">schematic pan/zoom</text>
+<text x="624.0" y="6304" text-anchor="middle" font-size="9.5" fill="#e6e9ee">toward cursor</text>
+<path d="M704,6294 L730,6294" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6276" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6299" text-anchor="middle" font-size="10.5" fill="#e6e9ee">blueprint mode + fade</text>
+<line x1="150" y1="6324" x2="150" y2="6456" stroke="#2a2f37"/>
+<circle cx="150" cy="6358" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="6342" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="6362" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.41.0</text>
+<text x="172" y="6354" font-size="14.5" font-weight="700" fill="#e6e9ee">Schematics: explore from every angle + rail</text>
+<text x="172" y="6374" font-size="10.5" fill="#9aa6b6">The dedicated /schematics viewer now explores a sheet as thoroughly as possible: tilt X and tilt Y sliders (CSS</text>
+<text x="172" y="6389" font-size="10.5" fill="#9aa6b6">perspective, honest flat-sheet) view it from the left, right, above, below and any angle between; a mirror flips</text>
+<rect x="172" y="6408" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6424" text-anchor="middle" font-size="9.5" fill="#e6e9ee">tilt X/Y (-70..70)</text>
+<text x="252.0" y="6436" text-anchor="middle" font-size="9.5" fill="#e6e9ee">+ mirror</text>
+<path d="M332,6426 L358,6426" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6408" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6424" text-anchor="middle" font-size="9.5" fill="#e6e9ee">examine</text>
+<text x="438.0" y="6436" text-anchor="middle" font-size="9.5" fill="#e6e9ee">left/right/above/below + back</text>
+<path d="M518,6426 L544,6426" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6408" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6424" text-anchor="middle" font-size="9.5" fill="#e6e9ee">related-sheets rail</text>
+<text x="624.0" y="6436" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(same vehicle)</text>
+<path d="M704,6426 L730,6426" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6408" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6431" text-anchor="middle" font-size="10.5" fill="#e6e9ee">reset clears tilt+mirror</text>
+<line x1="150" y1="6456" x2="150" y2="6588" stroke="#2a2f37"/>
+<circle cx="150" cy="6490" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="6474" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="6494" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.42.0</text>
+<text x="172" y="6486" font-size="14.5" font-weight="700" fill="#e6e9ee">Circuit Lab: overlay editor + real-time simulator</text>
+<text x="172" y="6506" font-size="10.5" fill="#9aa6b6">Circuit Lab (/circuitlab): build or trace a circuit on top of a real schematic, then watch it run - a</text>
+<text x="172" y="6521" font-size="10.5" fill="#9aa6b6">learning/advanced-display tool. Dependency-free MNA engine (engine/ui/circuitsim.js): G.v=i, backward-Euler</text>
+<rect x="172" y="6540" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6556" text-anchor="middle" font-size="9.5" fill="#e6e9ee">overlay editor on a</text>
+<text x="252.0" y="6568" text-anchor="middle" font-size="9.5" fill="#e6e9ee">real TM sheet</text>
+<path d="M332,6558 L358,6558" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6540" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6556" text-anchor="middle" font-size="9.5" fill="#e6e9ee">custom MNA engine</text>
+<text x="438.0" y="6568" text-anchor="middle" font-size="9.5" fill="#e6e9ee">(circuitsim.js)</text>
+<path d="M518,6558 L544,6558" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6540" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6556" text-anchor="middle" font-size="9.5" fill="#e6e9ee">run/DC/step + scope +</text>
+<text x="624.0" y="6568" text-anchor="middle" font-size="9.5" fill="#e6e9ee">logic view</text>
+<path d="M704,6558 L730,6558" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6540" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6556" text-anchor="middle" font-size="9.5" fill="#e6e9ee">grounded; RPS</text>
+<text x="810.0" y="6568" text-anchor="middle" font-size="9.5" fill="#e6e9ee">static fallback</text>
+<line x1="150" y1="6588" x2="150" y2="6720" stroke="#2a2f37"/>
+<circle cx="150" cy="6622" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="6606" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="6626" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.43.0</text>
+<text x="172" y="6618" font-size="14.5" font-weight="700" fill="#e6e9ee">Look-Alike Parts recognizer</text>
+<text x="172" y="6638" font-size="10.5" fill="#9aa6b6">Look-Alike Parts (/partdiff, part_differences() + /api/partdiff): tells apart parts that look identical in the</text>
+<text x="172" y="6653" font-size="10.5" fill="#9aa6b6">manual but are functionally different. Finds every catalogued part sharing a name, collapses to distinct NSNs,</text>
+<rect x="172" y="6672" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6695" text-anchor="middle" font-size="10.5" fill="#e6e9ee">query: NSN or part name</text>
+<path d="M332,6690 L358,6690" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6672" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6688" text-anchor="middle" font-size="9.5" fill="#e6e9ee">group by NSN + find</text>
+<text x="438.0" y="6700" text-anchor="middle" font-size="9.5" fill="#e6e9ee">discriminators</text>
+<path d="M518,6690 L544,6690" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6672" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6688" text-anchor="middle" font-size="9.5" fill="#e6e9ee">verdicts:</text>
+<text x="624.0" y="6700" text-anchor="middle" font-size="9.5" fill="#e6e9ee">variant/same/diff-class</text>
+<path d="M704,6690 L730,6690" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6672" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6688" text-anchor="middle" font-size="9.5" fill="#e6e9ee">grounded cues +</text>
+<text x="810.0" y="6700" text-anchor="middle" font-size="9.5" fill="#e6e9ee">cited figures</text>
+<line x1="150" y1="6720" x2="150" y2="6852" stroke="#2a2f37"/>
+<circle cx="150" cy="6754" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="6738" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="6758" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.44.0</text>
+<text x="172" y="6750" font-size="14.5" font-weight="700" fill="#e6e9ee">Circuit Lab deepened: active devices + save/export</text>
+<text x="172" y="6770" font-size="10.5" fill="#9aa6b6">Circuit Lab deepened: four new active devices in the MNA engine (AC source, N-channel MOSFET square-law, ideal</text>
+<text x="172" y="6785" font-size="10.5" fill="#9aa6b6">op-amp VCVS, behavioral relay coil+contact) - engine now 10/10 unit tests. Generalised N-pin editor model lets</text>
+<rect x="172" y="6804" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6820" text-anchor="middle" font-size="9.5" fill="#e6e9ee">AC / MOSFET /</text>
+<text x="252.0" y="6832" text-anchor="middle" font-size="9.5" fill="#e6e9ee">op-amp / relay</text>
+<path d="M332,6822 L358,6822" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6804" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6827" text-anchor="middle" font-size="10.5" fill="#e6e9ee">generalised N-pin model</text>
+<path d="M518,6822 L544,6822" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6804" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6820" text-anchor="middle" font-size="9.5" fill="#e6e9ee">save/load + .json +</text>
+<text x="624.0" y="6832" text-anchor="middle" font-size="9.5" fill="#e6e9ee">netlist export</text>
+<path d="M704,6822 L730,6822" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6804" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6827" text-anchor="middle" font-size="10.5" fill="#e6e9ee">parts link to /partdiff</text>
+<line x1="150" y1="6852" x2="150" y2="6984" stroke="#2a2f37"/>
+<circle cx="150" cy="6886" r="7" fill="#1a2740" stroke="#3a4d6e"/>
+<rect x="40" y="6870" width="92" height="30" rx="7" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="86" y="6890" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.45.0</text>
+<text x="172" y="6882" font-size="14.5" font-weight="700" fill="#e6e9ee">Retroactive Post-Support: speed on old PCs</text>
+<text x="172" y="6902" font-size="10.5" fill="#9aa6b6">Retroactive Post-Support (rps.py): a Win11 program that stays responsive back to Win7/Vista by auto-adapting,</text>
+<text x="172" y="6917" font-size="10.5" fill="#9aa6b6">not dropping features. One probe picks a mode (modern/lite/legacy; --mode or ?mode= override). Page-render disk</text>
+<rect x="172" y="6936" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="6952" text-anchor="middle" font-size="9.5" fill="#e6e9ee">probe →</text>
+<text x="252.0" y="6964" text-anchor="middle" font-size="9.5" fill="#e6e9ee">modern/lite/legacy mode</text>
+<path d="M332,6954 L358,6954" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="6936" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="6952" text-anchor="middle" font-size="9.5" fill="#e6e9ee">page-render disk</text>
+<text x="438.0" y="6964" text-anchor="middle" font-size="9.5" fill="#e6e9ee">cache + prebake</text>
+<path d="M518,6954 L544,6954" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="6936" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="6959" text-anchor="middle" font-size="10.5" fill="#e6e9ee">per-mode SQLite tuning</text>
+<path d="M704,6954 L730,6954" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="6936" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="6952" text-anchor="middle" font-size="9.5" fill="#e6e9ee">ES5 polyfills +</text>
+<text x="810.0" y="6964" text-anchor="middle" font-size="9.5" fill="#e6e9ee">lite effects</text>
+<line x1="150" y1="6984" x2="150" y2="7116" stroke="#2a2f37"/>
+<circle cx="150" cy="7018" r="7" fill="#16301f" stroke="#2f5a3e"/>
+<rect x="40" y="7002" width="92" height="30" rx="7" fill="#16301f" stroke="#2f5a3e"/>
+<text x="86" y="7022" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9ee">0.46.0</text>
+<text x="172" y="7014" font-size="14.5" font-weight="700" fill="#e6e9ee">Faster transport + Performance toggle</text>
+<text x="172" y="7034" font-size="10.5" fill="#9aa6b6">Two RPS finishers. gzip + HTTP/1.1 keep-alive in _send(): one TCP connection reused across requests;</text>
+<text x="172" y="7049" font-size="10.5" fill="#9aa6b6">JSON/HTML/JS/SVG gzipped when the browser supports it (skips &lt;512B + already-compressed PNG/PDF; Vary:</text>
+<rect x="172" y="7068" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="252.0" y="7084" text-anchor="middle" font-size="9.5" fill="#e6e9ee">gzip</text>
+<text x="252.0" y="7096" text-anchor="middle" font-size="9.5" fill="#e6e9ee">text/json/js/svg responses</text>
+<path d="M332,7086 L358,7086" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="358" y="7068" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="438.0" y="7091" text-anchor="middle" font-size="10.5" fill="#e6e9ee">HTTP/1.1 keep-alive</text>
+<path d="M518,7086 L544,7086" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="544" y="7068" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="624.0" y="7084" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Settings:</text>
+<text x="624.0" y="7096" text-anchor="middle" font-size="9.5" fill="#e6e9ee">Auto/Modern/Lite/Legacy</text>
+<path d="M704,7086 L730,7086" stroke="#9aa5b1" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="730" y="7068" width="160" height="36" rx="8" fill="#1c2430" stroke="#38414e"/>
+<text x="810.0" y="7084" text-anchor="middle" font-size="9.5" fill="#e6e9ee">server DB tuning</text>
+<text x="810.0" y="7096" text-anchor="middle" font-size="9.5" fill="#e6e9ee">stays auto</text>
+<text x="40" y="7134" font-size="10" fill="#6b7280">Rules in effect: R1 backwards-compatible - R2 diagram per addition - R3 dark+PDF - R4 changelog per change - R5 graphical changelog + PDF.</text>
+</svg>

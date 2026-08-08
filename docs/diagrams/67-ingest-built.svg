@@ -1,0 +1,43 @@
+<svg viewBox="0 0 1180 620" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="620" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Add documents: index new TMs without the command line  (v0.50.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Fulfils the mission&#x27;s &#x27;any additional files added without a sweat&#x27; goal: point the program at a folder of PDFs and it indexes the new ones — safely.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">THE FLOW  (/ingest)</text>
+<rect x="40" y="126" width="1100" height="168" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="150" width="254" height="128" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="70" y="172" font-size="9.6" font-weight="700" fill="#7f77dd" text-anchor="start">1 Paste a folder</text>
+<text x="70" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">a path on this PC (sub-folders included)</text>
+<path d="M312,214 L322,214" stroke="#7f77dd" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="324" y="150" width="254" height="128" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="336" y="172" font-size="9.6" font-weight="700" fill="#4f9dff" text-anchor="start">2 Preview</text>
+<text x="336" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/ingest_preview — read-only: how many</text><text x="336" y="203" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">PDFs, how many NEW vs already indexed,</text><text x="336" y="214" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">sample names</text>
+<path d="M578,214 L588,214" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="590" y="150" width="254" height="128" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="602" y="172" font-size="9.6" font-weight="700" fill="#2f7d4f" text-anchor="start">3 Snapshot + index</text>
+<text x="602" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/ingest — safeguard snapshot, then the</text><text x="602" y="203" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">tested &#x27;crawl&#x27; adds docs + extracts text +</text><text x="602" y="214" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">queues OCR</text>
+<path d="M844,214 L854,214" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="856" y="150" width="254" height="128" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="868" y="172" font-size="9.6" font-weight="700" fill="#1d9e75" text-anchor="start">4 Live progress</text>
+<text x="868" y="192" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">/api/ingest_status reads the runs table:</text><text x="868" y="203" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">files seen · docs added · text pages · OCR</text><text x="868" y="214" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">queued</text>
+<text x="58" y="318" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Already-indexed files are skipped (dedup by path + fingerprint); the crawl is resumable, so a big folder can be done in passes. Keep-alive makes the 2-second status polling cheap.</text>
+<text x="56" y="352" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">WHAT MAKES IT SAFE</text>
+<rect x="40" y="362" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<circle cx="58" cy="383" r="3.5" fill="#2f7d4f"/>
+<text x="70" y="386" font-size="9.8" font-weight="700" fill="#2f7d4f" text-anchor="start">Additive only</text>
+<text x="230" y="386" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the crawl pipeline only ADDS documents and text — it never deletes or overwrites your existing corpus or index (R6).</text>
+<circle cx="58" cy="402" r="3.5" fill="#4f9dff"/>
+<text x="70" y="405" font-size="9.8" font-weight="700" fill="#4f9dff" text-anchor="start">Snapshot first</text>
+<text x="230" y="405" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">a safeguard snapshot is taken before any write, so the whole add is rollbackable (R1).</text>
+<circle cx="58" cy="421" r="3.5" fill="#caa24a"/>
+<text x="70" y="424" font-size="9.8" font-weight="700" fill="#caa24a" text-anchor="start">Reuses the tested path</text>
+<text x="230" y="424" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">runs the same viewer_ingest.py &#x27;crawl&#x27; that built the corpus — no new, unproven write code; progress comes from the runs</text><text x="230" y="435" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">table.</text>
+<circle cx="58" cy="451" r="3.5" fill="#1d9e75"/>
+<text x="70" y="454" font-size="9.8" font-weight="700" fill="#1d9e75" text-anchor="start">Read-only preview</text>
+<text x="230" y="454" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">you see exactly what WOULD be added before committing — nothing is written during preview.</text>
+<rect x="40" y="526" width="1100" height="70" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="550" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">VERIFIED</text>
+<text x="58" y="568.0" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">ingest_preview validated on a synthetic folder: 4 PDFs across sub-folders, 1 already indexed → 3 new, bad path rejected, status idle when nothing runs. The write path shells out to the</text><text x="58" y="580.5" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">proven crawl CLI in the background. After adding, run the GPU OCR to make scanned pages searchable. New /ingest + 3 endpoints; rollback = remove them. JS lints clean.</text>
+<text x="40" y="608" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.50.0 · 2026-06-02 · ingest_preview/start/status() in viewer_app.py + engine/ui/ingest.html. Additive (R1/R6).</text>
+</svg>

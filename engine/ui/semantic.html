@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Semantic search — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:260px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  .r{background:#10151c;border:1px solid #223;border-radius:10px;padding:11px 14px;margin:8px 0;display:flex;align-items:center;gap:12px}
+  .r .score{background:#123a2c;border:1px solid #1d9e75;color:#7fd8b6;border-radius:8px;padding:3px 8px;font-size:12px;min-width:52px;text-align:center}
+  .r .cite{flex:1;color:#cfe;font-size:13px} .r a{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:11.5px}
+  .warn{color:#e8a06a;font-size:12px;margin-top:12px}
+</style></head><body>
+<div class="wrap">
+  <h1>🧠 Semantic search</h1>
+  <div class="muted">Search by <b>meaning</b>, not just keywords — “coolant leak at the water pump” finds the right pages even if they don't use those exact words. Offline. <span id="backend"></span></div>
+  <div class="search">
+    <input id="q" placeholder="describe the problem or topic — e.g. alternator not charging" autofocus>
+    <button class="go" id="go">Search</button>
+    <a class="btn" href="/">← keyword search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div id="results"></div>
+  <div class="warn" id="notready" style="display:none">The semantic index isn't built yet — run <code>BUILD-EMBEDDINGS.bat</code> once (host-side). For true semantic quality, install <code>sentence-transformers</code> first; otherwise a keyword-hash fallback is used.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a query.'; return; }
+    $('#head').textContent='Thinking…'; $('#results').innerHTML=''; $('#notready').style.display='none';
+    fetch('/api/semantic?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      $('#backend').textContent=j.backend?('· backend: '+j.backend):'';
+      if(!j.ready){ $('#head').textContent=''; $('#notready').style.display=''; return; }
+      var res=j.results||[];
+      if(!res.length){ $('#head').textContent='No matches.'; return; }
+      $('#head').textContent=res.length+' pages by meaning:';
+      $('#results').innerHTML=res.map(function(x){
+        return '<div class="r"><span class="score">'+(x.score!=null?x.score.toFixed(3):'')+'</span>'
+          +'<span class="cite">doc '+esc(x.doc)+' · page '+esc(x.page)+'</span>'
+          +'<a href="'+esc(x.page_url)+'" target="_blank">view page ↗</a></div>';
+      }).join('');
+    }).catch(function(){ $('#head').textContent='Search failed.'; });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

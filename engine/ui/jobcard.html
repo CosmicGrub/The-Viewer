@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Work Order builder — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 18px 60px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:260px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button,a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600}
+  button.wo{background:#1a7f4b;border-color:#1a7f4b;color:#fff;font-weight:600}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px}
+  .chip{background:#16202b;border:1px solid #26333f;border-radius:999px;padding:4px 11px;font-size:12px;color:#bcd}
+  .chip b{color:#7fbfff}
+  .warn{background:#2a130c;border:1px solid #d1633a;color:#f2c3ad;border-radius:8px;padding:11px 13px;margin:12px 0;font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .card{background:#10151c;border:1px solid #223;border-radius:10px;padding:13px 15px}
+  .card h3{margin:0 0 8px;font-size:13px;color:#7fbfff;display:flex;justify-content:space-between}
+  .card h3 span{color:#8a98a8;font-weight:400}
+  .row{padding:6px 0;border-bottom:1px solid #1a232e;font-size:12.5px}
+  .row:last-child{border-bottom:0}
+  .row .k{color:#cfe;font-weight:600} .row .s{color:#8a98a8;font-size:11.5px}
+  .row.la .k{color:#f2c3ad}
+  a.cmp{color:#e8a06a;text-decoration:none;font-size:11px;margin-left:6px;border:1px solid #6b4636;border-radius:6px;padding:1px 6px}
+  a.cmp:hover{background:#2a130c;color:#f2c3ad}
+  .empty{color:#6b7787;font-size:12px;padding:6px 0}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<div class="wrap">
+  <h1>🧾 Work Order builder</h1>
+  <div class="muted" style="margin-bottom:4px">Prefer a printable take-to-the-bay sheet? See the <a href="/packet" style="color:var(--acc)">🖨 Job packet</a>.</div>
+  <div class="muted">Type a task or a part — e.g. <i>replace the alternator</i>, <i>2920-01-234-5678</i>, <i>adjust brakes</i>. Preview what the work order will contain, then generate the PDF.</div>
+  <div class="search">
+    <input id="q" placeholder="replace the alternator  ·  5305-01-674-1467  ·  ALTERNATOR" autofocus>
+    <button class="go" id="go">Preview</button>
+    <button class="wo" id="wo" disabled>🧾 Generate Work Order</button>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div id="intent" class="chips"></div>
+  <div id="warn"></div>
+  <div id="head" class="muted"></div>
+  <div id="grid" class="grid"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  var last=null;
+  function card(title,count,rowsHtml){
+    return '<div class="card"><h3>'+esc(title)+'<span>'+(count==null?'':count)+'</span></h3>'+(rowsHtml||'<div class="empty">none found</div>')+'</div>';
+  }
+  function preview(){
+    var q=$('#q').value.trim();
+    $('#wo').disabled=true; last=null;
+    if(q.length<2){ $('#head').textContent='Type a task or part first.'; return; }
+    $('#head').textContent='Scanning the corpus…'; $('#grid').innerHTML=''; $('#intent').innerHTML=''; $('#warn').innerHTML='';
+    fetch('/api/jobcard_preview?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      if(j.error){ $('#head').textContent=j.error; return; }
+      last=q;
+      var it=j.intent||{};
+      $('#intent').innerHTML=(it.kind?'<span class="chip"><b>Task</b> '+esc(it.kind)+'</span>':'')
+        +(j.label?'<span class="chip"><b>Part</b> '+esc(j.label)+'</span>':'')
+        +(j.nsn?'<span class="chip"><b>NSN</b> '+esc(j.nsn)+'</span>':'')
+        +(j.appearances?'<span class="chip">'+j.appearances+' appearances / '+j.documents+' docs</span>':'');
+      $('#warn').innerHTML=j.warning?('<div class="warn">⚠ '+esc(j.warning)+'</div>'):'';
+      // procedures
+      var pr='';
+      (j.procedures||[]).forEach(function(p){
+        pr+='<div class="row"><span class="k">'+esc(p.kind||'Procedure')+'</span> — '+esc(p.title||'')
+           +'<div class="s">'+esc((p.vehicle||'?')+' · '+(p.tm_number||'')+' · p.'+(p.page||'?'))
+           +' — '+p.n_steps+' steps · '+p.n_tools+' tools · '+p.n_materials+' materials · '+p.n_cautions+' cautions'
+           +(p.references&&p.references.length?(' · refs '+esc(p.references.join(', '))):'')+'</div></div>';
+      });
+      var tq='';
+      (j.torque_sample||[]).forEach(function(v){ tq+='<div class="row"><span class="k">'+esc(v)+'</span></div>'; });
+      if(j.n_torque>(j.torque_sample||[]).length) tq+='<div class="s">+'+(j.n_torque-j.torque_sample.length)+' more…</div>';
+      var pt='';
+      (j.parts_sample||[]).forEach(function(p){
+        var ref=p.nsn||p.part_number||p.name||'';
+        var cmp=p.lookalike?(' <a class="cmp" href="/partdiff?q='+encodeURIComponent(ref)+'" target="_blank" title="Look-alike NSNs on file — compare in Look-Alike Parts">⚠ compare</a>'):'';
+        pt+='<div class="row'+(p.lookalike?' la':'')+'"><span class="k">'+(p.lookalike?'⚠ ':'')+esc(p.name||'part')+'</span>'+(p.nsn?' <span class="s">'+esc(p.nsn)+'</span>':'')+cmp+'</div>';
+      });
+      if(j.n_lookalike_parts) pt='<div class="s" style="color:#f2c3ad">'+j.n_lookalike_parts+' part'+(j.n_lookalike_parts===1?'':'s')+' with look-alike NSNs — verify before ordering.</div>'+pt;
+      if(j.n_parts>(j.parts_sample||[]).length) pt+='<div class="s">+'+(j.n_parts-j.parts_sample.length)+' more…</div>';
+      var dm='';
+      (j.dimensions_sample||[]).forEach(function(d){
+        var tag=d.authoritative?'':' <span class="s" style="color:#e8c07a">ext</span>';
+        dm+='<div class="row"><span class="k">'+esc(d.type)+'</span> <span class="s">'+esc(d.value)+' '+esc(d.unit)+'</span>'+tag+'</div>';
+      });
+      if(j.n_dimensions>(j.dimensions_sample||[]).length) dm+='<div class="s">+'+(j.n_dimensions-j.dimensions_sample.length)+' more…</div>';
+      if(!j.n_dimensions) dm='<div class="empty">none yet — build the Masterfile (BUILD-MASTERFILE.bat)</div>';
+      $('#grid').innerHTML=
+        card('Procedures',j.n_procedures,pr)+
+        card('Torque values',j.n_torque,tq)+
+        card('Key dimensions',j.n_dimensions||0,dm)+
+        card('Parts on figures',j.n_parts,pt)+
+        card('Figure pages',j.n_figures,'<div class="empty">'+(j.n_figures?(j.n_figures+' TM page'+(j.n_figures===1?'':'s')+' will be rendered into the PDF'):'none found')+'</div>');
+      var total=j.n_procedures+j.n_torque+j.n_parts+j.n_figures+(j.n_dimensions||0);
+      $('#head').textContent=total?('Ready — '+total+' items found. Generate the work order below.'):'Nothing resolved for that task. Try a part name or NSN.';
+      $('#wo').disabled=!total;
+    }).catch(function(){ $('#head').textContent='Preview failed.'; });
+  }
+  $('#go').onclick=preview;
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') preview(); });
+  $('#wo').onclick=function(){ if(last) window.open('/api/jobcard?q='+encodeURIComponent(last),'_blank'); };
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; preview(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

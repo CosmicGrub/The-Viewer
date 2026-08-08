@@ -1,0 +1,46 @@
+<svg viewBox="0 0 1180 680" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="680" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Online → offline reference enrichment — built</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.20.0 · fetched ONCE from official public-domain sources · baked into separate, cited reference tables · engine stays offline. Additive (migration 0005).</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="300" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="128" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">ONLINE · once, official only</text>
+<rect x="58" y="142" width="264" height="46" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="162" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">FED-STD-H28 (public domain)</text>
+<text x="70" y="178" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">standard-hardware thread/dims</text>
+<rect x="58" y="196" width="264" height="46" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="216" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">GSA NSN Extract (data.gov)</text>
+<text x="70" y="232" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">official NSN → name / desc / price</text>
+<path d="M340,179 L388,179" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="388" y="104" width="330" height="150" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="406" y="128" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">viewer_ingest.py  enrich</text>
+<rect x="406" y="142" width="294" height="46" rx="9" fill="#101a14" stroke="#2f7d4f" stroke-width="1"/>
+<text x="418" y="162" font-size="10.3" font-weight="700" fill="#bfe6c5" text-anchor="start">ref_hardware (cited seed)</text>
+<text x="418" y="178" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">22 thread/dim rows · source + URL + date</text>
+<rect x="406" y="196" width="294" height="46" rx="9" fill="#101a14" stroke="#2f7d4f" stroke-width="1"/>
+<text x="418" y="216" font-size="10.3" font-weight="700" fill="#bfe6c5" text-anchor="start">ref_nsn — filtered to YOUR NSNs</text>
+<text x="418" y="232" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">--gsa CSV; only in-index NSNs ingested</text>
+<path d="M718,179 L766,179" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="766" y="104" width="374" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="784" y="128" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">OFFLINE · in the app</text>
+<rect x="784" y="142" width="338" height="100" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="796" y="162" font-size="10.3" font-weight="700" fill="#e6e9ee" text-anchor="start">/api/reference → cart line:</text>
+<text x="796" y="180" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">📚 External reference (cited, offline): SCREW CAP HEX</text><text x="796" y="192" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">· GSA list $3.45 · thread 1/2-13 · tap 27/64 · ~75</text><text x="796" y="204" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">lb-ft (general ref — TM governs)</text>
+<rect x="40" y="274" width="1100" height="150" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="298" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">PROVENANCE &amp; SEPARATION (what keeps it grounded)</text>
+<text x="58" y="320" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="320" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Stored in SEPARATE tables (ref_hardware / ref_nsn) — never merged into manual citations, so external data can&#x27;t pose as TM-sourced.</text>
+<text x="58" y="337" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="337" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Every row carries source + URL + fetch date, and is labeled &#x27;📚 External reference (cited)&#x27; in the UI.</text>
+<text x="58" y="354" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="354" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Official / public-domain only (FED-STD-H28, GSA/data.gov). Third-party scrapers excluded by your choice.</text>
+<text x="58" y="371" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="371" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Torque shown is a GENERAL reference — the TM&#x27;s stated torque governs. FEDLOG price/AAC/ARC still come from your AMDF (GSA shown as &#x27;list&#x27;, clearly</text><text x="72" y="384" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">labeled).</text>
+<text x="58" y="401" font-size="10" font-weight="700" fill="#e0564f" text-anchor="start">•</text>
+<text x="72" y="401" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN ingest is filtered to NSNs already in your index (targeted, relevant). Engine is offline after the one-time fetch.</text>
+<rect x="40" y="440" width="1100" height="96" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="464" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">WHAT IT UNLOCKS — and the remaining gap</text>
+<text x="58" y="486" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Fills missing nomenclature on the request sheet, and gives cited dimensions for standard hardware (the Tier 2.5 key). For full parametric 3D you still need each part&#x27;s specific</text><text x="58" y="500" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">SIZE — parsed from RPSTL text, the fuller NSN characteristics (FLIS) where available, or SME-confirmed; model only when size is certain (your decisions, recorded for Tier 2.5).</text>
+<text x="40" y="664" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">Verified on the live index: migration 0005 applies, hardware seed loads, GSA ingest keeps only in-index NSNs (bogus excluded), /api/reference returns cited data. Dark (R3) · CHANGELOG 0.20.0 (R4) · visual panel (R5).</text>
+</svg>

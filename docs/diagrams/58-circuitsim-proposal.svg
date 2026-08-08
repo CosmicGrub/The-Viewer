@@ -1,0 +1,102 @@
+<svg viewBox="0 0 1180 1180" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="1180" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">PROPOSAL — Interactive schematics: editor + real-time circuit simulator + logic + net-extraction</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">How EveryCircuit / Scheme-it / LucidChart / Falstad CircuitJS actually work, and how to bring it into THE VIEWER — grounded, offline, on the current specs.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="114" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · HOW THE REFERENCE TOOLS WORK</text>
+<rect x="40" y="124" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<circle cx="58" cy="141" r="3.5" fill="#2f7d4f"/>
+<text x="70" y="144" font-size="9.8" font-weight="700" fill="#2f7d4f" text-anchor="start">EveryCircuit</text>
+<text x="280" y="144" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Real-time custom MNA engine + nonlinear device models. Transient/AC/DC. Tune a knob and it re-solves live; current animates as</text><text x="280" y="155" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">moving charges; per-node waveform scopes; digital wires colour-coded.</text>
+<circle cx="58" cy="175" r="3.5" fill="#4f9dff"/>
+<text x="70" y="178" font-size="9.8" font-weight="700" fill="#4f9dff" text-anchor="start">Falstad CircuitJS1</text>
+<text x="280" y="178" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Open-source (GPLv2) browser simulator (GWT-&gt;JS) with OFFLINE standalone builds. Same live animation + scopes + analog &amp; digital.</text><text x="280" y="189" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Embeddable via iframe — the fastest path to a working sim.</text>
+<circle cx="58" cy="209" r="3.5" fill="#caa24a"/>
+<text x="70" y="212" font-size="9.8" font-weight="700" fill="#caa24a" text-anchor="start">Digi-Key Scheme-it</text>
+<text x="280" y="212" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Browser schematic CAPTURE: 700+ symbols (+millions via catalog), BOM manager, export SVG/PDF/KiCAD. Drawing + parts, NOT a</text><text x="280" y="223" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">simulator.</text>
+<circle cx="58" cy="243" r="3.5" fill="#7f77dd"/>
+<text x="70" y="246" font-size="9.8" font-weight="700" fill="#7f77dd" text-anchor="start">LucidChart / Scheme-it style editor</text>
+<text x="280" y="246" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Drag-place symbols, wire them, snap-to-grid, properties — the &#x27;digitally manipulatable schematic&#x27; authoring surface.</text>
+<circle cx="58" cy="266" r="3.5" fill="#1d9e75"/>
+<text x="70" y="269" font-size="9.8" font-weight="700" fill="#1d9e75" text-anchor="start">SINA / Netlistify (research)</text>
+<text x="280" y="269" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Deep-learning image-&gt;netlist: component detection + connectivity (CCL) + OCR + VLM. SINA ~96% accuracy, open-source. This is the</text><text x="280" y="280" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">BRIDGE from a raster TM schematic to a simulatable netlist.</text>
+<text x="56" y="300" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · ARCHITECTURE FOR THE VIEWER (three layers + a bridge)</text>
+<rect x="40" y="310" width="1100" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="332" width="330" height="200" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="75" y="354" font-size="10" font-weight="700" fill="#7f77dd" text-anchor="start">A · SCHEMATIC EDITOR / CAPTURE</text>
+<text x="75" y="374" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Canvas (SVG/Canvas) + symbol library</text>
+<text x="75" y="392" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• drag-place parts · draw/route wires · grid snap</text>
+<text x="75" y="410" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• properties panel + values + BOM</text>
+<text x="75" y="428" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• data model = a NETLIST (nodes, components)</text>
+<text x="75" y="446" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• export SVG / PDF / netlist</text>
+<text x="75" y="464" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• FULLY OFFLINE, doable now</text>
+<rect x="404" y="332" width="330" height="200" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="419" y="354" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="start">B · REAL-TIME SIMULATOR</text>
+<text x="419" y="374" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• engine solves the netlist each step</text>
+<text x="419" y="392" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• tune a parameter -&gt; instant re-solve</text>
+<text x="419" y="410" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• animate current (moving dots) + node colours</text>
+<text x="419" y="428" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• scopes: per-node V/I waveforms</text>
+<text x="419" y="446" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• DC · AC sweep · transient</text>
+<text x="419" y="464" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Option 1: embed CircuitJS (GPLv2, fast)</text>
+<text x="419" y="482" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Option 2: custom MNA engine (no-GPL, tight)</text>
+<rect x="748" y="332" width="372" height="200" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="763" y="354" font-size="10" font-weight="700" fill="#2f7d4f" text-anchor="start">C · DYNAMIC LOGIC RENDERING</text>
+<text x="763" y="374" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• digital gates / flip-flops / buses</text>
+<text x="763" y="392" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• event-driven 0/1 propagation (light)</text>
+<text x="763" y="410" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• colour-coded logic states + bus values</text>
+<text x="763" y="428" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• clock stepping + timing-diagram scopes</text>
+<text x="763" y="446" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• truth tables on hover</text>
+<text x="763" y="464" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• pairs with the analog engine</text>
+<text x="60" y="548" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">All three are client-side JS — no server load; the RTX 4050 is far more than enough (the sim is light).</text>
+<text x="56" y="584" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · HOW THE REAL-TIME SIM WORKS (the numerical heart — EveryCircuit / SPICE / CircuitJS)</text>
+<rect x="40" y="594" width="1100" height="180" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="616" width="205" height="116" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="68" y="636" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">1 Build the matrix</text>
+<text x="68" y="652" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Modified Nodal Analysis: assemble</text><text x="68" y="662" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">G·v = i from the netlist (one</text><text x="68" y="672" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">equation per node).</text>
+<path d="M263,672 L271,672" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="272" y="616" width="205" height="116" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="282" y="636" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">2 Stamp components</text>
+<text x="282" y="652" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Each</text><text x="282" y="662" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">R/L/C/diode/transistor/source</text><text x="282" y="672" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;stamps&#x27; its contribution; L/C</text><text x="282" y="682" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">use companion models per</text><text x="282" y="692" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">timestep.</text>
+<path d="M477,672 L485,672" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="486" y="616" width="205" height="116" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="496" y="636" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">3 Solve (nonlinear)</text>
+<text x="496" y="652" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Newton-Raphson iterates until the</text><text x="496" y="662" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">nonlinear devices (diodes,</text><text x="496" y="672" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">transistors) converge.</text>
+<path d="M691,672 L699,672" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="700" y="616" width="205" height="116" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="710" y="636" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">4 Integrate time</text>
+<text x="710" y="652" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Trapezoidal / backward-Euler</text><text x="710" y="662" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">advance one dt; repeat ~real-time</text><text x="710" y="672" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">for a smooth animation.</text>
+<path d="M905,672 L913,672" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="914" y="616" width="205" height="116" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="924" y="636" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">5 Animate + tune</text>
+<text x="924" y="652" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Map node voltages-&gt;colours,</text><text x="924" y="662" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">branch currents-&gt;moving-dot</text><text x="924" y="672" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">speed; a slider edits a value and</text><text x="924" y="682" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">re-solves live.</text>
+<text x="56" y="800" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">4 · THE BRIDGE — from a real TM schematic to a simulatable netlist</text>
+<rect x="40" y="810" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="832" width="205" height="72" rx="8" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="68" y="852" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">raster TM schematic</text>
+<text x="68" y="868" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">the real scanned/vector page in</text><text x="68" y="878" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">the library</text>
+<path d="M263,868 L271,868" stroke="#2f7d4f" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="272" y="832" width="205" height="72" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="282" y="852" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">detect components</text>
+<text x="282" y="868" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">vision model (YOLO-style) finds</text><text x="282" y="878" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">relays, resistors, connectors…</text>
+<path d="M477,868 L485,868" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="486" y="832" width="205" height="72" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="496" y="852" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">trace connectivity</text>
+<text x="496" y="868" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">line-following /</text><text x="496" y="878" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">connected-components builds the</text><text x="496" y="888" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">wires + nodes</text>
+<path d="M691,868 L699,868" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="700" y="832" width="205" height="72" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="710" y="852" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">OCR + VLM labels</text>
+<text x="710" y="868" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">ref-designators, values, pin IDs</text><text x="710" y="878" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">assigned (SINA-style)</text>
+<path d="M905,868 L913,868" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="914" y="832" width="205" height="72" rx="8" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="924" y="852" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">netlist</text>
+<text x="924" y="868" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; load straight into the editor +</text><text x="924" y="878" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">simulator</text>
+<text x="58" y="930" font-size="8.8" font-weight="400" fill="#caa24a" text-anchor="start">On the 4050: inference works for component/line detection. Bigger models + batching all 1,093 schematics + any fine-tuning -&gt; the desktop/RTX 5070 (12 GB). This is the one &#x27;needs-power&#x27; piece.</text>
+<rect x="40" y="978" width="1100" height="96" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="1002" font-size="12" font-weight="700" fill="#e0564f" text-anchor="start">THE GROUNDING LINE</text>
+<text x="58" y="1022" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">The editor + simulator are GROUNDED when YOU build/edit a circuit — your input is the source of truth (great for training: &#x27;what happens if this relay coil opens?&#x27;). An AUTO-extracted</text><text x="58" y="1035" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">netlist from a TM raster MUST be shown for review/edit and labelled &#x27;auto-extracted — verify against the TM&#x27; before it&#x27;s trusted; the cited TM page always sits alongside. We never</text><text x="58" y="1048" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">present a simulated result as the manual&#x27;s ground truth without that human check.</text>
+<rect x="40" y="1082" width="1100" height="80" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="1106" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">RECOMMENDED PATH</text>
+<text x="58" y="1126" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">1) Build the schematic EDITOR (capture + netlist + BOM, offline) — immediate value. 2) Add the SIMULATOR by embedding Falstad CircuitJS (GPLv2, offline) to validate UX fast, then</text><text x="58" y="1139" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">optionally a custom MNA engine for tight integration + no-GPL distribution. 3) Logic rendering. 4) The net-extraction BRIDGE last (the power feature). All on the 4050 except heavy</text><text x="58" y="1152" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">extraction.</text>
+<text x="40" y="1168" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">PROPOSAL — your call. Dark (R3). Nothing built yet. Sources: everycircuit.com · falstad CircuitJS (GPLv2) · digikey Scheme-it · SINA/Netlistify.</text>
+</svg>

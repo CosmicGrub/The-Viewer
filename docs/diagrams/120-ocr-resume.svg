@@ -1,0 +1,49 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">OCR — status &amp; resume   v0.99.16</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">The scan stalled at 43.8% on June 3. ~96% of the whole library is already searchable; the gap is the remaining scanned pages.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">SCANNED PAGES NEEDING OCR — 121,135 total</text>
+<rect x="40" y="130" width="1100" height="34" rx="8" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="130" width="481" height="34" rx="8" fill="#2f7d4f"/>
+<text x="52" y="152" font-size="12" font-weight="700" fill="#08120b" text-anchor="start">53,016 done · 43.8%</text>
+<text x="533" y="152" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">67,919 pending + 200 stale = 68,119 to go</text>
+<text x="40" y="196" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">THE WHOLE LIBRARY — ~1.85 M pages across 39,683 documents</text>
+<rect x="40" y="210" width="1027" height="30" rx="4" fill="#1d9e75" stroke="#1d9e75" stroke-width="0"/>
+<rect x="1067" y="210" width="31" height="30" rx="4" fill="#2f7d4f" stroke="#2f7d4f" stroke-width="0"/>
+<rect x="1098" y="210" width="40" height="30" rx="4" fill="#caa24a" stroke="#caa24a" stroke-width="0"/>
+<text x="40" y="258" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">1,727,330 native-text + 53,016 OCR&#x27;d = 1,780,346 searchable now (96.3%).  Remaining 68,119 scanned pages → OCR.</text>
+<line x1="40" y1="280" x2="1140" y2="280" stroke="#2b333f"/>
+<text x="40" y="308" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">RESUME-OCR.bat  →  run to 100% (self-restarting)</text>
+<rect x="40" y="322" width="272" height="118" rx="11" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="53" y="344" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">probe GPU + install</text>
+<text x="53" y="364" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">RapidOCR PP-OCRv5 +</text>
+<text x="53" y="379" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">onnxruntime-gpu; 12 workers,</text>
+<text x="53" y="394" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">240 dpi (Acer Nitro RTX 4050).</text>
+<rect x="318" y="322" width="272" height="118" rx="11" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="331" y="344" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">requeue stale</text>
+<text x="331" y="364" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">cleanup resets the 200 stuck</text>
+<text x="331" y="379" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;running&#x27; locks back to</text>
+<text x="331" y="394" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;pending&#x27; so none orphan.</text>
+<rect x="596" y="322" width="272" height="118" rx="11" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="609" y="344" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">:ocrloop until 0</text>
+<text x="609" y="364" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">OCR pass; if it stops early or</text>
+<text x="609" y="379" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">crashes, auto-restart in 8s —</text>
+<text x="609" y="394" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the watchdog behavior.</text>
+<rect x="874" y="322" width="272" height="118" rx="11" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="887" y="344" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">report + snapshot</text>
+<text x="887" y="364" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">writes docs/OCR-COMPLETION-</text>
+<text x="887" y="379" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">REPORT.md, post-run snapshot,</text>
+<text x="887" y="394" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">opens the report.</text>
+<line x1="310" y1="381" x2="320" y2="381" stroke="#2f7d4f" stroke-width="2" marker-end="url(#a)"/>
+<line x1="588" y1="381" x2="598" y2="381" stroke="#2f7d4f" stroke-width="2" marker-end="url(#a)"/>
+<line x1="866" y1="381" x2="876" y2="381" stroke="#2f7d4f" stroke-width="2" marker-end="url(#a)"/>
+<defs><marker id="a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2f7d4f"/></marker></defs>
+<line x1="40" y1="460" x2="1140" y2="460" stroke="#2b333f"/>
+<text x="40" y="488" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">MONITOR — daily task &#x27;viewer-ocr-daily-progress&#x27; (09:08)</text>
+<rect x="40" y="502" width="1100" height="74" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="526" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Reads ocr_progress_history.tsv (the runner appends to it live) + the heartbeat freshness — NOT a slow full-table scan — and pings Chris each morning with % done, pages remaining, running-vs-stalled, and a reminder to launch</text><text x="58" y="541" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">RESUME-OCR.bat if it stopped. At 100% it says the library is fully OCR&#x27;d and the check can be turned off.</text>
+<line x1="40" y1="592" x2="1140" y2="592" stroke="#2b333f"/>
+<text x="40" y="620" font-size="10" font-weight="700" fill="#caa24a" text-anchor="start">TO START: double-click RESUME-OCR.bat (plug in AC, fans high; ~15-20h GPU time, resumable). Desktop automation can&#x27;t start the long run for you.</text>
+<text x="40" y="692" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.16 · 2026-07-01 · RESUME-OCR.bat + daily OCR task. Read-only on the index. R1/R6.</text>
+</svg>

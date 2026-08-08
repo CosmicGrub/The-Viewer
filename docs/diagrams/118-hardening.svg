@@ -1,0 +1,45 @@
+<svg viewBox="0 0 1180 710" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="710" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Hardening pass — property + fuzz over the pure helpers   v0.99.14</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Above-military-grade rigor: assert each pure helper&#x27;s invariants hold across adversarial seeds + a million random inputs. Hypothesis if present; stdlib fuzz always.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="114" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">HELPER → INVARIANT THAT MUST NEVER BREAK</text>
+<rect x="40" y="132" width="1100" height="34" rx="8" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="154" font-size="11" font-weight="700" fill="#7fbfff" text-anchor="start">jobcard._task_intent</text>
+<text x="360" y="154" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">always {kind ∈ VALID | None, verb, focus:str}; never raises</text>
+<rect x="40" y="172" width="1100" height="34" rx="8" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="194" font-size="11" font-weight="700" fill="#7fbfff" text-anchor="start">jobcard._order_procs</text>
+<text x="360" y="194" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">length-preserving; matching-kind items STRICTLY precede non-matching; stable</text>
+<rect x="40" y="212" width="1100" height="34" rx="8" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="234" font-size="11" font-weight="700" fill="#7fbfff" text-anchor="start">jobcard._lookalike_warning</text>
+<text x="360" y="234" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">returns None or str; never raises</text>
+<rect x="40" y="252" width="1100" height="34" rx="8" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="274" font-size="11" font-weight="700" fill="#7fbfff" text-anchor="start">procedures_feature._parse_procedure</text>
+<text x="360" y="274" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">None or dict w/ all keys; EVERY reference is digit-anchored; never raises</text>
+<rect x="40" y="292" width="1100" height="34" rx="8" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="314" font-size="11" font-weight="700" fill="#7fbfff" text-anchor="start">figureparts.parts_on</text>
+<text x="360" y="314" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">dedup: count == len(parts) == distinct (nsn,pn,name) keys; never raises</text>
+<rect x="40" y="332" width="1100" height="34" rx="8" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="54" y="354" font-size="11" font-weight="700" fill="#7fbfff" text-anchor="start">patterns.norm_nsn</text>
+<text x="360" y="354" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">idempotent: norm(norm(x)) == norm(x)</text>
+<line x1="40" y1="374" x2="1140" y2="374" stroke="#2b333f"/>
+<text x="40" y="398" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">HOW IT RUNS</text>
+<rect x="40" y="412" width="545" height="128" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="434" font-size="9.4" font-weight="400" fill="#2f7d4f" text-anchor="start">1. adversarial SEED corpus (empty, control chars, TM/WP,</text>
+<text x="58" y="450" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">   &#x27;LOCKWASHER&#x27;/&#x27;LOOSEN&#x27;, huge repeats) — deterministic.</text>
+<text x="58" y="466" font-size="9.4" font-weight="400" fill="#2f7d4f" text-anchor="start">2. Hypothesis @given (if installed) — smart shrinking to the</text>
+<text x="58" y="482" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">   minimal falsifying example.</text>
+<text x="58" y="498" font-size="9.4" font-weight="400" fill="#2f7d4f" text-anchor="start">3. large-N stdlib fuzz — the bulk of the tally; --max = 1e6</text>
+<text x="58" y="514" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">   iters/property → millions of cases.</text>
+<text x="58" y="530" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">RUN-HARDENING.bat → docs/hardening_report.txt; 3k smoke in VERIFY-099.</text>
+<text x="604" y="398" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">IN-SANDBOX PROOF</text>
+<rect x="604" y="412" width="536" height="128" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="622" y="442" font-size="30" font-weight="700" fill="#7fbfff" text-anchor="start">80,040</text>
+<text x="622" y="464" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">cases executed · 0 invariant violations</text>
+<text x="622" y="490" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">figureparts run against the REAL module; the grown</text>
+<text x="622" y="504" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">jobcard/parser helpers verified via verbatim standalone</text>
+<text x="622" y="518" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">copies. Host run scales to the full million+ per property.</text>
+<line x1="40" y1="554" x2="1140" y2="554" stroke="#2b333f"/>
+<text x="40" y="582" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 · additive: two new test/bat files, zero product-code change. Read-only, no corpus, no network. The pre-1.0 rigor gate.</text>
+<text x="40" y="702" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.14 · 2026-07-01 · tests/test_property_fuzz.py + RUN-HARDENING.bat. Read-only. R1/R6.</text>
+</svg>

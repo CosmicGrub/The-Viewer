@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Command center — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:20px;margin:0 0 2px}.muted{color:#8a98a8;font-size:12.5px}
+  h2{font-size:14px;margin:18px 0 8px;color:#9fb3c8}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .tile{background:#111823;border:1px solid #1c2530;border-radius:10px;padding:12px 14px}
+  .tile .k{color:#8a98a8;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .tile .v{font-size:22px;font-weight:800;color:#7fd6a0;margin-top:3px}
+  .bar{height:16px;background:#10151c;border:1px solid #2f4858;border-radius:8px;overflow:hidden;margin-top:6px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#1d9e75,#4f9dff)}
+  .big{background:#0e141c;border:1px solid #24303c;border-radius:12px;padding:14px 16px;margin:10px 0}
+  .big .pct{font-size:30px;font-weight:800;color:#7fd6a0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;font-size:13.5px}
+  .ok{color:#7fd6a0}.warn{color:#e8c07a}.bad{color:#e39b95}
+  .none{color:#8a98a8;font-size:12.5px}
+</style></head><body>
+<div class="wrap">
+  <h1>🛰 Command center <span class="muted">— are we complete?</span></h1>
+  <div class="muted">One glance at the whole knowledge base: OCR progress, corpus coverage, the PUBLOG federal
+    catalog, and the Masterfile dimensional gaps. Refreshes on load.</div>
+  <div class="row" style="margin:12px 0"><button class="btn" id="reload" style="cursor:pointer">↻ Refresh</button>
+    <a class="btn" href="/ops">Ops</a><a class="btn" href="/coverage">Coverage detail</a><a class="btn" href="/mastercov">Masterfile gaps</a><a class="btn" href="/">← search</a></div>
+  <div id="out"><div class="none">Loading…</div></div>
+  <div id="gapsout"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function num(n){ return (typeof n==='number')?n.toLocaleString():esc(n); }
+  function pctOf(o){
+    if(!o||typeof o!=='object') return null;
+    for(var k in o){ if(/percent|pct|progress/i.test(k) && typeof o[k]==='number') return Math.max(0,Math.min(100,o[k]<=1?o[k]*100:o[k])); }
+    var done=o.done||o.ocr_done||o.scanned||o.completed, tot=o.total||o.pages||o.count;
+    if(typeof done==='number'&&typeof tot==='number'&&tot>0) return Math.round(1000*done/tot)/10;
+    return null;
+  }
+  function tiles(o, keys){
+    var h='<div class="cards">';
+    keys.forEach(function(k){ if(o&&o[k]!=null&&typeof o[k]!=='object') h+='<div class="tile"><div class="k">'+esc(k.replace(/_/g," "))+'</div><div class="v">'+num(o[k])+'</div></div>'; });
+    return h+'</div>';
+  }
+
+  function render(d){
+    var h='';
+    // OCR big bar
+    var ocr=d.ocr||{}; var op=pctOf(ocr);
+    h+='<h2>OCR text layer</h2><div class="big">';
+    if(op!=null){ h+='<div class="pct">'+op+'%</div><div class="bar"><i style="width:'+op+'%"></i></div>'; }
+    h+='<div class="row" style="margin-top:8px">'+tiles(ocr,["done","scanned","total","pages","remaining","documents","docs"])+'</div>';
+    if(op!=null&&op<100) h+='<div class="muted" style="margin-top:6px">Run <b>RESUME-OCR.bat</b> to continue — every search &amp; extraction sharpens as this completes.</div>';
+    h+='</div>';
+    // coverage
+    var cov=d.coverage||{};
+    h+='<h2>Corpus coverage</h2>'+tiles(cov,["documents","docs","pages","ocr","vectorized","cad","netlists","figures","schematics","measures","tables"]);
+    // publog
+    var pl=d.publog||{};
+    h+='<h2>Federal catalog (PUBLOG)</h2>';
+    if(pl.available){ h+='<div class="row"><span class="tile" style="border-color:#1d9e75"><span class="k">status</span><br><b class="ok">BUILT</b></span></div>'+tiles(pl,["nsn","part","cage","charx","cancelled"]); }
+    else h+='<div class="none">Not built yet — run <b>BUILD-PUBLOG.bat</b> to enable catalog, look-alike verdicts, and NSN did-you-mean.</div>';
+    // masterfile gaps
+    var mf=d.masterfile||{};
+    h+='<h2>Masterfile (dimensional) gaps</h2>';
+    if(mf&&!mf.error&&Object.keys(mf).length){ h+=tiles(mf,["subjects","covered","gaps","dimensions","with_gaps","complete"])+'<div class="row" style="margin-top:6px"><a class="btn" href="/mastercov">Open gap dashboard →</a></div>'; }
+    else h+='<div class="none">Build the Masterfile (BUILD-MEASURES → BUILD-MASTERFILE) to see dimensional completeness.</div>';
+    $('#out').innerHTML=h;
+  }
+
+  function loadGaps(){
+    // v1.13 (#19): zero-result gap log — what people searched for that the corpus could NOT answer.
+    fetch('/api/searchgaps').then(function(r){return r.json();}).then(function(g){
+      var box=$('#gapsout'); if(!box||!g) return;
+      var h='<h2>Search gaps — top unanswered queries</h2>';
+      if(!g.top||!g.top.length){
+        h+='<div class="none">No zero-result searches logged yet — every query so far found something.</div>';
+      } else {
+        var th='text-align:left;color:#8a98a8;font-size:11px;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid #24303c';
+        h+='<div class="big"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+          +'<tr><th style="'+th+'">query</th><th style="'+th+'">times asked</th><th style="'+th+'">last</th><th style="'+th+'"></th></tr>';
+        g.top.forEach(function(r){
+          h+='<tr><td style="padding:5px 8px;border-bottom:1px solid #1a232e"><b>'+esc(r.query)+'</b></td>'
+            +'<td style="padding:5px 8px;border-bottom:1px solid #1a232e" class="warn">'+num(r.count)+'</td>'
+            +'<td style="padding:5px 8px;border-bottom:1px solid #1a232e" class="muted">'+esc(r.last||'')+'</td>'
+            +'<td style="padding:5px 8px;border-bottom:1px solid #1a232e"><a class="btn" style="padding:3px 9px;font-size:12px" href="/?q='+encodeURIComponent(r.query)+'">retry</a></td></tr>';
+        });
+        h+='</table><div class="muted" style="margin-top:6px">'+num(g.distinct||0)+' distinct unanswered queries ('
+          +num(g.total_events||0)+' events). Close the gaps: ingest the missing manual (<a href="/ingest" style="color:#4f9dff">/ingest</a>) '
+          +'or teach the term as a keyword alias (<a href="/keywords" style="color:#4f9dff">/keywords</a>).</div></div>';
+      }
+      box.innerHTML=h;
+    }).catch(function(){});
+  }
+  function load(){ $('#out').innerHTML='<div class="none">Loading…</div>'; $('#gapsout').innerHTML='';
+    fetch('/api/command_status').then(function(r){return r.json();}).then(render).catch(function(){ $('#out').innerHTML='<div class="none">Failed to load status.</div>'; });
+    loadGaps();
+  }
+  $('#reload').onclick=load; load();
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

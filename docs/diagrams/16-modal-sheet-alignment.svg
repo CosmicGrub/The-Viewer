@@ -1,0 +1,86 @@
+<svg viewBox="0 0 1180 860" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="860" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="48" font-size="23" font-weight="700" fill="#e6e9ee" text-anchor="start">Matching the onboarding modal to the 104th sheet header</text>
+<text x="40" y="73" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Proposal &amp; markup — the modal already collects every header field; this is about fidelity (order, labels, grouping) and one conflict. Decide before we build.</text>
+<line x1="40" y1="90" x2="1140" y2="90" stroke="#2b333f"/>
+<rect x="40" y="110" width="530" height="400" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="110" width="530" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="54" y="130" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">THE 104TH SHEET HEADER  ·  source of truth</text>
+<rect x="60" y="156" width="490" height="320" rx="6" fill="#f4f1ea" stroke="#b9b2a3" stroke-width="1"/>
+<text x="305.0" y="186" font-size="13" font-weight="700" fill="#1c1a17" text-anchor="middle">104TH ECC PARTS REQUEST SHEET</text>
+<text x="305.0" y="202" font-size="9" font-weight="700" fill="#c01a1a" text-anchor="middle">(FILL OUT ALL BLOCKS)</text>
+<text x="76" y="234" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">MECHANIC&#x27;S NAME (PRINT/SIGN):</text>
+<line x1="260" y1="237" x2="534" y2="237" stroke="#b9b2a3" stroke-width="1"/>
+<text x="76" y="258" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">BUMPER#:</text>
+<line x1="135" y1="261" x2="260" y2="261" stroke="#b9b2a3" stroke-width="1"/>
+<text x="280" y="258" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">FAULT:</text>
+<line x1="325" y1="261" x2="534" y2="261" stroke="#b9b2a3" stroke-width="1"/>
+<text x="76" y="282" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">TM:</text>
+<line x1="102" y1="285" x2="230" y2="285" stroke="#b9b2a3" stroke-width="1"/>
+<text x="245" y="282" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">UOC:</text>
+<line x1="282" y1="285" x2="380" y2="285" stroke="#b9b2a3" stroke-width="1"/>
+<text x="395" y="282" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">TECH STATUS:</text>
+<line x1="480" y1="285" x2="534" y2="285" stroke="#b9b2a3" stroke-width="1"/>
+<rect x="76" y="304" width="458" height="52" rx="4" fill="#ece8df" stroke="#b9b2a3" stroke-width="1"/>
+<text x="86" y="322" font-size="8.5" font-weight="400" fill="#1c1a17" text-anchor="start">ITEM NAME: ______________   NSN: ____________</text>
+<text x="86" y="336" font-size="8.5" font-weight="400" fill="#1c1a17" text-anchor="start">QTY:__  FIG#:__  PART#:______</text>
+<text x="86" y="350" font-size="8" font-weight="400" fill="#c01a1a" text-anchor="start">(FEDLOG) UNIT PRICE:__  AAC:__  ARC:__</text>
+<text x="524" y="334" font-size="10" font-weight="700" fill="#9aa6b6" text-anchor="end">× 6</text>
+<text x="76" y="370" font-size="9.5" font-weight="700" fill="#1c1a17" text-anchor="start">MOTOR SERGEANT / SENIOR MECHANIC:</text>
+<line x1="310" y1="373" x2="534" y2="373" stroke="#b9b2a3" stroke-width="1"/>
+<text x="60" y="500" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">7 header blocks total (incl. footer). No DATE / UNIT / DODAAC blocks on this sheet.</text>
+<rect x="600" y="110" width="540" height="400" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="600" y="110" width="540" height="30" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="614" y="130" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">PROPOSED MODAL  ·  mirrors the header 1:1</text>
+<text x="618" y="162" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">Start a maintenance session</text>
+<rect x="618" y="172" width="504" height="58" rx="8" fill="#16223a" stroke="#2c3f5e" stroke-width="1"/>
+<text x="628" y="190" font-size="9" font-weight="700" fill="#9bc0ff" text-anchor="start">FIND A PART  ·  search only — does not print on the sheet</text>
+<rect x="628" y="196" width="484" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="638" y="212" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">What do you need?  (part name · part # · NSN · 4-digit last-4)</text><line x1="638" y1="229" x2="1102" y2="229" stroke="#3a4452" stroke-width="1"/>
+<text x="618" y="242" font-size="9.5" font-weight="700" fill="#caa24a" text-anchor="start">PARTS REQUEST SHEET HEADER  ·  fills the blocks at left</text>
+<rect x="618" y="250" width="504" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="628" y="266" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">MECHANIC&#x27;S NAME (PRINT/SIGN)</text><line x1="628" y1="283" x2="1112" y2="283" stroke="#3a4452" stroke-width="1"/>
+<rect x="618" y="300" width="246.0" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="628" y="316" font-size="9.5" font-weight="700" fill="#cfe0ff" text-anchor="start">BUMPER#</text><text x="852.0" y="316" font-size="8.5" font-weight="700" fill="#e0564f" text-anchor="end">required</text><line x1="628" y1="333" x2="854.0" y2="333" stroke="#3a4452" stroke-width="1"/>
+<rect x="876.0" y="300" width="246.0" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="886.0" y="316" font-size="9.5" font-weight="700" fill="#cfe0ff" text-anchor="start">FAULT</text><text x="1110.0" y="316" font-size="8.5" font-weight="700" fill="#e0564f" text-anchor="end">required</text><line x1="886.0" y1="333" x2="1112.0" y2="333" stroke="#3a4452" stroke-width="1"/>
+<rect x="618" y="350" width="160.0" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="628" y="366" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">TM</text><line x1="628" y1="383" x2="768.0" y2="383" stroke="#3a4452" stroke-width="1"/>
+<rect x="790.0" y="350" width="160.0" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="800.0" y="366" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">UOC</text><line x1="800.0" y1="383" x2="940.0" y2="383" stroke="#3a4452" stroke-width="1"/>
+<rect x="962.0" y="350" width="160.0" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="972.0" y="366" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">TECH STATUS</text><line x1="972.0" y1="383" x2="1112.0" y2="383" stroke="#3a4452" stroke-width="1"/>
+<rect x="618" y="400" width="504" height="42" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/><text x="628" y="416" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">MOTOR SERGEANT / SENIOR MECHANIC</text><line x1="628" y1="433" x2="1112" y2="433" stroke="#3a4452" stroke-width="1"/>
+<text x="618" y="454" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Live mini-preview of the header updates as you type (what you fill = what prints).</text>
+<text x="40" y="536" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">RECOMMENDATIONS</text>
+<rect x="40" y="550" width="362" height="124" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="550" width="5" height="124" rx="2" fill="#2f7d4f"/>
+<text x="58" y="576" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Exact labels &amp; order</text>
+<text x="58" y="600" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Modal rows match the sheet 1:1: Mechanic →</text>
+<text x="58" y="617" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Bumper|Fault → TM|UOC|Tech → Motor sergeant. Use the</text>
+<text x="58" y="634" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">sheet&#x27;s exact wording.</text>
+<rect x="417" y="550" width="362" height="124" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="417" y="550" width="5" height="124" rx="2" fill="#2f7d4f"/>
+<text x="435" y="576" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · Group + separate search</text>
+<text x="435" y="600" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Put the 7 header fields in one labelled group; set</text>
+<text x="435" y="617" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">the search/express field visually apart (it never</text>
+<text x="435" y="634" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">prints).</text>
+<rect x="794" y="550" width="362" height="124" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="794" y="550" width="5" height="124" rx="2" fill="#caa24a"/>
+<text x="812" y="576" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · Honor &#x27;FILL OUT ALL BLOCKS&#x27;</text>
+<text x="812" y="600" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Conflict today: Simple mode hides UOC/Tech/Motor —</text>
+<text x="812" y="617" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">but they&#x27;re header blocks. Fix: always show header</text>
+<text x="812" y="634" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">fields; Simple only hides per-item FEDLOG.</text>
+<rect x="40" y="688" width="362" height="124" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="688" width="5" height="124" rx="2" fill="#4f9dff"/>
+<text x="58" y="714" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · Live header preview</text>
+<text x="58" y="738" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Render a small replica of the sheet header inside</text>
+<text x="58" y="755" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">the modal that fills in as you type — true visual</text>
+<text x="58" y="772" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">parity.</text>
+<rect x="417" y="688" width="362" height="124" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="417" y="688" width="5" height="124" rx="2" fill="#2f7d4f"/>
+<text x="435" y="714" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · Required = Bumper# + Fault</text>
+<text x="435" y="738" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">Keep just those two required (most critical); mark</text>
+<text x="435" y="755" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">the rest &#x27;recommended&#x27; so a quick request isn&#x27;t</text>
+<text x="435" y="772" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">blocked.</text>
+<rect x="794" y="688" width="362" height="124" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="794" y="688" width="5" height="124" rx="2" fill="#2f7d4f"/>
+<text x="812" y="714" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">6 · Don&#x27;t invent fields</text>
+<text x="812" y="738" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">This sheet has no DATE/UNIT/DODAAC — we won&#x27;t add</text>
+<text x="812" y="755" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">blocks it doesn&#x27;t have. Stays a faithful replica</text>
+<text x="812" y="772" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">(R1).</text>
+<text x="40" y="846" font-size="10" font-weight="400" fill="#6b7280" text-anchor="start">Proposal only — nothing built yet. Dark (R3). On approval: ships with a data-flow diagram (R2), CHANGELOG (R4) + visual panel (R5).</text>
+</svg>

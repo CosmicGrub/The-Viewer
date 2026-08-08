@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scan a part — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css">
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:640px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px}.muted{color:#8a98a8;font-size:12.5px}
+  .stage{margin:14px 0;background:#000;border:1px solid #2f4858;border-radius:12px;overflow:hidden;position:relative;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:cover}
+  .reticle{position:absolute;inset:18% 14%;border:2px solid #7fd6a0;border-radius:10px;box-shadow:0 0 0 2000px rgba(0,0,0,.25)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:11px 15px;cursor:pointer;font-size:15px}
+  button.alt,a.alt{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:11px 15px;text-decoration:none;cursor:pointer;font-size:15px}
+  input{flex:1;min-width:220px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:16px}
+  .hint{background:#111823;border:1px solid #1c2530;border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13px;color:#b9c6d4}
+  .ok{color:#7fd6a0;font-weight:700}.warn{color:#e8c07a}
+</style></head><body>
+<div class="wrap">
+  <h1>📷 Scan a part</h1>
+  <div class="muted">Point the camera at an NSN barcode / QR on a bin or part tag — or just use a <b>handheld
+    scanner</b>, which works on every page automatically. Resolves to the federal-catalog record. Runs
+    fully offline (in-browser barcode detection).</div>
+
+  <div class="stage"><video id="v" playsinline muted></video><div class="reticle" id="ret" hidden></div>
+    <div id="ph" class="muted" style="padding:20px;text-align:center">Camera preview appears here.</div></div>
+
+  <div class="row">
+    <button class="go" id="start">Start camera</button>
+    <button class="alt" id="stop" hidden>Stop</button>
+    <a class="alt" href="/publog">Type an NSN instead</a>
+  </div>
+
+  <div class="row">
+    <input id="manual" placeholder="…or key/paste an NSN or part number here" inputmode="numeric">
+    <button class="alt" id="golook">Look up</button>
+  </div>
+
+  <div id="status" class="hint">Tip: a <b>USB/Bluetooth hand scanner</b> needs no camera — scan anywhere in THE VIEWER and it jumps to the part.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  var v=$("#v"), stream=null, detector=null, raf=null, done=false;
+
+  function looksNSN(s){ var d=(s||"").replace(/[^0-9]/g,""); return d.length===13||d.length===9; }
+  function go(code){
+    if(!code) return; code=(""+code).replace(/[ -]/g,"").trim(); if(code.length<3) return;
+    done=true; stop();
+    $("#status").innerHTML='<span class="ok">✓ '+code+'</span> — opening record…';
+    var url=looksNSN(code)?("/publog?nsn="+encodeURIComponent(code)):("/publog?pn="+encodeURIComponent(code));
+    setTimeout(function(){ location.href=url; }, 250);
+  }
+
+  $("#golook").onclick=function(){ go($("#manual").value); };
+  $("#manual").addEventListener("keydown",function(e){ if(e.key==="Enter") go($("#manual").value); });
+
+  function stop(){
+    if(raf) cancelAnimationFrame(raf), raf=null;
+    if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+    $("#stop").hidden=true; $("#start").hidden=false; $("#ret").hidden=true;
+  }
+  $("#stop").onclick=stop;
+
+  $("#start").onclick=function(){
+    if(!("BarcodeDetector" in window)){
+      $("#status").innerHTML='<span class="warn">This browser has no built-in barcode detector.</span> '+
+        'Use a handheld scanner (works everywhere), or type the NSN above. '+
+        '(Chrome/Edge on Windows support in-browser scanning.)';
+      return;
+    }
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      $("#status").innerHTML='<span class="warn">Camera not available in this browser.</span> Use a hand scanner or type the NSN.'; return;
+    }
+    try{ detector=new window.BarcodeDetector({formats:["qr_code","code_128","code_39","ean_13","data_matrix","itf","codabar"]}); }
+    catch(e){ detector=new window.BarcodeDetector(); }
+    navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(function(s){
+      stream=s; v.srcObject=s; $("#ph").hidden=true; $("#ret").hidden=false;
+      $("#start").hidden=true; $("#stop").hidden=false; $("#status").textContent="Scanning… hold the code inside the frame.";
+      return v.play();
+    }).then(function(){ tick(); })
+      .catch(function(err){ $("#status").innerHTML='<span class="warn">Could not open the camera ('+(err&&err.name||"error")+').</span> Use a hand scanner or type the NSN.'; });
+  };
+
+  function tick(){
+    if(done||!detector||!stream) return;
+    detector.detect(v).then(function(codes){
+      if(codes&&codes.length){ var c=codes[0].rawValue||""; if(c){ go(c); return; } }
+      raf=requestAnimationFrame(tick);
+    }).catch(function(){ raf=requestAnimationFrame(tick); });
+  }
+
+  window.addEventListener("pagehide", stop);
+  var pre=new URLSearchParams(location.search).get("q"); if(pre){ $("#manual").value=pre; }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

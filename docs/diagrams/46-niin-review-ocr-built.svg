@@ -1,0 +1,72 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="720" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — NIIN-review workflow + OCR run guide  (v0.32.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">The 884 NIIN-drift findings are now an actionable confirm/reject queue with decisions saved append-only — and a clear, resumable OCR finish on your GPU.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · NIIN-DRIFT REVIEW — confirm / reject (append-only)</text>
+<rect x="40" y="126" width="1100" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="150" width="180" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="150" y="172" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="middle">correlations.db</text>
+<text x="150" y="188" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">884 drift groups</text>
+<path d="M240,178 L266,178" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="270" y="150" width="210" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="375" y="170" font-size="9.6" font-weight="700" fill="#4f9dff" text-anchor="middle">/status review queue</text>
+<text x="375" y="186" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="middle">FSC-conflict flagged</text>
+<text x="375" y="199" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="middle">pending / all filter</text>
+<path d="M480,178 L506,178" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="510" y="150" width="250" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="635" y="168" font-size="9.6" font-weight="700" fill="#e6e9ee" text-anchor="middle">choose a decision</text>
+<rect x="520" y="182" width="54" height="18" rx="5" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="547" y="194" font-size="7.6" font-weight="700" fill="#2f7d4f" text-anchor="middle">distinct</text>
+<rect x="578" y="182" width="54" height="18" rx="5" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="605" y="194" font-size="7.6" font-weight="700" fill="#4f9dff" text-anchor="middle">interchange</text>
+<rect x="636" y="182" width="54" height="18" rx="5" fill="#1c2430" stroke="#e0564f" stroke-width="1"/>
+<text x="663" y="194" font-size="7.6" font-weight="700" fill="#e0564f" text-anchor="middle">error</text>
+<rect x="694" y="182" width="54" height="18" rx="5" fill="#1c2430" stroke="#9aa6b6" stroke-width="1"/>
+<text x="721" y="194" font-size="7.6" font-weight="700" fill="#9aa6b6" text-anchor="middle">dismiss</text>
+<path d="M760,178 L786,178" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="790" y="150" width="210" height="56" rx="8" fill="#13241c" stroke="#2f7d4f" stroke-width="1"/>
+<text x="895" y="170" font-size="9.6" font-weight="700" fill="#bfe6cf" text-anchor="middle">POST decision</text>
+<text x="895" y="186" font-size="8.2" font-weight="400" fill="#8fbf9f" text-anchor="middle">/api/niin_review_decision</text>
+<path d="M895,206 L895,224" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="790" y="226" width="210" height="52" rx="8" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="895" y="246" font-size="9.4" font-weight="700" fill="#bfe6cf" text-anchor="middle">reviews.db (sidecar)</text>
+<text x="895" y="262" font-size="8.2" font-weight="400" fill="#8fbf9f" text-anchor="middle">INSERT only — never update</text>
+<text x="60" y="238" font-size="9.6" font-weight="700" fill="#caa24a" text-anchor="start">Decision semantics:</text>
+<text x="72" y="256" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• distinct</text>
+<text x="230" y="256" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">genuinely different items — keep both</text>
+<text x="72" y="276" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• interchangeable</text>
+<text x="230" y="276" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">same item; optional canonical NSN</text>
+<text x="72" y="296" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• error</text>
+<text x="230" y="296" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">extraction/OCR error — flag for fix</text>
+<text x="72" y="316" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• dismiss</text>
+<text x="230" y="316" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">reviewed, no action</text>
+<text x="440" y="256" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Append-only (R6): changing your mind inserts a new row; the latest wins and the full history is kept for audit.</text><text x="440" y="268" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Decisions are recorded for review — the main index is never auto-changed (R1). The queue shows decided/pending counts</text><text x="440" y="280" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">and hides decided items by default.</text>
+<text x="60" y="360" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">Validated: 9-digit NIIN + a known decision required; roundtrip tested (append-only, latest-wins).</text>
+<text x="56" y="408" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · FINISH OCR ON YOUR GPU  (resumable)</text>
+<rect x="40" y="418" width="1100" height="210" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="440" width="200" height="54" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="460" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · run_ocr_gpu.bat</text>
+<text x="70" y="476" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">installs RapidOCR +</text><text x="70" y="486" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">onnxruntime-gpu</text>
+<path d="M258,467 L270,467" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="272" y="440" width="200" height="54" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="284" y="460" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · snapshot (pre-ocr)</text>
+<text x="284" y="476" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">restore point first</text>
+<path d="M472,467 L484,467" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="486" y="440" width="200" height="54" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="498" y="460" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · cleanup</text>
+<text x="498" y="476" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">requeue half-finished pages</text>
+<path d="M686,467 L698,467" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="700" y="440" width="200" height="54" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="712" y="460" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · ocrall</text>
+<text x="712" y="476" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">prioritize -&gt; loop to 0 pending</text>
+<path d="M900,467 L912,467" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="914" y="440" width="200" height="54" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="926" y="460" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · watch /status</text>
+<text x="926" y="476" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">live OCR progress bar</text>
+<text x="58" y="520" font-size="9.6" font-weight="400" fill="#e6e9ee" text-anchor="start">~119,000 pages remain (6.5%).  Resumable: stop/re-run anytime.  Falls back to CPU automatically.</text>
+<text x="58" y="540" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">Estimate: GPU ~ a few hours–half a day · CPU ~ 1–3 days (varies by GPU, page complexity, DPI).</text>
+<text x="58" y="564" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Honest: this is compute time on YOUR machine — the assistant can&#x27;t run it remotely. OCR only ADDS text to blank pages (R6), so it&#x27;s safe and outside any rollback. When it finishes,</text><text x="58" y="576" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">mirror-mode readable labels light up on those pages. Full steps: docs/OCR-RUN-GUIDE.md.</text>
+<text x="40" y="708" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.32.0 · 2026-06-02 · companion: docs/OCR-RUN-GUIDE.md.</text>
+</svg>

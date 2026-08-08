@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help & guide — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  .wrap{max-width:920px;margin:0 auto;padding:22px 20px 40px}
+  .lead{font-size:16px;color:var(--txt)} .lead b{color:#fff}
+  .kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;background:var(--p2);font:600 12px ui-monospace,Consolas,monospace}
+  .sec{margin:26px 0 6px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--amb);font-weight:700}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  a.card{display:block;text-decoration:none;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+  a.card:hover{border-color:var(--acc)}
+  a.card .t{font-size:15px;font-weight:700} a.card .t .ic{margin-right:8px}
+  a.card .d{font-size:13px;color:var(--sub);margin-top:3px}
+  .tour{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  .tour ol{margin:8px 0 0;padding-left:20px} .tour li{margin:6px 0;font-size:14px}
+  .pill{display:inline-block;font-size:11px;border-radius:20px;padding:2px 9px;margin-left:6px;background:#16301f;color:#7fd6a0}
+  .note{font-size:12.5px;color:var(--sub);margin-top:22px;border-top:1px dashed var(--line);padding-top:10px}
+</style>
+<script src="/rps.js"></script>
+</head>
+<body>
+<header>
+  <h1>❔ Help &amp; guide</h1><span class="muted" style="color:var(--sub);font-size:13px">what this program can do, and how</span>
+  <span class="sp"></span>
+  <a class="nav" href="/">← Home</a>
+</header>
+<div class="wrap">
+  <p class="lead">THE VIEWER is your offline workshop assistant for the technical manuals. Press <span class="kbd">Ctrl</span>+<span class="kbd">K</span> anywhere to jump to anything. Below is everything it does — grouped by <b>what you're trying to get done</b>.</p>
+
+  <div class="tour">
+    <div style="font-weight:700">New here? The 30-second tour</div>
+    <ol>
+      <li><b>Search</b> a part name, NSN, or symptom on the home page — suggestions appear as you type.</li>
+      <li>Open a result to <b>read the page</b>; press <span class="kbd">Ctrl</span>+<span class="kbd">F</span> to find a term across the whole manual.</li>
+      <li>Stuck on a job? Go to <b>Solve it</b> — it walks symptom → parts → how-to → tools → schematic.</li>
+      <li>Print a <b>Job packet</b> to take to the bay, or open the <b>Part dossier</b> to see everything about one part.</li>
+      <li>Got new manuals? <b>Add documents</b> indexes them — no command line.</li>
+    </ol>
+  </div>
+
+  <div class="sec">Find information</div>
+  <div class="grid">
+    <a class="card" href="/"><div class="t"><span class="ic">🔎</span>Search</div><div class="d">Part #, NSN, material #, or a key term — with instant offline suggestions as you type.</div></a>
+    <a class="card" href="/partdiff"><div class="t"><span class="ic">🔍</span>Look-Alike Parts</div><div class="d">Tell apart parts that look identical but aren't — by NSN, UOC (which vehicle), CAGEC, SMR.</div></a>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <a class="card" href="/dossier"><div class="t"><span class="ic">📋</span>Part dossier</div><div class="d">Everything about one part on one page: references, figures, variants, procedure, schematic, 3-D.</div></a>
+    <a class="card" href="/status"><div class="t"><span class="ic">🔤</span>OCR / searchability</div><div class="d">Find-in-manual (<span class="kbd">Ctrl</span>+<span class="kbd">F</span> in the viewer) searches scanned pages as OCR completes.</div></a>
+  </div>
+
+  <div class="sec">Do the job</div>
+  <div class="grid">
+    <a class="card" href="/solve"><div class="t"><span class="ic">🛠</span>Solve it</div><div class="d">From a symptom to a fix: likely parts → procedure → tools &amp; cautions → look-alike check → schematic.</div></a>
+    <a class="card" href="/procedure"><div class="t"><span class="ic">🔧</span>How to do it</div><div class="d">Step-by-step remove/install, the tools required, and the WARNINGs — pulled from the manual, cited.</div></a>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <a class="card" href="/stepflow"><div class="t"><span class="ic">📐</span>Visual steps</div><div class="d">The same procedure as a big follow-along flow with cautions called out — easy at the vehicle.</div></a>
+    <a class="card" href="/packet"><div class="t"><span class="ic">🖨</span>Job packet</div><div class="d">A printable take-to-the-bay sheet: steps, tools, cautions, and the right NSN to order.</div></a>
+  </div>
+
+  <div class="sec">Graphics &amp; diagrams</div>
+  <div class="grid">
+    <a class="card" href="/schematics"><div class="t"><span class="ic">📐</span>Schematics viewer</div><div class="d">Explore wiring/schematic sheets from any angle — tilt, mirror, clean, blueprint, loupe.</div></a>
+    <a class="card" href="/3d"><div class="t"><span class="ic">🧊</span>3-D Library</div><div class="d">Representative 3-D shapes of parts, lit and rotatable — a feel for the part beyond the photo.</div></a>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <a class="card" href="/circuitlab"><div class="t"><span class="ic">⚡</span>Circuit Lab</div><div class="d">Build or trace a circuit on a real schematic and watch it run — a learning &amp; display tool. <span class="pill">modern browser</span></div></a>
+    <a class="card" href="/ops"><div class="t"><span class="ic">📊</span>Ops dashboard</div><div class="d">Engine health: mode, coverage per vehicle, recent runs, page cache, and a file-integrity audit.</div></a>
+  </div>
+
+  <div class="sec">Manage the corpus</div>
+  <div class="grid">
+    <a class="card" href="/ingest"><div class="t"><span class="ic">➕</span>Add documents</div><div class="d">Point it at a folder of PDFs — it previews what's new, snapshots, then indexes them. No command line.</div></a>
+    <a class="card" href="/ops"><div class="t"><span class="ic">🩺</span>Health &amp; audit</div><div class="d">See searchable coverage climb and catch any source files that have gone missing on disk.</div></a>
+  </div>
+
+  <div class="sec">Power tips</div>
+  <div class="grid">
+    <a class="card" href="#" onclick="if(window.cmdkOpen){window.cmdkOpen();}return false;"><div class="t"><span class="ic">⌨</span>Command palette</div><div class="d"><span class="kbd">Ctrl</span>+<span class="kbd">K</span> anywhere — jump to any feature, part, or vehicle instantly.</div></a>
+    <a class="card" href="/" onclick="toast('Open ⚙ Settings on the home page → Performance to switch Auto / Modern / Lite / Legacy.',6000);return false;"><div class="t"><span class="ic">⚙</span>Performance (RPS)</div><div class="d">Runs full-speed on modern PCs and stays usable back to Win 7 / Vista. Settings → Performance to choose a mode.</div></a>
+  </div>
+
+  <div class="note">Everything here reads your manuals read-only and links to the real cited page — the manual is always the source of truth. THE VIEWER is a faster way in, not a replacement. Confirm torque values, sequences, and every CAUTION/WARNING on the actual sheet before working.</div>
+</div>
+<script src="/palette.js"></script>
+</body></html>

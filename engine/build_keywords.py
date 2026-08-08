@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""THE VIEWER -- build/extend keywords.json so mechanics' alternate words map to catalog nomenclature.
+
+The running app NEVER goes online. This one-time tool MERGES (never drops) the authoritative PUB LOG
+colloquial names that ENRICH-PUBLOG already folded into ref_nsn ('Also called: X') with the curated seed
+keyword groups, linking each part's nomenclature to its colloquial/common name. The curated seed itself was
+informed by shop-terminology research; this step grounds it in YOUR corpus + the DLA colloquial table.
+
+  python build_keywords.py [--db PATH] [--out keywords.json]
+
+Offline-safe: if there's no index it just rewrites the curated seed. Append-only in spirit (merges).
+"""
+import os, sqlite3, json, sys, re
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB = os.path.join(HERE, "..", "index", "viewer.db")
+KW = os.path.join(HERE, "keywords.json")
+
+def _norm(s): return re.sub(r"\s+", " ", (s or "").strip().lower())
+
+def main():
+    db = DEFAULT_DB; out = KW; args = sys.argv[1:]
+    for i, a in enumerate(args):
+        if a == "--db" and i + 1 < len(args): db = args[i + 1]
+        if a == "--out" and i + 1 < len(args): out = args[i + 1]
+    try:
+        doc = json.load(open(KW, encoding="utf-8"))
+    except Exception:
+        doc = {"groups": []}
+    groups = doc.get("groups", [])
+    term2idx = {}
+    for gi, g in enumerate(groups):
+        for t in g: term2idx[_norm(t)] = gi
+
+    added = linked = 0
+    db = os.path.abspath(db)
+    if os.path.exists(db):
+        con = sqlite3.connect(db, timeout=60); con.row_factory = sqlite3.Row
+        rows = []
+        try:
+            rows = con.execute("SELECT item_name, description FROM ref_nsn "
+                               "WHERE COALESCE(item_name,'')<>'' AND description LIKE '%Also called:%'").fetchall()
+        except Exception:
+            pass
+        con.close()
+        for r in rows:
+            nom = (r["item_name"] or "").strip()
+            m = re.search(r"Also called:\s*([^;]+)", r["description"] or "")
+            coll = (m.group(1).strip() if m else "")
+            if not nom or not coll or _norm(nom) == _norm(coll): continue
+            gi = term2idx.get(_norm(nom), term2idx.get(_norm(coll)))
+            if gi is None:
+                groups.append([nom.lower(), coll.lower()]); gi = len(groups) - 1
+                term2idx[_norm(nom)] = gi; term2idx[_norm(coll)] = gi; added += 1
+            else:
+                g = groups[gi]; have = {_norm(x) for x in g}
+                for tt in (nom.lower(), coll.lower()):
+                    if _norm(tt) not in have:
+                        g.append(tt); term2idx[_norm(tt)] = gi; have.add(_norm(tt)); linked += 1
+    else:
+        print("(no index at %s -- rewriting the curated seed only)" % db)
+
+    doc["groups"] = groups
+    doc["_generated"] = "build_keywords.py merged PUB LOG colloquial names into the curated seed (offline, append-only)."
+    json.dump(doc, open(out, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+    print("keywords.json: %d groups  (+%d new from colloquial, +%d terms linked)  -> %s"
+          % (len(groups), added, linked, out))
+    print("Restart the app to load the new keyword sets into search.")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

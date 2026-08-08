@@ -1,0 +1,109 @@
+THE VIEWER — feature audit
+============================================================
+registry: 244 GET · 21 POST · 45 page-routes · 16 served scripts
+
+[0] duplicate route paths (a dup silently drops one handler)
+PASS no duplicate route paths (150 decorators, all unique per method)
+
+[1] page & script files exist
+PASS page /                      -> ui/index.html
+PASS page /ops                   -> ui/ops.html
+PASS page /ingest                -> ui/ingest.html
+PASS page /status                -> ui/status.html
+PASS page /3d                    -> ui/threed.html
+PASS page /demo                  -> ui/demo.html
+PASS page /circuitlab            -> ui/circuitlab.html
+PASS page /keywords              -> ui/keywords.html
+PASS page /schematics            -> ui/schematics.html
+PASS page /collections           -> ui/collections.html
+PASS page /partdiff              -> ui/partdiff.html
+PASS page /procedure             -> ui/procedure.html
+PASS page /solve                 -> ui/solve.html
+PASS page /packet                -> ui/packet.html
+PASS page /dossier               -> ui/dossier.html
+PASS page /stepflow              -> ui/stepflow.html
+PASS page /help                  -> ui/help.html
+PASS page /deepzoom              -> ui/deepzoom.html
+PASS page /coverage              -> ui/coverage.html
+PASS page /locate                -> ui/locate.html
+PASS page /jobcard               -> ui/jobcard.html
+PASS page /torque                -> ui/torque.html
+PASS page /decode                -> ui/decode.html
+PASS page /bench                 -> ui/bench.html
+PASS page /fastener              -> ui/fastener.html
+PASS page /pmcs                  -> ui/pmcs.html
+PASS page /semantic              -> ui/semantic.html
+PASS page /related               -> ui/related.html
+PASS page /visual                -> ui/visual.html
+PASS page /measures              -> ui/measures.html
+PASS page /master                -> ui/master.html
+PASS page /mastercov             -> ui/mastercov.html
+PASS page /audit                 -> ui/audit.html
+PASS page /publog                -> ui/publog.html
+PASS page /scan                  -> ui/scan.html
+PASS page /exploded              -> ui/exploded.html
+PASS page /binaudit              -> ui/binaudit.html
+PASS page /part                  -> ui/part.html
+PASS page /troubleshoot          -> ui/troubleshoot.html
+PASS page /ask                   -> ui/ask.html
+PASS page /command               -> ui/command.html
+PASS page /verify                -> ui/verify.html
+PASS page /review                -> ui/review.html
+PASS page /learn                 -> ui/learn.html
+PASS page /readiness             -> ui/readiness.html
+
+[2] served scripts are actually referenced (dead-feature guard)
+PASS tagger.js            referenced by 2 pages
+PASS partgeo.js           referenced by 2 pages, 1 asset
+PASS partview.js          referenced by 1 page
+PASS cadview.js           referenced by 1 page
+PASS loupe.js             referenced by 2 pages
+PASS schemhl.js           referenced by 1 page
+PASS schemflow.js         referenced by 1 page
+PASS gl3d.js              referenced by 3 pages, 2 assets
+PASS circuitsim.js        referenced by 1 page, 1 asset
+PASS circuitsim-worker.js referenced by 1 page
+PASS rps.js               referenced by 15 pages, 1 asset
+PASS palette.js           referenced by 43 pages, 3 assets
+PASS shared.js            referenced by 42 pages
+PASS deepzoom.js          referenced by 1 page
+PASS scanner.js           referenced by 3 pages, 1 asset
+PASS readaloud.js         referenced by 0 pages, 1 asset
+
+[3] orphan UI pages (exist but no route)
+
+[4] internal links resolve to a known route
+PASS no broken internal page links detected
+
+[5] feature modules import cleanly
+PASS features.search_feature
+PASS features.parts_feature
+PASS features.browse_feature
+PASS features.procedures_feature
+PASS features.render_feature
+PASS features.ingest_feature
+PASS features.sessions_feature
+PASS features.registry
+PASS features.routes
+PASS jobcard
+PASS figureparts
+PASS partlocate
+PASS figuresheet
+PASS coverage
+PASS doctor
+PASS vectorize
+PASS schemreview
+PASS localmodel
+PASS pmcs
+PASS xref
+PASS analytics
+PASS partspdf
+PASS phash
+PASS embed
+
+[6] sidecar writers use safeguard.atomic_write (durable-write guard)
+PASS no raw os.replace() in request-serving modules (all durable via safeguard)
+
+============================================================
+SUMMARY: 0 FAIL · 0 WARN
+A clean audit = 0 FAIL. WARNs are advisory (orphan test pages, dynamic links).

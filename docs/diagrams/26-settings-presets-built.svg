@@ -1,0 +1,60 @@
+<svg viewBox="0 0 1180 640" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="640" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Settings &amp; layout presets — built</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">v0.18.0 · ⚙ panel consolidates the toggles + 4 presets · per-device persist + Reset · presentation only. Client-only, no server/engine change (R1).</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="104" width="500" height="470" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="132" font-size="14" font-weight="700" fill="#e6e9ee" text-anchor="start">⚙  Settings &amp; layout</text>
+<text x="58" y="152" font-size="9" font-weight="700" fill="#caa24a" text-anchor="start">LAYOUT PRESET</text>
+<rect x="58" y="160" width="464" height="32" rx="8" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="72" y="181" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">Shop floor / Touch</text>
+<text x="508" y="181" font-size="12" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<text x="58" y="216" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Text size</text>
+<rect x="330" y="201" width="192" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="340" y="219" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">X-Large</text>
+<text x="512" y="219" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<text x="58" y="258" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Density</text>
+<rect x="330" y="243" width="192" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="340" y="261" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Comfortable</text>
+<text x="512" y="261" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<text x="58" y="300" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Fields</text>
+<rect x="330" y="285" width="192" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="340" y="303" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Simple</text>
+<text x="512" y="303" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<text x="58" y="342" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Search match</text>
+<rect x="330" y="327" width="192" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="340" y="345" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">All words</text>
+<text x="512" y="345" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<text x="58" y="384" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Viewer thumbnails</text>
+<rect x="330" y="369" width="192" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="340" y="387" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Off by default</text>
+<text x="512" y="387" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<text x="58" y="426" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Highlight search hit</text>
+<rect x="330" y="411" width="192" height="26" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="340" y="429" font-size="10.5" font-weight="400" fill="#9aa6b6" text-anchor="start">On by default</text>
+<text x="512" y="429" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="end">▾</text>
+<rect x="58" y="534" width="150" height="26" rx="7" fill="none" stroke="#2b333f" stroke-width="1"/>
+<text x="133" y="551" font-size="9.5" font-weight="600" fill="#9aa6b6" text-anchor="middle">Reset to default</text>
+<rect x="440" y="534" width="82" height="26" rx="7" fill="#2f7d4f" stroke="#2f7d4f" stroke-width="1"/>
+<text x="481" y="551" font-size="10.5" font-weight="700" fill="#eafff0" text-anchor="middle">Done</text>
+<text x="580" y="122" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">WHAT HAPPENS WHEN YOU SWITCH</text>
+<rect x="580" y="138" width="560" height="58" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="594" y="162" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">⚙ Settings (preset or fine-tune)</text>
+<path d="M860,196 L860,206" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="580" y="206" width="560" height="58" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="594" y="230" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">applySettings()</text>
+<text x="594" y="250" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">maps choices → body classes</text>
+<path d="M860,264 L860,274" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="580" y="274" width="560" height="58" rx="9" fill="#101a14" stroke="#2b333f" stroke-width="1"/>
+<text x="594" y="298" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">body.sz-xl · body.den-compact · body.simple · MATCH_ANY · viewer</text><text x="594" y="311" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">defaults</text>
+<text x="594" y="318" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">CSS + 2 JS vars — that&#x27;s all a layout is</text>
+<path d="M860,332 L860,342" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="580" y="342" width="560" height="58" rx="9" fill="#1a2740" stroke="#2b333f" stroke-width="1"/>
+<text x="594" y="366" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">localStorage &#x27;viewer_settings&#x27;</text>
+<text x="594" y="386" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">per device · legacy keys migrated · Reset restores default</text>
+<rect x="580" y="416" width="560" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="596" y="440" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">INVARIANT CORE — untouched</text>
+<text x="596" y="460" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">No change to /api/search, /api/request, the index, or the request payload.</text><text x="596" y="474" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">The end-to-end flow (modal → search → cart → tech gate → 104th PDF) runs</text><text x="596" y="488" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">identically. A startup self-check confirms the core controls exist after</text><text x="596" y="502" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">every layout apply.</text>
+<text x="40" y="626" font-size="9.6" font-weight="400" fill="#6b7280" text-anchor="start">Verified: presets flip CSS classes only; search + sheet generation unaffected; JS lint clean. Dark (R3) · CHANGELOG 0.18.0 (R4) · visual panel (R5).</text>
+</svg>

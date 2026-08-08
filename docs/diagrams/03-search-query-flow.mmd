@@ -1,0 +1,11 @@
+%% THE VIEWER - Search Query Flow (Milestone M1)
+flowchart TB
+    KEY([User types in search bar]) --> PREFIX["Prefix query term*<br/>(predictive, as-you-type)"]
+    PREFIX --> FTS["SQLite FTS5 lookup<br/>BM25 ranking"]
+    FTS --> HITS{Enough<br/>good hits?}
+    HITS -->|yes| RANK
+    HITS -->|no / typo| FUZZY["Fuzzy layer<br/>(trigram vocabulary match)"] --> RANK["Rank + boost<br/>title / TM# / NSN"]
+    RANK --> RESULTS["Result list:<br/>vehicle, TM#, page, snippet"]
+    RESULTS --> OPEN([Open document at page])
+    OPEN --> CTRLF["In-document Ctrl+F<br/>highlight + jump matches"]
+    OPEN --> PROC["Procedure panel:<br/>disassembly / install / tools / variants"]

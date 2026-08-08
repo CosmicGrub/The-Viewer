@@ -1,0 +1,59 @@
+<svg viewBox="0 0 1180 640" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="640" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="18" font-weight="700" fill="#e6e9ee" text-anchor="start">Tighter part-number ↔ figure correlation (proposal)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Example: P/N 12420572-010 → HOSE, NONMETALLIC. Goal: key on the PART NUMBER and land on the exact item, with the right name.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<rect x="40" y="108" width="540" height="150" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="130" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">Today</text>
+<text x="58" y="152" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Key = NSN only.  Part number is not indexed.</text>
+<text x="58" y="172" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• A part maps to its WHOLE figure (one crop).</text>
+<text x="58" y="192" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Stored nomenclature = the figure TITLE (noisy,</text>
+<text x="58" y="212" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• not the part&#x27;s real name).</text>
+<rect x="600" y="108" width="540" height="150" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="618" y="130" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">Proposed</text>
+<text x="618" y="152" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Key = PART NUMBER (+ CAGEC) and item number.</text>
+<text x="618" y="172" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Parse the RPSTL parts-LIST table into rows.</text>
+<text x="618" y="192" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Real nomenclature, validated against FLIS.</text>
+<text x="618" y="212" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Land on the exact item — and its callout.</text>
+<text x="40" y="284" font-size="11.5" font-weight="700" fill="#e6e9ee" text-anchor="start">The RPSTL parts list already carries the mapping — we just need to parse its columns</text>
+<rect x="40" y="300" width="1100" height="52" rx="8" fill="#0f1419" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="320" font-size="9" font-weight="700" fill="#4f9dff" text-anchor="start">ITEM</text>
+<text x="52" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">7</text>
+<text x="122" y="320" font-size="9" font-weight="700" fill="#1d9e75" text-anchor="start">SMR</text>
+<text x="122" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">PAOZZ</text>
+<text x="212" y="320" font-size="9" font-weight="700" fill="#2f7d4f" text-anchor="start">NSN</text>
+<text x="212" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">4720-01-…</text>
+<text x="362" y="320" font-size="9" font-weight="700" fill="#caa24a" text-anchor="start">CAGEC</text>
+<text x="362" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">19207</text>
+<text x="452" y="320" font-size="9" font-weight="700" fill="#7f77dd" text-anchor="start">PART NUMBER</text>
+<text x="452" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">12420572-010</text>
+<text x="662" y="320" font-size="9" font-weight="700" fill="#c4585a" text-anchor="start">NOMENCLATURE</text>
+<text x="662" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">HOSE, NONMETALLIC</text>
+<text x="962" y="320" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">QTY</text>
+<text x="962" y="338" font-size="9.5" font-weight="400" fill="#e6e9ee" text-anchor="start">2</text>
+<text x="40" y="370" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Each row ties: part number → item # (the balloon in the figure) → NSN → SMR → the real nomenclature. CAGEC disambiguates same-number parts from different makers.</text>
+<text x="40" y="396" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">The correlation chain we&#x27;d build</text>
+<rect x="40" y="410" width="208" height="66" rx="10" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="52" y="432" font-size="10.5" font-weight="700" fill="#7f77dd" text-anchor="start">P/N + CAGEC</text>
+<text x="52" y="448" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">12420572-010 / 19207</text>
+<text x="250" y="446" font-size="13" font-weight="700" fill="#9aa6b6" text-anchor="start">→</text>
+<rect x="262" y="410" width="208" height="66" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="274" y="432" font-size="10.5" font-weight="700" fill="#4f9dff" text-anchor="start">RPSTL row</text>
+<text x="274" y="448" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">item 7 · SMR PAOZZ</text>
+<text x="472" y="446" font-size="13" font-weight="700" fill="#9aa6b6" text-anchor="start">→</text>
+<rect x="484" y="410" width="208" height="66" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="496" y="432" font-size="10.5" font-weight="700" fill="#2f7d4f" text-anchor="start">FLIS check</text>
+<text x="496" y="448" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">→ NSN → INC name</text>
+<text x="694" y="446" font-size="13" font-weight="700" fill="#9aa6b6" text-anchor="start">→</text>
+<rect x="706" y="410" width="208" height="66" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="718" y="432" font-size="10.5" font-weight="700" fill="#1d9e75" text-anchor="start">figure + callout</text>
+<text x="718" y="448" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">crop item-7 balloon</text>
+<text x="916" y="446" font-size="13" font-weight="700" fill="#9aa6b6" text-anchor="start">→</text>
+<rect x="928" y="410" width="208" height="66" rx="10" fill="#171d26" stroke="#c4585a" stroke-width="1"/>
+<text x="940" y="432" font-size="10.5" font-weight="700" fill="#c4585a" text-anchor="start">nomenclature</text>
+<text x="940" y="448" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">HOSE, NONMETALLIC</text>
+<rect x="40" y="492" width="1100" height="80" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="58" y="513" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">Why this is accurate, legal, offline</text>
+<text x="58" y="533" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">It reads the manual&#x27;s OWN parts list (OCR text we already have) and validates names/NSNs against PUB LOG/FLIS (already on disk). No external CAD, no guessing. Sidecar + confidence-scored +</text><text x="58" y="545" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">review/override like the sides feature; the 3.65 GB index is never written (R1/R6). Caveat: OCR table rows can drift — handled with multi-signal column detection + a confidence score + a human review</text><text x="58" y="557" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">queue.</text>
+<text x="40" y="634" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Proposal diagram. Dark (R3). Part-number ↔ figure correlation for THE VIEWER. No build yet — for your call.</text>
+</svg>

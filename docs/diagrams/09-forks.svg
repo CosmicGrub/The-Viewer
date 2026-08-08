@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>THE VIEWER — Two builds from one core (dark)</title>
+<desc>One shared codebase and index schema produces two deploy profiles: the Advanced GPU production build (fast OCR on NVIDIA) and the Lite portable build (CPU, both-modes, carried as a self-contained folder with the finished index).</desc>
+<style>
+  .bg{fill:#0f1419}.title{font-size:19px;font-weight:700;fill:#e6e9ee}
+  .sub{font-size:10px;fill:#9aa6b6}.lbl{font-size:13px;font-weight:600;fill:#e6e9ee}
+  .s{font-size:9.5px;fill:#9aa6b6}.h{font-size:11px;font-weight:700;fill:#93a1b3;letter-spacing:.5px}
+  .edge{stroke:#9aa5b1;stroke-width:1.7;fill:none;marker-end:url(#a)}.leg{font-size:10px;fill:#9aa6b6}
+  .mono{font-size:9px;fill:#dfe5ec;font-family:ui-monospace,Consolas,monospace}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1000" height="600"/>
+<text x="32" y="42" class="title">THE VIEWER — Two builds, one core</text>
+<text x="32" y="62" class="sub">shared codebase + index schema · selected by profile flags (--gpu / --dpi / --workers) · R1 backwards-compatible</text>
+<line x1="32" y1="76" x2="968" y2="76" stroke="#2a2f37"/>
+
+<!-- shared core -->
+<text x="380" y="104" class="h">SHARED CORE (one codebase)</text>
+<rect x="330" y="116" width="340" height="96" rx="11" fill="#1c2430" stroke="#38414e"/>
+<text x="500" y="140" text-anchor="middle" class="lbl">viewer_ingest · viewer_app · ui · migrations</text>
+<text x="500" y="160" text-anchor="middle" class="s">crawl · text-first · RapidOCR · FTS5 search</text>
+<text x="500" y="176" text-anchor="middle" class="s">document viewer · 104th parts request</text>
+<text x="500" y="196" text-anchor="middle" class="mono">viewer.db  (SQLite + FTS5, versioned)</text>
+
+<!-- GPU fork -->
+<rect x="60" y="270" width="380" height="190" rx="12" fill="#16301f" stroke="#2f5a3e"/>
+<text x="80" y="298" class="h" fill="#bfe6c5">★ ADVANCED / GPU PRODUCTION  (priority)</text>
+<text x="80" y="322" class="lbl">Master: THE VIEWER</text>
+<text x="80" y="344" class="s">• RapidOCR on NVIDIA GPU (onnxruntime-gpu)</text>
+<text x="80" y="362" class="s">• ~10–30× faster OCR · 8 threads · 200 DPI</text>
+<text x="80" y="380" class="s">• builds the master index fast</text>
+<text x="80" y="402" class="mono">run_ocr_gpu.bat   (--gpu --workers 8 --dpi 200)</text>
+<text x="80" y="420" class="mono">run_indexing.bat · run_app.bat</text>
+<text x="80" y="444" class="s">CPU fallback if CUDA isn't ready (never hard-fails)</text>
+
+<!-- Lite fork -->
+<rect x="560" y="270" width="380" height="190" rx="12" fill="#1a2740" stroke="#3a4d6e"/>
+<text x="580" y="298" class="h" fill="#bcd4ff">LITE / PORTABLE  (weaker PC)</text>
+<text x="580" y="322" class="lbl">Generated: THE VIEWER PORTABLE</text>
+<text x="580" y="344" class="s">• self-contained folder + one-click SETUP.bat</text>
+<text x="580" y="362" class="s">• ships the FINISHED index → search-only, instant</text>
+<text x="580" y="380" class="s">• both modes: can also CPU-index/OCR slowly</text>
+<text x="580" y="402" class="mono">SETUP.bat · START.bat</text>
+<text x="580" y="420" class="mono">run_ocr_lite.bat  (--workers 2 --dpi 150)</text>
+<text x="580" y="444" class="s">CPU only · no GPU/driver needed · carry on USB</text>
+
+<!-- bridges -->
+<path class="edge" d="M430,212 C300,235 250,250 250,270"/>
+<path class="edge" d="M570,212 C700,235 750,250 750,270"/>
+<rect x="408" y="486" width="184" height="40" rx="8" fill="#3a2f1a" stroke="#6b5526"/>
+<text x="500" y="511" text-anchor="middle" class="mono">make_portable.bat →</text>
+<path class="edge" d="M500,460 L500,486"/>
+<path class="edge" d="M592,506 C760,506 790,470 790,460"/>
+<text x="500" y="548" text-anchor="middle" class="s">Build once on the GPU box, then generate the portable folder and carry it to the weak PC.</text>
+
+<rect x="32" y="566" width="14" height="11" rx="3" fill="#16301f" stroke="#2f5a3e"/><text x="52" y="575" class="leg">GPU production (priority)</text>
+<rect x="250" y="566" width="14" height="11" rx="3" fill="#1a2740" stroke="#3a4d6e"/><text x="270" y="575" class="leg">Lite portable</text>
+<rect x="420" y="566" width="14" height="11" rx="3" fill="#1c2430" stroke="#38414e"/><text x="440" y="575" class="leg">shared core</text>
+<rect x="560" y="566" width="14" height="11" rx="3" fill="#3a2f1a" stroke="#6b5526"/><text x="580" y="575" class="leg">packager</text>
+</svg>

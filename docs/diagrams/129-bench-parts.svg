@@ -1,0 +1,25 @@
+<svg viewBox="0 0 1120 500" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1120" height="500" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">Parts-request PDF + barcodes · structured PMCS   v0.99.26/27</text>
+<line x1="40" y1="70" x2="1080" y2="70" stroke="#2b333f"/>
+<text x="40" y="100" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">🏷 Parts-request PDF  (partspdf.py + /api/partspdf)</text>
+<rect x="40" y="114" width="1040" height="120" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<circle cx="56" cy="135" r="2.5" fill="#2f7d4f"/>
+<text x="66" y="138" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Printable Parts Request sheet: unit / mechanic / bumper / TM header + item table, with a scannable</text>
+<circle cx="56" cy="154" r="2.5" fill="#2f7d4f"/>
+<text x="66" y="157" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Code128 barcode of each NSN so supply SCANS instead of retyping. Local-purchase items (no NSN) get no barcode.</text>
+<circle cx="56" cy="173" r="2.5" fill="#2f7d4f"/>
+<text x="66" y="176" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Pure reportlab, offline. Verified in-sandbox: valid PDF, barcodes rendered (docs/partspdf_proof.png).</text>
+<line x1="40" y1="250" x2="1080" y2="250" stroke="#2b333f"/>
+<text x="40" y="278" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">🗓 Structured PMCS items  (pmcs.py + /pmcs)</text>
+<rect x="40" y="292" width="1040" height="120" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<circle cx="56" cy="313" r="2.5" fill="#4f9dff"/>
+<text x="66" y="316" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">pmcs.find now extracts the individual CHECK ITEMS (numbered rows + CHECK/INSPECT/CLEAN/… lines),</text>
+<circle cx="56" cy="332" r="2.5" fill="#4f9dff"/>
+<text x="66" y="335" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">not just a page snippet — the finder lists the actual checks per page, with the interval chips it already had.</text>
+<circle cx="56" cy="351" r="2.5" fill="#4f9dff"/>
+<text x="66" y="354" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Verified in-sandbox: pulls &#x27;check engine oil&#x27;, &#x27;inspect belts&#x27;, &#x27;ensure parking brake holds&#x27;, &#x27;drain separator&#x27;; ignores prose.</text>
+<line x1="40" y1="428" x2="1080" y2="428" stroke="#2b333f"/>
+<text x="40" y="452" font-size="10" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 · additive &amp; read-only. reportlab barcode = existing dep; PMCS parse is pure regex over the OCR text.</text>
+<text x="40" y="492" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Markup. Dark (R3). v0.99.26/27 · 2026-07-01 · partspdf.py · pmcs.py. Read-only. R1/R6.</text>
+</svg>

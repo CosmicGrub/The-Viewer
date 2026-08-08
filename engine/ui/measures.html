@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Measurements & dimensions — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:960px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  .types{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .tchip{background:#16202b;border:1px solid #26333f;border-radius:999px;padding:4px 11px;font-size:12px;color:#8a98a8;cursor:pointer}
+  .tchip.on{background:#1d9e75;border-color:#1d9e75;color:#06121f;font-weight:700}
+  .m{background:#10151c;border:1px solid #223;border-radius:9px;padding:9px 13px;margin:7px 0;display:flex;gap:12px;align-items:center}
+  .m .val{font-size:15px;font-weight:700;color:#7fd6a0;min-width:120px}
+  .m .ty{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#8a98a8;border:1px solid #2f4858;border-radius:5px;padding:1px 6px}
+  .m .ctx{flex:1;color:#cdd8e4;font-size:12.5px} .m a{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:11.5px}
+  .warn{color:#e8a06a;font-size:11.5px;margin-top:14px}
+  .ext{margin-top:22px;border-top:1px dashed #3a4b39;padding-top:14px}
+  .ext h2{font-size:14px;margin:0 0 3px;color:#d7b06a}
+  .ext .lead{color:#8a98a8;font-size:11.5px;margin-bottom:8px}
+  .em{background:#171207;border:1px solid #4a3a17;border-radius:9px;padding:9px 13px;margin:7px 0;display:flex;gap:12px;align-items:center}
+  .em .val{font-size:15px;font-weight:700;color:#e8c07a;min-width:120px}
+  .em .badge{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#0c0a04;background:#d7b06a;border-radius:5px;padding:1px 6px;font-weight:800}
+  .em .ctx{flex:1;color:#cdb98e;font-size:12.5px}
+  .em .tagx{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#8a7a52;border:1px solid #4a3a17;border-radius:5px;padding:1px 7px;white-space:nowrap}
+</style></head><body>
+<div class="wrap">
+  <h1>📐 Measurements & dimensions</h1>
+  <div class="muted">Every measured value the manuals state for a part or vehicle — dimensions, clearances/tolerances, torque, pressure, capacity, electrical, temperature, flow, weight — extracted from the text and cited to its page.</div>
+  <div class="search">
+    <input id="q" placeholder="part / NSN / vehicle — e.g. alternator · HMMWV · water pump" autofocus>
+    <button class="go" id="go">Find measurements</button>
+    <a class="btn" href="/torque">🔩 Torque</a><a class="btn" href="/">← search</a>
+  </div>
+  <div class="types" id="types"></div>
+  <div id="head" class="muted"></div>
+  <div id="results"></div>
+  <div class="warn">⚠ Parsed from the OCR/text layer — confirm the value and its units on the cited page before machining, ordering, or setting a spec.</div>
+  <div class="ext" id="extbox" style="display:none">
+    <h2>🌐 External references — unconfirmed</h2>
+    <div class="lead">The manuals are the authoritative source. These values were cross-referenced from the open internet
+      (Internet Archive / Wayback) <b>only for dimension types the manuals are silent on</b>, to fill gaps. They are
+      <b>not verified against the corpus</b> — treat as leads, confirm against an authoritative source before use.
+      All of this is consolidated (with the manuals' authoritative figures) into the <a href="/master" style="color:#4f9dff">Masterfile →</a>.</div>
+    <div id="extresults"></div>
+  </div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  var ALL=[], filt="all";
+  function renderTypes(by){
+    var order=Object.keys(by).sort(function(a,b){return by[b]-by[a];});
+    var h='<span class="tchip'+(filt==="all"?" on":"")+'" data-t="all">All ('+ALL.length+')</span>';
+    order.forEach(function(t){ h+='<span class="tchip'+(filt===t?" on":"")+'" data-t="'+esc(t)+'">'+esc(t)+' ('+by[t]+')</span>'; });
+    $('#types').innerHTML=h;
+    $('#types').querySelectorAll('.tchip').forEach(function(c){ c.onclick=function(){ filt=c.getAttribute('data-t'); renderTypes(by); renderList(); }; });
+  }
+  function fmtVal(m){ var v=esc(m.value)+(m.value2?('–'+esc(m.value2)):'')+(m.tolerance?(' ±'+esc(m.tolerance)):'')+' '+esc(m.unit); return v; }
+  function renderList(){
+    var rows=ALL.filter(function(m){ return filt==="all"||m.type===filt; });
+    $('#results').innerHTML=rows.map(function(m){
+      return '<div class="m"><span class="val">'+fmtVal(m)+'</span><span class="ty">'+esc(m.type)+'</span>'
+        +'<span class="ctx">'+esc(m.context)+'</span>'
+        +'<a href="'+esc(m.page_url)+'" target="_blank" title="'+esc((m.vehicle||'')+' '+(m.tm||'')+' p.'+m.page)+'">p.'+esc(m.page)+' ↗</a></div>';
+    }).join('')||'<div class="muted">No measurements of that type.</div>';
+  }
+  function renderExternal(q, corpusTypes){
+    fetch('/api/external?q='+encodeURIComponent(q)+'&have='+encodeURIComponent(corpusTypes.join(',')))
+      .then(function(r){return r.json();}).then(function(j){
+        var rows=(j&&j.results)||[];
+        if(!rows.length){ $('#extbox').style.display='none'; return; }
+        $('#extbox').style.display='';
+        $('#extresults').innerHTML=rows.map(function(m){
+          var val=esc(m.value)+(m.value2?('–'+esc(m.value2)):'')+(m.tolerance?(' ±'+esc(m.tolerance)):'')+' '+esc(m.unit);
+          // No external links surfaced — the value is consolidated into the Masterfile; provenance is kept internally.
+          return '<div class="em"><span class="val">'+val+'</span><span class="badge">'+esc(m.type)+'</span>'
+            +'<span class="ctx">'+esc(m.context||'')+'</span>'
+            +'<span class="tagx">external · unconfirmed</span></div>';
+        }).join('');
+      }).catch(function(){ $('#extbox').style.display='none'; });
+  }
+  function run(){
+    var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part or vehicle.'; return; }
+    $('#head').textContent='Extracting measurements…'; $('#results').innerHTML=''; $('#types').innerHTML='';
+    $('#extbox').style.display='none'; $('#extresults').innerHTML='';
+    fetch('/api/measures?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      ALL=(j&&j.results)||[]; filt="all";
+      var corpusTypes=Object.keys((j&&j.by_type)||{});
+      if(!ALL.length){ $('#head').textContent='No measurements found in the manuals for “'+q+'”.'; }
+      else{ $('#head').textContent=ALL.length+' measurements for “'+q+'” across '+corpusTypes.length+' dimension types:';
+            renderTypes(j.by_type||{}); renderList(); }
+      renderExternal(q, corpusTypes);  // fill only the gaps the manuals don't cover
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+  $('#go').onclick=run; $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; run(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Maintenance Search</title>
+<script src="/shared.js"></script><!-- esc()/toast() one-copy helpers (v1.13.0 UI coherence) -->
+<style>
+  :root{--bg:#0f1419;--panel:#171d26;--panel2:#1f2733;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;
+        --accent:#4f9dff;--accent2:#2f7d4f;--warn:#caa24a;--chip:#243042;--mark:#5a4a1e;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
+  /* v0.97.0 (E39 fix): the header must WRAP at every width — 16 nav items used to force a
+     ~2000px min row, overflowing the viewport sideways and cutting off the left edge. */
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+  header h1{font-size:16px;margin:0;letter-spacing:.5px;white-space:nowrap}
+  .ctx{display:flex;gap:10px;flex-wrap:wrap;flex:1}
+  .tg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;margin-left:auto;justify-content:flex-end;row-gap:6px}
+  .tg a.ghost,.tg button{white-space:nowrap}   /* wrap BETWEEN buttons, never inside a label */
+  /* v0.98.0: the Tools dropdown (nav consolidation) */
+  /* the HTML `hidden` attribute must ALWAYS win over any display rule (index.html doesn't load base.css) --
+     without this, .menupop{display:flex} below overrides [hidden] and the Tools menu stays open. */
+  [hidden]{display:none !important}
+  /* v1.13 a11y fix: the home page doesn't load base.css, so its kiosk/glove-mode + keyboard-focus rules
+     never reached the MOST-used screen (kiosk toggle was a silent no-op here). Inlined so bay-floor
+     touch targets + WCAG focus rings work on the front door too. */
+  :focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  body.kiosk-mode{font-size:16px}
+  body.kiosk-mode button,body.kiosk-mode a.ghost,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{min-height:44px;padding-top:11px;padding-bottom:11px;font-size:15px}
+  body.kiosk-mode a{text-decoration:underline}
+  body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
+  .menuwrap{position:relative;display:inline-flex}
+  .menupop{position:absolute;right:0;top:calc(100% + 6px);min-width:228px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:6px;z-index:60;display:flex;flex-direction:column;
+    box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .menupop a,.menupop button{display:block;width:100%;text-align:left;text-decoration:none;color:var(--sub);
+    background:transparent;border:none;border-radius:7px;padding:8px 11px;font:inherit;font-weight:500;cursor:pointer;white-space:nowrap}
+  .menupop a:hover,.menupop button:hover{background:var(--panel2);color:var(--txt)}
+  .menupop .msep{height:1px;background:var(--line);margin:5px 8px}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:12px;color:var(--sub)}
+  .chip b{color:var(--txt)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:7px;padding:8px 13px;background:var(--accent);color:#06121f;font-weight:600}
+  button.ghost{background:transparent;color:var(--sub);border:1px solid var(--line);font-weight:500;transition:color .12s,border-color .12s,background .12s,transform .06s;cursor:pointer}
+  button.ghost:hover{border-color:var(--accent)}
+  button.ghost:active{transform:scale(.96)}
+  button.ghost.on{color:var(--txt);border-color:var(--accent);background:#16223a;box-shadow:0 0 0 2px rgba(79,157,255,.12)}
+  .pgctl input{transition:opacity .12s}
+  button.go{background:var(--accent2);color:#eafff0}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:16px 20px;align-items:start}  /* minmax(0,…): the results column can never force sideways overflow */
+  @media (max-width:1280px){ main{grid-template-columns:minmax(0,1fr) 340px} }
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .col h2{font-size:12px;letter-spacing:.6px;color:var(--sub);margin:0;padding:12px 16px;border-bottom:1px solid var(--line);text-transform:uppercase}
+  .pad{padding:14px 16px}
+  .searchbar input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:11px 13px;font-size:15px}
+  .searchbar{position:relative}
+  .ac{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:10px;max-height:300px;overflow:auto;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+  .ac .it{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;font-size:14px;color:var(--txt)}
+  .ac .it:hover,.ac .it.sel{background:var(--panel2)}
+  .ac .it .ico{width:16px;text-align:center;opacity:.8}
+  .ac .it .k{font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:var(--sub);border:1px solid var(--line);border-radius:20px;padding:1px 7px;margin-left:auto}
+  .srow{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .srlbl{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px}
+  .mtg{padding:4px 11px;font-size:12px}
+  .hint{color:var(--sub);font-size:12px;margin:8px 0 0}
+  .result{padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .result:hover{background:var(--panel2)}
+  .result .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px}
+  .badge{background:#22314a;color:#bcd4ff;border-radius:5px;padding:1px 7px;font-size:11px}
+  .badge.tm{background:#2a3a2c;color:#bfe6c5}.badge.pg{background:#3a3326;color:#e8d5a6}
+  .badge.ocr{background:#3a2a3a;color:#e6bce6}.badge.ty{background:#2c2f3a;color:#cdd3e0}
+  .badge.fav{background:#3a3320;color:#ecdca0}
+  .snip{color:#cfd6df;font-size:13px;line-height:1.45}
+  .snip mark{background:var(--mark);color:#ffe9a8;padding:0 2px;border-radius:2px}
+  .rowbtns{margin-top:8px;display:flex;gap:8px}
+  .empty{color:var(--sub);padding:24px 16px;text-align:center}
+  /* smart-results filter bar */
+  .fbar{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .fcount{font-size:12px;color:var(--sub);margin-right:6px;font-weight:600}
+  .fchip{background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:3px 9px;font-size:11.5px;color:var(--sub);cursor:pointer}
+  .fchip.on{background:#22314a;color:#bcd4ff;border-color:#3a4d6e}
+  /* home / browse-by-vehicle */
+  .home .homesec{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .home .homesec:last-child{border-bottom:none}
+  .home h3{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
+  .vehfilter{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 11px;font-size:13px;margin-bottom:10px}
+  .vehgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .vehcard{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--txt);font-weight:600;font-size:13px;cursor:pointer}
+  .vehcard:hover{border-color:var(--accent)}
+  .vehcard small{display:block;color:var(--sub);font-weight:400;margin-top:3px;font-size:11px}
+  .qchip{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:16px;padding:5px 11px;margin:0 6px 6px 0;color:var(--txt);font-size:12.5px;cursor:pointer}
+  .qchip:hover{border-color:var(--accent)}
+  .reqcard{border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:7px;background:var(--panel2);font-size:13px}
+  .reqcard span{color:var(--sub)}.reqcard small{display:block;color:var(--sub);font-size:11px;margin-top:3px}
+  .item{border:1px solid var(--line);border-radius:9px;padding:10px;margin:10px 16px;background:var(--panel2)}
+  .item .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .item label{font-size:10.5px;color:var(--sub);display:block;margin-bottom:2px}
+  .item input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 8px;font-size:12.5px}
+  .item .full{grid-column:1 / -1}
+  .item .rm{float:right;background:transparent;color:#d98a8a;border:1px solid #50343a;padding:3px 8px;font-size:11px}
+  .pref{font-size:10.5px;color:var(--sub);margin-bottom:7px;line-height:1.55}
+  .prefl{color:var(--accent);cursor:pointer}.prefl:hover{text-decoration:underline}
+  .d3btn{background:transparent;color:#9bc0ff;border:1px solid #2c3f5e;padding:3px 8px;font-size:11px;border-radius:6px;margin-top:6px}
+  .d3wrap{position:fixed;inset:0;background:rgba(4,8,12,.92);display:none;flex-direction:column;z-index:70}
+  .d3bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .d3main{flex:1;display:flex;overflow:hidden}
+  .d3stage{flex:1;background:#0a0e12;cursor:grab;user-select:none}
+  .d3stage:active{cursor:grabbing}
+  .d3side{width:330px;min-width:330px;border-left:1px solid var(--line);overflow:auto;padding:14px;background:var(--panel)}
+  .cartfoot{padding:14px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .count{color:var(--sub);font-size:12px}.count.warn{color:var(--warn)}
+  /* Operator-side declutter (presentation only; reversible by switching sides) — hides parts-request CTAs. */
+  body.viewer-operator #editBtn,body.viewer-operator .parts-cta{display:none!important}
+  .sidecard:hover{border-color:var(--acc)!important}
+  .overlay{position:fixed;inset:0;background:rgba(6,10,16,.82);display:flex;align-items:center;justify-content:center;z-index:50}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:560px;max-width:94vw;max-height:92vh;overflow:auto}
+  .modal .hd{padding:18px 22px 6px}.modal h2{margin:0;font-size:18px}
+  .modal p{margin:5px 0 0;color:var(--sub);font-size:13px}
+  .modal .bd{padding:14px 22px 4px;display:flex;flex-direction:column;gap:13px}
+  .msec{border:1px solid var(--line);border-radius:10px;padding:12px 13px;background:#141a23}
+  .msec.search{background:#16223a;border-color:#2c3f5e}
+  .mseclbl{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#9bc0ff;margin-bottom:9px}
+  .mseclbl.amber{color:var(--warn)}
+  .mgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:11px}
+  .mgrid .full{grid-column:span 6}.mgrid .half{grid-column:span 3}.mgrid .third{grid-column:span 2}
+  .sheetprev{background:#f4f1ea;color:#1c1a17;border:1px solid #b9b2a3;border-radius:5px;padding:11px 13px;font-size:10.5px;line-height:1.85}
+  .sheetprev .t{text-align:center;font-weight:700;font-size:11px;line-height:1.3}
+  .sheetprev .red{color:#c01a1a}
+  .sheetprev b{font-weight:700}
+  .sheetprev .v{color:#1c1a17}.sheetprev .e{color:#a8a293}
+  @media (max-width:620px){ .mgrid{grid-template-columns:repeat(2,1fr)} .mgrid .third{grid-column:span 1} }
+  .modal label{font-size:11px;color:var(--sub);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+  .modal input,.modal textarea,.modal select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
+  .modal select{appearance:none;cursor:pointer}
+  .tsev{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:9px 11px;margin-bottom:8px}
+  .tsev .cite{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:3px;cursor:pointer}
+  .tsev .txt{font-size:11px;color:var(--sub);line-height:1.45}
+  .tssug{display:inline-block;border-radius:6px;padding:2px 9px;font-size:13px;font-weight:700;margin-left:6px}
+  .tssug.nmc{background:#5a2330;color:#f2b8b8}.tssug.pmc{background:#5a4a1e;color:#ecdca0}.tssug.fmc{background:#1e3a26;color:#bfe6c5}.tssug.none{background:var(--chip);color:var(--sub)}
+  .modal textarea{min-height:64px;resize:vertical}
+  .modal .ft{padding:16px 22px 22px;display:flex;justify-content:flex-end;gap:10px}
+  .req{color:#e88}
+  /* simple/advanced field toggle */
+  body.simple .adv{display:none !important}
+  /* viewer */
+  .vwrap{position:fixed;inset:0;background:rgba(4,8,12,.9);display:flex;flex-direction:column;z-index:60}
+  .vbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .vbar .t{flex:1;min-width:160px;font-size:13px}.vbar .t b{color:var(--txt)} .vbar .t span{color:var(--sub)}
+  .vmain{display:flex;flex:1;overflow:hidden}
+  .vthumbs{width:128px;min-width:128px;overflow:auto;background:#0a0e12;border-right:1px solid var(--line);padding:8px;display:none}
+  .vthumbs.on{display:block}
+  .vthumb{display:block;width:100%;margin-bottom:8px;cursor:pointer;border:2px solid transparent;border-radius:4px}
+  .vthumb.cur{border-color:var(--accent)}
+  .vthumb img{width:100%;display:block;background:#fff;border-radius:3px}
+  .vthumb span{font-size:10px;color:var(--sub);display:block;text-align:center}
+  .vstage{flex:1;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:18px;background:#0a0e12}
+  .vstage img{max-width:96%;background:#fff;border-radius:6px;box-shadow:0 6px 30px rgba(0,0,0,.5)}
+  .vstage .ld{color:var(--sub);margin-top:40px}
+  .pgctl{display:flex;align-items:center;gap:8px}
+  .pgctl input{width:64px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 7px;text-align:center}
+  /* vehicle hub + nsn banner */
+  .hub{position:fixed;inset:0;background:rgba(4,8,12,.92);display:none;flex-direction:column;z-index:65}
+  .hubbar{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .hubbar .t{flex:1;font-size:14px}.hubbar .t b{color:var(--txt)}.hubbar .t span{color:var(--sub)}
+  .hubbody{flex:1;overflow:auto;padding:18px;max-width:1000px;margin:0 auto;width:100%}
+  .hubgrp{margin-bottom:18px}
+  .hubgrp h3{font-size:12px;color:var(--accent);margin:0 0 8px;letter-spacing:.5px;text-transform:uppercase}
+  .hubdoc{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);margin-bottom:7px}
+  .hubdoc .nm{font-size:13px}.hubdoc .mt{font-size:11px;color:var(--sub)}
+  .nsnbanner{margin:12px 16px;padding:10px 14px;border:1px solid #3a4d6e;background:#16223a;border-radius:9px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .nsnbanner b{color:#bcd4ff}.nsnbanner .k{background:#22314a;color:#bcd4ff;border-radius:5px;padding:1px 7px;font-size:11px}
+  /* viewer schematics side panel */
+  .vside{width:310px;min-width:310px;border-left:1px solid var(--line);overflow:auto;padding:14px;background:var(--panel)}
+  .sh-h{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px;margin-bottom:10px}
+  .sh-row{margin-bottom:12px}
+  .sh-k{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .sh-v{font-size:12px;color:var(--txt);line-height:1.4}
+  .sh-fig{background:#2a3a2c;color:#bfe6c5;border-radius:5px;padding:1px 7px;font-size:11px;margin-right:4px}
+  .sh-doc{display:block;width:100%;text-align:left;margin-bottom:6px;font-size:11.5px}
+  .sh-note{font-size:10px;color:var(--sub);margin-top:8px;border-top:1px solid var(--line);padding-top:8px;line-height:1.4}
+  /* layout: text size */
+  body.sz-lg{font-size:16px} body.sz-xl{font-size:18px}
+  body.sz-lg .snip,body.sz-xl .snip{font-size:15px}
+  body.sz-lg .searchbar input{font-size:17px} body.sz-xl .searchbar input{font-size:19px}
+  body.sz-lg .result .badge,body.sz-xl .result .badge{font-size:12px}
+  body.sz-lg .vehcard,body.sz-xl .vehcard{font-size:14px}
+  body.sz-lg button{font-size:14.5px} body.sz-xl button{font-size:15.5px}
+  body.sz-lg .chip,body.sz-xl .chip{font-size:13px}
+  /* layout: density */
+  body.den-compact .result{padding:7px 14px}
+  body.den-compact .pad{padding:10px 14px}
+  body.den-compact .col h2{padding:8px 14px}
+  body.den-compact .home .homesec{padding:10px 14px}
+  body.den-compact .item{padding:8px;margin:8px 14px}
+  body.den-compact .result .meta{margin-bottom:3px}
+  /* settings panel rows */
+  .setrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .setrow:last-child{border-bottom:none}
+  .setrow span{color:var(--sub)} .setrow select{width:190px}
+  /* responsive + touch */
+  @media (max-width:920px){
+    main{grid-template-columns:1fr}
+    header{flex-wrap:wrap;gap:10px}
+    .ctx{order:3;flex-basis:100%}
+    .vmain{flex-direction:column;overflow:auto}
+    .vstage{flex:none}
+    .vside{width:100%;min-width:0;border-left:none;border-top:1px solid var(--line)}
+    .vthumbs{display:none !important}
+  }
+  @media (pointer:coarse){
+    button{padding:11px 15px}
+    .vehcard{padding:12px}
+    .result{padding:14px 16px}
+    .searchbar input{padding:13px}
+  }
+</style>
+<script src="/rps.js"></script>
+<script src="/palette.js"></script>
+<script src="/tagger.js"></script>
+<script src="/loupe.js"></script>
+<script src="/gl3d.js?v=0841"></script>
+<script src="/partgeo.js?v=0841"></script>
+<script src="/partview.js?v=0841"></script>
+</head>
+<body>
+<header>
+  <h1>THE&nbsp;VIEWER</h1>
+  <div class="ctx" id="ctx"></div>
+  <div class="tg">
+    <!-- v0.98.0 nav consolidation: Schematics + 3D Library live INSIDE Collections now; the
+         mechanic tools + admin pages live behind ONE Tools menu. Every old route still works. -->
+    <a class="ghost" href="/collections" title="Smart Collections + the Schematics & 3D libraries" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">🗂 Collections</a>
+    <div class="menuwrap">
+      <button class="ghost" id="toolsBtn" aria-haspopup="true" aria-expanded="false" title="All mechanic tools + admin pages">🧰 Tools ▾</button>
+      <div class="menupop" id="toolsPop" hidden>
+        <a href="/solve" title="Symptom → parts → how-to → tools → schematic, in one place">🛠 Solve it</a>
+        <a href="/semantic" title="Search by meaning, not just keywords (offline)">🧠 Semantic search</a>
+        <a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🧩 Related parts</a>
+        <a href="/visual" title="Photo of a part → closest figure crops (offline)">📷 Visual search</a>
+        <a href="/bench" title="Your pinned parts / procedures / pages">★ My Bench</a>
+        <a href="/dossier" title="Everything about one part, in one page">📋 Part dossier</a>
+        <a href="/part" title="One fast pane per part: identity + dims + torque + procedure + cautions, all cited">📄 Part page (fast)</a>
+        <a href="/measures" title="Every measured value for a part/vehicle — dimensions, torque, pressure — each cited">📐 Measurements &amp; dimensions</a>
+        <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📸 Scan (camera)</a>
+        <a href="/procedure" title="Step-by-step remove/install, tools & cautions from the manuals">🔧 How to do it</a>
+        <a href="/torque" title="Cited torque values for a part + ft-lb / in-lb / N·m converter">🔩 Torque quick-ref</a>
+        <a href="/fastener" title="Thread sizes: major dia, TPI/pitch, class — UNC/UNF/metric">🔧 Fastener reference</a>
+        <a href="/pmcs" title="Find Preventive Maintenance Checks &amp; Services tables by vehicle">🗓 PMCS finder</a>
+        <a href="/partdiff" title="Tell apart parts that look identical but aren't">🔍 Look-Alike Parts</a>
+        <a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a>
+        <div class="msep" role="separator"></div>
+        <a href="/jobcard" title="One printable Work Order: procedures + tools + torque + parts + figures for a task">🧾 Work Order</a>
+        <a href="/locate" title="Where does a part show up? Every figure &amp; page that calls it out">🧭 Find a part</a>
+        <a href="/coverage" title="How enriched the corpus is — OCR, CAD, vectorized figures, netlists">📈 Coverage</a>
+        <div class="msep" role="separator"></div>
+        <!-- v1.13.0 UI coherence: Diagnose & decode — pages that were palette/deep-link only -->
+        <a href="/troubleshoot" title="Symptom → checks → corrective action, straight from the fault trees">🌳 Guided troubleshooting</a>
+        <a href="/ask" title="Ask a question in plain words — cited answers from the manuals (offline)">💬 Ask the manuals</a>
+        <a href="/decode" title="Paste any code off a page — NSN / SMR / CAGE / MS — and see what it means">🔣 Decode a code</a>
+        <a href="/readiness" title="Fluids matrix + service intervals + fleet shared-parts, by vehicle">🛢 Readiness (fluids · intervals)</a>
+        <a href="/binaudit" title="Scan bin/shelf NSNs → flag look-alikes &amp; superseded stock">📦 Bin / shelf audit</a>
+        <a href="/learn" title="Cited multiple-choice quiz built from the manuals">🎓 Learn / quiz mode</a>
+        <div class="msep" role="separator"></div>
+        <a href="/ingest" title="Index new TMs / PDFs — no command line">➕ Add documents</a>
+        <a href="/ops" title="Ops dashboard — mode, cache, runs, coverage, file audit">📊 Ops</a>
+        <a href="/status" title="OCR status">🔤 OCR status</a>
+        <a href="/verify" title="Verification cockpit — proof state: tests · last verify · sidecars (admin)">✅ Verification cockpit</a>
+        <a href="/command" title="Command center — are-we-complete: OCR% · coverage · PUBLOG · gaps (admin)">🛰 Command center</a>
+        <button id="pnReviewBtn" title="Review &amp; fix low-confidence part-number rows (OCR-noisy)">🔧 Part# review</button>
+      </div>
+    </div>
+    <a class="ghost" href="/help" title="Help & feature guide — or press Ctrl+K anywhere" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">❔ Help</a>
+    <button class="ghost" id="gearBtn" title="Settings &amp; layout">⚙ Settings</button>
+    <button class="ghost" id="sideBtn" title="Switch side of the house — operator (10-level) vs mechanic (20-level)">🏠 <span id="sideLbl">Side</span></button>
+    <button class="ghost" id="editBtn" title="Start or edit a parts-request session (fills the 104th sheet header) — reopens the onboarding window">📋 Parts session</button>
+  </div>
+</header>
+<script>
+/* v0.98.0: Tools menu — accessible toggle (Esc + outside-click close, aria-expanded synced). */
+(function(){
+  var b=document.getElementById("toolsBtn"), p=document.getElementById("toolsPop");
+  if(!b||!p) return;
+  function close(){ p.hidden=true; b.setAttribute("aria-expanded","false"); }
+  function open_(){ p.hidden=false; b.setAttribute("aria-expanded","true"); }
+  b.addEventListener("click",function(ev){ ev.stopPropagation(); p.hidden?open_():close(); });
+  document.addEventListener("click",function(ev){ if(!p.hidden && !p.contains(ev.target) && ev.target!==b) close(); });
+  document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && !p.hidden){ close(); b.focus(); } });
+  p.addEventListener("click",function(ev){ if(ev.target.closest("button")) close(); }); // JS buttons (Part# review) close it too
+})();
+</script>
+
+<main>
+  <section class="col">
+    <h2>Search — part #, NSN, material #, or key term (e.g. gasket). Click a result to view the page.</h2>
+    <div class="pad searchbar">
+      <input id="q" placeholder="Search a part…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
+      <div id="ac" class="ac" role="listbox" style="display:none"></div>
+      <div class="srow">
+        <span class="srlbl">Match</span>
+        <button class="ghost mtg on" id="mAll" title="Results must contain all your words">All words</button>
+        <button class="ghost mtg" id="mAny" title="Results may contain any of your words">Any word</button>
+        <button class="ghost" id="saveCol" title="Save this search as a Smart Collection you can return to" style="margin-left:auto">📌 Save as collection</button>
+      </div>
+      <p class="hint" id="hint"><b>4 digits</b> = Last-4 NSN · <b>full NSN</b> = exact · synonyms &amp; typos handled · filters: <b>tm:</b>363 <b>vehicle:</b>M915 <b>nsn:</b>2530… <b>side:</b>operator|mechanic.</p>
+    </div>
+    <div id="results"><div class="empty">Start a session to browse and search.</div></div>
+  </section>
+
+  <section class="col">
+    <h2>Parts request (104th ECC sheet)</h2>
+    <div id="cart"><div class="empty">No parts added yet. Open a result and “Add to request”.</div></div>
+    <div class="cartfoot">
+      <span class="count" id="count">0 items</span>
+      <button class="go" id="exportBtn" disabled>Export Parts Request Sheet (PDF)</button>
+    </div>
+  </section>
+</main>
+
+<!-- Choose your side of the house (first screen) -->
+<div class="overlay" id="sidegate" style="display:none">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Choose your side of the house" style="width:680px;max-width:96vw">
+    <div class="hd"><h2>Choose your side of the house</h2>
+      <p>The repository is split by maintenance level. Pick where you work — you can switch anytime with the 🏠 button up top.</p></div>
+    <div class="bd">
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <button id="sideOperator" class="sidecard" style="flex:1;min-width:260px;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px;cursor:pointer;color:var(--txt)">
+          <div style="font-size:30px;line-height:1">🪖</div>
+          <div style="font-size:17px;font-weight:700;margin-top:6px">Operator <span style="color:var(--sub);font-weight:400">· 10-level</span></div>
+          <div style="color:var(--sub);font-size:13px;margin-top:6px">Operator manuals (TM …-10) and the operator chapters of combined manuals. Goes <b>straight to the browser</b> — no parts-request sheet.</div>
+        </button>
+        <button id="sideMechanic" class="sidecard" style="flex:1;min-width:260px;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px;cursor:pointer;color:var(--txt)">
+          <div style="font-size:30px;line-height:1">🔧</div>
+          <div style="font-size:17px;font-weight:700;margin-top:6px">Maintenance / Mechanic <span style="color:var(--sub);font-weight:400">· 20-level</span></div>
+          <div style="color:var(--sub);font-size:13px;margin-top:6px">Unit/field maintenance (…-20/-24/-34), parts lists (RPSTL) &amp; lube orders, plus combined manuals. Opens the <b>parts-request sheet</b> onboarding.</div>
+        </button>
+      </div>
+      <div class="msec" style="margin-top:12px">
+        <div class="mseclbl" id="sideCounts" style="color:var(--sub)">Counting the split…</div>
+        <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ghost" id="reviewUncBtn" style="display:none;font-size:12px;padding:5px 10px">Review uncertain documents</button>
+          <button class="ghost" id="reviewChapBtn" style="font-size:12px;padding:5px 10px">Review chapter splits (combined manuals)</button>
+        </div>
+        <div id="uncList" style="display:none;margin-top:8px;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
+        <div id="chapList" style="display:none;margin-top:8px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
+      </div>
+    </div>
+    <div class="ft" style="justify-content:space-between;align-items:center;gap:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="ghost" id="watchTourBtn" style="font-size:12px;padding:6px 12px;white-space:nowrap">▶ Watch the guided tour</button>
+        <button class="ghost" id="skipBrowseBtn" style="font-size:12px;padding:6px 12px;white-space:nowrap">Skip to browsing →</button>
+      </div>
+      <span class="muted" style="font-size:12px;color:var(--sub)">Combined manuals (-12/-13/-14) appear on both sides. Classification follows the Army TM coverage indicator. Pin any uncertain doc above — your choice sticks (sides_override.json).</span>
+    </div>
+  </div>
+</div>
+
+<!-- Guided demo / onboarding tour (shown first-run, BEFORE the side chooser; finishing opens the real chooser) -->
+<div id="demogate" style="display:none;position:fixed;inset:0;z-index:120;background:var(--bg)">
+  <iframe id="demoFrame" title="THE VIEWER guided tour" style="width:100%;height:100%;border:0;display:block"></iframe>
+  <button class="ghost" id="demoSkipTop" style="position:absolute;top:10px;right:14px;z-index:121;font-size:12px;padding:6px 12px">Skip tour → choose side</button>
+</div>
+
+<!-- Part-assets drawer: click a number on a TM page -> matching results -> figure / schematic / live 3-D -->
+<style>
+#partdrawer{position:fixed;top:0;right:0;width:392px;max-width:94vw;height:100%;z-index:60;background:var(--panel,#171d26);
+  border-left:1px solid var(--line,#2b333f);box-shadow:-10px 0 34px rgba(0,0,0,.55);display:none;flex-direction:column;overflow:hidden}
+#partdrawer.on{display:flex}
+#partdrawer .pd-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line,#2b333f);background:var(--p2,#1c2430)}
+#partdrawer .pd-badge{font-size:10.5px;font-weight:700;color:#06223f;background:var(--acc,#4f9dff);border-radius:6px;padding:1px 7px}
+#partdrawer .pd-badge.part{background:#caa24a} #partdrawer .pd-badge.fig{background:#2f9e6a;color:#03261b}
+#partdrawer .pd-body{flex:1 1 auto;overflow:auto;padding:12px 14px}
+#partdrawer .pd-sec{margin-bottom:14px}
+#partdrawer .pd-lbl{font-size:12px;font-weight:700;color:var(--txt,#e6e9ee);margin-bottom:7px}
+#partdrawer .pd-row{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:var(--p2,#1c2430);border:1px solid var(--line,#2b333f);
+  border-radius:9px;cursor:pointer;margin-bottom:7px}
+#partdrawer .pd-row:hover{border-color:var(--acc,#4f9dff)} #partdrawer .pd-row.sel{border-color:var(--acc,#4f9dff);box-shadow:0 0 0 1px var(--acc,#4f9dff)}
+#partdrawer .pd-row .ti{font-size:12.5px;font-weight:600} #partdrawer .pd-row .me{font-size:11px;color:var(--sub,#9aa6b6);margin-top:2px}
+#partdrawer .pd-imgwrap{background:#fff;border-radius:8px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#partdrawer .pd-imgwrap img{max-width:100%;max-height:300px;display:block;cursor:none}
+#partdrawer .pd-3d{height:230px;border:1px solid var(--line,#2b333f);border-radius:8px;background:#0a0e12}
+#partdrawer .pd-pg{display:inline-block;width:84px;margin:0 7px 7px 0;cursor:pointer;vertical-align:top}
+#partdrawer .pd-pg img{width:84px;height:108px;object-fit:cover;border:1px solid var(--line,#2b333f);border-radius:5px;background:#fff;cursor:pointer}
+#partdrawer .pd-pg .cap{font-size:9.5px;color:var(--sub,#9aa6b6);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#partdrawer .pd-actions{display:flex;gap:7px;flex-wrap:wrap}
+#vsearchhl{position:absolute;pointer-events:none;z-index:9;border:2px solid #caa24a;border-radius:5px;
+  box-shadow:0 0 0 9999px rgba(10,14,18,.0),0 0 14px 3px rgba(202,162,74,.7);background:rgba(202,162,74,.16);transition:all .15s ease}
+</style>
+<div id="partdrawer">
+  <div class="pd-head">
+    <div><span id="pd_kind" class="pd-badge">NSN</span> <b id="pd_num"></b></div>
+    <button class="ghost" id="pd_close" title="Close">✕</button>
+  </div>
+  <div class="pd-body">
+    <div class="pd-sec" id="pd_results_sec">
+      <div class="pd-lbl">Matching results</div>
+      <div id="pd_results"><div class="muted" style="font-size:12px">Searching…</div></div>
+    </div>
+    <div id="pd_assets" style="display:none">
+      <div class="pd-sec">
+        <div class="pd-lbl">📄 Manual figure <span class="muted" style="font-weight:400">· hover to magnify</span></div>
+        <div id="pd_fig" class="pd-imgwrap"><span class="muted" style="font-size:11px">—</span></div>
+      </div>
+      <div class="pd-sec">
+        <div class="pd-lbl">🧊 3-D <span class="muted" style="font-weight:400">· drag to orbit · scroll to zoom</span></div>
+        <div id="pd_3d" class="pd-3d"></div>
+      </div>
+      <div class="pd-sec" id="pd_pages_sec" style="display:none">
+        <div class="pd-lbl">📃 Schematics &amp; pages that hold this part <span class="muted" style="font-weight:400">· click to open + highlight</span></div>
+        <div id="pd_pages"></div>
+      </div>
+      <div class="pd-sec pd-actions">
+        <button class="ghost" id="pd_dossier" style="font-size:12px">Full dossier ↗</button>
+        <button class="ghost" id="pd_3dlib" style="font-size:12px">3-D library ↗</button>
+        <button class="ghost" id="pd_stl" style="font-size:12px">⤓ STL</button>
+        <button class="ghost" id="pd_cadpng" style="font-size:12px">⤓ CAD PNG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Part-number review (bulk-fix low-confidence RPSTL rows) -->
+<div class="overlay" id="pnreview" style="display:none">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Part number review" style="width:760px;max-width:96vw">
+    <div class="hd"><h2>Part# review — low-confidence rows</h2>
+      <p>OCR-noisy rows the parser wasn't sure about. Open one to see its page, or fix the name/NSN inline. Your fixes win on the next search (append-only).</p></div>
+    <div class="bd">
+      <div class="mseclbl" id="pnrCount" style="color:var(--sub)">loading…</div>
+      <div id="pnrList" style="max-height:54vh;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px"></div>
+    </div>
+    <div class="ft"><button class="ghost" id="pnrClose">Close</button></div>
+  </div>
+</div>
+
+<!-- Onboarding modal -->
+<div class="overlay" id="overlay" style="display:none">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Start a maintenance session">
+    <div class="hd"><h2>Start a maintenance session</h2>
+      <p>These fields print on the 104th sheet. Bumper# and Fault required.</p></div>
+    <div class="bd">
+      <div class="msec search">
+        <div class="mseclbl">Find a part · search only — does not print on the sheet</div>
+        <input id="m_express" placeholder="Search a part…">
+      </div>
+      <div class="msec">
+        <div class="mseclbl amber">Parts request sheet header · fills the 104th blocks</div>
+        <div class="mgrid">
+          <div class="full"><label>MECHANIC'S NAME (PRINT/SIGN)</label><input id="m_mechanic" placeholder="e.g. SPC R. Alvarez"></div>
+          <div class="half"><label>BUMPER# <span class="req">*</span></label><input id="m_bumper" placeholder="e.g. B-14"></div>
+          <div class="half"><label>FAULT <span class="req">*</span></label><textarea id="m_fault" placeholder="e.g. No-start; alternator not charging; coolant seep at water pump"></textarea></div>
+          <div class="third"><label>TM</label><input id="m_tm" placeholder="e.g. TM 9-2320-280-20-2"></div>
+          <div class="third"><label>UOC</label><input id="m_uoc"></div>
+          <div class="third"><label>TECH STATUS</label><select id="m_tech"><option value="">— set at export —</option><option>FMC</option><option>PMCM</option><option>PMCS</option><option>NMCM</option><option>NMCS</option></select></div>
+          <div class="full"><label>MOTOR SERGEANT / SENIOR MECHANIC</label><input id="m_motor"></div>
+        </div>
+      </div>
+      <div class="msec">
+        <div class="mseclbl">Live sheet-header preview</div>
+        <div class="sheetprev" id="sheetPrev"></div>
+      </div>
+    </div>
+    <div class="ft" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+      <button class="ghost" id="browseBtn" title="Skip the parts-request sheet — just search and browse the repository. You can start a session anytime from the 📋 Parts session button.">🔎 Browse the repository →</button>
+      <button class="go" id="startBtn">Start session &amp; search</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2D→3D representative parametric viewer (dimensions from FLIS; offline; cited) -->
+<div class="d3wrap" id="d3gate">
+  <div class="d3bar"><div class="t" id="d3title" style="flex:1;font-size:13px"></div>
+    <span class="count">drag to rotate · scroll to zoom · double-click to reset</span>
+    <button class="ghost" id="d3reset" title="Reset the 3D view (rotation + zoom)">⟲ Reset</button>
+    <button class="ghost" id="d3close">Close ✕</button></div>
+  <div class="d3main"><div class="d3stage" id="d3stage"></div><div class="d3side" id="d3side"></div></div>
+</div>
+
+<!-- Settings & layout (presentation only — never affects dataset, search, or the 104th sheet) -->
+<div class="overlay" id="setgate" style="display:none">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Settings and layout" style="width:560px">
+    <div class="hd"><h2>⚙ Settings &amp; layout</h2>
+      <p>Presentation only. Your dataset, search, and the 104th sheet work exactly the same in every layout.</p></div>
+    <div class="bd">
+      <div class="msec">
+        <div class="mseclbl amber">Layout preset</div>
+        <select id="set_preset">
+          <option value="default">Default</option>
+          <option value="simple">Simple / Junior</option>
+          <option value="advanced">Advanced / SME</option>
+          <option value="shopfloor">Shop floor / Touch</option>
+          <option value="compact">Compact / Desktop</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="msec">
+        <div class="mseclbl">Fine-tune</div>
+        <div class="setrow"><span>Text size</span><select id="set_size"><option value="normal">Normal</option><option value="lg">Large</option><option value="xl">X-Large</option></select></div>
+        <div class="setrow"><span>Density</span><select id="set_density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></div>
+        <div class="setrow"><span>Fields</span><select id="set_fields"><option value="advanced">Advanced (all)</option><option value="simple">Simple</option></select></div>
+        <div class="setrow"><span>Search match</span><select id="set_match"><option value="all">All words</option><option value="any">Any word</option></select></div>
+        <div class="setrow"><span>Viewer thumbnails</span><select id="set_vthumbs"><option value="off">Off by default</option><option value="on">On by default</option></select></div>
+        <div class="setrow"><span>Highlight search hit</span><select id="set_vhl"><option value="on">On by default</option><option value="off">Off by default</option></select></div>
+      </div>
+      <div class="msec">
+        <div class="mseclbl amber">Performance (Retroactive Post-Support)</div>
+        <div class="setrow"><span>Mode</span><select id="set_rps">
+          <option value="auto">Auto (match this PC)</option>
+          <option value="modern">Modern — full effects</option>
+          <option value="lite">Lite — effects off, lighter</option>
+          <option value="legacy">Legacy — Win 7/Vista friendly</option>
+        </select></div>
+        <div style="font-size:11px;color:var(--sub);margin-top:4px" id="rps_status">Detecting…</div>
+      </div>
+    </div>
+    <div class="ft"><button class="ghost" id="set_reset">Reset to default</button><button class="go" id="set_done">Done</button></div>
+  </div>
+</div>
+
+<!-- Tech status confirm gate (mandatory before generating the sheet) -->
+<div class="overlay" id="tsgate" style="display:none">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Confirm equipment status" style="width:600px">
+    <div class="hd"><h2>Confirm equipment status <span id="tssugbadge"></span></h2>
+      <p id="tsrat">Checking the manuals…</p></div>
+    <div class="bd">
+      <div class="msec"><div class="mseclbl amber">Cited PMCS criteria — "Not Fully Mission Capable If"</div>
+        <div id="tsevid"></div>
+        <div id="tshist" style="font-size:11px;color:var(--sub);margin-top:4px"></div></div>
+      <div class="msec"><div class="mseclbl">Tech status — required to generate the sheet <span class="req">*</span></div>
+        <select id="tssel"><option value="">— select —</option><option>FMC</option><option>PMCM</option><option>PMCS</option><option>NMCM</option><option>NMCS</option></select>
+        <div style="font-size:10.5px;color:var(--sub);margin-top:7px">FMC fully mission capable · PMCM/PMCS partially (maint/supply) · NMCM/NMCS non-mission-capable (maint/supply). You confirm — the app never decides readiness on its own.</div></div>
+    </div>
+    <div class="ft"><button class="ghost" id="tscancel">Cancel</button><button class="go" id="tsconfirm" disabled>Confirm &amp; generate sheet</button></div>
+  </div>
+</div>
+
+<!-- Document viewer -->
+<div class="vwrap" id="viewer" style="display:none">
+  <div class="vbar">
+    <div class="t" id="vtitle"></div>
+    <div class="pgctl">
+      <button class="ghost" id="vprev">◀ Prev</button>
+      <input id="vpage" type="number" min="1" value="1"><span class="count" id="vpages"></span>
+      <button class="ghost" id="vnext">Next ▶</button>
+    </div>
+    <div class="pgctl">
+      <input id="vfind" placeholder="🔎 Find in manual" style="width:140px" title="Find a term across this whole document (Ctrl+F)">
+      <span class="count" id="vfindn"></span>
+      <button class="ghost" id="vfprev" title="Previous match">▲</button>
+      <button class="ghost" id="vfnext" title="Next match">▼</button>
+    </div>
+    <div class="pgctl">
+      <button class="ghost" id="vzout" title="Zoom out">−</button><span class="count" id="vzoom">100%</span><button class="ghost" id="vzin" title="Zoom in">+</button>
+      <button class="ghost on" id="vhl" title="Highlight the search term on the page">🖍 Highlight</button>
+      <button class="ghost" id="vthumbtg" title="Page thumbnails">▦ Thumbnails</button>
+    </div>
+    <div class="pgctl">
+      <button class="ghost" id="vclean" title="Legibility cleanup (contrast + sharpen + de-speckle)">🧹 Clean</button>
+      <span class="count">contrast</span><input id="vcontrast" type="range" min="0" max="100" step="10" value="0" style="width:64px">
+      <span class="count">zoom</span><input id="vzoomsl" type="range" min="100" max="400" step="10" value="100" style="width:72px" title="Slide to zoom the page closer (or scroll over a spot when the loupe is off)">
+      <span class="count">tilt Y</span><input id="vtilt" type="range" min="-60" max="60" step="3" value="0" style="width:56px" title="Tilt the page left/right (Y axis)">
+      <span class="count">tilt X</span><input id="vtiltx" type="range" min="-60" max="60" step="3" value="0" style="width:56px" title="Tilt the page up/down (X axis)">
+      <button class="ghost" id="vflip" title="Mirror the page horizontally — orientation aid for working from the opposite side. On text pages, labels are re-drawn readable.">↔ Mirror</button>
+      <button class="ghost" id="vhd" title="HD: render this page from the lossless source at high resolution">✦ HD</button>
+      <button class="ghost" id="vloupe" title="Magnifier — follows your cursor instantly, sharpens when you pause, scroll to zoom">🔎 Loupe</button>
+      <button class="ghost" id="vcallouts" title="Callouts — clickable part numbers, NSNs and figures found in this page's text; jump straight to the part or figure">🏷 Callouts</button>
+      <button class="ghost" id="vreset" title="Reset the image — clear tilt, zoom, and mirror back to the default view">⟲ Reset</button>
+    </div>
+    <button class="go" id="vadd">+ Add this part</button>
+    <button class="ghost" id="vclose">Close ✕</button>
+  </div>
+  <div class="vmain">
+    <div class="vthumbs" id="vthumbs"></div>
+    <div class="vstage" id="vstage"><div class="ld">Loading page…</div></div>
+    <div class="vside" id="vside"></div>
+  </div>
+</div>
+
+<!-- Vehicle breakdown hub -->
+<div class="hub" id="hub">
+  <div class="hubbar"><div class="t" id="hubtitle"></div><button class="ghost" id="hubclose">Close ✕</button></div>
+  <div class="hubbody" id="hubbody"></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+let SESSION={}, CART=[], VIEW={doc:null,page:1,pages:1,meta:null,zi:2,hl:true,thumbs:false}, LAST_QUERY="", BROWSE_ONLY=false;
+let ALL=[], DYM=[], FILTER={vehicle:null,type:null,source:null}, VEHICLES=null, THUMB={lo:0,hi:0};   // DYM: v0.97.0 did-you-mean (C20)
+const DPIS=[90,120,150,200,260,340];
+
+// ---- Settings & layout presets (presentation only; never touches data/search/request) ----
+const SET_DEFAULTS={size:"normal",density:"comfortable",fields:"advanced",match:"all",vthumbs:false,vhl:true};
+const SET_PRESETS={
+  default:  {size:"normal",density:"comfortable",fields:"advanced",match:"all",vthumbs:false,vhl:true},
+  simple:   {size:"lg",    density:"comfortable",fields:"simple",  match:"all",vthumbs:false,vhl:true},
+  advanced: {size:"normal",density:"compact",    fields:"advanced",match:"all",vthumbs:true, vhl:true},
+  shopfloor:{size:"xl",    density:"comfortable",fields:"simple",  match:"all",vthumbs:false,vhl:true},
+  compact:  {size:"normal",density:"compact",    fields:"advanced",match:"all",vthumbs:true, vhl:true}
+};
+let SETTINGS=Object.assign({},SET_DEFAULTS), MATCH_ANY=false, VIEWER_DEF_THUMBS=false, VIEWER_DEF_HL=true;
+function loadSettings(){
+  let s=null; try{ s=JSON.parse(localStorage.getItem("viewer_settings")||"null"); }catch(e){}
+  if(!s){ s=Object.assign({},SET_DEFAULTS);  // migrate legacy single-toggle keys
+    try{ if(localStorage.getItem("viewer_big")==="1")s.size="lg"; if(localStorage.getItem("viewer_simple")==="1")s.fields="simple"; if(localStorage.getItem("viewer_any")==="1")s.match="any"; }catch(e){} }
+  SETTINGS=Object.assign({},SET_DEFAULTS,s);
+}
+function saveSettings(){ try{ localStorage.setItem("viewer_settings",JSON.stringify(SETTINGS)); }catch(e){} }
+function applySettings(){
+  const b=document.body;
+  b.classList.remove("sz-lg","sz-xl"); if(SETTINGS.size==="lg")b.classList.add("sz-lg"); else if(SETTINGS.size==="xl")b.classList.add("sz-xl");
+  b.classList.toggle("den-compact",SETTINGS.density==="compact");
+  b.classList.toggle("simple",SETTINGS.fields==="simple");
+  MATCH_ANY=(SETTINGS.match==="any"); applyMatchToggle();
+  VIEWER_DEF_THUMBS=!!SETTINGS.vthumbs; VIEWER_DEF_HL=(SETTINGS.vhl!==false);
+  // self-check: the core flow controls must always exist regardless of layout
+  if(!($("#q")&&$("#exportBtn"))) console.warn("THE VIEWER: core controls missing after layout apply");
+}
+function detectPreset(){ for(const k in SET_PRESETS){ const p=SET_PRESETS[k];
+  if(p.size===SETTINGS.size&&p.density===SETTINGS.density&&p.fields===SETTINGS.fields&&p.match===SETTINGS.match&&(!!p.vthumbs)===(!!SETTINGS.vthumbs)&&p.vhl===SETTINGS.vhl) return k; } return "custom"; }
+function syncSettingsForm(){
+  $("#set_preset").value=detectPreset(); $("#set_size").value=SETTINGS.size; $("#set_density").value=SETTINGS.density;
+  $("#set_fields").value=SETTINGS.fields; $("#set_match").value=SETTINGS.match;
+  $("#set_vthumbs").value=SETTINGS.vthumbs?"on":"off"; $("#set_vhl").value=SETTINGS.vhl?"on":"off";
+}
+function _setField(k,v){ SETTINGS[k]=v; applySettings(); saveSettings(); syncSettingsForm(); }
+$("#gearBtn").onclick=()=>{ syncSettingsForm(); if(typeof rpsStatus==="function") rpsStatus(); $("#setgate").style.display="flex"; };
+$("#set_done").onclick=()=>{ $("#setgate").style.display="none"; };
+$("#set_reset").onclick=()=>{ SETTINGS=Object.assign({},SET_DEFAULTS); applySettings(); saveSettings(); syncSettingsForm(); };
+$("#set_preset").onchange=()=>{ const k=$("#set_preset").value; if(k!=="custom"&&SET_PRESETS[k]){ SETTINGS=Object.assign({},SET_DEFAULTS,SET_PRESETS[k]); applySettings(); saveSettings(); syncSettingsForm(); } };
+$("#set_size").onchange=()=>_setField("size",$("#set_size").value);
+$("#set_density").onchange=()=>_setField("density",$("#set_density").value);
+$("#set_fields").onchange=()=>_setField("fields",$("#set_fields").value);
+$("#set_match").onchange=()=>_setField("match",$("#set_match").value);
+$("#set_vthumbs").onchange=()=>_setField("vthumbs",$("#set_vthumbs").value==="on");
+$("#set_vhl").onchange=()=>_setField("vhl",$("#set_vhl").value==="on");
+// RPS performance mode (presentation/perf only; never touches data/search)
+function rpsStatus(){
+  try{
+    if(window.RPS){ $("#set_rps").value=RPS.getOverride?RPS.getOverride():"auto";
+      $("#rps_status").textContent="Running in "+(RPS.mode||"modern").toUpperCase()+" mode"+
+        ((RPS.getOverride&&RPS.getOverride()!=="auto")?" (you chose it)":" (auto-picked for this PC)")+
+        ". Lite/Legacy turn off animations and lighten rendering for older, slower machines."; }
+    else $("#rps_status").textContent="Performance shim not loaded.";
+  }catch(e){}
+}
+if($("#set_rps")) $("#set_rps").onchange=()=>{ if(window.RPS&&RPS.setMode){ RPS.setMode($("#set_rps").value); setTimeout(rpsStatus,400); } };
+loadSettings(); applySettings();
+
+// ---- side of the house (operator/10 vs mechanic/20) ----
+var SIDE=null;
+function getSavedSide(){ try{ return localStorage.getItem("viewer_side")||""; }catch(e){ return ""; } }
+function saveSide(s){ SIDE=s; try{ localStorage.setItem("viewer_side",s); }catch(e){} updateSideLbl(); }
+function updateSideLbl(){ var el=$("#sideLbl"); if(el) el.textContent = SIDE==="operator" ? "Operator (10)" : (SIDE==="mechanic" ? "Mechanic (20)" : "Side"); }
+function openSideChooser(){ loadSideCounts(); $("#sidegate").style.display="flex"; }
+function loadSideCounts(){
+  fetch("/api/by_side").then(function(r){return r.json();}).then(function(d){
+    var c=(d&&d.counts)||{}; var el=$("#sideCounts");
+    if(el) el.textContent="In your repository: "+(c.operator||0)+" operator-side · "+(c.mechanic||0)+" mechanic-side · "+(c.both||0)+" combined (both) · "+(c.documents||0)+" documents total.";
+    var rb=$("#reviewUncBtn");
+    if(rb){ if((c.uncertain||0)>0){ rb.style.display=""; rb.textContent="Review "+c.uncertain+" uncertain document"+(c.uncertain==1?"":"s"); } else { rb.style.display="none"; } }
+  }).catch(function(){ var el=$("#sideCounts"); if(el) el.textContent=""; });
+}
+function renderUncertain(){
+  var box=$("#uncList"); if(!box) return;
+  box.style.display="block"; box.innerHTML='<div style="padding:10px;color:var(--sub);font-size:12px">Loading…</div>';
+  fetch("/api/side_uncertain?limit=200").then(function(r){return r.json();}).then(function(d){
+    var its=(d&&d.items)||[]; if(!its.length){ box.innerHTML='<div style="padding:10px;color:var(--sub);font-size:12px">Nothing uncertain — every document classified from its TM number.</div>'; return; }
+    var h="";
+    for(var i=0;i<its.length;i++){ var it=its[i];
+      var badge = (it.operator&&it.mechanic) ? '<span style="color:var(--amb)">both</span>' : (it.operator?'<span style="color:var(--grn)">operator</span>':'<span style="color:var(--teal)">mechanic</span>');
+      h+='<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--line)">'+
+         '<div style="min-width:0"><div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.tm||it.title||("doc "+it.doc_id))+'</div>'+
+         '<div style="font-size:11px;color:var(--sub)">'+esc(it.title||"")+' · now '+badge+' · '+esc(it.confidence||"")+'</div></div>'+
+         '<div style="white-space:nowrap"><button class="ghost pin" data-id="'+it.doc_id+'" data-s="operator" style="font-size:11px;padding:3px 7px">Operator</button> '+
+         '<button class="ghost pin" data-id="'+it.doc_id+'" data-s="mechanic" style="font-size:11px;padding:3px 7px">Mechanic</button> '+
+         '<button class="ghost pin" data-id="'+it.doc_id+'" data-s="both" style="font-size:11px;padding:3px 7px">Both</button></div></div>';
+    }
+    box.innerHTML=h;
+    var bs=box.querySelectorAll(".pin");
+    for(var k=0;k<bs.length;k++){ bs[k].onclick=function(){ pinSide(this.getAttribute("data-id"), this.getAttribute("data-s")); }; }
+  }).catch(function(){ box.innerHTML='<div style="padding:10px;color:var(--red);font-size:12px">Could not load.</div>'; });
+}
+function pinSide(docId, side){
+  fetch("/api/side_override",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({doc_id:parseInt(docId,10),side:side,by:"ui"})}).then(function(r){return r.json();})
+    .then(function(){ loadSideCounts(); renderUncertain(); }).catch(function(){});
+}
+function chooseSide(side){
+  saveSide(side);
+  $("#sidegate").style.display="none";
+  try{ document.body.className=(document.body.className||"").replace(/\bviewer-(operator|mechanic)\b/g,"").trim()+" viewer-"+side; }catch(e){}
+  if(side==="operator"){            // operator -> straight to the browser, skip the parts-request sheet
+    BROWSE_ONLY=true; $("#overlay").style.display="none"; $("#editBtn").style.display="none";
+    renderCtx(); loadHome(); var qq=$("#q"); if(qq) qq.focus();
+  } else {                          // mechanic -> the parts-request sheet onboarding
+    BROWSE_ONLY=false; $("#editBtn").style.display="";
+    $("#overlay").style.display="flex"; if(typeof updateSheetPrev==="function") updateSheetPrev();
+  }
+}
+if($("#sideOperator")) $("#sideOperator").onclick=function(){ chooseSide("operator"); };
+if($("#sideMechanic")) $("#sideMechanic").onclick=function(){ chooseSide("mechanic"); };
+if($("#sideBtn")) $("#sideBtn").onclick=openSideChooser;
+if($("#reviewUncBtn")) $("#reviewUncBtn").onclick=function(){ var b=$("#uncList"); if(b&&b.style.display==="block"){ b.style.display="none"; } else { renderUncertain(); } };
+function renderChapterReview(){
+  var box=$("#chapList"); if(!box) return;
+  box.style.display="block"; box.innerHTML='<div style="padding:10px;color:var(--sub);font-size:12px">Scanning combined manuals…</div>';
+  fetch("/api/chapters_review?limit=300").then(function(r){return r.json();}).then(function(d){
+    var its=(d&&d.items)||[];
+    if(!its.length){ box.innerHTML='<div style="padding:10px;color:var(--sub);font-size:12px">No combined (-12/-13/-14) manuals found — nothing to split.</div>'; return; }
+    var head='<div style="padding:8px 10px;font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)">'+
+      d.combined_total+' combined manual'+(d.combined_total==1?'':'s')+' · '+d.no_chapters+' with no detected chapters (open whole-book). Open one to inspect or pin a section start.</div>';
+    var h="";
+    for(var i=0;i<its.length;i++){ var it=its[i];
+      var status = it.has_chapters ? ('<span style="color:var(--grn)">'+(it.ranges?it.ranges.length:0)+' sections · op p.'+(it.operator_page||'?')+' / mech p.'+(it.mechanic_page||'?')+'</span>')
+                                   : '<span style="color:var(--amb)">no chapters detected — whole-book</span>';
+      h+='<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--line)">'+
+         '<div style="min-width:0"><div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.tm||it.title||("doc "+it.doc_id))+(it.overridden?' <span style="color:var(--acc)">· pinned</span>':'')+'</div>'+
+         '<div style="font-size:11px">'+status+'</div></div>'+
+         '<button class="ghost chapOpen" data-id="'+it.doc_id+'" data-op="'+(it.operator_page||1)+'" style="font-size:11px;padding:3px 9px">Open</button></div>';
+    }
+    box.innerHTML=head+h;
+    var bs=box.querySelectorAll(".chapOpen");
+    for(var k=0;k<bs.length;k++){ bs[k].onclick=function(){ var id=parseInt(this.getAttribute("data-id"),10);
+      $("#sidegate").style.display="none"; openViewer({doc_id:id,page_number:parseInt(this.getAttribute("data-op"),10)||1}); }; }
+  }).catch(function(){ box.innerHTML='<div style="padding:10px;color:var(--red);font-size:12px">Could not load.</div>'; });
+}
+if($("#reviewChapBtn")) $("#reviewChapBtn").onclick=function(){ var b=$("#chapList"); if(b&&b.style.display==="block"){ b.style.display="none"; } else { renderChapterReview(); } };
+// ---- guided demo / onboarding tour ----
+function demoSeen(){ try{ return localStorage.getItem("viewer_demo_seen")==="1"; }catch(e){ return false; } }
+function setDemoSeen(){ try{ localStorage.setItem("viewer_demo_seen","1"); }catch(e){} }
+function startTourOnboarding(){
+  var f=$("#demoFrame"), g=$("#demogate");
+  if(!f||!g){ openSideChooser(); return; }
+  f.src="/demo?embed=1"; g.style.display="block";
+}
+function endTourOnboarding(){            // demo finished or skipped -> the REAL chooser, no guides
+  setDemoSeen();
+  var g=$("#demogate"), f=$("#demoFrame");
+  if(g) g.style.display="none";
+  if(f) f.src="about:blank";
+  openSideChooser();
+}
+// the demo (in the iframe) tells us when the user clicks Finish / Skip
+window.addEventListener("message", function(ev){
+  try{ if(ev && ev.data && ev.data.viewerDemo==="finish") endTourOnboarding(); }catch(e){}
+});
+if($("#demoSkipTop")) $("#demoSkipTop").onclick=endTourOnboarding;
+if($("#watchTourBtn")) $("#watchTourBtn").onclick=function(){ $("#sidegate").style.display="none"; startTourOnboarding(); };
+
+// ---- skip straight to browsing (no tour, no side commitment — pure repository) ----
+function browseSaved(){ try{ return localStorage.getItem("viewer_browse_only")==="1"; }catch(e){ return false; } }
+function skipToBrowsing(){
+  setDemoSeen();
+  try{ localStorage.setItem("viewer_browse_only","1"); }catch(e){}
+  var g=$("#demogate"); if(g) g.style.display="none"; var f=$("#demoFrame"); if(f) f.src="about:blank";
+  $("#sidegate").style.display="none";
+  SIDE=null; updateSideLbl();                 // no side filter -> search spans the whole repository
+  BROWSE_ONLY=true; $("#overlay").style.display="none"; if($("#editBtn")) $("#editBtn").style.display="";
+  renderCtx(); loadHome(); var qq=$("#q"); if(qq) qq.focus();
+}
+if($("#skipBrowseBtn")) $("#skipBrowseBtn").onclick=skipToBrowsing;
+
+// On launch: ?side= deep link wins; ?onboard=1 forces the chooser; else remembered side; else first-run demo then chooser.
+window.addEventListener("load", function(){
+  var urlSide=""; try{ var mm=location.search.match(/[?&]side=(operator|mechanic)/); if(mm) urlSide=mm[1]; }catch(e){}
+  var force=false; try{ force=/[?&]onboard=1/.test(location.search); }catch(e){}
+  var s=urlSide||getSavedSide();
+  if(force){ openSideChooser(); return; }                  // returning from the demo's "Finish"
+  if(s==="operator"||s==="mechanic"){ updateSideLbl(); chooseSide(s); return; }
+  if(browseSaved()){ skipToBrowsing(); return; }           // user previously chose "skip to browsing"
+  if(!demoSeen()){ startTourOnboarding(); }                // first run -> tour first
+  else { openSideChooser(); }
+});
+
+// ---- session ----
+$("#startBtn").onclick=()=>{
+  const b=$("#m_bumper").value.trim(), f=$("#m_fault").value.trim();
+  if(!b||!f){toast("Bumper # and Fault are required.");return;}
+  SESSION={mechanic:$("#m_mechanic").value.trim(),bumper:b,fault:f,tm:$("#m_tm").value.trim(),
+           uoc:$("#m_uoc").value.trim(),tech_status:$("#m_tech").value.trim(),motor_sergeant:$("#m_motor").value.trim()};
+  $("#overlay").style.display="none";$("#editBtn").style.display="";renderCtx();
+  const ex=$("#m_express").value.trim();
+  if(ex){ $("#q").value=ex; runSearch(ex,true); } else { loadHome(); $("#q").focus(); }
+};
+// Browse-only: use THE VIEWER as a pure repository — skip the parts-request sheet. Start a session anytime
+// from the "📋 Parts session" button (which reopens this window).
+$("#browseBtn").onclick=()=>{
+  BROWSE_ONLY=true; $("#overlay").style.display="none"; renderCtx(); loadHome(); $("#q").focus();
+};
+$("#editBtn").onclick=()=>{
+  $("#m_mechanic").value=SESSION.mechanic||"";$("#m_bumper").value=SESSION.bumper||"";
+  $("#m_fault").value=SESSION.fault||"";$("#m_tm").value=SESSION.tm||"";$("#m_uoc").value=SESSION.uoc||"";
+  $("#m_tech").value=SESSION.tech_status||"";$("#m_motor").value=SESSION.motor_sergeant||"";
+  updateSheetPrev();$("#overlay").style.display="flex";
+};
+function renderCtx(){const c=$("#ctx");c.innerHTML="";
+  const add=(l,v)=>{if(!v)return;const e=document.createElement("span");e.className="chip";e.innerHTML=l+" <b>"+esc(v)+"</b>";c.appendChild(e);};
+  if(!SESSION.bumper && BROWSE_ONLY){ const e=document.createElement("span");e.className="chip";e.innerHTML="🔎 <b>Browse mode</b> — repository";c.appendChild(e); return; }
+  add("Bumper#",SESSION.bumper);add("Fault",trunc(SESSION.fault,48));if(SESSION.tm)add("TM",SESSION.tm);if(SESSION.mechanic)add("Mech",SESSION.mechanic);}
+// ---- live 104th sheet-header preview (mirrors parts_request_pdf.py header) ----
+function _sv(id){return ($(id)&&$(id).value||"").trim();}
+function _blk(label,val){return '<b>'+label+'</b> <span class="'+(val?'v':'e')+'">'+(val?esc(val):'—')+'</span>';}
+function updateSheetPrev(){
+  const p=$("#sheetPrev"); if(!p)return;
+  p.innerHTML=
+    '<div class="t">104TH ECC PARTS REQUEST SHEET</div>'+
+    '<div class="t red">(FILL OUT ALL BLOCKS)</div>'+
+    '<div>'+_blk("MECHANIC’S NAME (PRINT/SIGN):",_sv("#m_mechanic"))+'</div>'+
+    '<div>'+_blk("BUMPER#:",_sv("#m_bumper"))+' &nbsp; '+_blk("FAULT:",_sv("#m_fault"))+'</div>'+
+    '<div>'+_blk("TM:",_sv("#m_tm"))+' &nbsp; '+_blk("UOC:",_sv("#m_uoc"))+' &nbsp; '+_blk("TECH STATUS:",_sv("#m_tech"))+'</div>'+
+    '<div style="border-top:1px solid #b9b2a3;margin-top:6px;padding-top:6px">'+_blk("MOTOR SERGEANT / SENIOR MECHANIC:",_sv("#m_motor"))+'</div>';
+}
+["#m_mechanic","#m_bumper","#m_fault","#m_tm","#m_uoc","#m_tech","#m_motor"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",updateSheetPrev);});
+updateSheetPrev();
+
+// ---- learning: rotating example + 'commonly requested' (from successful 104th sheets) ----
+const SEED=[
+  {item_name:"BATTERY, STORAGE",nsn:"6140-01-485-1472"},
+  {item_name:"GASKET",nsn:"5330-01-186-9023"},
+  {item_name:"ALTERNATOR",nsn:"2920-01-449-2202"},
+  {item_name:"FILTER ELEMENT, FUEL",nsn:"2910-01-374-9226"},
+  {item_name:"BELT, V",nsn:"3030-01-356-1234"},
+  {item_name:"FILTER, LUBE OIL",nsn:"2940-01-431-9476"}
+];
+let POPULAR=null;
+async function loadPopular(){ if(POPULAR!==null) return POPULAR;
+  try{ const d=await (await fetch("/api/popular?limit=12")).json(); POPULAR=d.items||[]; }catch(e){ POPULAR=[]; }
+  return POPULAR; }
+function exPool(){ return (POPULAR&&POPULAR.length)?POPULAR:SEED; }
+function fmtEx(it){ const nm=(it.item_name||"").trim(),nsn=(it.nsn||"").trim(); return (nm&&nsn)?(nm+" · "+nsn):(nm||nsn); }
+function rotateExample(){ const pool=exPool(); if(!pool.length)return; const it=pool[Math.floor(Math.random()*pool.length)],ph=fmtEx(it); if(!ph)return;
+  const q=$("#q"); if(q) q.setAttribute("placeholder",ph);
+  const ex=$("#m_express"); if(ex) ex.setAttribute("placeholder",ph); }
+function renderQuickPicks(){ const b=$("#quickpicks"); if(!b)return; const pool=exPool();
+  if(!pool.length){ b.innerHTML='<div style="color:var(--sub);font-size:12px">Nothing logged yet — your common parts will appear here.</div>'; return; }
+  b.innerHTML=pool.slice(0,6).map(it=>{ const lbl=esc((it.item_name||it.nsn||"").trim()),key=esc((it.nsn||it.item_name||"").trim()); return '<span class="qchip" data-k="'+key+'">★ '+lbl+'</span>'; }).join("");
+  b.querySelectorAll(".qchip").forEach(c=>c.onclick=()=>{const k=c.getAttribute("data-k");$("#q").value=k;runSearch(k);}); }
+loadPopular().then(()=>rotateExample());
+
+// ---- home / browse-by-vehicle ----
+async function loadHome(){
+  const box=$("#results");
+  box.innerHTML='<div class="home">'+
+    '<div class="homesec"><h3>Commonly requested</h3><div id="quickpicks"></div></div>'+
+    '<div class="homesec" id="mostused-sec" style="display:none"><h3>Most used here</h3><div id="mostused"></div></div>'+
+    '<div class="homesec"><h3>Browse by vehicle</h3><input class="vehfilter" id="vehfilter" placeholder="Filter vehicles… (e.g. HMMWV, Buffalo, generator)"><div class="vehgrid" id="vehgrid"><div class="empty">Loading vehicles…</div></div></div>'+
+    '<div class="homesec"><h3>Recent searches</h3><div id="recentq"></div></div>'+
+    '<div class="homesec"><h3>Recent parts requests</h3><div id="recentreq"></div></div>'+
+  '</div>';
+  $("#vehfilter").oninput=()=>renderVehGrid($("#vehfilter").value);
+  renderRecentSearches(); loadRecentRequests(); loadMostUsed();
+  await loadPopular(); renderQuickPicks(); rotateExample();
+  if(VEHICLES===null){ try{const d=await (await fetch("/api/vehicles?limit=400")).json();VEHICLES=d.vehicles||[];}catch(e){VEHICLES=[];} }
+  renderVehGrid("");
+}
+function renderVehGrid(filter){
+  const g=$("#vehgrid"); if(!g)return; const f=(filter||"").toLowerCase();
+  let list=VEHICLES||[]; if(f) list=list.filter(v=>(v.vehicle||"").toLowerCase().indexOf(f)>=0);
+  if(!list.length){g.innerHTML='<div class="empty">No vehicles match.</div>';return;}
+  g.innerHTML=list.slice(0,120).map(v=>'<button class="vehcard" data-v="'+esc(v.vehicle)+'">'+esc(v.vehicle)+'<small>'+v.docs+' manual'+(v.docs===1?'':'s')+(v.nsn?' · NSN '+esc(v.nsn):'')+'</small></button>').join("");
+  g.querySelectorAll(".vehcard").forEach(b=>b.onclick=()=>openVehicle(b.getAttribute("data-v")));
+}
+// ---- "Most used here" — from the offline local usage log (/api/analytics_top) ----
+function loadMostUsed(){
+  fetch("/api/analytics_top").then(r=>r.json()).then(d=>{
+    const box=$("#mostused"), sec=$("#mostused-sec"); if(!box||!sec)return;
+    const s=(d.top_searches||[]), p=(d.top_parts||[]);
+    if(!s.length && !p.length){ sec.style.display="none"; return; }
+    let h="";
+    s.forEach(x=>{ h+='<span class="qchip" data-q="'+esc(x.key)+'">🔎 '+esc(x.key)+' <small>·'+x.count+'</small></span>'; });
+    p.forEach(x=>{ h+='<span class="qchip" data-d="'+esc(x.key)+'">🔩 '+esc(x.key)+' <small>·'+x.count+'</small></span>'; });
+    box.innerHTML=h; sec.style.display="";
+    box.querySelectorAll(".qchip").forEach(c=>c.onclick=()=>{ const q=c.getAttribute("data-q"), dp=c.getAttribute("data-d");
+      if(dp){ window.open("/dossier?q="+encodeURIComponent(dp),"_blank"); } else { $("#q").value=q; runSearch(q); } });
+  }).catch(()=>{});
+}
+function getRecent(){ try{return JSON.parse(localStorage.getItem("viewer_recent_q")||"[]");}catch(e){return [];} }
+function pushRecent(q){ q=(q||"").trim(); if(q.length<3)return; let a=getRecent().filter(x=>x!==q); a.unshift(q); a=a.slice(0,8); try{localStorage.setItem("viewer_recent_q",JSON.stringify(a));}catch(e){} }
+function renderRecentSearches(){ const b=$("#recentq"); if(!b)return; const a=getRecent();
+  if(!a.length){b.innerHTML='<div style="color:var(--sub);font-size:12px">No recent searches yet.</div>';return;}
+  b.innerHTML=a.map(q=>'<span class="qchip" data-q="'+esc(q)+'">🔎 '+esc(q)+'</span>').join("");
+  b.querySelectorAll(".qchip").forEach(c=>c.onclick=()=>{const q=c.getAttribute("data-q");$("#q").value=q;runSearch(q);});
+}
+async function loadRecentRequests(){ const b=$("#recentreq"); if(!b)return;
+  try{ const d=await (await fetch("/api/sessions?limit=8")).json(); const s=d.sessions||[];
+    if(!s.length){b.innerHTML='<div style="color:var(--sub);font-size:12px">No parts requests saved yet.</div>';return;}
+    b.innerHTML=s.map(x=>'<div class="reqcard"><b>'+esc(x.bumper_number||"—")+'</b> <span>'+esc(trunc(x.fault||"",60))+'</span><small>'+(x.items||0)+' item'+(x.items===1?'':'s')+(x.created_at?' · '+esc(String(x.created_at).slice(0,16)):'')+'</small></div>').join("");
+  }catch(e){ b.innerHTML='<div style="color:var(--sub);font-size:12px">(recent requests unavailable)</div>'; }
+}
+
+// ---- search + smart results ----
+let timer=null;
+function applyMatchToggle(){ if(!$("#mAll"))return; $("#mAll").classList.toggle("on",!MATCH_ANY); $("#mAny").classList.toggle("on",MATCH_ANY); }
+$("#mAll").onclick=()=>{ SETTINGS.match="all"; MATCH_ANY=false; applyMatchToggle(); saveSettings(); if($("#q").value.trim())runSearch($("#q").value); };
+$("#mAny").onclick=()=>{ SETTINGS.match="any"; MATCH_ANY=true; applyMatchToggle(); saveSettings(); if($("#q").value.trim())runSearch($("#q").value); };
+applyMatchToggle();
+// Save the current search as a Smart Collection (sidecar-only write; opens the Collections page).
+$("#saveCol").onclick=()=>{
+  const q=($("#q").value||LAST_QUERY||"").trim();
+  if(!q){ toast("Type a search first, then save it as a collection."); return; }
+  const name=window.prompt("Name this collection:", q.slice(0,40));
+  if(!name) return;
+  fetch("/api/collections",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"save",name:name,query:q})})
+    .then(r=>r.json()).then(j=>{ if(j&&j.ok){ toast("Saved “"+name+"”. Opening Collections…"); setTimeout(()=>{window.location.href="/collections";},700); } else { toast((j&&j.error)||"Could not save."); } })
+    .catch(()=>toast("Could not save."));
+};
+$("#q").addEventListener("input",e=>{clearTimeout(timer);const q=e.target.value;timer=setTimeout(()=>runSearch(q),180);});
+// ---- type-ahead predictive suggestions (offline /api/suggest) ----
+(function(){
+  var qel=$("#q"), ac=$("#ac"); if(!qel||!ac) return;
+  var items=[], sel=-1, acTimer=null, lastQ="";
+  function hide(){ ac.style.display="none"; ac.innerHTML=""; items=[]; sel=-1; qel.setAttribute("aria-expanded","false"); }
+  function icon(k){ return k==="vehicle"?"🚛":k==="part"?"🔩":k==="nsn"?"#":"🔎"; }
+  function show(list){
+    items=list||[]; if(!items.length){hide();return;}
+    ac.innerHTML=items.map(function(s,i){return '<div class="it" data-i="'+i+'"><span class="ico">'+icon(s.kind)+'</span><span>'+String(s.text).replace(/[&<>]/g,"")+'</span><span class="k">'+s.kind+'</span></div>';}).join("");
+    ac.style.display="block"; qel.setAttribute("aria-expanded","true"); sel=-1;
+    Array.prototype.forEach.call(ac.querySelectorAll(".it"),function(el){ el.onmousedown=function(ev){ev.preventDefault();choose(parseInt(el.getAttribute("data-i"),10));}; });
+  }
+  function choose(i){ if(i<0||i>=items.length)return; qel.value=items[i].text; hide(); if(typeof runSearch==="function") runSearch(qel.value); }
+  function move(d){ if(!items.length)return; sel=(sel+d+items.length)%items.length; Array.prototype.forEach.call(ac.querySelectorAll(".it"),function(el,idx){el.classList.toggle("sel",idx===sel);}); }
+  qel.addEventListener("input",function(){ var v=qel.value.trim(); if(v.length<2){hide();return;}
+    clearTimeout(acTimer); acTimer=setTimeout(function(){ if(v===lastQ)return; lastQ=v;
+      fetch("/api/suggest?q="+encodeURIComponent(v)).then(function(r){return r.json();}).then(function(d){ if(qel.value.trim()===v) show((d&&d.suggestions)||[]); }).catch(function(){});
+    },120); });
+  qel.addEventListener("keydown",function(e){ if(ac.style.display==="none")return;
+    if(e.key==="ArrowDown"){e.preventDefault();move(1);} else if(e.key==="ArrowUp"){e.preventDefault();move(-1);}
+    else if(e.key==="Enter"){ if(sel>=0){e.preventDefault();choose(sel);} else hide(); } else if(e.key==="Escape"){hide();} });
+  qel.addEventListener("blur",function(){ setTimeout(hide,150); });
+  document.addEventListener("click",function(e){ if(e.target!==qel && !ac.contains(e.target)) hide(); });
+})();
+// PART NUMBER -> its RPSTL row + the correlative breakdown image, shown as a card above the results.
+function renderPartMatch(q){
+  var host=$("#results"); if(!host) return;
+  var old=document.getElementById('partmatch'); if(old) old.parentNode.removeChild(old);
+  var pn=(q||'').trim(); if(pn.length<4 || !/\d/.test(pn)) return;   // only when it looks like a part number
+  fetch('/api/part_record?pn='+encodeURIComponent(pn)).then(function(r){return r.json();}).then(function(j){
+    if(!j||!j.found) return;
+    var card=document.createElement('div'); card.id='partmatch';
+    card.style.cssText='border:1px solid var(--acc);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px;display:flex;gap:14px;align-items:flex-start';
+    var conf=Math.round((j.confidence||0)*100);
+    var imgUrl=j.image_url||'';
+    card.innerHTML=
+      '<a href="'+(j.doc_id?('/page?doc='+j.doc_id+'&page='+j.page+'&dpi=200'):'#')+'" target="_blank" style="flex:0 0 auto">'+
+        (imgUrl?('<img id="pmimg" src="'+imgUrl+'" style="width:200px;height:150px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">'):'')+'</a>'+
+      '<div style="min-width:0;flex:1">'+
+        '<div style="font-size:12px;color:var(--sub)">PART NUMBER MATCH'+(j.overridden?' · pinned':'')+' · confidence '+conf+'%</div>'+
+        '<div style="font-size:18px;font-weight:700">'+esc(j.nomenclature||'(name not parsed)')+'</div>'+
+        '<div style="font-size:13px;margin-top:3px">P/N <b>'+esc(j.part_no||pn)+'</b>'+(j.cagec?(' · CAGEC '+esc(j.cagec)+(j.manufacturer?(' ('+esc(j.manufacturer)+')'):'')):'')+(j.item?(' · item '+esc(String(j.item))):'')+(j.fig_no?(' · FIG '+esc(String(j.fig_no))):'')+'</div>'+
+        (j.nsn?('<div style="font-size:13px;margin-top:2px">NSN <a href="/dossier?q='+encodeURIComponent(j.nsn)+'" target="_blank">'+esc(j.nsn)+'</a>'+(j.superseded_by?(' <span style="color:var(--amb)">→ superseded by '+esc(j.superseded_by)+'</span>'):'')+'</div>'):'')+
+        ((j.vehicles&&j.vehicles.length)?('<div style="font-size:12px;margin-top:4px;color:var(--sub)">Fits: '+j.vehicles.slice(0,8).map(function(v){return '<span style="display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:1px 7px;margin:2px 3px 0 0">'+esc(v)+'</span>';}).join('')+'</div>'):'')+
+        (j.name_conflict?('<div style="font-size:11px;margin-top:3px;color:var(--amb)">⚠ OCR read: "'+esc(j.ocr_nomenclature||'')+'" — showing the FLIS official name</div>'):'')+
+        ((j.interchangeable&&j.interchangeable.length)?('<div style="font-size:11px;margin-top:2px;color:var(--sub)">Interchangeable: '+j.interchangeable.slice(0,4).map(esc).join(' · ')+'</div>'):'')+
+        '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'+
+          (j.callout_url?'<button class="ghost" id="pmcallout" style="font-size:12px;padding:5px 10px">🎯 Zoom to item '+esc(String(j.item||''))+'</button>':'')+
+          (j.image_url?'<button class="ghost" id="pmfull" style="font-size:12px;padding:5px 10px">🖼 Whole figure</button>':'')+
+          (conf<60?'<button class="ghost" id="pmfix" style="font-size:12px;padding:5px 10px;border-color:var(--amb);color:var(--amb)">✎ Fix this match</button>':'')+
+        '</div><div id="pmfixbox"></div></div>';
+    host.insertBefore(card, host.firstChild);
+    var im=$("#pmimg");
+    var co=$("#pmcallout"); if(co&&im) co.onclick=function(){ im.src=j.callout_url+'&t='+Date.now(); };
+    var fu=$("#pmfull"); if(fu&&im) fu.onclick=function(){ im.src=j.image_url+'&t='+Date.now(); };
+    var fx=$("#pmfix"); if(fx) fx.onclick=function(){ pmFixForm(j); };
+  }).catch(function(){});
+}
+function pmFixForm(j){
+  var box=$("#pmfixbox"); if(!box) return;
+  box.innerHTML='<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+    '<input id="pmnom" placeholder="correct nomenclature" value="'+esc(j.nomenclature||'')+'" style="font-size:12px;padding:5px 8px;width:200px">'+
+    '<input id="pmnsn" placeholder="NSN (optional)" value="'+esc(j.nsn||'')+'" style="font-size:12px;padding:5px 8px;width:150px">'+
+    '<button class="ghost" id="pmsave" style="font-size:12px;padding:5px 10px">Save</button></div>';
+  var sv=$("#pmsave"); if(sv) sv.onclick=function(){
+    fetch('/api/rpstl_override',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pn:(j.part_no||''),fields:{nomenclature:$("#pmnom").value,nsn:$("#pmnsn").value,doc_id:j.doc_id,page:j.page,item:j.item,fig_no:j.fig_no},by:'ui'})})
+      .then(function(r){return r.json();}).then(function(){ box.innerHTML='<div style="margin-top:6px;color:var(--grn);font-size:12px">Saved — your correction will show next search.</div>'; }).catch(function(){});
+  };
+}
+// Part# review overlay: bulk-fix OCR-noisy low-confidence rows.
+function openPnReview(){
+  var ov=$("#pnreview"); if(!ov) return; ov.style.display="flex";
+  var box=$("#pnrList"), cnt=$("#pnrCount"); box.innerHTML=''; cnt.textContent='loading…';
+  fetch('/api/rpstl_review?limit=300').then(function(r){return r.json();}).then(function(d){
+    if(d.note){ cnt.textContent=d.note; return; }
+    var its=d.items||[]; cnt.textContent=(d.total||its.length)+' low-confidence rows';
+    if(!its.length){ box.innerHTML='<div style="padding:12px;color:var(--sub);font-size:12px">Nothing to review — every parsed row is confident (or run BUILD-RPSTL.bat first).</div>'; return; }
+    var h='';
+    for(var i=0;i<its.length;i++){ var it=its[i]; var conf=Math.round((it.confidence||0)*100);
+      h+='<div class="pnr" data-i="'+i+'" style="padding:8px 10px;border-bottom:1px solid var(--line)">'+
+        '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center">'+
+        '<div style="min-width:0"><b style="font-size:13px">'+esc(it.part_no||'(no P/N)')+'</b> <span style="color:var(--sub);font-size:11px">conf '+conf+'% · item '+esc(String(it.item||'?'))+' · FIG '+esc(String(it.fig_no||'?'))+'</span>'+
+        '<div style="font-size:12px;color:var(--sub)">'+esc(it.nomenclature||'(name not parsed)')+(it.nsn?(' · '+esc(it.nsn)):'')+'</div></div>'+
+        '<div style="white-space:nowrap"><button class="ghost pnrOpen" data-doc="'+it.doc_id+'" data-pg="'+it.page+'" style="font-size:11px;padding:3px 8px">Open</button> '+
+        '<button class="ghost pnrFix" data-i="'+i+'" style="font-size:11px;padding:3px 8px">✎ Fix</button></div></div>'+
+        '<div class="pnrForm" id="pnrForm'+i+'"></div></div>';
+    }
+    box.innerHTML=h;
+    var op=box.querySelectorAll('.pnrOpen'); for(var a=0;a<op.length;a++){ op[a].onclick=function(){ $("#pnreview").style.display="none"; openViewer({doc_id:parseInt(this.getAttribute('data-doc'),10),page_number:parseInt(this.getAttribute('data-pg'),10)||1}); }; }
+    var fx=box.querySelectorAll('.pnrFix'); for(var b=0;b<fx.length;b++){ fx[b].onclick=function(){ var it=its[parseInt(this.getAttribute('data-i'),10)]; pnrFix(it); }; }
+  }).catch(function(){ cnt.textContent='could not load.'; });
+}
+function pnrFix(it){
+  var f=document.getElementById('pnrForm'+(it.__i!=null?it.__i:''));
+  // find the form container by part number row
+  var forms=document.querySelectorAll('.pnrForm'); var box=null;
+  // simplest: reuse a prompt-like inline form appended to its row via data
+  var host=event&&event.target?event.target.closest('.pnr'):null; if(!host) return;
+  var cont=host.querySelector('.pnrForm'); if(!cont) return;
+  cont.innerHTML='<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+    '<input class="pnrNom" placeholder="correct nomenclature" value="'+esc(it.nomenclature||'')+'" style="font-size:12px;padding:5px 8px;width:220px">'+
+    '<input class="pnrNsn" placeholder="NSN" value="'+esc(it.nsn||'')+'" style="font-size:12px;padding:5px 8px;width:150px">'+
+    '<button class="ghost pnrSave" style="font-size:12px;padding:5px 10px">Save</button></div>';
+  cont.querySelector('.pnrSave').onclick=function(){
+    fetch('/api/rpstl_override',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pn:(it.part_no||''),fields:{nomenclature:cont.querySelector('.pnrNom').value,nsn:cont.querySelector('.pnrNsn').value,doc_id:it.doc_id,page:it.page,item:it.item,fig_no:it.fig_no},by:'review'})})
+      .then(function(r){return r.json();}).then(function(){ cont.innerHTML='<div style="margin-top:6px;color:var(--grn);font-size:12px">Saved.</div>'; }).catch(function(){});
+  };
+}
+if($("#pnReviewBtn")) $("#pnReviewBtn").onclick=openPnReview;
+if($("#pnrClose")) $("#pnrClose").onclick=function(){ $("#pnreview").style.display="none"; };
+async function runSearch(q, autojump, mode){
+  LAST_QUERY=q;
+  if(!q.trim()){ loadHome(); return; }
+  try{
+    let url="/api/search?limit=30&q="+encodeURIComponent(q)+(MATCH_ANY?"&any=1":"")+(mode?("&mode="+mode):"")+(SIDE?("&side="+SIDE):"");
+    const r=await fetch(url);const d=await r.json();
+    ALL=d.results||[]; DYM=d.did_you_mean||[]; FILTER={vehicle:null,type:null,source:null}; renderResults(q);
+    renderSearchHints(d, q);            // v1.5: acronym-glossary expansion + fuzzy NSN 'did you mean'
+    renderPartMatch(q);                 // PART NUMBER -> show its correlative breakdown image up top
+    if(ALL.length) pushRecent(q);
+    if(autojump && ALL[0] && ALL[0].nsn_query){ if(ALL[0].nsn_kind==="vehicle") openVehicle(ALL[0].nsn_query); else openViewer(ALL[0]); }}
+  catch(err){$("#results").innerHTML='<div class="empty">Search error: '+esc(String(err))+'</div>';}
+}
+function classifyType(r){ var t=((r.tm_number||"")+" "+(r.title||"")).toUpperCase();
+  if(t.indexOf("MWO")>=0)return "MWO";
+  if(t.indexOf("TROUBLESHOOT")>=0)return "Troubleshooting";
+  if(/24P|20P|13&P|RPSTL|\bPARTS\b|\b-P\b/.test(t))return "Parts";
+  if(/\bLO\b|LUBRICAT/.test(t))return "Lubrication";
+  if(t.indexOf("SCHEMATIC")>=0||t.indexOf("WIRING")>=0)return "Schematics";
+  if(/-10\b|OPERATOR/.test(t))return "Operator";
+  if(/-20|-23|-24|-34|-40|MAINT/.test(t))return "Maintenance";
+  return "Other"; }
+function applyFilter(){ return ALL.filter(r=>
+  (!FILTER.vehicle||(r.vehicle||"?")===FILTER.vehicle) &&
+  (!FILTER.type||classifyType(r)===FILTER.type) &&
+  (!FILTER.source||(r.source||"text")===FILTER.source)); }
+function renderSearchHints(d, q){
+  // v1.5: a small bar ABOVE results — glossary acronym expansions + a fuzzy NSN 'did you mean'
+  // (grounded in PUBLOG). Purely additive; never touches ranking. Safe if fields are absent.
+  try{
+    const box=$("#results"); if(!box) return;
+    const ac=(d&&d.acronyms)||[], nd=(d&&d.nsn_did_you_mean)||[];
+    if(!ac.length && !nd.length) return;
+    let h='<div class="searchhints" style="margin:0 0 10px;padding:8px 12px;background:var(--panel,#171d26);border:1px solid var(--line,#2b333f);border-radius:8px;font-size:12.5px;color:var(--sub,#9aa6b6)">';
+    if(ac.length){ h+='<div>🔎 Also matching: '+ac.map(a=>'<b style="color:var(--txt,#e6e9ee)">'+esc(a.abbr)+'</b> = '+esc(a.full)).join(' &nbsp;·&nbsp; ')+'</div>'; }
+    if(nd.length){ h+='<div style="margin-top:'+(ac.length?'6px':'0')+'">🔢 Did you mean NSN: '+nd.map(x=>'<a href="#" class="nsndym" data-q="'+esc(x.niin)+'" style="color:var(--accent,#4f9dff);margin-right:10px">'+esc(x.nsn)+(x.item_name?(' <span style="color:var(--sub)">('+esc(x.item_name)+')</span>'):'')+'</a>').join('')+'</div>'; }
+    h+='</div>';
+    box.insertAdjacentHTML('afterbegin', h);
+    box.querySelectorAll('.nsndym').forEach(a=>{a.onclick=ev=>{ev.preventDefault();const nq=a.getAttribute('data-q');const inp=$("#q");if(inp)inp.value=nq;runSearch(nq,false);};});
+  }catch(e){}
+}
+function renderResults(q){ const box=$("#results");
+  if(!ALL.length){
+    // v0.97.0 (C20): offline "did you mean" — closest indexed terms, clickable, from the server.
+    let em='<div class="empty">No matches for “'+esc(q)+'”.';
+    if(DYM&&DYM.length){
+      em+='<div style="margin-top:8px">Did you mean: '+DYM.map(s=>'<a href="#" class="dym" data-q="'+esc(s)+'" style="color:var(--accent);margin-right:10px">'+esc(s)+'</a>').join("")+'</div>';
+    }
+    em+='</div>'; box.innerHTML=em;
+    box.querySelectorAll(".dym").forEach(a=>{a.onclick=ev=>{ev.preventDefault();const nq=a.getAttribute("data-q");const inp=$("#q");if(inp)inp.value=nq;runSearch(nq,false);};});
+    return;
+  }
+  const nq=ALL[0]&&ALL[0].nsn_query;
+  const vc={},tc={},sc={};
+  ALL.forEach(r=>{const v=r.vehicle||"?";vc[v]=(vc[v]||0)+1;const t=classifyType(r);tc[t]=(tc[t]||0)+1;const s=(r.source||"text");sc[s]=(sc[s]||0)+1;});
+  const shown=applyFilter();
+  const l4=ALL[0]&&ALL[0].last4_query;
+  let html="";
+  if(l4){
+    html+='<div class="nsnbanner"><span class="k">LAST-4</span> <b>•'+esc(l4)+'</b> <span style="color:var(--sub)">— '+ALL.length+' manual'+(ALL.length===1?'':'s')+' whose cover / end-item NSN ends in '+esc(l4)+'</span>'+
+      '<button class="ghost" id="l4all">Search all manuals for '+esc(l4)+'</button></div>';
+  } else if(nq){const kind=ALL[0].nsn_kind==="vehicle"?"Vehicle / end-item":"Part";
+    html+='<div class="nsnbanner"><span class="k">NSN</span> <b>'+esc(nq)+'</b> <span style="color:var(--sub)">— '+kind+'</span>'+
+      (ALL[0].nsn_kind==="vehicle"?'<button class="go" id="nsnhub">View full vehicle breakdown</button>':'')+'</div>';}
+  const vkeys=Object.keys(vc), anyF=FILTER.vehicle||FILTER.type||FILTER.source;
+  html+='<div class="fbar"><span class="fcount">'+shown.length+' of '+ALL.length+' · '+vkeys.length+' vehicle'+(vkeys.length===1?'':'s')+'</span>';
+  if(anyF) html+='<span class="fchip on" data-f="reset">✕ Clear</span>';
+  vkeys.sort((a,b)=>vc[b]-vc[a]).slice(0,6).forEach(v=>{html+='<span class="fchip'+(FILTER.vehicle===v?' on':'')+'" data-fv="'+esc(v)+'">'+esc(v)+' '+vc[v]+'</span>';});
+  Object.keys(tc).sort((a,b)=>tc[b]-tc[a]).forEach(t=>{html+='<span class="fchip'+(FILTER.type===t?' on':'')+'" data-ft="'+esc(t)+'">'+esc(t)+' '+tc[t]+'</span>';});
+  if(sc.ocr&&sc.text){["text","ocr"].forEach(s=>{html+='<span class="fchip'+(FILTER.source===s?' on':'')+'" data-fs="'+s+'">'+(s==="ocr"?"OCR":"Text")+' '+(sc[s]||0)+'</span>';});}
+  html+='</div><div id="rlist"></div>';
+  box.innerHTML=html;
+  if(l4){const lb=$("#l4all");if(lb)lb.onclick=()=>runSearch(l4,false,"text");}
+  if(nq&&ALL[0].nsn_kind==="vehicle"){const hb=$("#nsnhub");if(hb)hb.onclick=()=>openVehicle(nq);}
+  box.querySelectorAll(".fchip").forEach(c=>{c.onclick=()=>{
+    if(c.getAttribute("data-f")==="reset")FILTER={vehicle:null,type:null,source:null};
+    else if(c.hasAttribute("data-fv")){const v=c.getAttribute("data-fv");FILTER.vehicle=FILTER.vehicle===v?null:v;}
+    else if(c.hasAttribute("data-ft")){const t=c.getAttribute("data-ft");FILTER.type=FILTER.type===t?null:t;}
+    else if(c.hasAttribute("data-fs")){const s=c.getAttribute("data-fs");FILTER.source=FILTER.source===s?null:s;}
+    renderResults(q);};});
+  renderList(shown);
+}
+function renderList(rows){ const box=$("#rlist"); if(!box)return;
+  if(!rows.length){box.innerHTML='<div class="empty">No results match the active filter.</div>';return;}
+  box.innerHTML="";
+  rows.forEach(r=>{const d=document.createElement("div");d.className="result";
+    const snip=esc(r.snip||"").replaceAll("&lt;&lt;","<mark>").replaceAll("&gt;&gt;","</mark>");
+    d.innerHTML='<div class="meta"><span class="badge vbadge" title="Open vehicle breakdown">'+esc(r.vehicle||"?")+'</span>'+
+      (r.boosted?'<span class="badge fav" title="Requested before">★ requested</span>':'')+
+      '<span class="badge ty">'+esc(classifyType(r))+'</span>'+
+      (r.tm_number?'<span class="badge tm">'+esc(r.tm_number)+'</span>':'')+
+      (r.nsn?'<span class="badge">NSN '+esc(r.nsn)+'</span>':'')+
+      '<span class="badge pg">p.'+(r.page_number||"?")+'</span>'+
+      (r.source==="ocr"?'<span class="badge ocr">OCR</span>':'')+'</div>'+
+      '<div class="snip">'+snip+'</div>'+
+      '<div class="rowbtns"><button class="ghost vbtn">📄 View page</button><button class="ghost abtn">+ Add to request</button></div>';
+    d.querySelector(".vbtn").onclick=ev=>{ev.stopPropagation();openViewer(r);};
+    var vb=d.querySelector(".vbadge"); if(vb&&r.vehicle){vb.style.cursor="pointer";vb.onclick=ev=>{ev.stopPropagation();openVehicle(r.vehicle);};}
+    d.querySelector(".abtn").onclick=ev=>{ev.stopPropagation();addItem(r);};
+    // background tagging: a quiet pencil marks an NSN-bearing result as tag-able (your words feed search)
+    if(r.nsn && window.Tagger){ const tg=Tagger.button({nsn:r.nsn, name:(r.item_name||"")}); const rb=d.querySelector(".rowbtns"); if(rb) rb.appendChild(tg); }
+    d.onclick=()=>openViewer(r);
+    // Hover-prefetch: warm the page render the moment the cursor lands on a result, so the click opens
+    // instantly (served from browser cache + the server's page-render disk cache). Debounced + de-duped.
+    var _pfT=0;
+    d.addEventListener("mouseenter",function(){ _pfT=setTimeout(function(){ prefetchResult(r); },120); });
+    d.addEventListener("mouseleave",function(){ if(_pfT) clearTimeout(_pfT); });
+    box.appendChild(d);});
+}
+// Prefetch the exact /page URL openViewer→loadPage will request for this result (default zoom, default
+// highlight). Each (doc,page) is fetched at most once per session; a hidden Image() primes the HTTP cache.
+var _PREFETCHED={};
+function prefetchResult(r){
+  if(!r||!r.doc_id) return;
+  var page=r.page_number||1, dpi=DPIS[2];
+  var hl=""; if(VIEWER_DEF_HL){ var q=(LAST_QUERY||"").replace(/<<|>>/g,"").trim(); if(q.length>=3) hl="&hl="+encodeURIComponent(q); }
+  var url="/page?doc="+r.doc_id+"&page="+page+"&dpi="+dpi+hl;
+  if(_PREFETCHED[url]) return; _PREFETCHED[url]=1;
+  try{ var im=new Image(); im.decoding="async"; im.src=url; }catch(e){}
+}
+
+// ---- document viewer ----
+function curDpi(){return DPIS[VIEW.zi];}
+function hlTerm(){ if(window.VFIND && VFIND.term) return VFIND.term; if(!VIEW.hl)return ""; var q=(LAST_QUERY||"").replace(/<<|>>/g,"").trim(); return q.length<3?"":q; }
+var VFIND={term:"",list:[],idx:-1,total:0};
+function findInDoc(term){
+  term=(term||"").trim(); VFIND.term=term; VFIND.list=[]; VFIND.idx=-1; VFIND.total=0;
+  if(!term||!VIEW.doc){ var n=$("#vfindn"); if(n)n.textContent=""; loadPage(); return; }
+  fetch("/api/findindoc?doc="+VIEW.doc+"&q="+encodeURIComponent(term)).then(function(r){return r.json();}).then(function(j){
+    VFIND.list=j.matches||[]; VFIND.total=j.total||0; var n=$("#vfindn");
+    if(!VFIND.list.length){ if(n)n.textContent="no matches"; loadPage(); return; }
+    jumpMatch(0);
+  }).catch(function(){});
+}
+function jumpMatch(i){ if(!VFIND.list.length)return;
+  VFIND.idx=((i%VFIND.list.length)+VFIND.list.length)%VFIND.list.length;
+  var m=VFIND.list[VFIND.idx]; VIEW.page=m.page;
+  var n=$("#vfindn"); if(n)n.textContent="pg "+(VFIND.idx+1)+"/"+VFIND.list.length+" · "+VFIND.total+" hit"+(VFIND.total===1?"":"s");
+  loadPage();
+}
+async function openViewer(r){
+  VIEW={doc:r.doc_id,page:r.page_number||1,pages:r.page_count||1,meta:r,snip:r.snip||"",zi:2,hl:VIEWER_DEF_HL,thumbs:VIEWER_DEF_THUMBS};
+  VFIND={term:"",list:[],idx:-1,total:0}; var _vf=$("#vfind"); if(_vf)_vf.value=""; var _vfn=$("#vfindn"); if(_vfn)_vfn.textContent="";
+  $("#vhl").classList.toggle("on",VIEW.hl);
+  $("#vthumbs").classList.toggle("on",VIEW.thumbs);$("#vthumbtg").classList.toggle("on",VIEW.thumbs);
+  THUMB={lo:0,hi:0};
+  try{const m=await (await fetch("/api/doc?id="+r.doc_id)).json();VIEW.meta=Object.assign({},r,m);VIEW.pages=m.page_count||VIEW.pages;}catch(e){}
+  // Phase 2: chapter-level routing inside combined manuals. With a side active, open a combined manual to
+  // that side's first chapter (only when opened generically, i.e. not landing on a specific search hit).
+  VIEW.chapters=null;
+  if(SIDE==="operator"||SIDE==="mechanic"){
+    try{
+      var ci=await (await fetch("/api/chapters?doc="+r.doc_id)).json();
+      VIEW.chapters=ci;
+      if(ci&&ci.combined&&ci.has_chapters){
+        var landing=(SIDE==="operator")?ci.operator_page:ci.mechanic_page;
+        var generic=(!r.page_number||r.page_number<=1);
+        if(generic&&landing){ VIEW.page=landing; }
+      }
+    }catch(e){ VIEW.chapters=null; }
+  }
+  $("#viewer").style.display="flex";loadPage();renderSchematics();renderChapterBanner();
+}
+// Slim banner inside the viewer's side panel: which section you're in + a jump to the other side's section.
+function renderChapterBanner(){
+  var ci=VIEW.chapters, side=$("#vside"); if(!side) return;
+  if(!ci||!ci.combined||!ci.has_chapters) return;
+  var ranges=ci.ranges||[], cur=null;
+  for(var i=0;i<ranges.length;i++){ if(VIEW.page>=ranges[i].start&&VIEW.page<=ranges[i].end){ cur=ranges[i]; break; } }
+  var curSide=cur?cur.side:SIDE;
+  var label=(curSide==="operator")?"Operator section":(curSide==="mechanic")?"Maintenance section":"General section";
+  var other=(curSide==="operator")?"mechanic":"operator";
+  var otherPg=(other==="operator")?ci.operator_page:ci.mechanic_page;
+  var otherLbl=(other==="operator")?"Operator":"Maintenance";
+  var h='<div class="sh-h" style="background:rgba(79,157,255,.10);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px">'+
+        '📖 <b>'+label+'</b>'+(cur?(' <span style="color:var(--sub);font-size:11px">p.'+cur.start+'–'+cur.end+'</span>'):'')+
+        ' <span style="color:var(--sub);font-size:11px">· combined manual</span>';
+  if(otherPg){ h+='<div style="margin-top:6px"><button class="ghost" id="chapOther" data-pg="'+otherPg+'" style="font-size:12px;padding:5px 10px">This book also has a '+otherLbl+' section →</button></div>'; }
+  // Precise fix: pin the CURRENT page as a side's section start (you're looking right at it).
+  h+='<div style="margin-top:6px;font-size:11px;color:var(--sub)">Wrong split? Pin this page (p.'+VIEW.page+') as a section start:</div>'+
+     '<div style="margin-top:3px"><button class="ghost chapPin" data-s="operator" style="font-size:11px;padding:3px 7px">⚲ Operator start</button> '+
+     '<button class="ghost chapPin" data-s="mechanic" style="font-size:11px;padding:3px 7px">⚲ Maintenance start</button></div>';
+  h+='</div>';
+  side.innerHTML=h+side.innerHTML;
+  var ob=$("#chapOther"); if(ob){ ob.onclick=function(){ VIEW.page=parseInt(this.getAttribute("data-pg"),10)||1; loadPage(); renderChapterBanner(); }; }
+  var pins=side.querySelectorAll(".chapPin");
+  for(var i=0;i<pins.length;i++){ pins[i].onclick=function(){ pinChapter(VIEW.doc, this.getAttribute("data-s"), VIEW.page); }; }
+}
+function pinChapter(docId, side, page){
+  fetch("/api/chapter_override",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({doc_id:docId,side:side,page:page})}).then(function(r){return r.json();})
+    .then(function(){ // refresh ranges so the banner reflects the new landing
+      fetch("/api/chapters?doc="+docId).then(function(r){return r.json();}).then(function(ci){ VIEW.chapters=ci; renderChapterBanner();
+        var hint=$("#hint"); if(hint) hint.textContent="Pinned p."+page+" as the "+side+" section start."; }).catch(function(){});
+    }).catch(function(){});
+}
+async function renderSchematics(){
+  const m=VIEW.meta||{}, side=$("#vside"), snip=VIEW.snip||"";
+  const figs=[...new Set((snip.match(/FIG(?:URE)?\.?\s*\d+/gi)||[]).map(x=>x.toUpperCase().replace(/\s+/g," ")))];
+  const locm=snip.replace(/<<|>>/g,"").match(/[^.\n]*\b(INSTALL|LOCAT|MOUNT)[A-Za-z]*[^.\n]*/i);
+  let html='<div class="sh-h">SCHEMATICS &amp; INSTALL</div>';
+  if(figs.length) html+='<div class="sh-row"><div class="sh-k">Cited figure</div><div class="sh-v">'+figs.map(f=>'<span class="sh-fig">'+esc(f)+'</span>').join("")+'</div></div>';
+  if(locm) html+='<div class="sh-row"><div class="sh-k">Install / location (verbatim)</div><div class="sh-v">'+esc(locm[0].trim().slice(0,180))+'</div></div>';
+  html+='<div class="sh-row"><div class="sh-k">Vehicle schematics</div><div id="sh-list" class="sh-v">loading…</div></div>';
+  html+='<div class="sh-note">A graphic is always available: the page shown, plus the vehicle schematic set. Figure/location text is verbatim from '+esc(m.tm_number||m.filename||"the manual")+' — never invented.</div>';
+  side.innerHTML=html;
+  try{
+    const h=await (await fetch("/api/vehicle?key="+encodeURIComponent(m.vehicle||""))).json();
+    const grp=(h.groups||[]).find(g=>g[0].indexOf("Schematic")>=0);
+    const docs=grp?grp[1]:[]; const list=$("#sh-list");
+    if(docs.length){ list.innerHTML=docs.slice(0,30).map(d=>'<button class="ghost sh-doc" data-doc="'+d.doc_id+'">📐 '+esc(d.filename||("doc "+d.doc_id))+'</button>').join("");
+      list.querySelectorAll(".sh-doc").forEach(b=>b.onclick=()=>openViewer({doc_id:parseInt(b.getAttribute("data-doc")),page_number:1})); }
+    else { list.innerHTML='<span style="color:var(--sub);font-size:11px">No dedicated schematic file for this vehicle — the manual page is the reference.</span>'; }
+  }catch(e){ const l=$("#sh-list"); if(l) l.textContent="(schematics unavailable)"; }
+}
+let VP={clean:false,contrast:0,tilt:0,tiltx:0,flip:false,hd:false,loupe:false,callouts:false,zoom:1,zoomOrigin:'50% 50%',_callouts:null};
+function applyTilt(img){
+  img.style.transition='transform .1s ease-out';
+  const parts=[];
+  if(VP.zoom && VP.zoom!==1) parts.push('scale('+VP.zoom.toFixed(3)+')');
+  if(VP.tilt||VP.tiltx) parts.push('perspective(1500px)');
+  if(VP.tilt) parts.push('rotateY('+VP.tilt+'deg)');
+  if(VP.tiltx) parts.push('rotateX('+VP.tiltx+'deg)');
+  if(VP.flip) parts.push('scaleX(-1)');   // mirror = orientation aid (working from the opposite side)
+  // zoom toward the cursor (no tilt active); otherwise scale about the centre
+  img.style.transformOrigin=(VP.zoom>1 && !VP.tilt && !VP.tiltx)?VP.zoomOrigin:'50% 50%';
+  img.style.transform=parts.join(' ');
+  updateZoomLabel();
+  mirrorLabels(img);
+  if(VP.callouts) placeCallouts();
+}
+function updateZoomLabel(){ const el=$("#vzoom"); if(el) el.textContent=Math.round(curDpi()/150*100*(VP.zoom||1))+"%"; }
+function setZoom(z,originPct){
+  VP.zoom=Math.max(1,Math.min(4,Math.round(z*100)/100));
+  if(originPct) VP.zoomOrigin=originPct;
+  const sl=$("#vzoomsl"); if(sl) sl.value=Math.round(VP.zoom*100);
+  const img=$("#vstage").querySelector("img"); if(img) applyTilt(img);
+}
+// Mirror-mode readable labels: on text pages, re-draw each word un-mirrored at its mirrored position
+// so labels stay readable while the drawing is flipped. OCR-gated — empty on image-only pages.
+function mirrorLabels(img){
+  let ov=$("#vlabels");
+  if(!VP.flip){ if(ov) ov.remove(); return; }
+  if(!ov){ ov=document.createElement("div"); ov.id="vlabels";
+    ov.style.cssText="position:absolute;pointer-events:none;z-index:6;overflow:hidden"; img.parentNode.appendChild(ov); }
+  const place=()=>{ const r=img.getBoundingClientRect(), pr=img.parentNode.getBoundingClientRect();
+    ov.style.left=(r.left-pr.left)+"px"; ov.style.top=(r.top-pr.top)+"px"; ov.style.width=r.width+"px"; ov.style.height=r.height+"px";
+    const W=r.width, H=r.height, words=VP._words||[];
+    ov.innerHTML="";
+    for(const w of words){ const bw=(w.x1-w.x0)*W, bh=(w.y1-w.y0)*H; if(bh<4) continue;
+      const d=document.createElement("div");
+      d.textContent=w.t;
+      d.style.cssText="position:absolute;left:"+((1-w.x1)*W)+"px;top:"+(w.y0*H)+"px;width:"+bw+"px;height:"+bh+"px;"
+        +"font-size:"+Math.max(8,Math.min(bh*0.9,22))+"px;line-height:"+bh+"px;white-space:nowrap;overflow:hidden;"
+        +"color:#0a0e12;background:rgba(255,255,255,.92);font-family:Arial,Helvetica,sans-serif";
+      ov.appendChild(d); }
+  };
+  if(VP._words){ place(); }
+  else { fetch("/api/pagewords?doc="+VIEW.doc+"&page="+VIEW.page).then(r=>r.json()).then(j=>{ VP._words=j.words||[]; if(VP.flip) place(); }).catch(()=>{}); }
+}
+// ---- OCR-driven callouts: clickable part#/NSN/figure markers found in THIS page's text -------------
+// A floating chip bar (always reliable, works on OCR-only pages too) plus positioned hotspot dots when
+// the page has a text layer with locatable word boxes. Read-only: one /api/callouts fetch per page.
+function calloutAct(c){
+  // Figure callouts -> find/jump in the manual. NSN / part# -> the streamlined assets drawer.
+  if(c.kind==="fig"){ if(c.find){ const fi=$("#vfind"); if(fi) fi.value=c.find; findInDoc(c.find); } else if(c.url){ window.open(c.url,"_blank"); } return; }
+  openPartDrawer(c);
+}
+function calloutColor(k){ return k==="nsn"?"#4f9dff":(k==="part"?"#caa24a":"#2f9e6a"); }
+function placeCallouts(){
+  const img=$("#vstage").querySelector("img"); const ov=$("#vcallout"); if(!img||!ov) return;
+  const r=img.getBoundingClientRect(), pr=img.parentNode.getBoundingClientRect();
+  ov.style.left=(r.left-pr.left)+"px"; ov.style.top=(r.top-pr.top)+"px"; ov.style.width=r.width+"px"; ov.style.height=r.height+"px";
+  const W=r.width, H=r.height, cs=(VP._callouts||[]).filter(c=>c.box); ov.innerHTML="";
+  cs.forEach((c,i)=>{ const cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2;
+    const px=(VP.flip?(1-cx):cx)*W, py=cy*H;
+    const d=document.createElement("div"); d.title=c.label;
+    d.style.cssText="position:absolute;left:"+(px-9)+"px;top:"+(py-9)+"px;width:18px;height:18px;border-radius:50%;"
+      +"background:"+calloutColor(c.kind)+";color:#0a0e12;font:700 10px/18px Arial;text-align:center;cursor:pointer;"
+      +"pointer-events:auto;box-shadow:0 1px 6px rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.85)";
+    d.textContent=(i+1); d.onclick=ev=>{ ev.stopPropagation(); calloutAct(c); };
+    ov.appendChild(d); });
+}
+function renderCallouts(){
+  const stage=$("#vstage"); if(!stage) return;
+  let ov=$("#vcallout"); if(!ov){ ov=document.createElement("div"); ov.id="vcallout";
+    ov.style.cssText="position:absolute;pointer-events:none;z-index:7;overflow:hidden"; stage.appendChild(ov); }
+  let bar=$("#vcalloutbar"); if(!bar){ bar=document.createElement("div"); bar.id="vcalloutbar";
+    bar.style.cssText="position:absolute;left:8px;top:8px;right:8px;z-index:8;display:flex;gap:6px;flex-wrap:wrap;"
+      +"max-height:84px;overflow:auto;padding:6px;border-radius:9px;background:rgba(15,20,25,.82);backdrop-filter:blur(3px)";
+    stage.appendChild(bar); }
+  const build=cs=>{
+    bar.innerHTML="";
+    if(!cs.length){ bar.innerHTML='<span style="color:var(--sub);font-size:11px;padding:2px 4px">No part #, NSN or figure callouts detected in this page\'s text'+((VP._calloutsMeta&&!VP._calloutsMeta.has_text&&VP._calloutsMeta.source!=="ocr")?" (no text layer yet — will appear once OCR reaches this page)":"")+'.</span>'; }
+    cs.forEach((c,i)=>{ const chip=document.createElement("button");
+      chip.style.cssText="border:1px solid "+calloutColor(c.kind)+";color:var(--txt);background:rgba(0,0,0,.25);border-radius:9px;"
+        +"padding:2px 8px;font-size:11px;cursor:pointer;white-space:nowrap";
+      chip.innerHTML='<b style="color:'+calloutColor(c.kind)+'">'+(c.box?(i+1)+" · ":"")+'</b>'+esc(c.label)+(c.url?' ↗':' 🔎');
+      chip.title=c.kind==="fig"?("Find “FIG "+c.text+"” in this manual"):(c.kind==="nsn"?"Open the part dossier":"Open Look-Alike Parts");
+      chip.onclick=()=>calloutAct(c); bar.appendChild(chip); });
+    placeCallouts();
+  };
+  if(VP._callouts){ build(VP._callouts); return; }
+  fetch("/api/callouts?doc="+VIEW.doc+"&page="+VIEW.page).then(r=>r.json()).then(j=>{
+    VP._callouts=j.callouts||[]; VP._calloutsMeta={has_text:j.has_text,source:j.source}; if(VP.callouts) build(VP._callouts);
+  }).catch(()=>{});
+}
+function clearCallouts(){ const ov=$("#vcallout"); if(ov) ov.remove(); const bar=$("#vcalloutbar"); if(bar) bar.remove(); }
+
+// ===== Streamlined part-assets drawer: number on a page -> matching results -> figure / live 3-D / pages =====
+var PD={cur:null, pendingHL:null};
+function pdClose(){ const d=$("#partdrawer"); if(d) d.classList.remove("on"); clearSearchHL(); if(window.PartView) PartView.dispose($("#pd_3d")); }
+if($("#pd_close")) $("#pd_close").onclick=pdClose;
+function _digits(t){ var m=(t||'').match(/\d[\d\- ]{8,}\d/); return m?m[0].replace(/[^\d]/g,''):''; }
+function _fmtNSN(d){ d=(d||'').replace(/[^\d]/g,''); return d.length>=13?(d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,9)+'-'+d.slice(9,13)):d; }
+function openPartDrawer(c){
+  const d=$("#partdrawer"); if(!d) return; d.classList.add("on");
+  $("#pd_kind").className="pd-badge "+(c.kind==="part"?"part":"");
+  $("#pd_kind").textContent=(c.kind==="part"?"PART #":"NSN");
+  $("#pd_num").textContent=c.label||c.text||"";
+  $("#pd_assets").style.display="none";
+  $("#pd_results").innerHTML='<div class="muted" style="font-size:12px">Searching…</div>';
+  if(c.box) drawSearchHL([c.box]);              // highlight the searched number on the current page
+  if(c.kind==="part"){
+    fetch("/api/part_by_number?pn="+encodeURIComponent(c.text||c.label||"")).then(r=>r.json()).then(j=>{
+      var rows=(j&&(j.matches||j.items||(j.found?[j]:[])))||[]; pdRenderMatches(rows,c);
+    }).catch(()=>pdRenderMatches([],c));
+  } else {
+    var nsn=_fmtNSN(_digits(c.text||c.label||""))||(c.text||c.label||"");
+    fetch("/api/part_record?nsn="+encodeURIComponent(nsn)).then(r=>r.json()).then(j=>{
+      var rec=(j&&(j.record||j))||{}; var name=rec.nomenclature||rec.item_name||rec.name||rec.ocr_nomenclature||"";
+      pdRenderMatches([{nsn:(rec.nsn||nsn),name:name,characteristics:rec.characteristics||rec.chars||"",
+        part_no:rec.part_no||rec.part_number||"",image_url:rec.image_url||""}],c);
+    }).catch(()=>pdRenderMatches([{nsn:nsn,name:""}],c));
+  }
+}
+function pdRenderMatches(rows,c){
+  var box=$("#pd_results");
+  if(!rows.length){ box.innerHTML='<div class="muted" style="font-size:12px">No catalogued match for this number.</div>'; $("#pd_assets").style.display="none"; return; }
+  box.innerHTML="";
+  rows.forEach(function(m){
+    var nsn=m.nsn||m.NSN||"", name=m.name||m.item_name||m.nomenclature||"(unnamed part)", pn=m.part_no||m.part_number||"";
+    var row=document.createElement("div"); row.className="pd-row";
+    row.innerHTML='<div style="min-width:0"><div class="ti">'+esc(name)+'</div><div class="me">'+esc(_fmtNSN(nsn)||nsn)+(pn?(' · P/N '+esc(pn)):'')+'</div></div>';
+    row.onclick=function(){ var rr=box.querySelectorAll(".pd-row"); for(var k=0;k<rr.length;k++) rr[k].classList.remove("sel"); row.classList.add("sel"); pdSelect(m,c); };
+    box.appendChild(row);
+  });
+  if(rows.length===1) box.querySelector(".pd-row").click();
+}
+function pdSelect(m,c){
+  $("#pd_assets").style.display="block";
+  var nsn=m.nsn||m.NSN||"", name=m.name||m.item_name||m.nomenclature||"", chars=m.characteristics||m.chars||"";
+  var fig=$("#pd_fig"); fig.innerHTML='<span class="muted" style="font-size:11px">loading figure…</span>';
+  function showFig(url){ if(!url){ fig.innerHTML='<span class="muted" style="font-size:11px">No figure crop for this part.</span>'; return; }
+    var im=new Image(); im.onload=function(){ fig.innerHTML=""; fig.appendChild(im); if(window.Loupe) Loupe.attach(im,{mag:2.8}); };
+    im.onerror=function(){ fig.innerHTML='<span class="muted" style="font-size:11px">No figure crop for this part.</span>'; }; im.src=url; }
+  var imgUrl=m.image_url||m.img||m.url||"";
+  if(imgUrl) showFig(imgUrl);
+  else if(nsn) fetch("/api/part_image?nsn="+encodeURIComponent(nsn)).then(r=>r.json()).then(j=>showFig(j&&j.found?j.url:"")).catch(()=>showFig(""));
+  else showFig("");
+  if(window.PartView){ try{ PartView.render($("#pd_3d"),{name:name,chars:chars,nsn:nsn}); }catch(e){} }
+  var ps=$("#pd_pages"), psec=$("#pd_pages_sec"); ps.innerHTML=""; psec.style.display="none";
+  if(nsn){ fetch("/api/threed_refs?nsn="+encodeURIComponent(nsn)+(m.part_no?("&part="+encodeURIComponent(m.part_no)):"")).then(r=>r.json()).then(j=>{
+    var pages=(j&&j.pages)||[]; if(!pages.length) return; psec.style.display="block";
+    pages.slice(0,12).forEach(function(pg){ var cell=document.createElement("div"); cell.className="pd-pg";
+      var im=new Image(); im.src="/page?doc="+pg.doc_id+"&page="+pg.page_number+"&dpi=80"; im.title=(pg.tm_number||("doc "+pg.doc_id))+" p."+pg.page_number;
+      cell.appendChild(im); var cap=document.createElement("div"); cap.className="cap"; cap.textContent="p."+pg.page_number; cell.appendChild(cap);
+      cell.onclick=function(){ PD.pendingHL={nsn:nsn,pn:(m.part_no||"")}; openViewer({doc_id:pg.doc_id,page_number:pg.page_number}); };
+      ps.appendChild(cell); });
+  }).catch(()=>{}); }
+  $("#pd_dossier").onclick=function(){ if(nsn) window.open("/dossier?nsn="+encodeURIComponent(nsn),"_blank"); };
+  $("#pd_3dlib").onclick=function(){ window.open("/3d?q="+encodeURIComponent(nsn||name),"_blank"); };
+  $("#pd_stl").onclick=function(){ if(nsn) window.location="/cadstl?nsn="+encodeURIComponent(nsn); };
+  $("#pd_cadpng").onclick=function(){ if(nsn) window.open("/cadimg?nsn="+encodeURIComponent(nsn),"_blank"); };
+  PD.cur={nsn:nsn,name:name};
+}
+// highlight rectangles over normalized [x0,y0,x1,y1] boxes on the current page
+function drawSearchHL(boxes){
+  var stage=$("#vstage"), img=stage&&stage.querySelector("img"); if(!img||!boxes) return;
+  clearSearchHL();
+  var r=img.getBoundingClientRect(), pr=img.parentNode.getBoundingClientRect();
+  boxes.forEach(function(b){ if(!b||b.length<4) return;
+    var x0=(VP.flip?(1-b[2]):b[0]), x1=(VP.flip?(1-b[0]):b[2]);
+    var left=(r.left-pr.left)+Math.min(x0,x1)*r.width, top=(r.top-pr.top)+b[1]*r.height;
+    var w=Math.abs(x1-x0)*r.width, h=(b[3]-b[1])*r.height;
+    var d=document.createElement("div"); d.className="vsearchhl";
+    d.style.cssText="position:absolute;pointer-events:none;z-index:9;border:2px solid #caa24a;border-radius:5px;"
+      +"background:rgba(202,162,74,.16);box-shadow:0 0 14px 3px rgba(202,162,74,.6);left:"+left+"px;top:"+top+"px;width:"+(w||14)+"px;height:"+(h||14)+"px";
+    stage.appendChild(d); });
+}
+function clearSearchHL(){ var stage=$("#vstage"); if(!stage) return; var hs=stage.querySelectorAll(".vsearchhl"); for(var i=0;i<hs.length;i++) hs[i].remove(); }
+// after a page loads, if a part highlight is pending (from the drawer), find its callout box and highlight it
+function pdAfterPageLoad(){
+  if(!PD.pendingHL) return; var want=PD.pendingHL; PD.pendingHL=null;
+  var wn=(want.nsn||"").replace(/[^\d]/g,""), wp=(want.pn||"").toUpperCase();
+  fetch("/api/callouts?doc="+VIEW.doc+"&page="+VIEW.page).then(r=>r.json()).then(j=>{
+    var cs=(j&&j.callouts)||[]; var hit=cs.filter(function(c){ if(!c.box) return false;
+      var ct=(c.text||"").replace(/[^\d]/g,""), cl=(c.text||"").toUpperCase();
+      return (wn&&ct&&ct.indexOf(wn)>=0)||(wp&&cl.indexOf(wp)>=0); }).map(function(c){return c.box;});
+    if(hit.length){ drawSearchHL(hit); if(!VP.callouts){ VP.callouts=true; $("#vcallouts").classList.add("on"); renderCallouts(); } }
+  }).catch(()=>{});
+}
+function loadPage(){
+  const m=VIEW.meta||{};
+  $("#vtitle").innerHTML='<b>'+esc(m.filename||m.title||("doc "+VIEW.doc))+'</b> &nbsp; <span>'+esc(m.vehicle||"")+(m.tm_number?" · "+esc(m.tm_number):"")+'</span>';
+  $("#vpage").value=VIEW.page; $("#vpages").textContent=VIEW.pages?(" / "+VIEW.pages):"";
+  $("#vzoom").textContent=Math.round(curDpi()/150*100)+"%";
+  $("#vstage").innerHTML='<div class="ld">Loading page '+VIEW.page+'…</div>';
+  $("#vstage").style.position="relative";
+  VP._words=null; VP._callouts=null; VP._calloutsMeta=null;   // new page -> refetch label/callout boxes
+  VP.zoom=1; VP.zoomOrigin='50% 50%'; const _zsl=$("#vzoomsl"); if(_zsl) _zsl.value=100;   // reset zoom per page
+  const hl=hlTerm(), hlq=hl?("&hl="+encodeURIComponent(hl)):"";
+  const clq=VP.clean?("&clean=1&contrast="+VP.contrast):"";
+  const eff=VP.hd?Math.min(400,Math.max(300,curDpi()*2)):curDpi();   // HD: render from lossless source at high DPI
+  const img=new Image();
+  img.onload=()=>{$("#vstage").innerHTML="";applyTilt(img);$("#vstage").appendChild(img);applyTilt(img); clearSearchHL(); if(VP.callouts) renderCallouts(); pdAfterPageLoad();};
+  img.onerror=()=>{$("#vstage").innerHTML='<div class="ld">This page can\'t be rendered (the source file may be an image set, not a PDF).</div>';};
+  img.src="/page?doc="+VIEW.doc+"&page="+VIEW.page+"&dpi="+eff+hlq+clq;
+  buildThumbs();
+}
+$("#vclean").onclick=()=>{VP.clean=!VP.clean;$("#vclean").classList.toggle("on",VP.clean);loadPage();};
+$("#vcontrast").oninput=e=>{VP.contrast=parseInt(e.target.value)||0; if(VP.clean) loadPage();};
+$("#vtilt").oninput=e=>{VP.tilt=parseInt(e.target.value)||0; const img=$("#vstage").querySelector("img"); if(img) applyTilt(img);};
+$("#vtiltx").oninput=e=>{VP.tiltx=parseInt(e.target.value)||0; const img=$("#vstage").querySelector("img"); if(img) applyTilt(img);};
+$("#vflip").onclick=()=>{VP.flip=!VP.flip;$("#vflip").classList.toggle("on",VP.flip); const img=$("#vstage").querySelector("img"); if(img) applyTilt(img);};
+$("#vhd").onclick=()=>{VP.hd=!VP.hd;$("#vhd").classList.toggle("on",VP.hd);loadPage();};
+$("#vzoomsl").oninput=e=>{ setZoom(parseInt(e.target.value)/100); };
+// Reset the image: clear every moveable transform (tilt X/Y, mirror, zoom) back to the default view.
+function resetView(){
+  VP.tilt=0; VP.tiltx=0; VP.flip=false; VP.zoom=1; VP.zoomOrigin='50% 50%';
+  const a=$("#vtilt"); if(a) a.value=0;
+  const b=$("#vtiltx"); if(b) b.value=0;
+  const z=$("#vzoomsl"); if(z) z.value=100;
+  const f=$("#vflip"); if(f) f.classList.remove("on");
+  const img=$("#vstage").querySelector("img"); if(img) applyTilt(img);
+}
+$("#vreset").onclick=resetView;
+// Scroll-to-zoom over the page (only when the loupe is OFF): zooms toward the spot under the cursor.
+(function(){ const stage=$("#vstage"); if(!stage) return;
+  stage.addEventListener("wheel",e=>{
+    if(VP.loupe) return;                       // the loupe has its own wheel (magnification)
+    const img=stage.querySelector("img"); if(!img) return;
+    e.preventDefault();
+    const r=img.getBoundingClientRect();
+    const ox=Math.max(0,Math.min(100,((e.clientX-r.left)/r.width)*100));
+    const oy=Math.max(0,Math.min(100,((e.clientY-r.top)/r.height)*100));
+    setZoom(VP.zoom + (e.deltaY<0?0.2:-0.2), ox.toFixed(1)+"% "+oy.toFixed(1)+"%");
+  },{passive:false});
+  stage.addEventListener("dblclick",()=>{ if(!VP.loupe) setZoom(1,'50% 50%'); });   // reset to fit
+})();
+$("#vloupe").onclick=()=>{VP.loupe=!VP.loupe;$("#vloupe").classList.toggle("on",VP.loupe);
+  const st=$("#vstage"); if(st) st.style.cursor=VP.loupe?"none":"";
+  if(!VP.loupe){const lb=$("#vloupeBox"); if(lb) lb.style.display="none";}};
+$("#vcallouts").onclick=()=>{VP.callouts=!VP.callouts;$("#vcallouts").classList.toggle("on",VP.callouts);
+  if(VP.callouts) renderCallouts(); else clearCallouts();};
+// Loupe — tight & seamless: an instant local magnification tracks the cursor with ZERO latency
+// (rAF, no network), then a high-DPI crop of the real page (/page?clip=…) sharpens in the moment you
+// pause. Crops are cached so revisits snap instantly; the mouse wheel changes magnification.
+(function(){ const stage=$("#vstage"); if(!stage) return;
+  const LSIZE=240;                 // loupe diameter (px)
+  let MAG=2.8;                     // magnification (wheel-adjustable 1.8–6)
+  let cur=null, raf=0, settle=0, cache={}, shown="";
+  function cellKey(fx,fy){ return VIEW.doc+"/"+VIEW.page+"/"+Math.round(fx*200)+"/"+Math.round(fy*200)+"/"+MAG.toFixed(1)+"/"+(VP.clean?("c"+VP.contrast):"r"); }
+  function lbox(){ let lb=$("#vloupeBox"); if(!lb){ lb=document.createElement("div"); lb.id="vloupeBox";
+      lb.style.cssText="position:fixed;left:0;top:0;width:"+LSIZE+"px;height:"+LSIZE+"px;border:2px solid var(--accent);border-radius:50%;pointer-events:none;background-repeat:no-repeat;background-color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.55);z-index:80;overflow:hidden;will-change:transform";
+      const dot=document.createElement("div"); dot.style.cssText="position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px;border-radius:50%;border:1.5px solid rgba(79,157,255,.7);box-sizing:border-box";
+      lb.appendChild(dot); document.body.appendChild(lb);} return lb; }
+  function hide(){ const lb=$("#vloupeBox"); if(lb) lb.style.display="none"; cur=null; shown=""; }
+  function localZoom(lb,img,r,x,y){ lb.style.backgroundImage="url('"+img.src+"')";
+    lb.style.backgroundSize=(r.width*MAG)+"px "+(r.height*MAG)+"px";
+    lb.style.backgroundPosition=(LSIZE/2 - x*MAG)+"px "+(LSIZE/2 - y*MAG)+"px"; }
+  function crisp(lb,url){ lb.style.backgroundImage="url('"+url+"')"; lb.style.backgroundSize=LSIZE+"px "+LSIZE+"px"; lb.style.backgroundPosition="0 0"; }
+  function paint(){ raf=0; if(!cur){ return; } const img=cur.img,r=cur.r,x=cur.x,y=cur.y;
+    const lb=lbox(); lb.style.display="block"; lb.style.transform="translate("+(cur.cx-LSIZE/2)+"px,"+(cur.cy-LSIZE/2)+"px)";
+    const fx=x/r.width, fy=y/r.height, k=cellKey(fx,fy);
+    if(cache[k]){ if(shown!==k){ shown=k; crisp(lb,cache[k]); } return; }
+    if(shown!==k){ shown=""; localZoom(lb,img,r,x,y); }      // instant soft zoom while the crop loads
+    const hN=(LSIZE/2/MAG)/r.width, hNy=(LSIZE/2/MAG)/r.height;
+    const clip=[Math.max(0,fx-hN),Math.max(0,fy-hNy),Math.min(1,fx+hN),Math.min(1,fy+hNy)];
+    clearTimeout(settle); settle=setTimeout(()=>fetchCrisp(k,clip),60);
+  }
+  function clipFor(fx,fy){ const hN=(LSIZE/2/MAG)/(cur?cur.r.width:1), hNy=(LSIZE/2/MAG)/(cur?cur.r.height:1);
+    return [Math.max(0,fx-hN),Math.max(0,fy-hNy),Math.min(1,fx+hN),Math.min(1,fy+hNy)]; }
+  function cropUrl(clip){ const clq=VP.clean?("&clean=1&contrast="+VP.contrast):""; const dpi=Math.round(360+MAG*120);
+    return "/page?doc="+VIEW.doc+"&page="+VIEW.page+"&dpi="+dpi+"&clip="+clip.map(v=>v.toFixed(4)).join(",")+clq; }
+  // Prefetch a neighbouring cell's crisp crop (cache only, never displayed) so a slow drag stays sharp.
+  function prefetchCell(fx,fy){ if(!VP.loupe) return; const k=cellKey(fx,fy); if(cache[k]) return;
+    const url=cropUrl(clipFor(fx,fy)); const im=new Image(); im.decoding="async"; im.onload=()=>{ cache[k]=url; }; im.src=url; }
+  function fetchCrisp(k,clip){ if(!VP.loupe||cache[k]) return;
+    const url=cropUrl(clip);
+    const im=new Image();
+    im.onload=()=>{ cache[k]=url; const lb=$("#vloupeBox");
+      if(lb&&VP.loupe&&cur){ const ck=cellKey(cur.x/cur.r.width, cur.y/cur.r.height);
+        if(ck===k && shown!==k){ shown=k; crisp(lb,url); }
+        // warm the 4 adjacent cells (one grid-step = 1/200 in fractional coords) for smooth dragging
+        const s=1/200, fx=cur.x/cur.r.width, fy=cur.y/cur.r.height;
+        prefetchCell(fx+s,fy); prefetchCell(fx-s,fy); prefetchCell(fx,fy+s); prefetchCell(fx,fy-s);
+      } };
+    im.src=url;
+  }
+  stage.addEventListener("mousemove",e=>{
+    if(!VP.loupe){ hide(); return; }
+    const img=stage.querySelector("img"); if(!img||!img.naturalWidth){ return; }
+    const r=img.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+    if(x<0||y<0||x>r.width||y>r.height){ hide(); return; }
+    cur={img:img,r:r,x:x,y:y,cx:e.clientX,cy:e.clientY};
+    if(!raf) raf=requestAnimationFrame(paint);
+  });
+  stage.addEventListener("mouseleave",hide);
+  stage.addEventListener("wheel",e=>{ if(!VP.loupe) return; e.preventDefault();
+    MAG=Math.max(1.8,Math.min(6,Math.round((MAG+(e.deltaY<0?0.4:-0.4))*10)/10)); shown="";
+    if(cur&&!raf) raf=requestAnimationFrame(paint); },{passive:false});
+})();
+function buildThumbs(){
+  const tp=$("#vthumbs"); if(!tp.classList.contains("on"))return;
+  const pages=VIEW.pages||1, c=VIEW.page, lo=Math.max(1,c-8), hi=Math.min(pages,c+8);
+  if(lo===THUMB.lo&&hi===THUMB.hi){markThumb();return;}
+  THUMB={lo:lo,hi:hi}; let html="";
+  for(let p=lo;p<=hi;p++){html+='<div class="vthumb" data-p="'+p+'"><img loading="lazy" src="/page?dpi=24&doc='+VIEW.doc+'&page='+p+'"><span>p.'+p+'</span></div>';}
+  tp.innerHTML=html;
+  tp.querySelectorAll(".vthumb").forEach(t=>t.onclick=()=>{VIEW.page=parseInt(t.getAttribute("data-p"));loadPage();});
+  markThumb();
+}
+function markThumb(){ document.querySelectorAll("#vthumbs .vthumb").forEach(t=>{t.classList.toggle("cur",parseInt(t.getAttribute("data-p"))===VIEW.page);}); }
+$("#vprev").onclick=()=>{if(VIEW.page>1){VIEW.page--;loadPage();}};
+$("#vnext").onclick=()=>{if(!VIEW.pages||VIEW.page<VIEW.pages){VIEW.page++;loadPage();}};
+$("#vpage").onchange=e=>{let p=parseInt(e.target.value)||1;if(VIEW.pages)p=Math.max(1,Math.min(p,VIEW.pages));VIEW.page=p;loadPage();};
+// find-in-manual (Ctrl+F across the open document)
+$("#vfind").addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault();
+  var v=$("#vfind").value.trim();
+  if(v && v===VFIND.term && VFIND.list.length){ jumpMatch(VFIND.idx + (e.shiftKey?-1:1)); } else { findInDoc(v); } }
+  else if(e.key==="Escape"){ $("#vfind").value=""; findInDoc(""); } });
+$("#vfnext").onclick=()=>jumpMatch(VFIND.idx+1);
+$("#vfprev").onclick=()=>jumpMatch(VFIND.idx-1);
+document.addEventListener("keydown",function(e){ if((e.ctrlKey||e.metaKey)&&(e.key==="f"||e.key==="F")){
+  var vis=$("#viewer")&&$("#viewer").style.display!=="none"; if(vis){ e.preventDefault(); var f=$("#vfind"); if(f){f.focus();f.select();} } }});
+$("#vzin").onclick=()=>{if(VIEW.zi<DPIS.length-1){VIEW.zi++;loadPage();}};
+$("#vzout").onclick=()=>{if(VIEW.zi>0){VIEW.zi--;loadPage();}};
+$("#vhl").onclick=()=>{VIEW.hl=!VIEW.hl;$("#vhl").classList.toggle("on",VIEW.hl);loadPage();};
+$("#vthumbtg").onclick=()=>{VIEW.thumbs=!VIEW.thumbs;$("#vthumbs").classList.toggle("on",VIEW.thumbs);$("#vthumbtg").classList.toggle("on",VIEW.thumbs);if(VIEW.thumbs){THUMB={lo:0,hi:0};buildThumbs();}};
+$("#vclose").onclick=()=>{$("#viewer").style.display="none";};
+$("#vadd").onclick=()=>{const m=VIEW.meta||{};addItem({doc_id:VIEW.doc,page_number:VIEW.page,nsn:m.nsn,tm_number:m.tm_number,title:m.filename||m.title,snip:m.snip});};
+
+// ---- vehicle breakdown hub ----
+async function openVehicle(key){
+  $("#hubtitle").innerHTML='<b>Loading vehicle breakdown…</b>';
+  $("#hubbody").innerHTML='';$("#hub").style.display="flex";
+  try{
+    const h=await (await fetch("/api/vehicle?key="+encodeURIComponent(key))).json();
+    if(!h||!h.groups){$("#hubbody").innerHTML='<div class="empty">No vehicle manuals found for “'+esc(key)+'”.</div>';return;}
+    $("#hubtitle").innerHTML='<b>'+esc((h.vehicles||[]).join(", "))+'</b> <span>'+(h.nsn?("— NSN "+esc(h.nsn)+" · "):"")+h.total+' manuals</span>';
+    try{ const cv=await (await fetch("/api/coverage?vehicle="+encodeURIComponent((h.vehicles||[])[0]||""))).json();
+      if(cv&&cv.coverage){ $("#hubtitle").innerHTML+=' <span class="chip" title="Share of this vehicle\'s pages that are searchable (text or OCR)" style="margin-left:8px">'+cv.coverage.pct+'% searchable</span>'; } }catch(e){}
+    let html="";
+    h.groups.forEach(([g,docs])=>{
+      html+='<div class="hubgrp"><h3>'+esc(g)+' ('+docs.length+')</h3>';
+      docs.forEach(d=>{
+        html+='<div class="hubdoc"><div><div class="nm">'+esc(d.filename||("doc "+d.doc_id))+'</div>'+
+          '<div class="mt">'+(d.tm_number?esc(d.tm_number)+" · ":"")+(d.page_count||"?")+' pages'+(d.nsn?" · NSN "+esc(d.nsn):"")+'</div></div>'+
+          '<button class="ghost" data-doc="'+d.doc_id+'" data-tm="'+esc(d.tm_number||"")+'">📄 Open</button></div>';
+      });
+      html+='</div>';
+    });
+    $("#hubbody").innerHTML=html;
+    $("#hubbody").querySelectorAll("button[data-doc]").forEach(b=>{
+      b.onclick=()=>{$("#hub").style.display="none";openViewer({doc_id:parseInt(b.getAttribute("data-doc")),page_number:1,tm_number:b.getAttribute("data-tm")});};
+    });
+  }catch(e){$("#hubbody").innerHTML='<div class="empty">Error loading breakdown: '+esc(String(e))+'</div>';}
+}
+$("#hubclose").onclick=()=>{$("#hub").style.display="none";};
+document.addEventListener("keydown",e=>{if($("#hub").style.display==="flex"&&e.key==="Escape")$("#hubclose").click();});
+document.addEventListener("keydown",e=>{if($("#viewer").style.display!=="none"){
+  if(e.key==="Escape")$("#vclose").click();if(e.key==="ArrowLeft")$("#vprev").click();if(e.key==="ArrowRight")$("#vnext").click();}});
+
+// ---- cart ----
+function deriveName(r){
+  if(r.item_name) return r.item_name;
+  let s=(r.snip||"").replace(/<<|>>/g,"").replace(/…/g," ").replace(/\.\.\./g," ").replace(/\s+/g," ").trim();
+  if(s) return s.slice(0,80);
+  return (LAST_QUERY||"").toUpperCase();
+}
+function addItem(r){
+  const it={item_name:deriveName(r),nsn:r.nsn||"",qty:"1",fig:"",part:"",unit_price:"",aac:"",arc:"",
+            source_document_id:r.doc_id||null,source_page:r.page_number||null,vehicle:r.vehicle||"",
+            _ref:(r.tm_number?r.tm_number+" ":"")+"p."+(r.page_number||"?")};
+  CART.push(it); renderCart();
+  if(it.nsn) enrichPart(it);
+}
+async function enrichPart(it){
+  try{ const d=await (await fetch("/api/part?nsn="+encodeURIComponent(it.nsn))).json();
+    if(d&&d.found&&d.refs&&d.refs.length){ it._refs=d.refs;
+      if(!it.fig && d.refs[0].fig_no) it.fig=d.refs[0].fig_no;   // auto-fill FIG from the catalog (cited)
+      renderCart(); }
+  }catch(e){}
+  try{ const sm=(it.item_name||"").match(/(\d+\/\d+-\d+|M\d+(?:x[\d.]+)?)/i); const size=sm?sm[1]:"";
+    const rd=await (await fetch("/api/reference?nsn="+encodeURIComponent(it.nsn)+(size?("&size="+encodeURIComponent(size)):""))).json();
+    if(rd&&(rd.nsn||rd.hardware)){ it._refext=rd;
+      if(rd.nsn){ if(!it.item_name && rd.nsn.item_name) it.item_name=rd.nsn.item_name;
+        if(!it.part && rd.nsn.part_no) it.part=rd.nsn.part_no;   // authoritative part# (PUB LOG MCRD)
+        if(!it.aac && rd.nsn.aac) it.aac=rd.nsn.aac; }           // AAC for the 104th (PUB LOG MDI&S)
+      renderCart(); }
+  }catch(e){}
+}
+function renderCart(){const box=$("#cart");
+  if(!CART.length){box.innerHTML='<div class="empty">No parts added yet. Open a result and “Add to request”.</div>';updateCount();return;}
+  box.innerHTML="";
+  CART.forEach((it,i)=>{const e=document.createElement("div");e.className="item";
+    const refs=(it._refs&&it._refs.length)?'<div class="pref">📐 In parts catalog: '+it._refs.slice(0,3).map(rf=>'<span class="prefl" data-doc="'+rf.document_id+'" data-pg="'+rf.page+'">FIG '+esc(rf.fig_no||"?")+' '+esc(rf.fig_title||"")+' (p.'+rf.page+')</span>').join(' · ')+(it._refs.length>3?' · +'+(it._refs.length-3)+' more figure'+(it._refs.length-3===1?'':'s'):'')+' — verify</div>':'';
+    let ext='';
+    if(it._refext){ const parts=[]; const rn=it._refext.nsn, rh=it._refext.hardware;
+      if(rn){ const yr=(rn.data_date||'').match(/\d{4}/);
+        parts.push((rn.item_name?esc(rn.item_name):'')+(rn.part_no?' · P/N '+esc(rn.part_no):'')+(rn.cagec?' · CAGE '+esc(rn.cagec):'')+(rn.aac?' · AAC '+esc(rn.aac):'')+(rn.description?' · '+esc(rn.description):'')+(rn.gsa_price?' · GSA $'+esc(rn.gsa_price):'')+(yr?' · <b style="color:#caa24a">FLIS '+yr[0]+'</b>':''));
+        if(rn.alt_parts) parts.push('⚠ also P/N (verify which applies): '+esc(rn.alt_parts));
+        if(rn.superseded) parts.push('↪ '+esc(rn.superseded));
+        if(rn.characteristics) parts.push('char: '+esc(rn.characteristics)); }
+      if(rh){ parts.push('thread '+esc(rh.size)+(rh.tap_drill?' · tap '+esc(rh.tap_drill):'')+(rh.torque_ref_lbft?' · ~'+esc(rh.torque_ref_lbft)+' lb-ft (general ref — TM governs)':'')); }
+      if(it._refext.versions>1) parts.push(it._refext.versions+' versions on file');
+      if(parts.length) ext='<div class="pref" style="color:#9aa6b6">📚 External reference (cited, offline · DLA FLIS): '+parts.join(' · ')+'</div>'; }
+    e.innerHTML='<button class="rm">remove</button><div style="font-size:11px;color:var(--sub);margin-bottom:6px">From '+esc(it._ref||"")+'</div>'+refs+ext+
+      '<div class="grid"><div class="full"><label>Item name</label><input data-k="item_name" placeholder="e.g. GASKET, WATER PUMP"></div>'+
+      '<div><label>NSN</label><input data-k="nsn"></div><div><label>Part #</label><input data-k="part"></div>'+
+      '<div><label>FIG #</label><input data-k="fig"></div><div><label>QTY</label><input data-k="qty"></div>'+
+      '<div class="adv"><label>Unit price (FEDLOG)</label><input data-k="unit_price"></div><div class="adv"><label>AAC</label><input data-k="aac"></div>'+
+      '<div class="adv"><label>ARC</label><input data-k="arc"></div></div>'+
+      ((it._refext&&it._refext.nsn&&/DIAMETER|LENGTH|HEIGHT|WIDTH|THICKNESS/i.test(it._refext.nsn.characteristics||''))?'<button class="d3btn">🧊 View representative 3D</button>':'');
+    e.querySelectorAll("input").forEach(inp=>{const k=inp.getAttribute("data-k");inp.value=it[k]||"";inp.oninput=()=>{it[k]=inp.value;};});
+    e.querySelectorAll(".prefl").forEach(b=>b.onclick=()=>openViewer({doc_id:parseInt(b.getAttribute("data-doc")),page_number:parseInt(b.getAttribute("data-pg"))}));
+    const _d3=e.querySelector(".d3btn"); if(_d3) _d3.onclick=()=>open3D(it);
+    e.querySelector(".rm").onclick=()=>{CART.splice(i,1);renderCart();};box.appendChild(e);});
+  updateCount();
+}
+function updateCount(){const n=CART.length,c=$("#count");
+  c.textContent=n+" item"+(n===1?"":"s")+(n>6?" — "+Math.ceil(n/6)+" sheets":"");
+  c.className="count";$("#exportBtn").disabled=n===0;}
+
+// ---- 2D→3D representative parametric viewer (dimensions from FLIS characteristics; offline, cited) ----
+let D3={rx:-0.5,ry:0.6,z:1,drag:false,px:0,py:0,model:null,stageW:600,stageH:500};
+const C3={black:'#23262b',white:'#d8dadd',gray:'#8a9098',grey:'#8a9098','olive drab':'#5e5e3a',green:'#3f6b41',red:'#9c4040',blue:'#3f5a8c',yellow:'#b9a23e',brown:'#6b513a',tan:'#9c8a64',orange:'#b5733a',silver:'#b9bdc2',gold:'#b5a642',natural:'#9aa0a6'};
+const M3=[[/STEEL|IRON|FERROUS|CRES|STAINLESS|CORROSION RESIST/,'#8a9099'],[/ALUMIN/,'#bcc0c6'],[/COPPER|BRASS|BRONZE/,'#b07a45'],[/ZINC|CADMIUM|GALVAN|NICKEL|CHROM/,'#a6acb2'],[/PLASTIC|NYLON|POLY|PHENOLIC|RESIN/,'#4d5157'],[/RUBBER|ELASTOMER|NEOPRENE/,'#2e3033'],[/ALLOY|METAL/,'#9498a0']];
+function _num(ch,labels){ for(const lab of labels){ const m=ch.match(new RegExp(lab.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*([\\d.]+)','i')); if(m) return parseFloat(m[1]); } return 0; }
+function _appearance(ch,name){
+  let fill='#7e848c', src='representative';
+  const cm=ch.match(/COLOR:\s*([A-Z][A-Z ]+?)(?:;|$)/);
+  if(cm){ const w=cm[1].trim().toLowerCase(); for(const k in C3){ if(w.indexOf(k)===0){ fill=C3[k]; src='color '+k+' (FLIS)'; break; } } }
+  const matm=ch.match(/MATERIAL:\s*([A-Z][A-Z /,()-]+?)(?:;|$)/); const mat=matm?matm[1].trim():'';
+  if(src==='representative' && mat){ for(const mm of M3){ if(mm[0].test(mat)){ fill=mm[1]; break; } } src=(mat.split(/[ ,]/)[0]||'material')+' (material tint)'; }
+  const finm=ch.match(/(?:SURFACE TREATMENT|FINISH):\s*([A-Z][A-Z /,()-]+?)(?:;|$)/);
+  return {fill:fill, src:src, fin:finm?finm[1].trim():''};
+}
+function _family(name,dia){
+  const n=(name||'').toUpperCase();
+  if(/\bNUT\b/.test(n)) return 'hex';
+  if(/\bWASHER\b/.test(n)) return 'disc';
+  if(/\bSCREW\b|\bBOLT\b|\bPIN\b|\bROD\b|\bSHAFT\b|\bMAST\b|\bTUBE\b|\bPIPE\b|\bSTUD\b|\bRIVET\b/.test(n)) return 'cyl';
+  if(dia && !/\bPLATE\b|\bBRACKET\b|\bPANEL\b|\bCOVER\b|\bBOX\b|\bHOUSING\b/.test(n)) return 'cyl';
+  return 'box';
+}
+function _geom(fam,L,W,H,R){
+  if(fam==='box'){ const hx=L/2,hy=H/2,hz=W/2;
+    return {V:[[-hx,-hy,-hz],[hx,-hy,-hz],[hx,hy,-hz],[-hx,hy,-hz],[-hx,-hy,hz],[hx,-hy,hz],[hx,hy,hz],[-hx,hy,hz]],
+            F:[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]]}; }
+  const N=(fam==='hex')?6:18, V=[], F=[];
+  for(let s=0;s<2;s++){ const x=(s?1:-1)*L/2; for(let i=0;i<N;i++){ const a=i/N*Math.PI*2+(fam==='hex'?Math.PI/6:0); V.push([x,R*Math.cos(a),R*Math.sin(a)]); } }
+  for(let i=0;i<N;i++){ const j=(i+1)%N; F.push([i,j,N+j,N+i]); }
+  F.push(Array.from({length:N},(_,i)=>i)); F.push(Array.from({length:N},(_,i)=>i+N));
+  return {V:V,F:F};
+}
+function open3D(it){
+  const rn=(it._refext&&it._refext.nsn)||{}; const ch=(rn.characteristics||"").toUpperCase(); const nm=rn.item_name||it.item_name||it.nsn||"Part";
+  const dia=_num(ch,['OVERALL DIAMETER:','BODY DIAMETER:','OUTSIDE DIAMETER:','HEAD DIAMETER:','BASE DIAMETER:','DIAMETER:']);
+  const bore=_num(ch,['HOLE DIAMETER:','INSIDE DIAMETER:']);
+  let L=_num(ch,['OVERALL LENGTH:','BODY LENGTH:','FASTENER LENGTH:','LENGTH:','NESTED HEIGHT:','OVERALL HEIGHT:','HEIGHT:']);
+  let W=_num(ch,['OVERALL WIDTH:','BODY WIDTH:','WIDTH:'])||dia;
+  let H=_num(ch,['OVERALL HEIGHT:','BODY HEIGHT:','HEAD HEIGHT:','HEIGHT:','THICKNESS:'])||dia;
+  if(dia){ W=dia; H=dia; if(!L) L=dia; }
+  L=L||1; W=W||1; H=H||1;
+  const fam=_family(nm,dia), R=(dia||Math.max(W,H))/2;
+  D3.model={geom:_geom(fam,L,W,H,R), fam:fam, bore:bore, app:_appearance(ch,nm), L:L,W:W,H:H,dia:dia};
+  D3.rx=-0.5; D3.ry=0.6; D3.z=1;
+  const f=x=>Math.round(x*100)/100, ap=D3.model.app, yr=(rn.data_date||'').match(/\d{4}/);
+  $("#d3title").innerHTML='<b>'+esc(nm)+'</b> &nbsp;<span style="color:var(--sub)">'+esc(it.nsn||"")+'</span>';
+  $("#d3side").innerHTML='<div class="sh-h">REPRESENTATIVE 3D — NOT A CAD MODEL</div>'+
+    '<div class="sh-v" style="font-size:11px;color:var(--sub);line-height:1.55;margin-bottom:8px">Shape: '+fam+' · scaled to FLIS dims (L '+f(L)+'″ · W '+f(W)+'″ · H '+f(H)+'″'+(dia?(' · ⌀'+f(dia)+'″'):'')+(bore?(' · bore ⌀'+f(bore)+'″'):'')+').</div>'+
+    '<div class="sh-row"><div class="sh-k">Appearance</div><div class="sh-v" style="font-size:11px"><span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:'+ap.fill+';border:1px solid #2b333f;vertical-align:middle"></span> '+esc(ap.src)+(ap.fin?(' · finish '+esc(ap.fin)):'')+'</div></div>'+
+    (rn.characteristics?('<div class="sh-k">FLIS characteristics (cited)</div><div class="sh-v" style="font-size:11px;line-height:1.55">'+esc(rn.characteristics).replace(/; /g,'<br>')+'</div>'):'')+
+    (yr?('<div class="sh-note">Data vintage: <b style="color:#caa24a">FLIS '+yr[0]+'</b> · DLA FLIS, cited</div>'):'')+
+    '<div class="sh-note">Surfaces &amp; colour are representative — colour from FLIS where stated, else a material-based tint. Not a CAD model.</div>';
+  $("#d3gate").style.display="flex";
+  const s=$("#d3stage"); D3.stageW=s.clientWidth||600; D3.stageH=s.clientHeight||500; render3D();
+}
+function reset3D(){ D3.rx=-0.5; D3.ry=0.6; D3.z=1; render3D(); }   // restore the default 3D view
+function render3D(){
+  const m=D3.model; if(!m) return; const V=m.geom.V, F=m.geom.F;
+  const cy=Math.cos(D3.ry),sy=Math.sin(D3.ry),cx=Math.cos(D3.rx),sx=Math.sin(D3.rx);
+  const P=V.map(function(v){var x=v[0],y=v[1],z=v[2];var x1=x*cy+z*sy,z1=-x*sy+z*cy,y1=y*cx-z1*sx,z2=y*sx+z1*cx;return [x1,y1,z2];});
+  const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);
+  const minx=Math.min.apply(null,xs),maxx=Math.max.apply(null,xs),miny=Math.min.apply(null,ys),maxy=Math.max.apply(null,ys);
+  const span=Math.max(maxx-minx,maxy-miny,0.001),sc=Math.min(D3.stageH*0.42,300)/span*D3.z;
+  const cX=D3.stageW/2,cY=D3.stageH/2,mx=(minx+maxx)/2,my=(miny+maxy)/2;
+  const sp=p=>[cX+(p[0]-mx)*sc, cY+(p[1]-my)*sc];
+  const fa=F.map(function(f){var zc=0;f.forEach(i=>zc+=P[i][2]);return {f:f,z:zc/f.length};}).sort((a,b)=>a.z-b.z);
+  const zmin=fa.length?fa[0].z:0, zmax=fa.length?fa[fa.length-1].z:1, zr=(zmax-zmin)||1;
+  let s='<svg width="100%" height="100%" viewBox="0 0 '+D3.stageW+' '+D3.stageH+'">';
+  fa.forEach(function(o){ var pts=o.f.map(i=>{var q=sp(P[i]);return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ');
+    var op=(0.5+0.45*((o.z-zmin)/zr)).toFixed(2);
+    s+='<polygon points="'+pts+'" fill="'+m.app.fill+'" fill-opacity="'+op+'" stroke="#0a0e12" stroke-width="0.6" stroke-linejoin="round"/>'; });
+  if(m.bore){var c=sp([0,0]);s+='<ellipse cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" rx="'+Math.max(m.bore/2*sc*Math.abs(cy),2).toFixed(1)+'" ry="'+Math.max(m.bore/2*sc,2).toFixed(1)+'" fill="#0a0e12" stroke="#caa24a" stroke-width="1.2"/>';}
+  s+='</svg>'; $("#d3stage").innerHTML=s;
+}
+(function(){ const stage=$("#d3stage"); if(!stage) return;
+  stage.addEventListener("mousedown",e=>{D3.drag=true;D3.px=e.clientX;D3.py=e.clientY;});
+  window.addEventListener("mousemove",e=>{if(!D3.drag)return;D3.ry+=(e.clientX-D3.px)*0.01;D3.rx+=(e.clientY-D3.py)*0.01;D3.px=e.clientX;D3.py=e.clientY;render3D();});
+  window.addEventListener("mouseup",()=>{D3.drag=false;});
+  stage.addEventListener("wheel",e=>{e.preventDefault();D3.z*=(e.deltaY<0?1.1:0.9);D3.z=Math.max(0.3,Math.min(4,D3.z));render3D();},{passive:false});
+  stage.addEventListener("dblclick",reset3D);
+  const _r3=$("#d3reset"); if(_r3) _r3.onclick=reset3D;
+  $("#d3close").onclick=()=>{$("#d3gate").style.display="none";};
+  document.addEventListener("keydown",e=>{if($("#d3gate").style.display==="flex"&&e.key==="Escape")$("#d3gate").style.display="none";});
+})();
+
+// ---- tech-status gate (mandatory, derived from fault + part, confirmed by the mechanic) ----
+function mostCommonVehicle(){ const c={}; CART.forEach(it=>{const v=(it.vehicle||"").trim(); if(v)c[v]=(c[v]||0)+1;}); let best="",n=0; for(const k in c){if(c[k]>n){n=c[k];best=k;}} return best; }
+$("#exportBtn").onclick=()=>openTechGate();
+async function openTechGate(){
+  $("#tssel").value=SESSION.tech_status||""; $("#tsconfirm").disabled=!$("#tssel").value;
+  $("#tssugbadge").innerHTML=""; $("#tshist").textContent="";
+  $("#tsrat").textContent="Checking the manuals…";
+  $("#tsevid").innerHTML='<span style="color:var(--sub);font-size:11px">Searching PMCS criteria…</span>';
+  $("#tsgate").style.display="flex";
+  const veh=mostCommonVehicle(), parts=CART.map(it=>(it.item_name||"")+" "+(it.nsn||"")).join(" ");
+  try{
+    const d=await (await fetch("/api/techstatus?vehicle="+encodeURIComponent(veh)+"&fault="+encodeURIComponent(SESSION.fault||"")+"&parts="+encodeURIComponent(parts))).json();
+    SESSION.tech_status_suggested=d.suggestion||""; SESSION.tech_status_basis=d.basis||"";
+    $("#tsrat").textContent=d.rationale||"";
+    if(d.suggestion){ const cls=d.suggestion[0]==="N"?"nmc":(d.suggestion[0]==="P"?"pmc":"fmc"); $("#tssugbadge").innerHTML='<span class="tssug '+cls+'">'+esc(d.suggestion)+'</span>'; }
+    else { $("#tssugbadge").innerHTML='<span class="tssug none">no auto-suggestion</span>'; }
+    if(d.evidence&&d.evidence.length){
+      $("#tsevid").innerHTML=d.evidence.map(e=>'<div class="tsev"><div class="cite" data-doc="'+e.doc_id+'" data-pg="'+e.page+'">📄 '+esc(e.tm||"manual")+' · p.'+e.page+' — open</div><div class="txt">'+esc(e.text||"")+'</div></div>').join("");
+      $("#tsevid").querySelectorAll(".cite").forEach(b=>b.onclick=()=>{$("#tsgate").style.display="none";openViewer({doc_id:parseInt(b.getAttribute("data-doc")),page_number:parseInt(b.getAttribute("data-pg"))});});
+    } else { $("#tsevid").innerHTML='<span style="color:var(--sub);font-size:11px">No matching PMCS criterion in the index for this fault/vehicle — use the manual or your judgment.</span>'; }
+    if(d.history){ $("#tshist").textContent="History: logged as "+esc(d.history.status)+" "+d.history.count+"× before for similar faults."; }
+    if(!$("#tssel").value && d.suggestion){ $("#tssel").value=d.suggestion; }
+    $("#tsconfirm").disabled=!$("#tssel").value;
+  }catch(e){ $("#tsrat").textContent="Couldn't check the manuals — select the status manually."; $("#tsevid").innerHTML=""; }
+}
+$("#tssel").onchange=()=>{$("#tsconfirm").disabled=!$("#tssel").value;};
+$("#tscancel").onclick=()=>{$("#tsgate").style.display="none";};
+$("#tsconfirm").onclick=()=>{ SESSION.tech_status=$("#tssel").value; if($("#m_tech"))$("#m_tech").value=SESSION.tech_status; $("#tsgate").style.display="none"; doExport(); };
+async function doExport(){
+  $("#exportBtn").disabled=true;$("#exportBtn").textContent="Generating…";
+  try{const r=await fetch("/api/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:SESSION,items:CART})});
+    if(!r.ok){ let msg="server "+r.status; try{const j=await r.json(); if(j&&j.error)msg=j.error;}catch(e){} throw new Error(msg); }
+    const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");
+    a.href=url;a.download="104th_parts_request_"+(SESSION.bumper||"sheet").replace(/\s+/g,"_")+".pdf";
+    document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(err){toast("Export failed: "+err,5000);}
+  $("#exportBtn").textContent="Export Parts Request Sheet (PDF)";$("#exportBtn").disabled=false;
+}
+
+/* esc()/toast() from /shared.js */
+function trunc(s,n){s=s||"";return s.length>n?s.slice(0,n-1)+"…":s;}
+</script>
+</body>
+</html>

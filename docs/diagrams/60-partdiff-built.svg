@@ -1,0 +1,59 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Look-Alike Parts recognizer  (v0.43.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Tells apart parts that look identical in the manual but are functionally different — by NSN, UOC, CAGEC, SMR or supply class — with grounded &#x27;how to tell them apart&#x27; cues. Read-only.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · HOW IT WORKS  (/partdiff · /api/partdiff)</text>
+<rect x="40" y="126" width="1100" height="180" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#7f77dd" stroke-width="1"/>
+<text x="70" y="172" font-size="11" font-weight="700" fill="#7f77dd" text-anchor="start">1</text>
+<text x="86" y="172" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Query</text>
+<text x="70" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">an NSN or a part name</text>
+<path d="M226,220 L238,220" stroke="#7f77dd" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="238" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#4f9dff" stroke-width="1"/>
+<text x="250" y="172" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">2</text>
+<text x="266" y="172" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Same-name group</text>
+<text x="250" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">every catalogued part sharing</text><text x="250" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">that name/nomenclature</text>
+<path d="M406,220 L418,220" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="418" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="430" y="172" font-size="11" font-weight="700" fill="#1d9e75" text-anchor="start">3</text>
+<text x="446" y="172" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Group by NSN</text>
+<text x="430" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">collapse to distinct stock</text><text x="430" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">numbers + their attributes</text>
+<path d="M586,220 L598,220" stroke="#1d9e75" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="598" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#caa24a" stroke-width="1"/>
+<text x="610" y="172" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">4</text>
+<text x="626" y="172" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Find discriminators</text>
+<text x="610" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">which fields vary: NSN · FSC</text><text x="610" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">· UOC · CAGEC · SMR · part#</text>
+<path d="M766,220 L778,220" stroke="#caa24a" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="778" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#2f7d4f" stroke-width="1"/>
+<text x="790" y="172" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">5</text>
+<text x="806" y="172" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Classify + cross-ref</text>
+<text x="790" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">vs the correlations sidecar</text><text x="790" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">(true substitutes vs real</text><text x="790" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">differences)</text>
+<path d="M946,220 L958,220" stroke="#2f7d4f" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="958" y="150" width="168" height="140" rx="10" fill="#1c2430" stroke="#e0564f" stroke-width="1"/>
+<text x="970" y="172" font-size="11" font-weight="700" fill="#e0564f" text-anchor="start">6</text>
+<text x="986" y="172" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Compare + cite</text>
+<text x="970" y="192" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">side-by-side cards,</text><text x="970" y="203" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">how-to-tell-apart, links to</text><text x="970" y="214" font-size="8.2" font-weight="400" fill="#9aa6b6" text-anchor="start">the real figure</text>
+<text x="56" y="338" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · THE FOUR VERDICTS (colour-coded in the UI)</text>
+<rect x="40" y="348" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="361" width="150" height="16" rx="4" fill="#4f9dff" fill-opacity="0.18" stroke="#4f9dff"/>
+<text x="64" y="372" font-size="9.4" font-weight="700" fill="#4f9dff" text-anchor="start">reference</text>
+<text x="222" y="372" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the part you searched — the anchor for the comparison</text>
+<rect x="58" y="385" width="150" height="16" rx="4" fill="#caa24a" fill-opacity="0.18" stroke="#caa24a"/>
+<text x="64" y="396" font-size="9.4" font-weight="700" fill="#caa24a" text-anchor="start">different variant</text>
+<text x="222" y="396" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">same name, different NSN — usually a different VEHICLE CONFIG. The tell is the UOC (Usable-On-Code); also CAGEC /</text><text x="222" y="407" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">part#. THIS is the dangerous look-alike.</text>
+<rect x="58" y="420" width="150" height="16" rx="4" fill="#2f7d4f" fill-opacity="0.18" stroke="#2f7d4f"/>
+<text x="64" y="431" font-size="9.4" font-weight="700" fill="#2f7d4f" text-anchor="start">same item (format drift)</text>
+<text x="222" y="431" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">same NIIN, just a different NSN format — genuinely the same part. Interchangeable.</text>
+<rect x="58" y="444" width="150" height="16" rx="4" fill="#1d9e75" fill-opacity="0.18" stroke="#1d9e75"/>
+<text x="64" y="455" font-size="9.4" font-weight="700" fill="#1d9e75" text-anchor="start">different item class</text>
+<text x="222" y="455" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">different FSC — merely shares a figure title (e.g. a bracket inside an &#x27;engine assembly&#x27; figure). NOT a substitute.</text>
+<rect x="40" y="512" width="1100" height="86" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="58" y="536" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">WHY UOC IS THE KEY</text>
+<text x="58" y="556" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">In an RPSTL, two parts can be drawn the same and share a name, yet one fits configuration A and the other configuration B. The Usable-On-Code (UOC) is the field that disambiguates</text><text x="58" y="569" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">them — pick the wrong NSN and the part may not fit. The recognizer surfaces the UOC contrast first, then CAGEC (maker) and part number.</text>
+<rect x="40" y="610" width="1100" height="118" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="634" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">GROUNDED &amp; ADDITIVE (R1/R6)</text>
+<text x="58" y="654" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Read-only over the existing parts index + the optional correlations sidecar — no new data invented, nothing written to the index. Every variant cites the real figure &amp; page so the</text><text x="58" y="667" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">mechanic confirms on the sheet. Confirmed-same items (NIIN drift) and cross-platform interchangeable NSNs are labelled as substitutes, not differences. As OCR coverage climbs, item</text><text x="58" y="680" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">names sharpen and the look-alike groups get finer. New routes only (rollback = remove /partdiff + /api/partdiff). The empty part_variants table is now meaningfully populated on</text><text x="58" y="693" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">demand at query time.</text>
+<text x="40" y="748" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.43.0 · 2026-06-02 · engine/ui/partdiff.html + part_differences() in viewer_app.py. Read-only; correlations sidecar optional.</text>
+</svg>

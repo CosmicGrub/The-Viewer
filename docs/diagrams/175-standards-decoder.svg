@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" font-family="Segoe UI,Arial,sans-serif">
+<rect width="1000" height="560" fill="#0d1117"/>
+<text x="500" y="42" fill="#e6edf3" font-size="26" font-weight="700" text-anchor="middle">standards.py &#8212; Standard-Hardware / Spec Designation Decoder</text>
+<text x="500" y="70" fill="#8b949e" font-size="14" text-anchor="middle">v1.12.1 &#183; roadmap #58/#59 &#183; GET /api/standards &#183; R13: classify family reliably, never fabricate an item</text>
+
+<rect x="60" y="110" width="230" height="120" rx="10" fill="#161b22" stroke="#30363d"/>
+<text x="175" y="140" fill="#58a6ff" font-size="16" font-weight="700" text-anchor="middle">TM page text</text>
+<text x="175" y="168" fill="#c9d1d9" font-size="13" text-anchor="middle">MS35338-46  AN960-10</text>
+<text x="175" y="190" fill="#c9d1d9" font-size="13" text-anchor="middle">MIL-PRF-2104  SAE J429</text>
+<text x="175" y="212" fill="#c9d1d9" font-size="13" text-anchor="middle">ASTM A193  NAS1149</text>
+
+<rect x="385" y="95" width="230" height="150" rx="10" fill="#161b22" stroke="#1f6feb"/>
+<text x="500" y="124" fill="#58a6ff" font-size="16" font-weight="700" text-anchor="middle">_FAM_RX + classify()</text>
+<text x="500" y="150" fill="#c9d1d9" font-size="12" text-anchor="middle">family &#8594; (kind, description)</text>
+<text x="500" y="170" fill="#c9d1d9" font-size="12" text-anchor="middle">hardware-standard / perf-spec</text>
+<text x="500" y="188" fill="#c9d1d9" font-size="12" text-anchor="middle">detail-spec / material / method</text>
+<text x="500" y="212" fill="#8b949e" font-size="12" text-anchor="middle">_norm() &#8594; canonical series key</text>
+<text x="500" y="232" fill="#8b949e" font-size="12" text-anchor="middle">scan(text) &#8594; deduped list</text>
+
+<rect x="710" y="70" width="230" height="95" rx="10" fill="#161b22" stroke="#238636"/>
+<text x="825" y="98" fill="#3fb950" font-size="15" font-weight="700" text-anchor="middle">CURATED _COMMON</text>
+<text x="825" y="122" fill="#c9d1d9" font-size="12" text-anchor="middle">AN960 &#8594; flat washer</text>
+<text x="825" y="140" fill="#c9d1d9" font-size="12" text-anchor="middle">MS35338 &#8594; split lock washer</text>
+<text x="825" y="158" fill="#c9d1d9" font-size="12" text-anchor="middle">MIL-PRF-2104 &#8594; engine oil</text>
+
+<rect x="710" y="190" width="230" height="95" rx="10" fill="#161b22" stroke="#8957e5"/>
+<text x="825" y="218" fill="#a371f7" font-size="15" font-weight="700" text-anchor="middle">R13 GUARD</text>
+<text x="825" y="242" fill="#c9d1d9" font-size="12" text-anchor="middle">uncatalogued number:</text>
+<text x="825" y="260" fill="#c9d1d9" font-size="12" text-anchor="middle">family classified,</text>
+<text x="825" y="278" fill="#f0883e" font-size="12" font-weight="700" text-anchor="middle">NO fabricated item</text>
+
+<rect x="300" y="340" width="400" height="130" rx="10" fill="#161b22" stroke="#30363d"/>
+<text x="500" y="370" fill="#58a6ff" font-size="16" font-weight="700" text-anchor="middle">GET /api/standards</text>
+<text x="500" y="398" fill="#c9d1d9" font-size="13" text-anchor="middle">classify(query token) + scan(matching pages)</text>
+<text x="500" y="422" fill="#c9d1d9" font-size="13" text-anchor="middle">&#8594; {token, family, series, kind,</text>
+<text x="500" y="442" fill="#c9d1d9" font-size="13" text-anchor="middle">description, item?, curated}</text>
+<text x="500" y="462" fill="#8b949e" font-size="12" text-anchor="middle">deduped, cap 40</text>
+
+<line x1="290" y1="170" x2="383" y2="170" stroke="#8b949e" stroke-width="2" marker-end="url(#a)"/>
+<line x1="615" y1="140" x2="708" y2="118" stroke="#238636" stroke-width="2" marker-end="url(#a)"/>
+<line x1="615" y1="200" x2="708" y2="235" stroke="#8957e5" stroke-width="2" marker-end="url(#a)"/>
+<line x1="500" y1="245" x2="500" y2="338" stroke="#8b949e" stroke-width="2" marker-end="url(#a)"/>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8b949e"/></marker></defs>
+<text x="500" y="520" fill="#8b949e" font-size="12" text-anchor="middle">stdlib only (re) &#183; pure + unit-testable &#183; additive (R1) &#183; self-test: MS35338/MIL-PRF-2104/AN960 named, MS12345-99 family-only</text>
+</svg>

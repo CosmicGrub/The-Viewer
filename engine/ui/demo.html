@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Interactive Demo &amp; Onboarding</title>
+<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode; page's own <style> below still wins (v1.13.0) -->
+<style>
+/* ---- dark palette (matches THE VIEWER, rule R3) ---- */
+:root{
+  --bg:#0f1419; --panel:#171d26; --p2:#1c2430; --line:#2b333f; --txt:#e6e9ee; --sub:#9aa6b6;
+  --acc:#4f9dff; --grn:#2f7d4f; --grn2:#7fd6a6; --amb:#caa24a; --teal:#1d9e75; --pur:#7f77dd; --red:#c4585a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;overflow:hidden}
+.app{position:absolute;inset:0;display:flex;flex-direction:column}
+.topbar{height:48px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;letter-spacing:.3px}
+.brand .v{color:var(--acc)}
+.sidechip{margin-left:auto;font-size:12px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.sidechip b{color:var(--txt)}
+.stage{position:relative;flex:1 1 auto;overflow:hidden}
+.screen{position:absolute;inset:0;padding:22px;display:none;overflow:auto}
+.screen.active{display:block}
+.h{font-size:18px;font-weight:700;margin:0 0 4px}
+.sh{color:var(--sub);margin:0 0 18px;font-size:12.5px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.muted{color:var(--sub)}
+.btn{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+.btn.acc{background:var(--acc);border-color:var(--acc);color:#06223f;font-weight:700}
+.kbd{font-family:ui-monospace,Consolas,monospace;background:#0a0e12;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px;color:var(--grn2)}
+.searchbox{display:flex;align-items:center;gap:8px;background:#0a0e12;border:1px solid var(--line);border-radius:10px;padding:10px 14px;max-width:620px}
+.searchbox input{flex:1;background:transparent;border:0;outline:0;color:var(--txt);font-size:15px}
+.sug{max-width:620px;margin-top:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sug div{padding:9px 14px;border-top:1px solid var(--line);font-size:13px}
+.sug div:first-child{border-top:0}
+.sug .q{color:var(--acc)}
+.results{margin-top:16px;display:flex;flex-direction:column;gap:10px;max-width:760px}
+.res{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.res .pill{font-size:10.5px;color:#06223f;background:var(--acc);border-radius:6px;padding:1px 7px;font-weight:700;white-space:nowrap;margin-top:2px}
+.res .pill.mech{background:var(--amb)} .res .pill.op{background:var(--teal);color:#03261b}
+.res .ti{font-weight:600}
+.res .me{color:var(--sub);font-size:12px;margin-top:3px}
+.page{max-width:680px;background:#11161d;border:1px solid var(--line);border-radius:10px;padding:22px;line-height:1.55;font-size:13px;color:#c7cedb}
+.page h4{margin:0 0 10px;color:var(--txt)}
+.hl{background:rgba(202,162,74,.32);border-bottom:2px solid var(--amb);border-radius:2px;padding:0 2px}
+.findbar{display:flex;align-items:center;gap:8px;max-width:680px;margin:0 0 12px;background:#0a0e12;border:1px solid var(--amb);border-radius:8px;padding:6px 10px;font-size:12px}
+.steps{max-width:720px;display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.step .n{flex:0 0 26px;height:26px;border-radius:50%;border:1.5px solid var(--acc);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.warn{border-left:4px solid var(--red);background:rgba(196,88,90,.08)}
+.warn .n{border-color:var(--red);color:var(--red)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.tool{font-size:11.5px;background:var(--p2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--sub)}
+table.t{border-collapse:collapse;max-width:680px;width:100%;font-size:12.5px}
+table.t th,table.t td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+table.t th{background:var(--p2);color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;max-width:760px}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+.pcard .thumb{height:96px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden}
+.pcard .thumb.shape{background:#0a0e12}
+.pcard .cn{font-size:12px;font-weight:600;margin-top:7px}
+.pcard .cs{font-size:11px;color:var(--sub)}
+.pcard .tg{font-size:10.5px;color:var(--amb);margin-top:3px}
+.cmp{display:flex;gap:14px;flex-wrap:wrap}
+.cmp .col{flex:1 1 240px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.cmp .col h5{margin:0 0 8px}
+.cmp dt{color:var(--sub);font-size:11px;margin-top:7px}
+.cmp dd{margin:1px 0 0;font-size:13px}
+.cmp .diff{color:var(--amb);font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;max-width:760px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.tile .ic{font-size:20px}
+.tile .ti{font-weight:700;margin-top:6px}
+.tile .de{color:var(--sub);font-size:12px;margin-top:3px}
+.canvas{max-width:680px;height:240px;background:#0a0e12;border:1px solid var(--line);border-radius:10px;position:relative}
+.meter{position:absolute;right:12px;top:12px;background:var(--panel);border:1px solid var(--grn);border-radius:8px;padding:6px 10px;font-family:ui-monospace,monospace;font-size:12px;color:var(--grn2)}
+.drop{max-width:620px;border:2px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--sub);background:var(--panel)}
+.prog{max-width:620px;margin-top:14px;background:#0a0e12;border:1px solid var(--line);border-radius:8px;height:14px;overflow:hidden}
+.prog > i{display:block;height:100%;width:72%;background:linear-gradient(90deg,var(--teal),var(--grn2))}
+/* ---- side gate ---- */
+.gate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 600px at 50% -10%,rgba(79,157,255,.12),transparent),var(--bg);z-index:30}
+.gate.hide{display:none}
+.gate .card{width:760px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px;text-align:center}
+.gate h2{margin:0 0 6px;font-size:24px}
+.gate p{margin:0 0 22px;color:var(--sub)}
+.choices{display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+.choice{flex:1 1 300px;max-width:330px;border:1px solid var(--line);border-radius:14px;padding:22px;cursor:pointer;background:var(--p2);transition:transform .12s,border-color .12s}
+.choice:hover{transform:translateY(-3px)}
+.choice.op:hover{border-color:var(--teal)} .choice.mech:hover{border-color:var(--amb)}
+.choice .big{font-size:34px}
+.choice h3{margin:8px 0 4px;font-size:19px}
+.choice .lv{font-size:12px;color:var(--sub)}
+.choice ul{text-align:left;margin:14px 0 0;padding-left:18px;color:var(--sub);font-size:12.5px;line-height:1.7}
+.choice.op h3{color:var(--teal)} .choice.mech h3{color:var(--amb)}
+/* ---- tour overlay ---- */
+.scrim{position:fixed;background:rgba(8,11,15,.74);z-index:40;transition:all .18s ease}
+#ring{position:fixed;z-index:41;border-radius:10px;box-shadow:0 0 0 3px var(--acc),0 0 22px 6px rgba(79,157,255,.55);pointer-events:none;transition:all .18s ease}
+#arrow{position:fixed;z-index:42;pointer-events:none}
+#tip{position:fixed;z-index:43;width:340px;max-width:88vw;background:var(--panel);border:1px solid var(--acc);border-radius:12px;padding:14px 16px 12px;box-shadow:0 14px 40px rgba(0,0,0,.5);transition:all .18s ease}
+#tip .tnum{font-size:11px;color:var(--acc);font-weight:700;letter-spacing:.4px}
+#tip .ttl{font-size:15px;font-weight:700;margin:3px 0 5px}
+#tip .txt{font-size:13px;color:var(--sub);line-height:1.5}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:44;display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-top:1px solid var(--line)}
+.bar .dots{display:flex;gap:5px;flex-wrap:wrap;flex:1 1 auto;justify-content:center}
+.bar .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.bar .dot.on{background:var(--acc)} .bar .dot.done{background:var(--grn)}
+.bar .grp{display:flex;gap:8px;align-items:center}
+.bar .lbl{font-size:12px;color:var(--sub);min-width:96px}
+.hidden{display:none!important}
+@media(max-width:680px){ #tip{width:300px} .bar .lbl{display:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">THE <span class="v">VIEWER</span></div>
+    <span class="muted" style="font-size:12px">Interactive demo &amp; onboarding</span>
+    <span class="sidechip" id="sidechip">side: <b id="sideName">—</b></span>
+  </div>
+  <div class="stage" id="stage">
+
+    <!-- SEARCH -->
+    <section class="screen" id="scr-search">
+      <p class="h">Search</p><p class="sh">Find a fault, part, NSN, or manual — instantly, offline.</p>
+      <div class="searchbox" id="s-box"><span class="muted">🔍</span><input id="s-input" value="engine will not crank" readonly></div>
+      <div class="sug" id="s-sug">
+        <div><span class="q">engine will not crank</span> — no-start troubleshooting</div>
+        <div>engine <b>cranks</b> but won't start — fuel/air</div>
+        <div>engine <b>overheats</b> — cooling system</div>
+      </div>
+      <div class="results" id="s-results">
+        <div class="res" id="s-row1"><span class="pill op">OPERATOR · TM-10</span><div><div class="ti">No-Crank Checks — batteries, master switch, NATO slave</div><div class="me">TM 9-2320-387-10 · Ch 2 Operating Instructions · p.214</div></div></div>
+        <div class="res"><span class="pill mech">MECHANIC · TM-20</span><div><div class="ti">Starter circuit troubleshooting &amp; replacement</div><div class="me">TM 9-2320-387-20 · Ch 7 Electrical · p.1180 · NSN 2920-01-...-....</div></div></div>
+        <div class="res"><span class="pill mech">MECHANIC · TM-20</span><div><div class="ti">Battery &amp; cable harness inspection</div><div class="me">Fig. 36 · with breakdown illustration</div></div></div>
+      </div>
+    </section>
+
+    <!-- MANUAL + FIND -->
+    <section class="screen" id="scr-manual">
+      <p class="h">Manual page + Find-in-manual</p><p class="sh">Open the exact page, then <span class="kbd">Ctrl+F</span> inside the document.</p>
+      <div class="findbar" id="m-findbar"><span class="muted">Find in manual:</span> <span class="kbd">starter</span> <span class="muted">— 4 hits · 1 of 4</span> <span style="margin-left:auto" class="muted">▲ ▼</span></div>
+      <div class="page" id="m-page">
+        <h4>2-44. STARTER SYSTEM — DESCRIPTION</h4>
+        The <span class="hl" id="m-hit">starter</span> motor is energized through the start relay when the master switch is ON and the
+        transmission is in N (neutral). The <b>starter</b> draws high current; verify the batteries are fully charged and the
+        NATO slave receptacle connections are clean before condemning the <b>starter</b>. If the engine does not crank, perform
+        the no-crank checks in sequence (battery → master switch → start relay → <b>starter</b>) before removal.
+      </div>
+    </section>
+
+    <!-- PROCEDURE -->
+    <section class="screen" id="scr-proc">
+      <p class="h" id="p-title">Procedure — how to do it</p><p class="sh">Disassembly / assembly, in order, with the tools and torque called out.</p>
+      <div class="steps" id="p-list">
+        <div class="step warn" id="p-warn"><div class="n">!</div><div><b>WARNING</b> — disconnect the NATO slave and ground (negative) battery cable first. High current; arc/burn hazard.</div></div>
+        <div class="step"><div class="n">1</div><div>Remove the splash shield (4 cap screws). <div class="tools"><span class="tool">🔧 1/2" socket</span><span class="tool">ratchet</span></div></div></div>
+        <div class="step" id="p-step2"><div class="n">2</div><div>Disconnect the starter feed cable and the small start-relay lead. Tag both. <div class="tools" id="p-tools"><span class="tool">🔧 9/16" wrench</span><span class="tool">cable tags</span></div></div></div>
+        <div class="step"><div class="n">3</div><div>Support the starter, remove 3 mounting bolts, and withdraw the unit.</div></div>
+        <div class="step" id="p-torque-link"><div class="n">4</div><div>On install, torque the mounting bolts to spec → <span class="kbd">see Torque ref</span>.</div></div>
+      </div>
+    </section>
+
+    <!-- TORQUE -->
+    <section class="screen" id="scr-torque">
+      <p class="h">Torque &amp; fastener reference</p><p class="sh">The right value, dry vs. lubricated, with the matching tool.</p>
+      <table class="t" id="t-table">
+        <tr><th>Fastener</th><th>Size / grade</th><th>Torque (dry)</th><th>Torque (lubed)</th><th>Tool</th></tr>
+        <tr id="t-row"><td>Starter mounting bolt</td><td>3/8-16, Gr 8</td><td>33 lb-ft</td><td>25 lb-ft</td><td>3/8" torque wrench</td></tr>
+        <tr><td>Cable terminal nut</td><td>3/8-24</td><td>20 lb-ft</td><td>—</td><td>9/16" crowfoot</td></tr>
+        <tr><td>Splash-shield cap screw</td><td>1/4-20</td><td>76 lb-in</td><td>—</td><td>1/2" socket</td></tr>
+      </table>
+    </section>
+
+    <!-- 3D PARTS -->
+    <section class="screen" id="scr-3d">
+      <p class="h">3-D parts library</p><p class="sh">Every card leads with the real cited manual figure; the part is also a live parametric 3-D model.</p>
+      <div class="grid" id="d-grid">
+        <div class="pcard" id="d-card">
+          <div class="thumb" id="d-fig"><svg width="100%" height="96" viewBox="0 0 150 96"><rect width="150" height="96" fill="#e9edf2"/><g stroke="#33414f" stroke-width="2" fill="#b9c4d0"><circle cx="75" cy="48" r="26"/><rect x="60" y="20" width="30" height="56" rx="4"/><circle cx="75" cy="48" r="9" fill="#7a8a99"/></g><text x="6" y="90" font-size="9" fill="#5a6b7a">Fig. 36 — starter</text></svg></div>
+          <div class="cn">STARTER, ENGINE</div><div class="cs">2920-01-574-2192</div><div class="tg">📄 manual figure · parametric</div>
+        </div>
+        <div class="pcard"><div class="thumb shape" id="d-param"><svg width="100%" height="96" viewBox="0 0 150 96"><g fill="#27425f" stroke="#0a0e12"><polygon points="40,30 110,30 120,48 110,66 40,66 30,48" opacity=".9"/><polygon points="110,30 120,48 120,40 110,22" opacity=".7"/></g><text x="6" y="90" font-size="9" fill="#6b7c8b">parametric (no figure)</text></svg></div><div class="cn">NUT, HEX</div><div class="cs">5310-01-070-8180</div><div class="tg">representative shape</div></div>
+        <div class="pcard"><div class="thumb"><svg width="100%" height="96" viewBox="0 0 150 96"><rect width="150" height="96" fill="#e9edf2"/><g stroke="#33414f" stroke-width="2" fill="#cfd8e0"><rect x="46" y="34" width="58" height="28" rx="3"/><circle cx="60" cy="48" r="5"/><circle cx="90" cy="48" r="5"/></g><text x="6" y="90" font-size="9" fill="#5a6b7a">Fig. 52 — relay</text></svg></div><div class="cn">RELAY, SOLENOID</div><div class="cs">5945-01-...-....</div><div class="tg">📄 manual figure</div></div>
+      </div>
+    </section>
+
+    <!-- PART DIFF -->
+    <section class="screen" id="scr-diff">
+      <p class="h">Look-alike parts — tell them apart</p><p class="sh">Two parts with the same name that are <b>not</b> interchangeable. The differences are flagged.</p>
+      <div class="cmp">
+        <div class="col" id="x-a"><h5 style="color:var(--acc)">BOLT, MACHINE — “A”</h5>
+          <dl><dt>NSN</dt><dd>5305-01-574-1476</dd><dt>CAGEC</dt><dd>19207</dd><dt class="diff">Thread / length</dt><dd class="diff">3/8-16 × 1.25 in</dd><dt class="diff">SMR</dt><dd class="diff">PAOZZ (stocked)</dd><dt>UOC</dt><dd>A1B</dd></dl></div>
+        <div class="col" id="x-b"><h5 style="color:var(--amb)">BOLT, MACHINE — “B”</h5>
+          <dl><dt>NSN</dt><dd>5305-01-525-9675</dd><dt>CAGEC</dt><dd>81349</dd><dt class="diff">Thread / length</dt><dd class="diff">3/8-24 × 1.00 in</dd><dt class="diff">SMR</dt><dd class="diff">KDFDD (depot only)</dd><dt>UOC</dt><dd>A1C</dd></dl></div>
+        <div class="col" id="x-delta" style="flex:1 1 200px;border-color:var(--amb)"><h5 style="color:var(--amb)">⚠ Why it matters</h5><div class="muted" style="font-size:12.5px;line-height:1.6">Same nomenclature, different <b>thread pitch</b> (16 vs 24), <b>length</b>, and <b>source</b>. Installing “B” where “A” belongs cross-threads the boss. Recognize by the <b>CAGEC</b> and the <b>NSN’s last 7</b>.</div></div>
+      </div>
+    </section>
+
+    <!-- SOLVE HUB -->
+    <section class="screen" id="scr-solve">
+      <p class="h">Solve-it hub</p><p class="sh">Start from a symptom and get routed to the right tool.</p>
+      <div class="tiles" id="v-tiles">
+        <div class="tile" id="v-tile1"><div class="ic">🧭</div><div class="ti">Symptom → fault tree</div><div class="de">Pick what you see; we walk the diagnostic.</div></div>
+        <div class="tile"><div class="ic">📦</div><div class="ti">Part → breakdown</div><div class="de">NSN/part# to the figure &amp; removal steps.</div></div>
+        <div class="tile"><div class="ic">⚡</div><div class="ti">Circuit Lab</div><div class="de">Trace &amp; simulate the schematic.</div></div>
+        <div class="tile"><div class="ic">🗂️</div><div class="ti">Smart Collections</div><div class="de">Auto-grouped pages by topic.</div></div>
+      </div>
+    </section>
+
+    <!-- CIRCUIT LAB -->
+    <section class="screen" id="scr-circuit">
+      <p class="h">Circuit Lab</p><p class="sh">Overlay the real schematic, then simulate it — voltages and currents, live.</p>
+      <div class="canvas" id="c-canvas">
+        <svg width="100%" height="100%" viewBox="0 0 680 240">
+          <g stroke="#4f9dff" stroke-width="2.5" fill="none">
+            <rect x="60" y="60" width="60" height="120" rx="6"/><line x1="120" y1="90" x2="300" y2="90"/><line x1="120" y1="150" x2="300" y2="150"/>
+            <circle cx="360" cy="120" r="42"/><line x1="402" y1="120" x2="560" y2="120"/><rect x="300" y="78" width="60" height="24"/>
+          </g>
+          <text x="62" y="52" fill="#9aa6b6" font-size="12">BATT 24V</text><text x="300" y="72" fill="#9aa6b6" font-size="12">RELAY</text><text x="332" y="190" fill="#9aa6b6" font-size="12">STARTER M</text>
+        </svg>
+        <div class="meter" id="c-meter">I = 312 A · V = 23.6 V</div>
+      </div>
+      <div style="margin-top:12px"><button class="btn acc" id="c-run">▶ Simulate</button> <span class="muted" style="font-size:12px">solver runs in a background worker — stays responsive</span></div>
+    </section>
+
+    <!-- COLLECTIONS -->
+    <section class="screen" id="scr-coll">
+      <p class="h">Smart Collections</p><p class="sh">The OCR text layer auto-groups related pages so you don’t hunt.</p>
+      <div class="steps" id="o-list" style="max-width:680px">
+        <div class="step" id="o-item"><div class="n">⚡</div><div><b>Electrical — starting &amp; charging</b><div class="muted" style="font-size:12px">38 pages · 6 manuals · auto-collected</div></div></div>
+        <div class="step"><div class="n">🛢️</div><div><b>Lubrication &amp; fluids</b><div class="muted" style="font-size:12px">22 pages · 4 manuals</div></div></div>
+        <div class="step"><div class="n">🛞</div><div><b>Running gear / suspension</b><div class="muted" style="font-size:12px">29 pages · 5 manuals</div></div></div>
+      </div>
+    </section>
+
+    <!-- ADD DOCS -->
+    <section class="screen" id="scr-ingest">
+      <p class="h">Add documents</p><p class="sh">Drop in any new TM/PDF — it’s parsed, OCR’d, and searchable without a sweat.</p>
+      <div class="drop" id="i-drop">⬇ Drop PDFs / TMs here, or click to browse<div class="muted" style="font-size:12px;margin-top:8px">TM 9-2320-387-24P_added.pdf — queued</div></div>
+      <div class="prog" id="i-progress"><i></i></div>
+      <div class="muted" style="font-size:12px;margin-top:6px">parsing pages · extracting parts · building the search index … 72%</div>
+    </section>
+
+  </div><!-- /stage -->
+</div><!-- /app -->
+
+<!-- side gate -->
+<div class="gate" id="gate">
+  <div class="card">
+    <h2>Welcome to <span style="color:var(--acc)">THE VIEWER</span></h2>
+    <p>A guided, end-to-end tour of the core features. First — which side of the house are you?</p>
+    <div class="choices">
+      <div class="choice op" id="g-op">
+        <div class="big">🪖</div><h3>Operator</h3><div class="lv">crew / -10 level</div>
+        <ul><li>Find a fault fast</li><li>Operate &amp; PMCS checks</li><li>Know when to escalate</li></ul>
+      </div>
+      <div class="choice mech" id="g-mech">
+        <div class="big">🔧</div><h3>Mechanic</h3><div class="lv">maintainer / -20 level</div>
+        <ul><li>Procedures, torque, 3-D parts</li><li>Look-alike part differences</li><li>Circuit Lab, collections, add docs</li></ul>
+      </div>
+    </div>
+    <p style="margin:20px 0 0;font-size:12px">You can switch sides any time from the bottom bar.</p>
+    <button class="btn" id="g-skip" style="margin-top:16px">Skip the demo →</button>
+  </div>
+</div>
+
+<!-- tour overlay -->
+<div id="overlay" class="hidden">
+  <div class="scrim" id="sc-top"></div><div class="scrim" id="sc-left"></div><div class="scrim" id="sc-right"></div><div class="scrim" id="sc-bot"></div>
+  <div id="ring"></div>
+  <svg id="arrow" width="0" height="0"></svg>
+  <div id="tip"><div class="tnum" id="tipNum"></div><div class="ttl" id="tipTtl"></div><div class="txt" id="tipTxt"></div></div>
+</div>
+
+<!-- control bar -->
+<div class="bar hidden" id="bar">
+  <div class="grp"><button class="btn" id="b-side">⇄ Switch side</button><span class="lbl" id="b-scene"></span></div>
+  <div class="dots" id="dots"></div>
+  <div class="grp">
+    <button class="btn" id="b-back">‹ Back</button>
+    <button class="btn" id="b-auto">▶ Autoplay</button>
+    <button class="btn acc" id="b-next">Next ›</button>
+    <button class="btn" id="b-skip">Skip demo</button>
+  </div>
+</div>
+
+<script>
+/* ============ THE VIEWER — guided demo engine (ES5, no deps, RPS-safe) ============ */
+(function(){
+  function $(id){return document.getElementById(id);}
+  var SIDE=null, STEPS=[], i=0, auto=false, autoT=null;
+  // EMBED = running inside the app's onboarding (iframe) vs. standalone (DEMO.bat / file).
+  var EMBED=false; try{ EMBED = /[?&]embed=1/.test(location.search) || (window.self!==window.top); }catch(e){ EMBED=true; }
+  function finishTour(){            // user clicked Finish (or skipped): hand off to the REAL side chooser, no guides
+    stopAuto();
+    if(EMBED){ try{ window.parent.postMessage({viewerDemo:'finish'},'*'); }catch(e){} return; }
+    var url=(location.protocol==='file:')?'http://127.0.0.1:8765/?onboard=1':'/?onboard=1';
+    try{ window.location.href=url; }catch(e){}
+  }
+  function advance(){ stopAuto(); if(i>=STEPS.length-1){ finishTour(); } else { go(i+1); } }
+
+  /* ---- the script. side: 'both' | 'op' | 'mech'. scr = screen id, sel = element id to spotlight. ---- */
+  var SCRIPT=[
+    {scr:'scr-search', sel:'s-box',   side:'both', scene:'Search', t:'Start by searching', x:'Type a fault, part name, NSN, or manual number. It searches the whole offline library — no internet, so it is instant.'},
+    {scr:'scr-search', sel:'s-sug',   side:'both', scene:'Search', t:'Predictive suggestions', x:'As you type, it predicts likely searches (like Google, but offline). Pick one to jump straight in.'},
+    {scr:'scr-search', sel:'s-row1',  side:'both', scene:'Search', t:'Results know your side', x:'Every hit is tagged OPERATOR (-10) or MECHANIC (-20). Your side is shown first, so you see the right depth of detail.'},
+    {scr:'scr-manual', sel:'m-page',  side:'both', scene:'Manual', t:'The exact page', x:'Open a result and land on the precise manual page — not a 600-page PDF to scroll.'},
+    {scr:'scr-manual', sel:'m-findbar',side:'both',scene:'Manual', t:'Find-in-manual', x:'Press Ctrl+F to search *inside* the open document. Every hit is highlighted and you can step through them.'},
+    {scr:'scr-manual', sel:'m-hit',   side:'both', scene:'Manual', t:'Highlighted hits', x:'The matched term is highlighted in context so you can confirm you are in the right spot.'},
+
+    {scr:'scr-proc',   sel:'p-warn',  side:'op',   scene:'Operate', t:'Operator: safety first', x:'At the -10 level you get the operating checks and the WARNINGs. Heavy or hazardous tasks route you to a mechanic.'},
+    {scr:'scr-proc',   sel:'p-list',  side:'op',   scene:'Operate', t:'Operator checks', x:'Clear, ordered checks you can do from the crew compartment — battery, master switch, relay — before escalating.'},
+
+    {scr:'scr-proc',   sel:'p-warn',  side:'mech', scene:'Procedure', t:'Procedure — warnings', x:'Mechanic view opens with the WARNING/CAUTION steps up front, then the ordered procedure.'},
+    {scr:'scr-proc',   sel:'p-step2', side:'mech', scene:'Procedure', t:'Step-by-step + tools', x:'Each step lists exactly what to do and which tools to grab — disassembly and assembly both covered.'},
+    {scr:'scr-proc',   sel:'p-torque-link', side:'mech', scene:'Procedure', t:'Linked to torque', x:'When a step needs a torque value, it links straight to the reference — no separate lookup.'},
+    {scr:'scr-torque', sel:'t-row',   side:'mech', scene:'Torque', t:'Torque reference', x:'The right value, dry vs. lubricated, with the matching wrench. Cross-checked against the manual.'},
+
+    {scr:'scr-3d',     sel:'d-fig',   side:'mech', scene:'3-D parts', t:'Real manual figure', x:'The 3-D library leads with the actual cited breakdown illustration from the manual for each part.'},
+    {scr:'scr-3d',     sel:'d-param', side:'mech', scene:'3-D parts', t:'Parametric model', x:'Parts are also live parametric (procedural) 3-D shapes built from their FLIS dimensions — spin and inspect them.'},
+    {scr:'scr-diff',   sel:'x-a',     side:'mech', scene:'Part-diff', t:'Two “identical” parts', x:'Same nomenclature, two different parts. The look-alike recognizer lines them up side by side.'},
+    {scr:'scr-diff',   sel:'x-delta', side:'mech', scene:'Part-diff', t:'What actually differs', x:'It flags the real differences — thread pitch, length, source code — and how to recognize them by CAGEC and NSN.'},
+
+    {scr:'scr-solve',  sel:'v-tile1', side:'both', scene:'Solve', t:'Solve-it hub', x:'Stuck? Start from a symptom and the hub routes you to the fault tree, the part breakdown, or the right tool.'},
+    {scr:'scr-circuit',sel:'c-canvas',side:'mech', scene:'Circuit Lab', t:'Real schematics', x:'Circuit Lab overlays the actual TM schematic so you can trace the starting circuit.'},
+    {scr:'scr-circuit',sel:'c-run',   side:'mech', scene:'Circuit Lab', t:'Simulate it', x:'Run a real simulation — currents and voltages — in a background worker, so the UI never freezes.'},
+    {scr:'scr-coll',   sel:'o-item',  side:'mech', scene:'Collections', t:'Smart Collections', x:'The OCR text layer auto-groups related pages across manuals, so a whole subsystem is one click away.'},
+    {scr:'scr-ingest', sel:'i-drop',  side:'mech', scene:'Add docs', t:'Add any document', x:'Drop in a new TM or PDF and it is parsed, OCR’d and indexed automatically — the library just grows.'},
+    {scr:'scr-ingest', sel:'i-progress', side:'both', scene:'Done', t:'That’s the tour', x:'Search → page → procedure → parts → solve. Click Finish to choose your side and start using THE VIEWER for real — no more guides.'}
+  ];
+
+  function buildSteps(){
+    STEPS=[];
+    for(var k=0;k<SCRIPT.length;k++){ var s=SCRIPT[k]; if(s.side==='both'||s.side===SIDE) STEPS.push(s); }
+  }
+
+  function showScreen(id){
+    var sc=document.querySelectorAll('.screen');
+    for(var k=0;k<sc.length;k++) sc[k].className='screen'+(sc[k].id===id?' active':'');
+  }
+
+  function place(){
+    var st=STEPS[i]; if(!st) return;
+    var el=$(st.sel); if(!el) return;
+    var r=el.getBoundingClientRect();
+    var pad=8, x=r.left-pad, y=r.top-pad, w=r.width+pad*2, h=r.height+pad*2;
+    var W=window.innerWidth, H=window.innerHeight, barH=56;
+    // ring
+    var ring=$('ring'); ring.style.left=x+'px'; ring.style.top=y+'px'; ring.style.width=w+'px'; ring.style.height=h+'px';
+    // 4 scrim rects (leave a hole around the ring)
+    set($('sc-top'),0,0,W,Math.max(0,y));
+    set($('sc-bot'),0,y+h,W,Math.max(0,H-(y+h)));
+    set($('sc-left'),0,y,Math.max(0,x),h);
+    set($('sc-right'),x+w,y,Math.max(0,W-(x+w)),h);
+    // tooltip: prefer below, else above; clamp horizontally
+    var tip=$('tip'), tw=tip.offsetWidth||340, th=tip.offsetHeight||130;
+    var below=(y+h+14+th < H-barH);
+    var ty=below?(y+h+14):(y-th-14);
+    var tx=Math.min(Math.max(12, x+w/2-tw/2), W-tw-12);
+    if(ty<8) ty=8; if(ty+th>H-barH) ty=H-barH-th-6;
+    tip.style.left=tx+'px'; tip.style.top=ty+'px';
+    $('tipNum').textContent='STEP '+(i+1)+' OF '+STEPS.length+'  ·  '+st.scene.toUpperCase();
+    $('tipTtl').textContent=st.t; $('tipTxt').textContent=st.x;
+    // arrow from tooltip toward ring center
+    drawArrow(tx+tw/2, below?ty:(ty+th), x+w/2, below?(y+h):y, below);
+    // dots + buttons
+    renderDots();
+    $('b-back').disabled=(i===0); $('b-back').style.opacity=i===0?'.4':'1';
+    $('b-next').textContent=(i===STEPS.length-1)?'Finish ✓':'Next ›';
+    $('b-scene').textContent=(SIDE==='op'?'Operator':'Mechanic')+' · '+st.scene;
+  }
+  function set(d,l,t,w,h){ d.style.left=l+'px'; d.style.top=t+'px'; d.style.width=w+'px'; d.style.height=h+'px'; }
+  function drawArrow(x1,y1,x2,y2,below){
+    var a=$('arrow'); var minx=Math.min(x1,x2)-12, miny=Math.min(y1,y2)-12, w=Math.abs(x2-x1)+24, h=Math.abs(y2-y1)+24;
+    a.setAttribute('width',w); a.setAttribute('height',h); a.style.left=minx+'px'; a.style.top=miny+'px';
+    var px1=x1-minx, py1=y1-miny, px2=x2-minx, py2=y2-miny;
+    var mx=(px1+px2)/2;
+    a.innerHTML='<defs><marker id="ah" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#4f9dff"/></marker></defs>'+
+      '<path d="M'+px1+','+py1+' C'+mx+','+py1+' '+mx+','+py2+' '+px2+','+py2+'" stroke="#4f9dff" stroke-width="2.5" fill="none" marker-end="url(#ah)" opacity=".95"/>';
+  }
+  function renderDots(){
+    var d=$('dots'), s=''; for(var k=0;k<STEPS.length;k++){ var c='dot'+(k<i?' done':(k===i?' on':'')); s+='<span class="'+c+'" data-k="'+k+'" style="cursor:pointer"></span>'; }
+    d.innerHTML=s;
+  }
+
+  function go(n){ if(n<0)n=0; if(n>STEPS.length-1)n=STEPS.length-1; i=n; showScreen(STEPS[i].scr); place(); }
+  function next(){ if(i>=STEPS.length-1){ stopAuto(); return; } go(i+1); }
+  function back(){ go(i-1); }
+
+  function startTour(side){
+    SIDE=side; $('sideName').textContent=(side==='op'?'Operator (-10)':'Mechanic (-20)');
+    $('sidechip').style.borderColor=(side==='op'?'var(--teal)':'var(--amb)');
+    buildSteps(); i=0; $('gate').className='gate hide'; $('overlay').className=''; $('bar').className='bar';
+    go(0);
+  }
+  function switchSide(){ stopAuto(); $('overlay').className='hidden'; $('bar').className='bar hidden'; $('gate').className='gate'; }
+  function skip(){ stopAuto(); if(EMBED){ finishTour(); return; } $('overlay').className='hidden'; $('bar').className='bar hidden'; $('gate').className='gate'; }
+
+  function startAuto(){ auto=true; $('b-auto').textContent='❚❚ Pause'; $('b-auto').className='btn acc'; tick(); }
+  function stopAuto(){ auto=false; if(autoT)clearTimeout(autoT); autoT=null; $('b-auto').textContent='▶ Autoplay'; $('b-auto').className='btn'; }
+  function tick(){ if(!auto)return; if(i>=STEPS.length-1){ stopAuto(); return; } autoT=setTimeout(function(){ next(); tick(); }, 3400); }
+
+  /* wire up */
+  $('g-op').onclick=function(){ startTour('op'); };
+  $('g-mech').onclick=function(){ startTour('mech'); };
+  if($('g-skip')) $('g-skip').onclick=function(){ finishTour(); };   // skip the demo straight from the opening gate
+  $('b-next').onclick=function(){ advance(); };
+  $('b-back').onclick=function(){ stopAuto(); back(); };
+  $('b-skip').onclick=skip;
+  $('b-side').onclick=switchSide;
+  $('b-auto').onclick=function(){ if(auto)stopAuto(); else startAuto(); };
+  $('dots').onclick=function(e){ var k=e.target.getAttribute&&e.target.getAttribute('data-k'); if(k!==null&&k!==undefined){ stopAuto(); go(parseInt(k,10)); } };
+  document.addEventListener('keydown',function(e){
+    if($('overlay').className==='hidden')return;
+    if(e.key==='ArrowRight'||e.key==='Enter'){ advance(); }
+    else if(e.key==='ArrowLeft'){ stopAuto(); back(); }
+    else if(e.key==='Escape'){ skip(); }
+  });
+  window.addEventListener('resize',function(){ if($('overlay').className!=='hidden') place(); });
+})();
+</script>
+</body>
+</html>

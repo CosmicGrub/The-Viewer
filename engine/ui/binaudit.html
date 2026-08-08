@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bin / shelf audit — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 70px}
+  h1{font-size:19px;margin:0 0 4px}.muted{color:#8a98a8;font-size:12.5px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;align-items:center}
+  input,textarea{background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:10px 12px;font-size:15px}
+  input{flex:1;min-width:220px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer}
+  button.alt,a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #1c2530;vertical-align:top}
+  th{color:#8a98a8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .flag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 7px;font-weight:700;margin-right:4px}
+  .look{background:#2a2207;color:#e8c07a;border:1px solid #6a5417}
+  .obs{background:#2a1414;color:#e39b95;border:1px solid #6a2f2a}
+  .ok{background:#123020;color:#7fd6a0;border:1px solid #1d9e75}
+  .scanning{color:#7fd6a0;font-weight:700}
+  .grpwarn{background:#1a130a;border:1px solid #4a3a17;border-radius:8px;padding:8px 12px;margin:8px 0;color:#e8c07a;font-size:12.5px}
+</style></head><body>
+<div class="wrap">
+  <h1>📦 Bin / shelf audit <span class="muted" id="scanind"></span></h1>
+  <div class="muted">Scan a row of NSNs with the <b>hand scanner</b> (they drop into the list automatically) or paste/type
+    them below. The audit flags any that are <b>look-alikes</b> of each other (same item, easy to mix up) and any that
+    are <b>superseded / obsolete</b>. Authoritative from PUBLOG, fully offline.</div>
+  <div class="row">
+    <input id="q" placeholder="Type/paste an NSN and press Enter — or just scan">
+    <button class="go" id="add">Add</button>
+    <button class="alt" id="run">Audit</button>
+    <button class="alt" id="clear">Clear</button>
+  </div>
+  <div class="muted" id="count">0 items.</div>
+  <div id="warns"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  var ITEMS=[];   // {nsn, niin}
+
+  function niinOf(s){ var d=(s||'').replace(/[^0-9]/g,''); return d.length>=13?d.slice(-9):(d.length===9?d:(d?d.padStart(9,'0').slice(0,9):'')); }
+  function add(code){
+    var niin=niinOf(code); if(!niin) return false;
+    if(ITEMS.some(function(x){return x.niin===niin;})) { flashCount('already in list'); return true; }
+    ITEMS.push({nsn:code.trim(), niin:niin}); render(); return true;
+  }
+  function flashCount(extra){ $('#count').textContent=ITEMS.length+' items.'+(extra?(' '+extra):''); }
+
+  // hand-scanner hook: scans append to the list instead of navigating
+  window.onScan=function(code){ add(code); $('#scanind').innerHTML='<span class="scanning">● scanning — '+ITEMS.length+' captured</span>'; return true; };
+
+  $('#add').onclick=function(){ if(add($('#q').value)) $('#q').value=''; };
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ if(add($('#q').value)) $('#q').value=''; }});
+  $('#clear').onclick=function(){ ITEMS=[]; $('#warns').innerHTML=''; $('#out').innerHTML=''; render(); };
+  $('#run').onclick=audit;
+
+  function render(){
+    flashCount();
+    if(!ITEMS.length){ $('#out').innerHTML=''; return; }
+    var h='<table><tr><th>NSN</th><th>Status</th></tr>';
+    ITEMS.forEach(function(it){ h+='<tr><td>'+esc(it.nsn)+'</td><td class="muted" id="st-'+it.niin+'">— (run audit)</td></tr>'; });
+    $('#out').innerHTML=h+'</table>';
+  }
+
+  function audit(){
+    if(!ITEMS.length) return;
+    $('#warns').innerHTML='<div class="muted">Auditing '+ITEMS.length+' items…</div>';
+    Promise.all(ITEMS.map(function(it){
+      return Promise.all([
+        fetch('/api/publog?nsn='+encodeURIComponent(it.niin)).then(function(r){return r.json();}).catch(function(){return null;}),
+        fetch('/api/publog_intel?nsn='+encodeURIComponent(it.niin)).then(function(r){return r.json();}).catch(function(){return null;})
+      ]).then(function(res){ it.rec=(res[0]&&res[0].record)||null; it.intel=res[1]||null; return it; });
+    })).then(function(){ show(); });
+  }
+
+  function show(){
+    // group by item_name for look-alikes
+    var groups={};
+    ITEMS.forEach(function(it){ var nm=(it.rec&&(it.rec.item_name||'')).trim().toUpperCase()||'(unknown)'; (groups[nm]=groups[nm]||[]).push(it); });
+    var warns='';
+    Object.keys(groups).forEach(function(nm){ if(groups[nm].length>1 && nm!=='(UNKNOWN)'){
+      warns+='<div class="grpwarn">⚠ Look-alike group: <b>'+groups[nm].length+'× '+esc(nm)+'</b> — '+groups[nm].map(function(x){return esc(x.nsn);}).join(', ')+'. Easy to mix up; confirm the exact NSN per vehicle.</div>';
+    }});
+    var anyObs=false;
+    ITEMS.forEach(function(it){ var sup=(it.intel&&it.intel.supersession)||{}; if(sup.status==='obsolete/terminal') anyObs=true; });
+    if(!warns && !anyObs) warns='<div class="grpwarn ok" style="background:#0e1a12;border-color:#1d9e75;color:#7fd6a0">✓ No look-alikes or obsolete NSNs detected in this bin.</div>';
+    $('#warns').innerHTML=warns;
+
+    var h='<table><tr><th>NSN</th><th>Item</th><th>Flags</th></tr>';
+    ITEMS.forEach(function(it){
+      var nm=(it.rec&&it.rec.item_name)||'(not in catalog)';
+      var nmU=(it.rec&&(it.rec.item_name||'')).trim().toUpperCase();
+      var flags='';
+      if(nmU && groups[nmU] && groups[nmU].length>1) flags+='<span class="flag look">look-alike ×'+groups[nmU].length+'</span>';
+      var sup=(it.intel&&it.intel.supersession)||{};
+      if(sup.status==='obsolete/terminal'){ flags+='<span class="flag obs">obsolete'+(sup.aac?(' · AAC '+esc(sup.aac)):'')+'</span>'; if(sup.replaced_by&&sup.replaced_by.length) flags+=' <span class="muted">→ '+esc(sup.replaced_by.join(', '))+'</span>'; }
+      else if(sup.status==='active') flags+='<span class="flag ok">active</span>';
+      if(!flags) flags='<span class="muted">—</span>';
+      h+='<tr><td><a class="chip" style="color:#4f9dff" href="/publog?nsn='+encodeURIComponent(it.niin)+'" target="_blank">'+esc(it.nsn)+'</a></td><td>'+esc(nm)+'</td><td>'+flags+'</td></tr>';
+    });
+    $('#out').innerHTML=h+'</table>';
+  }
+
+  render();
+})();
+</script>
+<script src="/palette.js"></script>
+<script src="/scanner.js"></script>
+</body></html>

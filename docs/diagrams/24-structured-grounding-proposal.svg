@@ -1,0 +1,70 @@
+<svg viewBox="0 0 1180 900" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="900" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">Structured grounding layer — design markup (top pick, before build)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Parse the manuals&#x27; own RPSTL parts tables &amp; maintenance work packages into structured records → exact part auto-fill, look-alike warnings, and a verbatim procedure panel. Every field stays cited to its page.</text>
+<rect x="40" y="86" width="1100" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="106" font-size="10" font-weight="700" fill="#9aa6b6" text-anchor="start">In your corpus (sample index):</text>
+<text x="250" y="106" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">ITEM NO </text>
+<text x="297.4" y="106" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">4,223</text>
+<text x="358.4" y="106" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">SMR </text>
+<text x="381.0" y="106" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">4,590</text>
+<text x="442.0" y="106" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">PART NUMBER </text>
+<text x="514.2" y="106" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">3,764</text>
+<text x="575.2" y="106" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">USABLE ON CODE </text>
+<text x="666.0" y="106" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">3,748</text>
+<text x="727.0" y="106" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">torque </text>
+<text x="768.2" y="106" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">1,561</text>
+<text x="829.2" y="106" font-size="9.5" font-weight="400" fill="#9aa6b6" text-anchor="start">lb-ft </text>
+<text x="864.2" y="106" font-size="9.5" font-weight="700" fill="#bfe6c5" text-anchor="start">1,030</text>
+<rect x="40" y="128" width="520" height="330" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="152" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · EXTRACTION  (offline, idempotent, resumable)</text>
+<rect x="58" y="166" width="484" height="72" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="186" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">RPSTL / -24P parts pages</text>
+<text x="70" y="204" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Parse repeating rows: FIG · ITEM · SMR · CAGEC · NSN · PART NUMBER ·</text><text x="70" y="217" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">NOMENCLATURE · USABLE-ON-CODE.</text>
+<rect x="58" y="246" width="484" height="72" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="266" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Maintenance work packages (WP)</text>
+<text x="70" y="284" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">Parse tasks: REMOVAL / INSTALLATION / DISASSEMBLY → numbered steps, tools,</text><text x="70" y="297" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">torque values — captured verbatim with page refs.</text>
+<path d="M300,318 L300,336" stroke="#4f9dff" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="58" y="338" width="484" height="104" rx="9" fill="#101a14" stroke="#2f7d4f" stroke-width="1"/>
+<text x="70" y="358" font-size="10.5" font-weight="700" fill="#bfe6c5" text-anchor="start">→ schema migration 0004 (additive, R1) fills the reserved tables:</text>
+<text x="70" y="376" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">parts (+ cagec, smr, fig_no, item_no, uoc, nomenclature, doc, page, vehicle) ·</text><text x="70" y="389" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">part_variants (differs_how, how_to_tell) · procedures (kind, steps, tools,</text><text x="70" y="402" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">torque, doc, page) · figures.</text>
+<text x="70" y="422" font-size="9" font-weight="400" fill="#caa24a" text-anchor="start">Confidence score per record; the source page is always kept for citation.</text>
+<text x="580" y="148" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">2 · GROUNDED OUTPUTS</text>
+<rect x="580" y="128" width="560" height="82" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="580" y="128" width="5" height="82" rx="2" fill="#2f7d4f"/>
+<text x="598" y="152" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">A · Exact part auto-fill</text>
+<text x="598" y="172" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Add a part → NSN, part#, FIG, nomenclature fill from the structured RPSTL row</text><text x="598" y="186" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(not a guessed snippet), cited to the catalog page.</text>
+<rect x="580" y="212" width="560" height="82" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="580" y="212" width="5" height="82" rx="2" fill="#caa24a"/>
+<text x="598" y="236" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">B · Look-alike warning</text>
+<text x="598" y="256" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Same nomenclature, different NSN/part#? Show &#x27;⚠ 2 variants — check</text><text x="598" y="270" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Usable-On-Code&#x27; with the cited distinguishing column. Only when the data shows</text><text x="598" y="284" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">a real difference.</text>
+<rect x="580" y="312" width="560" height="82" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="580" y="312" width="5" height="82" rx="2" fill="#4f9dff"/>
+<text x="598" y="336" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">C · Verbatim procedure panel</text>
+<text x="598" y="356" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">For a part/fault: remove/install steps, tools, and torque shown VERBATIM with</text><text x="598" y="370" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">TM+page — never paraphrased. Your original goal C.</text>
+<rect x="580" y="406" width="560" height="42" rx="9" fill="#16223a" stroke="#2c3f5e" stroke-width="1"/>
+<text x="598" y="432" font-size="10" font-weight="400" fill="#9bc0ff" text-anchor="start">+ OCR coverage meter (parallel): /api/coverage → per-vehicle &#x27;% searchable&#x27; shown in the hub &amp; search.</text>
+<text x="40" y="488" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · SEQUENCING</text>
+<rect x="40" y="504" width="1100" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="504" width="6" height="80" rx="3" fill="#2f7d4f"/>
+<text x="60" y="530" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PHASE 1  (foundation)</text>
+<rect x="1000" y="520" width="124" height="26" rx="6" fill="#2f7d4f" stroke="#2b333f" stroke-width="1"/>
+<text x="1062" y="537" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">build first</text>
+<text x="60" y="550" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Structured RPSTL parts + look-alike variants + exact auto-fill. Migration 0004. Coverage meter. Quick wins: multi-sheet</text><text x="60" y="564" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">pagination (&gt;6 items) + capture confirm/override.</text>
+<rect x="40" y="592" width="1100" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="592" width="6" height="80" rx="3" fill="#4f9dff"/>
+<text x="60" y="618" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PHASE 2  (verbatim procedures)</text>
+<rect x="1000" y="608" width="124" height="26" rx="6" fill="#4f9dff" stroke="#2b333f" stroke-width="1"/>
+<text x="1062" y="625" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">next</text>
+<text x="60" y="638" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Procedure panel: remove/install/tools/torque, cited &amp; verbatim, linked from a part or fault. Builds on Phase-1 parts &amp; figures.</text>
+<rect x="40" y="680" width="1100" height="80" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="680" width="6" height="80" rx="3" fill="#caa24a"/>
+<text x="60" y="706" font-size="12.5" font-weight="700" fill="#e6e9ee" text-anchor="start">PARALLEL  (OCR)</text>
+<rect x="1000" y="696" width="124" height="26" rx="6" fill="#caa24a" stroke="#2b333f" stroke-width="1"/>
+<text x="1062" y="713" font-size="9.5" font-weight="700" fill="#0f1419" text-anchor="middle">ongoing</text>
+<text x="60" y="726" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Keep completing GPU OCR; each pass raises extraction coverage for both phases. Coverage meter makes the progress visible.</text>
+<rect x="40" y="772" width="1100" height="60" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="58" y="794" font-size="11" font-weight="700" fill="#e0564f" text-anchor="start">GROUNDING GUARANTEE</text>
+<text x="58" y="812" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Extraction is OCR/table-noisy, so: nothing is shown without its cited source page; low-confidence records are flagged for the mechanic to verify; a</text><text x="58" y="825" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">look-alike difference is only stated when the manual&#x27;s data actually shows it. We surface the manual — we never paraphrase specs or invent a variant.</text>
+</svg>

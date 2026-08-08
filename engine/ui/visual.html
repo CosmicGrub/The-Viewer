@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visual part search — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .drop{border:2px dashed #2f4858;border-radius:12px;padding:26px;text-align:center;margin:14px 0;transition:border-color .15s}
+  .drop.over{border-color:#4f9dff;background:rgba(80,150,240,.06)}
+  .drop input{display:none} .drop label{color:#7fbfff;cursor:pointer;text-decoration:underline}
+  #preview{max-width:200px;max-height:160px;border-radius:8px;margin-top:12px;border:1px solid #2f4858}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none}
+  .r{background:#10151c;border:1px solid #223;border-radius:10px;padding:10px 14px;margin:7px 0;display:flex;gap:12px;align-items:center}
+  .r .d{background:#16202b;border:1px solid #26333f;border-radius:8px;padding:3px 9px;font-size:12px;min-width:56px;text-align:center}
+  .r .nm{flex:1;color:#cfe;font-size:12.8px} .r a{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:11.5px}
+  .warn{color:#e8a06a;font-size:12px;margin-top:12px}
+</style></head><body>
+<div class="wrap">
+  <h1>📷 Visual part search</h1>
+  <div class="muted">Snap or drop a photo of a part; THE VIEWER finds the closest figure crops by shape (perceptual hash — offline, no cloud). Great when you have the part but not its name.</div>
+  <div class="drop" id="drop">
+    <div>Drop a photo here, or <label for="file">choose an image</label>.</div>
+    <input type="file" id="file" accept="image/*">
+    <div><img id="preview" style="display:none"></div>
+  </div>
+  <div><a class="btn" href="/partdiff">🔍 Look-Alike Parts</a> <a class="btn" href="/">← search</a></div>
+  <div id="head" class="muted"></div>
+  <div id="results"></div>
+  <div class="warn" id="notready" style="display:none">The visual index isn't built yet — run <code>BUILD-VISUAL-INDEX.bat</code> once (host-side) to hash the figure crops.</div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function handle(file){
+    if(!file){return;}
+    var rd=new FileReader();
+    rd.onload=function(){
+      $('#preview').src=rd.result; $('#preview').style.display='inline-block';
+      $('#head').textContent='Matching…'; $('#results').innerHTML=''; $('#notready').style.display='none';
+      fetch('/api/visualmatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:rd.result})})
+        .then(function(r){return r.json();}).then(function(j){
+          if(j.error){ $('#head').textContent=j.error; return; }
+          if(!j.ready){ $('#head').textContent=''; $('#notready').style.display=''; return; }
+          var res=j.results||[];
+          if(!res.length){ $('#head').textContent='No close matches — try a clearer, straight-on photo.'; return; }
+          $('#head').textContent=res.length+' closest figure crops (lower distance = closer):';
+          $('#results').innerHTML=res.map(function(x){
+            return '<div class="r"><span class="d">'+x.distance+'</span><span class="nm">'+esc(x.name)+'</span>'
+              +'<a href="'+esc(x.crop_url)+'" target="_blank">crop ↗</a></div>';
+          }).join('');
+        }).catch(function(){ $('#head').textContent='Match failed.'; });
+    };
+    rd.readAsDataURL(file);
+  }
+  $('#file').addEventListener('change',function(e){ handle(e.target.files[0]); });
+  var dz=$('#drop');
+  ['dragenter','dragover'].forEach(function(ev){ dz.addEventListener(ev,function(e){ e.preventDefault(); dz.classList.add('over'); }); });
+  ['dragleave','drop'].forEach(function(ev){ dz.addEventListener(ev,function(e){ e.preventDefault(); dz.classList.remove('over'); }); });
+  dz.addEventListener('drop',function(e){ if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length) handle(e.dataTransfer.files[0]); });
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

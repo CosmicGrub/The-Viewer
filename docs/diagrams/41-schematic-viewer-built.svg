@@ -1,0 +1,73 @@
+<svg viewBox="0 0 1180 760" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="760" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="21" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Schematic legibility viewer  (v0.27.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Same drawing, made readable: a &#x27;Clean&#x27; toggle + contrast (server-side, PyMuPDF→Pillow), a 3D tilt of the flat page, and a hover loupe. Nothing invented; cited to its page.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">VIEWER TOOLBAR (new controls)</text>
+<rect x="40" y="126" width="540" height="330" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="56" y="140" width="508" height="28" rx="6" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="70" y="158" font-size="9.4" font-weight="700" fill="#2f7d4f" text-anchor="start">🧹 Clean</text>
+<text x="198" y="158" font-size="9.4" font-weight="700" fill="#9aa6b6" text-anchor="start">contrast ▮▮▮</text>
+<text x="326" y="158" font-size="9.4" font-weight="700" fill="#caa24a" text-anchor="start">tilt ◣</text>
+<text x="454" y="158" font-size="9.4" font-weight="700" fill="#4f9dff" text-anchor="start">🔎 Loupe</text>
+<rect x="56" y="180" width="508" height="262" rx="8" fill="#0a0e12" stroke="#2b333f" stroke-width="1"/>
+<g transform="translate(126,210) skewY(-6)">
+<rect x="0" y="0" width="300" height="200" rx="4" fill="#11161d" stroke="#3a4452" stroke-width="1"/>
+<line x1="20" y1="24" x2="280" y2="24" stroke="#46505f" stroke-width="1.1"/>
+<line x1="20" y1="54" x2="280" y2="54" stroke="#46505f" stroke-width="1.1"/>
+<line x1="20" y1="84" x2="280" y2="84" stroke="#46505f" stroke-width="1.1"/>
+<line x1="20" y1="114" x2="280" y2="114" stroke="#46505f" stroke-width="1.1"/>
+<line x1="20" y1="144" x2="280" y2="144" stroke="#46505f" stroke-width="1.1"/>
+<line x1="20" y1="174" x2="280" y2="174" stroke="#46505f" stroke-width="1.1"/>
+<line x1="28" y1="18" x2="28" y2="186" stroke="#46505f" stroke-width="0.9"/>
+<line x1="68" y1="18" x2="68" y2="186" stroke="#46505f" stroke-width="0.9"/>
+<line x1="108" y1="18" x2="108" y2="186" stroke="#46505f" stroke-width="0.9"/>
+<line x1="148" y1="18" x2="148" y2="186" stroke="#46505f" stroke-width="0.9"/>
+<line x1="188" y1="18" x2="188" y2="186" stroke="#46505f" stroke-width="0.9"/>
+<line x1="228" y1="18" x2="228" y2="186" stroke="#46505f" stroke-width="0.9"/>
+<line x1="268" y1="18" x2="268" y2="186" stroke="#46505f" stroke-width="0.9"/>
+</g>
+<text x="126" y="430" font-size="8.6" font-weight="400" fill="#caa24a" text-anchor="start">flat page, tilted in 3D (perspective rotateY)</text>
+<circle cx="456" cy="258" r="34" fill="#0a0e12" stroke="#4f9dff" stroke-width="1.8"/>
+<line x1="428" y1="242" x2="484" y2="242" stroke="#5a6675" stroke-width="1.3"/>
+<line x1="428" y1="252" x2="484" y2="252" stroke="#5a6675" stroke-width="1.3"/>
+<line x1="428" y1="262" x2="484" y2="262" stroke="#5a6675" stroke-width="1.3"/>
+<line x1="428" y1="272" x2="484" y2="272" stroke="#5a6675" stroke-width="1.3"/>
+<text x="456" y="262" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="middle">2.6×</text>
+<text x="456" y="308" font-size="8.6" font-weight="400" fill="#4f9dff" text-anchor="middle">loupe follows cursor</text>
+<text x="606" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">REQUEST FLOW  (offline, same dataset)</text>
+<rect x="606" y="132" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="153" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Click 🧹 Clean / move contrast</text>
+<text x="620" y="169" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">UI sets VP.clean + VP.contrast, reloads page image</text>
+<path d="M873,184 L873,190" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="190" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="211" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · GET /page?...&amp;clean=1&amp;contrast=N</text>
+<text x="620" y="227" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">server renders the real page hi-DPI (PyMuPDF)</text>
+<path d="M873,242 L873,248" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="248" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="269" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · _clean_png(): grayscale → autocontrast</text>
+<text x="620" y="285" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">→ de-speckle (median) → unsharp → optional contrast/binarize (Pillow)</text>
+<path d="M873,300 L873,306" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="306" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="327" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · Crisp PNG returned &amp; shown</text>
+<text x="620" y="343" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">tilt = CSS perspective rotateY on the &lt;img&gt; (no re-fetch)</text>
+<path d="M873,358 L873,364" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="606" y="364" width="534" height="52" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="620" y="385" font-size="10.4" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · 🔎 Loupe = client-side magnifier</text>
+<text x="620" y="401" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">background-zoom of the same PNG under the cursor</text>
+<rect x="40" y="478" width="1100" height="96" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="502" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">INVARIANTS &amp; GROUNDING (R1 · R6)</text>
+<text x="58" y="522" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Pure enhancement of the real page — contrast, sharpen, de-speckle, optional high-contrast/binarize — plus a flat-sheet 3D tilt and a magnifier. No strokes, depth, or</text><text x="58" y="535" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">detail are fabricated. Off by default: the dataset, FTS search, and the 104th sheet are untouched; toggles are presentation-only and reversible. Cleanup runs server-side</text><text x="58" y="548" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">via Pillow (auto-installed by run_app.bat); loupe + tilt are client-side CSS.</text>
+<rect x="40" y="584" width="1100" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="608" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">WHAT&#x27;S NEXT (proposed, not yet built)</text>
+<text x="58" y="624" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">• Deep-zoom tiles (B)</text>
+<text x="330" y="624" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">OpenSeadragon tile pyramid for buttery zoom/pan to any portion — larger build.</text>
+<text x="58" y="650" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">• Spotlight / box-highlight (C)</text>
+<text x="330" y="650" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">drag a region to dim everything outside it — pairs with the loupe.</text>
+<text x="58" y="676" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">• Callout hotspots → parts (D)</text>
+<text x="330" y="676" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">hover a FIG number to highlight + open the NSN — OCR-box gated, grows as OCR completes.</text>
+<text x="58" y="702" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">• Vectorize line art (E)</text>
+<text x="330" y="702" font-size="9.2" font-weight="400" fill="#9aa6b6" text-anchor="start">trace clean schematics to SVG for infinite-zoom crispness — optional, high effort.</text>
+<text x="40" y="750" font-size="9.4" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram — companion to proposal 40. Dark (R3). v0.27.0 · 2026-06-02.</text>
+</svg>

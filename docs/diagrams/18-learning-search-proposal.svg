@@ -1,0 +1,81 @@
+<svg viewBox="0 0 1180 840" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="840" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="22" font-weight="700" fill="#e6e9ee" text-anchor="start">Self-learning search + a calmer modal — proposal</text>
+<text x="40" y="70" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Surface what you already log. Decide before we build. (Fault is already mandatory — no change needed there.)</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="40" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">THE LEARNING LOOP  ·  no new plumbing — request_items already captures every end-to-end success</text>
+<rect x="40" y="132" width="196" height="70" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="52" y="156" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Generate 104th sheet</text>
+<text x="52" y="172" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">every part the mechanic</text>
+<text x="52" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">actually requested</text>
+<path d="M236,167 L254,167" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="254" y="132" width="196" height="70" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="266" y="156" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">request_items (the log)</text>
+<text x="266" y="172" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">nsn · nomenclature · part# ·</text>
+<text x="266" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">created_at — already stored</text>
+<path d="M450,167 L468,167" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="468" y="132" width="196" height="70" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="480" y="156" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">/api/popular</text>
+<text x="480" y="172" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">rank by frequency + recency</text>
+<text x="480" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(NSN &amp; nomenclature)</text>
+<path d="M664,167 L682,167" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="682" y="132" width="196" height="70" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="694" y="154" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">Rotating example + quick-picks</text>
+<text x="694" y="172" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">one clean, real example that</text>
+<text x="694" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">rotates; &#x27;commonly requested&#x27;</text>
+<text x="694" y="198" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">chips</text>
+<path d="M878,167 L896,167" stroke="#9aa5b1" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<rect x="896" y="132" width="196" height="70" rx="9" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="908" y="156" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">Faster next search</text>
+<text x="908" y="172" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">the parts your shop reaches</text>
+<text x="908" y="185" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">for surface first</text>
+<path d="M994.0,204 L138.0,204" stroke="#5d6675" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+<text x="566.0" y="220" font-size="9" font-weight="400" fill="#7c8696" text-anchor="middle">learns &amp; retains (offline, in your index)</text>
+<rect x="40" y="260" width="560" height="150" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="260" width="560" height="28" rx="12" fill="#1c2430" stroke="#2b333f"/>
+<text x="54" y="279" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">SEARCH FIELD  ·  fewer examples, one that rotates</text>
+<text x="58" y="308" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">BEFORE — 4 static examples (busy):</text>
+<rect x="58" y="316" width="524" height="30" rx="7" fill="#232c39" stroke="#2b333f" stroke-width="1"/>
+<text x="68" y="335" font-size="10" font-weight="400" fill="#7c8696" text-anchor="start">What do you need? e.g. gasket · 5330-01-186-9023 · 2202 …</text>
+<text x="58" y="368" font-size="9.5" font-weight="700" fill="#9aa6b6" text-anchor="start">AFTER — one real example, rotates each open:</text>
+<rect x="58" y="376" width="524" height="30" rx="7" fill="#16223a" stroke="#2c3f5e" stroke-width="1"/>
+<text x="68" y="395" font-size="10.5" font-weight="400" fill="#9bc0ff" text-anchor="start">ALTERNATOR, DUAL VOLTAGE · 2920-01-449-2202</text>
+<text x="574" y="395" font-size="13" font-weight="700" fill="#caa24a" text-anchor="end">↻</text>
+<rect x="40" y="422" width="560" height="70" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="446" font-size="10.5" font-weight="700" fill="#caa24a" text-anchor="start">Cold start (new install):</text>
+<text x="56" y="466" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">a small curated seed list (battery, gasket, alternator, fuel filter w/ real</text>
+<text x="56" y="480" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">NSNs) shows first, then quietly shifts to YOUR common parts as they log.</text>
+<text x="620" y="254" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">RECOMMENDATIONS</text>
+<rect x="620" y="268" width="520" height="82" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="268" width="5" height="82" rx="2" fill="#2f7d4f"/>
+<text x="638" y="292" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">1 · Learn from successful sheets</text>
+<text x="638" y="312" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Aggregate request_items (your end-to-end log) by NSN + nomenclature,</text>
+<text x="638" y="328" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">weighted by frequency and recency. No migration.</text>
+<rect x="620" y="360" width="520" height="82" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="360" width="5" height="82" rx="2" fill="#2f7d4f"/>
+<text x="638" y="384" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">2 · Rotating example, not a list</text>
+<text x="638" y="404" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Show ONE clean example in the field; pick a random common item each</text>
+<text x="638" y="420" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">open. Calmer, and it teaches by showing real format.</text>
+<rect x="620" y="452" width="520" height="82" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="452" width="5" height="82" rx="2" fill="#2f7d4f"/>
+<text x="638" y="476" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">3 · &#x27;Commonly requested&#x27; quick-picks</text>
+<text x="638" y="496" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">A thin row of 4-5 learned chips on Home / under search — tap to search.</text>
+<text x="638" y="512" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Subtle, not hand-holding.</text>
+<rect x="620" y="544" width="520" height="82" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="544" width="5" height="82" rx="2" fill="#4f9dff"/>
+<text x="638" y="568" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">4 · Predictive stays as-is, ranked</text>
+<text x="638" y="588" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Keep live FTS typeahead; just boost learned-popular hits to the top. No</text>
+<text x="638" y="604" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">intrusive dropdown.</text>
+<rect x="620" y="636" width="520" height="82" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="636" width="5" height="82" rx="2" fill="#caa24a"/>
+<text x="638" y="660" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">5 · Trim the copy</text>
+<text x="638" y="680" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Shorter modal subtitle + one-line hint. Let the rotating example do the</text>
+<text x="638" y="696" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">explaining.</text>
+<rect x="620" y="728" width="520" height="82" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="620" y="728" width="5" height="82" rx="2" fill="#9aa6b6"/>
+<text x="638" y="752" font-size="12" font-weight="700" fill="#e6e9ee" text-anchor="start">6 · Optional: also learn searches</text>
+<text x="638" y="772" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">Add an opt-in search log later for broader signal (noisier). Start with</text>
+<text x="638" y="788" font-size="9.6" font-weight="400" fill="#9aa6b6" text-anchor="start">high-signal successful sheets only.</text>
+<text x="40" y="826" font-size="10" font-weight="400" fill="#6b7280" text-anchor="start">Proposal only — nothing built yet. Offline &amp; private (stays in your index). Dark (R3). On approval: data-flow diagram (R2), CHANGELOG (R4) + visual panel (R5).</text>
+</svg>

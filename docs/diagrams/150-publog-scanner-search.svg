@@ -1,0 +1,88 @@
+<svg viewBox="0 0 1240 940" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="940" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9aa6b6"/></marker></defs>
+<text x="40" y="50" font-size="19" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER v1.5.0 — PUBLOG catalog · scanner · hybrid search · exploded view  (data flow)</text>
+<text x="40" y="76" font-size="11.5" font-weight="400" fill="#9aa6b6" text-anchor="start">Five lanes: the official DLA federal catalog, hand-scanner + camera scan-in, smarter retrieval, and an interactive assembly walkthrough. Additive &amp; rollbackable (R1); corpus + PUBLOG CSVs read-only (R6).</text>
+<line x1="40" y1="92" x2="1200" y2="92" stroke="#2b333f"/>
+<text x="40" y="120" font-size="13" font-weight="700" fill="#4f9dff" text-anchor="start">1  PUBLOG / FLIS  —  ~16 GB official CSV export  -&gt;  authoritative offline part identity</text>
+<rect x="40" y="132" width="250" height="78" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="56" y="156" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">DLA PUBLOG export</text>
+<text x="56" y="176" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">P_FLIS_NSN · V_FLIS_PART</text>
+<text x="56" y="190" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">V_CHARACTERISTICS · P_CAGE …</text>
+<line x1="290" y1="171" x2="340" y2="171" stroke="#4f9dff" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="340" y="132" width="250" height="78" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="356" y="156" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">build_publog.py (HOST)</text>
+<text x="356" y="176" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">row-stream -&gt; index/publog.db</text>
+<text x="356" y="190" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">NIIN-keyed · indexes after load</text>
+<line x1="590" y1="171" x2="640" y2="171" stroke="#4f9dff" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="640" y="132" width="250" height="78" rx="10" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="656" y="156" font-size="11" font-weight="700" fill="#1d9e75" text-anchor="start">publog.py  /api/publog</text>
+<text x="656" y="176" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN/NIIN lookup + reverse</text>
+<text x="656" y="190" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">by part number (?pn=)</text>
+<line x1="890" y1="171" x2="940" y2="171" stroke="#1d9e75" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="940" y="132" width="260" height="78" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="956" y="156" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">/publog + dossier card</text>
+<text x="956" y="176" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">item · part#s + CAGE · charx</text>
+<text x="956" y="190" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">weight/cube · replaced-by</text>
+<line x1="40" y1="226" x2="1200" y2="226" stroke="#2b333f"/>
+<text x="40" y="254" font-size="13" font-weight="700" fill="#7f77dd" text-anchor="start">2  SCAN A PART  —  hand scanner (any page) or camera  -&gt;  the catalog</text>
+<rect x="40" y="266" width="360" height="74" rx="10" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="56" y="290" font-size="11" font-weight="700" fill="#7f77dd" text-anchor="start">Hand scanner — scanner.js</text>
+<text x="56" y="310" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">keyboard-wedge burst+Enter detected on EVERY page (injected by palette.js)</text><text x="56" y="322" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">-&gt; routes NSN or part# to lookup</text>
+<rect x="420" y="266" width="360" height="74" rx="10" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="436" y="290" font-size="11" font-weight="700" fill="#4f9dff" text-anchor="start">Camera — /scan</text>
+<text x="436" y="310" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">native BarcodeDetector (offline): QR/Code128/39/EAN/DataMatrix -&gt; same</text><text x="436" y="322" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">lookup; graceful fallback + manual entry</text>
+<line x1="780" y1="303" x2="830" y2="303" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="830" y="266" width="370" height="74" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="846" y="290" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">-&gt; /publog?nsn= or ?pn=</text>
+<text x="846" y="310" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN -&gt; catalog record; otherwise reverse part-number lookup. Scan a bin</text><text x="846" y="322" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">label, land on the part.</text>
+<line x1="40" y1="356" x2="1200" y2="356" stroke="#2b333f"/>
+<text x="40" y="384" font-size="13" font-weight="700" fill="#caa24a" text-anchor="start">3  HYBRID + GLOSSARY SEARCH  —  smarter retrieval, each signal degrades on its own</text>
+<rect x="40" y="396" width="300" height="92" rx="10" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="56" y="418" font-size="11" font-weight="700" fill="#caa24a" text-anchor="start">hybrid.py</text>
+<text x="56" y="438" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">1) glossary/acronym query expand</text>
+<text x="56" y="453" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">2) RRF fuse keyword + semantic</text>
+<text x="56" y="468" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">3) fuzzy NSN &#x27;did you mean&#x27;</text>
+<text x="56" y="483" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">   (grounded in PUBLOG)</text>
+<line x1="340" y1="442" x2="390" y2="442" stroke="#caa24a" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="390" y="396" width="300" height="92" rx="10" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="406" y="418" font-size="11" font-weight="700" fill="#e6e9ee" text-anchor="start">signals</text>
+<text x="406" y="440" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">keyword (FTS) — always</text>
+<text x="406" y="456" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">semantic — if embeddings built</text>
+<text x="406" y="472" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">NSN suggest — if PUBLOG built</text>
+<line x1="690" y1="442" x2="740" y2="442" stroke="#2f7d4f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="740" y="396" width="460" height="92" rx="10" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="756" y="418" font-size="11" font-weight="700" fill="#2f7d4f" text-anchor="start">/api/search_hybrid  +  home hints bar</text>
+<text x="756" y="440" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">fused results; the main /api/search now also annotates acronym expansions + NSN did-you-mean</text><text x="756" y="453" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">WITHOUT changing ranking (safe, additive).</text>
+<line x1="40" y1="504" x2="1200" y2="504" stroke="#2b333f"/>
+<text x="40" y="532" font-size="13" font-weight="700" fill="#1d9e75" text-anchor="start">4  EXPLODED / ASSEMBLY VIEW  (/exploded)  —  a figure becomes a step-through walkthrough</text>
+<rect x="40" y="544" width="1160" height="96" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<rect x="58" y="560" width="210" height="34" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="70" y="581" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">figure image</text>
+<rect x="282" y="560" width="210" height="34" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="294" y="581" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">hotspots</text>
+<rect x="506" y="560" width="210" height="34" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="518" y="581" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">assembly order</text>
+<rect x="730" y="560" width="210" height="34" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="742" y="581" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">dimensions</text>
+<rect x="954" y="560" width="210" height="34" rx="8" fill="#1c2430" stroke="#1d9e75" stroke-width="1"/>
+<text x="966" y="581" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="start">find a figure</text>
+<text x="58" y="616" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">One page composes them: numbered callout hotspots over the figure + an ordered parts panel you step through; toggle DISASSEMBLY to reverse the order and overlay dimension lines. Each step deep-links to the part&#x27;s dossier /</text><text x="58" y="629" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">how-to / catalog.</text>
+<line x1="40" y1="658" x2="1200" y2="658" stroke="#2b333f"/>
+<text x="40" y="686" font-size="13" font-weight="700" fill="#2f7d4f" text-anchor="start">GRACEFUL DEGRADE &amp; ROLLBACK (unchanged doctrine)</text>
+<rect x="40" y="700" width="575" height="74" rx="12" fill="#171d26" stroke="#4f9dff" stroke-width="1"/>
+<text x="56" y="724" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">PUBLOG</text>
+<text x="56" y="744" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Not built? /api/publog + the dossier card say so and the app is unchanged. BUILD-PUBLOG.bat builds index/publog.db.</text>
+<rect x="625" y="700" width="575" height="74" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="641" y="724" font-size="12" font-weight="700" fill="#7f77dd" text-anchor="start">Scanner</text>
+<text x="641" y="744" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">Pure ES5 + native BarcodeDetector. No camera / old browser? Hand scanner + manual entry still work.</text>
+<rect x="40" y="784" width="575" height="74" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="56" y="808" font-size="12" font-weight="700" fill="#caa24a" text-anchor="start">Hybrid</text>
+<text x="56" y="828" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">No embeddings -&gt; keyword+glossary+NSN only. Never worse than the base keyword search; ranking untouched on /api/search.</text>
+<rect x="625" y="784" width="575" height="74" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="641" y="808" font-size="12" font-weight="700" fill="#1d9e75" text-anchor="start">Exploded</text>
+<text x="641" y="828" font-size="9.3" font-weight="400" fill="#9aa6b6" text-anchor="start">No callout OCR on the host? Shows the ordered parts panel without hotspots. Rollback = delete the page + module; zero impact.</text>
+<rect x="40" y="862" width="1160" height="40" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="887" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">R1 additive/rollbackable · R2 this diagram · R3 dark+PDF · R4 CHANGELOG [1.5.0] · R5 changelog-visual · R6 read-only corpus+CSVs · R7 legacy [1.5.0-legacy] · R9 tail sentinel + VERIFY-099 (publog/build_publog/hybrid) · VERSION=1.5.0.</text>
+<text x="40" y="932" font-size="9" font-weight="400" fill="#6b7280" text-anchor="start">Dark (R3). 2026-07-02 · build_publog.py · publog.py · scanner.js · /scan · hybrid.py · /exploded · /api/{publog,search_hybrid,callout_numbers iw/ih}.</text>
+</svg>

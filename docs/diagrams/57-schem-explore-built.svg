@@ -1,0 +1,73 @@
+<svg viewBox="0 0 1180 600" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="600" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Explore schematics from every angle  (v0.41.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">The dedicated /schematics viewer now examines a sheet from the left, right, above, below — any angle — flips to the back, and jumps to the vehicle&#x27;s other sheets.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · TILT TO ANY ANGLE + MIRROR (honest flat-sheet)</text>
+<rect x="40" y="126" width="545" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<g transform="translate(110,180) matrix(1,0,0,1,0,0)">
+<rect x="-46" y="-34" width="92" height="68" rx="4" fill="#11161d" stroke="#3a4452" stroke-width="1"/>
+<line x1="-36" y1="-22" x2="36" y2="-22" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="-6" x2="36" y2="-6" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="10" x2="36" y2="10" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="26" x2="36" y2="26" stroke="#46505f" stroke-width="1"/>
+</g>
+<text x="110" y="232" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">front</text>
+<g transform="translate(360,180) matrix(0.8,0.18,0,1,0,0)">
+<rect x="-46" y="-34" width="92" height="68" rx="4" fill="#11161d" stroke="#3a4452" stroke-width="1"/>
+<line x1="-36" y1="-22" x2="36" y2="-22" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="-6" x2="36" y2="-6" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="10" x2="36" y2="10" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="26" x2="36" y2="26" stroke="#46505f" stroke-width="1"/>
+</g>
+<text x="360" y="232" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">tilt Y (side)</text>
+<g transform="translate(110,270) matrix(1,0,-0.2,0.82,0,0)">
+<rect x="-46" y="-34" width="92" height="68" rx="4" fill="#11161d" stroke="#3a4452" stroke-width="1"/>
+<line x1="-36" y1="-22" x2="36" y2="-22" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="-6" x2="36" y2="-6" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="10" x2="36" y2="10" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="26" x2="36" y2="26" stroke="#46505f" stroke-width="1"/>
+</g>
+<text x="110" y="322" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">tilt X (above)</text>
+<g transform="translate(360,270) matrix(-1,0,0,1,0,0)">
+<rect x="-46" y="-34" width="92" height="68" rx="4" fill="#11161d" stroke="#3a4452" stroke-width="1"/>
+<line x1="-36" y1="-22" x2="36" y2="-22" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="-6" x2="36" y2="-6" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="10" x2="36" y2="10" stroke="#46505f" stroke-width="1"/>
+<line x1="-36" y1="26" x2="36" y2="26" stroke="#46505f" stroke-width="1"/>
+</g>
+<text x="360" y="322" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="middle">mirror (back)</text>
+<text x="58" y="360" font-size="8.6" font-weight="400" fill="#2f7d4f" text-anchor="start">tilt X / tilt Y sliders (-70..70°) + ↔ mirror · CSS perspective — a real flat-sheet tilt, not invented depth.</text>
+<text x="620" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · RELATED SHEETS + FULL CONTROL SET</text>
+<rect x="604" y="126" width="536" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="622" y="150" font-size="10.5" font-weight="700" fill="#e6e9ee" text-anchor="start">Related-sheets rail</text>
+<rect x="622" y="160" width="88" height="52" rx="5" fill="#fff" stroke="#2b333f" stroke-width="1"/>
+<line x1="628" y1="170" x2="702" y2="170" stroke="#888" stroke-width="1"/>
+<line x1="628" y1="182" x2="702" y2="182" stroke="#888" stroke-width="1"/>
+<line x1="628" y1="194" x2="702" y2="194" stroke="#888" stroke-width="1"/>
+<rect x="722" y="160" width="88" height="52" rx="5" fill="#fff" stroke="#2b333f" stroke-width="1"/>
+<line x1="728" y1="170" x2="802" y2="170" stroke="#888" stroke-width="1"/>
+<line x1="728" y1="182" x2="802" y2="182" stroke="#888" stroke-width="1"/>
+<line x1="728" y1="194" x2="802" y2="194" stroke="#888" stroke-width="1"/>
+<rect x="822" y="160" width="88" height="52" rx="5" fill="#fff" stroke="#2b333f" stroke-width="1"/>
+<line x1="828" y1="170" x2="902" y2="170" stroke="#888" stroke-width="1"/>
+<line x1="828" y1="182" x2="902" y2="182" stroke="#888" stroke-width="1"/>
+<line x1="828" y1="194" x2="902" y2="194" stroke="#888" stroke-width="1"/>
+<rect x="922" y="160" width="88" height="52" rx="5" fill="#fff" stroke="#2b333f" stroke-width="1"/>
+<line x1="928" y1="170" x2="1002" y2="170" stroke="#888" stroke-width="1"/>
+<line x1="928" y1="182" x2="1002" y2="182" stroke="#888" stroke-width="1"/>
+<line x1="928" y1="194" x2="1002" y2="194" stroke="#888" stroke-width="1"/>
+<rect x="1022" y="160" width="88" height="52" rx="5" fill="#fff" stroke="#2b333f" stroke-width="1"/>
+<line x1="1028" y1="170" x2="1102" y2="170" stroke="#888" stroke-width="1"/>
+<line x1="1028" y1="182" x2="1102" y2="182" stroke="#888" stroke-width="1"/>
+<line x1="1028" y1="194" x2="1102" y2="194" stroke="#888" stroke-width="1"/>
+<rect x="622" y="160" width="88" height="52" rx="5" fill="none" stroke="#4f9dff" stroke-width="2"/>
+<text x="622" y="232" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">A filmstrip of the SAME vehicle&#x27;s other schematic/wiring sheets (left-side,</text><text x="622" y="244" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">right-side, power, lighting…) — one click to switch. So every sensible view of</text><text x="622" y="256" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">the system is reachable, plus everything in between.</text>
+<text x="622" y="296" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Per page: pan (drag) · zoom-to-cursor (wheel) · Clean · Blueprint · tilt X/Y · mirror · ⟲ reset · ←/→ paging.</text>
+<text x="622" y="340" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">All on the REAL rendered page — themed, tilted and navigated, never altered.</text>
+<rect x="40" y="392" width="1100" height="150" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="416" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">THOROUGH, AND STILL GROUNDED (R1/R6)</text>
+<text x="58" y="436" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;As thoroughly as possible&#x27;: you can now examine a schematic from the left, the right, above, below, any angle in between, and the back — and hop across all the related sheets for</text><text x="58" y="449" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">that vehicle without leaving the viewer. It&#x27;s presentation-only: the tilt is an honest flat-sheet rotation (CSS perspective), the mirror is a flip, and the page itself is never</text><text x="58" y="462" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">modified. A 2D schematic has no true hidden 3D, so we don&#x27;t fabricate one — we let you explore the real sheet and its real companions fully.</text>
+<text x="58" y="524" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Reachable from the home header (📐 Schematics). Pairs with the 3D Library. OCR (in progress) will add full-text search inside these sheets.</text>
+<text x="40" y="588" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.41.0 · 2026-06-02 · engine/ui/schematics.html.</text>
+</svg>

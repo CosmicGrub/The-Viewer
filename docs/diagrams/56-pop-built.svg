@@ -1,0 +1,37 @@
+<svg viewBox="0 0 1180 640" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="640" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Making it POP: real-time WebGL 3D + dynamic schematics  (v0.40.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">On the current RTX 4050, fully offline (no Three.js / no CDN). Grounded: same geometry &amp; pages, just rendered &amp; navigated dynamically.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3D VIEWER — engine/ui/gl3d.js (dependency-free WebGL)</text>
+<rect x="40" y="126" width="545" height="300" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="58" y="150" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Real-time WebGL render</text>
+<text x="70" y="166" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">A tiny self-written GL renderer (no library) draws the FLIS-scaled shapes lit in</text><text x="70" y="178" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">3D — replaces the flat SVG. Offline + RPS-safe (SVG fallback if WebGL is</text><text x="70" y="190" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">missing).</text>
+<text x="58" y="205" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Glossy multi-light shading</text>
+<text x="70" y="221" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Key + fill + rim/fresnel lights, sharp specular, soft tonemap — a metallic</text><text x="70" y="233" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">&#x27;product render&#x27; look that pops.</text>
+<text x="58" y="260" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Antialiasing + smooth surfaces</text>
+<text x="70" y="276" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">MSAA on; round families (cyl/hex/disc) use averaged normals so cylinders look</text><text x="70" y="288" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">round, boxes stay crisp.</text>
+<text x="58" y="315" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Idle turntable</text>
+<text x="70" y="331" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Auto-spins gently; grab to orbit (pauses), release and it resumes after a beat —</text><text x="70" y="343" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">dynamic by default.</text>
+<text x="58" y="370" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Orbit · zoom · reset</text>
+<text x="70" y="386" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Drag to orbit, scroll to zoom, double-click / ⟲ to reset. Wired into the 3D</text><text x="70" y="398" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Library; the cart viewer adopts it next.</text>
+<text x="58" y="418" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Grounded: representative shapes from real dimensions — better rendering, nothing invented.</text>
+<text x="620" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">SCHEMATICS VIEWER — dynamic navigation</text>
+<rect x="604" y="126" width="536" height="300" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="622" y="150" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Buttery pan + cursor zoom</text>
+<text x="634" y="166" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Drag to pan; scroll zooms toward the point under the cursor (transform-origin</text><text x="634" y="178" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">follows the pointer). Smooth, no reload — pure transform.</text>
+<text x="622" y="205" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Blueprint mode</text>
+<text x="634" y="221" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">One tap flips a page to white-lines-on-blue (invert + hue) — classic schematic</text><text x="634" y="233" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">look, instant &#x27;pop&#x27;.</text>
+<text x="622" y="260" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Clean (legibility)</text>
+<text x="634" y="276" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Server-side grayscale + contrast + de-speckle on the real page; toggles live.</text>
+<text x="622" y="315" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Fade page transitions</text>
+<text x="634" y="331" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Pages cross-fade in (pre-loaded) instead of blanking — feels fluid.</text>
+<text x="622" y="370" font-size="10.2" font-weight="700" fill="#e6e9ee" text-anchor="start">• Reset · arrow-key paging</text>
+<text x="634" y="386" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">⟲ resets zoom+pan; ←/→ page through; double-click resets. All on the real</text><text x="634" y="398" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">rendered pages.</text>
+<text x="622" y="418" font-size="8.8" font-weight="400" fill="#2f7d4f" text-anchor="start">Grounded: it&#x27;s the real PDF page — rendered, themed, and navigated, never altered.</text>
+<rect x="40" y="442" width="1100" height="158" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="466" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">WHY IT STAYS HONEST + OFFLINE</text>
+<text x="58" y="486" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">All of this is presentation only (R1/R6): the dataset, search, and 104th sheet are untouched. The 3D is the same parametric geometry from real FLIS dimensions, just lit properly; the</text><text x="58" y="499" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">schematic is the same real page, just navigated and themed. No Three.js and no CDN — the WebGL renderer is ~120 lines we own, so the app stays fully offline and the SVG fallback</text><text x="58" y="512" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">keeps Win7/Vista (RPS) working.</text>
+<text x="58" y="556" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Next envelope steps (per proposal 55): parametric template library (thread helix/gear teeth), schematic vectorisation + per-wire hover — both on the 4050. Photogrammetry + net-extraction await the desktop/RTX 5070 (reminder set).</text>
+<text x="40" y="628" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.40.0 · 2026-06-02 · new: engine/ui/gl3d.js + /gl3d.js route.</text>
+</svg>

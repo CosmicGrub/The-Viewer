@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exploded / assembly view — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:1240px;margin:0 auto;padding:18px 16px 70px}
+  h1{font-size:19px;margin:0 0 4px}.muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border:1px solid #1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer}
+  a.btn,button.alt{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none;cursor:pointer;font-size:14px}
+  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:12px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .figbox{position:relative;background:#0a0d12;border:1px solid #24303c;border-radius:12px;overflow:hidden;min-height:200px}
+  .figbox img{display:block;width:100%;height:auto}
+  svg.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .hot{pointer-events:auto;cursor:pointer}
+  .hot circle{fill:rgba(31,111,235,.28);stroke:#4f9dff;stroke-width:2}
+  .hot.active circle{fill:rgba(127,214,160,.4);stroke:#7fd6a0;stroke-width:3}
+  .hot text{fill:#fff;font-weight:800;font-size:13px;text-anchor:middle;dominant-baseline:central}
+  .dim line{stroke:#e8c07a;stroke-width:1.4;opacity:.8}
+  .panel{background:#111823;border:1px solid #1c2530;border-radius:12px;padding:12px 14px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .step{font-weight:800;color:#7fd6a0}
+  .part{display:flex;gap:10px;padding:8px 8px;border-bottom:1px solid #1a222d;border-radius:8px;cursor:pointer}
+  .part:hover{background:#141d29}.part.active{background:#12251b;outline:1px solid #1d9e75}
+  .part .no{min-width:26px;height:26px;border-radius:50%;background:#1c2836;border:1px solid #2f4858;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#9fd0ff}
+  .part.active .no{background:#123020;border-color:#1d9e75;color:#7fd6a0}
+  .part .nm{font-weight:600;font-size:13.5px}
+  .part .meta{color:#8a98a8;font-size:11.5px;margin-top:2px}
+  .links a{color:#4f9dff;text-decoration:none;font-size:12px;margin-right:10px}
+  .none{color:#8a98a8;font-size:12.5px;padding:12px 0}
+  .pill{font-size:11px;border-radius:12px;padding:2px 9px;border:1px solid #2f4858;color:#9fb3c8;background:#131c28}
+</style></head><body>
+<div class="wrap">
+  <h1>🧩 Exploded / assembly view <span class="muted" id="figttl"></span></h1>
+  <div class="muted">Pick a figure (by part, or a doc/page) → its callouts become numbered hotspots and its parts
+    become a <b>step-through assembly order</b>. Toggle <b>disassembly</b> to reverse it, and overlay the
+    figure's <b>dimension lines</b>. Everything is cited to the manual page.</div>
+  <div class="search">
+    <input id="q" placeholder="Part / NSN to find a figure — or paste a doc id" autofocus>
+    <button class="go" id="go">Find figure</button>
+    <a class="btn" href="/locate">🧭 Locate</a>
+    <a class="btn" href="/">← search</a>
+  </div>
+  <div id="head" class="muted"></div>
+  <div class="grid" id="grid" hidden>
+    <div>
+      <div class="figbox" id="figbox"><div class="none" style="padding:20px">Figure appears here.</div></div>
+      <div class="muted" style="margin-top:6px" id="figcap"></div>
+    </div>
+    <div class="panel">
+      <div class="toolbar">
+        <button class="alt" id="prev">‹ Prev</button>
+        <span class="step" id="stepn">—</span>
+        <button class="alt" id="next">Next ›</button>
+        <button class="alt" id="dir" title="Reverse to disassembly order">⇅ Disassembly</button>
+        <button class="alt" id="dims" title="Overlay dimension lines">📐 Dimensions</button>
+      </div>
+      <div id="cur" class="muted"></div>
+      <div id="list"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+
+  var DOC=0, PAGE=0, PARTS=[], CALLS=[], IW=0, IH=0, IDX=0, REVERSED=false, DIMSON=false;
+
+  function loadFigureFor(q){
+    $("#head").textContent='Finding a figure for “'+q+'”…';
+    gj("/api/locate?q="+encodeURIComponent(q)+"&limit=1").then(function(j){
+      var items=(j&&(j.figures||j.results||j.items))||[];
+      var f=items[0];
+      if(!f){ $("#head").innerHTML='No figure found for “'+esc(q)+'”. Try an NSN or a part number, or open <a href="/locate">Locate</a>.'; return; }
+      var doc=f.document_id||f.doc_id||f.doc, page=f.page||f.page_number||1;
+      open_(doc, page);
+    });
+  }
+
+  function open_(doc, page){
+    DOC=doc; PAGE=page; IDX=0; REVERSED=false; DIMSON=false;
+    $("#head").textContent=''; $("#grid").hidden=false;
+    history.replaceState(null,"","/exploded?doc="+encodeURIComponent(doc)+"&page="+encodeURIComponent(page));
+    // figure image
+    $("#figbox").innerHTML='<img id="fig" src="/page?doc='+encodeURIComponent(doc)+'&page='+encodeURIComponent(page)+'&dpi=170&clean=1" alt="figure">'
+      +'<svg class="ov" id="ov" preserveAspectRatio="none"></svg>';
+    Promise.all([
+      gj("/api/figureparts?doc="+encodeURIComponent(doc)+"&page="+encodeURIComponent(page)),
+      gj("/api/callout_numbers?doc="+encodeURIComponent(doc)+"&page="+encodeURIComponent(page))
+    ]).then(function(res){
+      var fp=res[0]||{}, co=res[1]||{};
+      PARTS=(fp.parts||[]); CALLS=(co.callouts||[]); IW=co.iw||0; IH=co.ih||0;
+      $("#figttl").textContent = fp.fig_no ? ("— FIG "+fp.fig_no+(fp.fig_title?(" · "+fp.fig_title):"")) : "";
+      $("#figcap").innerHTML = 'Doc '+esc(doc)+' · p.'+esc(page)+' · '+PARTS.length+' parts'+(CALLS.length?(' · '+CALLS.length+' callouts'):(co.available===false?' · callout OCR not available on this host':''))
+        +' — <a class="links" href="/page?doc='+encodeURIComponent(doc)+'&page='+encodeURIComponent(page)+'&dpi=200" target="_blank" style="color:#4f9dff">open full page ↗</a>';
+      drawOverlay(); renderList(); if(PARTS.length){ IDX=0; select(0); }
+      else $("#list").innerHTML='<div class="none">No parts catalogued on this figure yet (grows with the parts index / BUILD-RPSTL).</div>';
+    });
+  }
+
+  function orderedParts(){ return REVERSED ? PARTS.slice().reverse() : PARTS; }
+  function calloutFor(part, i){
+    // best-effort match: by explicit callout/item number if present, else positional
+    var n = part.callout || part.item || part.item_no || null;
+    if(n!=null){ for(var k=0;k<CALLS.length;k++){ if(String(CALLS[k].number)===String(n)) return CALLS[k]; } }
+    return CALLS[i]||null;
+  }
+
+  function drawOverlay(){
+    var ov=$("#ov"); if(!ov) return;
+    if(IW&&IH) ov.setAttribute("viewBox","0 0 "+IW+" "+IH);
+    var h="";
+    if(DIMSON && window.__DIMS){ window.__DIMS.forEach(function(d){ if(d.x1!=null) h+='<line class="dim" x1="'+d.x1+'" y1="'+d.y1+'" x2="'+d.x2+'" y2="'+d.y2+'"/>'; }); }
+    var op=orderedParts();
+    CALLS.forEach(function(c,i){
+      var r=Math.max(10, Math.min(IW,IH)/45||14);
+      var cx=(c.x||0)+((c.w||0)/2), cy=(c.y||0)+((c.h||0)/2);
+      h+='<g class="hot" data-num="'+esc(c.number)+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'"/><text x="'+cx+'" y="'+cy+'">'+esc(c.number)+'</text></g>';
+    });
+    ov.innerHTML=h;
+    ov.querySelectorAll(".hot").forEach(function(g){ g.addEventListener("click",function(){
+      var num=g.getAttribute("data-num");
+      for(var i=0;i<op.length;i++){ var c=calloutFor(op[i],i); if(c&&String(c.number)===String(num)){ select(i); return; } }
+    });});
+  }
+
+  function renderList(){
+    var op=orderedParts(), h="";
+    op.forEach(function(p,i){
+      var nm=p.name||p.nomenclature||p.part_number||p.nsn||"part";
+      var meta=[]; if(p.nsn)meta.push("NSN "+p.nsn); if(p.part_number)meta.push("P/N "+p.part_number); if(p.smr)meta.push("SMR "+p.smr); if(p.cagec)meta.push("CAGE "+p.cagec);
+      h+='<div class="part" data-i="'+i+'"><div class="no">'+(i+1)+'</div><div style="flex:1"><div class="nm">'+esc(nm)+'</div>'
+        +'<div class="meta">'+esc(meta.join(" · "))+'</div>'
+        +'<div class="links" style="margin-top:3px"><a href="/dossier?q='+encodeURIComponent(p.nsn||p.part_number||nm)+'" target="_blank">dossier ↗</a>'
+        +'<a href="/procedure?q='+encodeURIComponent(nm)+'" target="_blank">how-to ↗</a>'
+        +(p.nsn?('<a href="/publog?nsn='+encodeURIComponent(p.nsn)+'" target="_blank">catalog ↗</a>'):'')+'</div></div></div>';
+    });
+    $("#list").innerHTML=h;
+    $("#list").querySelectorAll(".part").forEach(function(el){ el.onclick=function(){ select(parseInt(el.getAttribute("data-i"),10)); }; });
+  }
+
+  function select(i){
+    var op=orderedParts(); if(!op.length) return;
+    IDX=(i+op.length)%op.length;
+    $("#stepn").textContent=(IDX+1)+" / "+op.length;
+    var p=op[IDX], nm=p.name||p.nomenclature||p.part_number||p.nsn||"part";
+    $("#cur").innerHTML='<span class="pill">'+(REVERSED?'DISASSEMBLE':'ASSEMBLE')+' step '+(IDX+1)+'</span> <b style="color:#e6edf4">'+esc(nm)+'</b>';
+    $("#list").querySelectorAll(".part").forEach(function(el){ el.classList.toggle("active", parseInt(el.getAttribute("data-i"),10)===IDX); });
+    var active=$("#list").querySelector(".part.active"); if(active&&active.scrollIntoView) active.scrollIntoView({block:"nearest"});
+    var c=calloutFor(p, IDX);
+    $("#ov")&&$("#ov").querySelectorAll(".hot").forEach(function(g){ g.classList.toggle("active", c&&String(g.getAttribute("data-num"))===String(c.number)); });
+  }
+
+  $("#go").onclick=function(){ var q=$("#q").value.trim(); if(q) loadFigureFor(q); };
+  $("#q").addEventListener("keydown",function(e){ if(e.key==="Enter"){ var q=$("#q").value.trim(); if(q) loadFigureFor(q); } });
+  $("#next").onclick=function(){ select(IDX+1); };
+  $("#prev").onclick=function(){ select(IDX-1); };
+  $("#dir").onclick=function(){ REVERSED=!REVERSED; this.textContent=REVERSED?"⇅ Assembly":"⇅ Disassembly"; renderList(); drawOverlay(); select(0); };
+  $("#dims").onclick=function(){
+    DIMSON=!DIMSON; this.classList.toggle("alt");
+    if(DIMSON && !window.__DIMS){ gj("/api/dimscan?doc="+encodeURIComponent(DOC)+"&page="+encodeURIComponent(PAGE)).then(function(dj){ window.__DIMS=(dj&&(dj.lines||dj.dimensions))||[]; drawOverlay(); select(IDX); }); }
+    else drawOverlay();
+  };
+
+  var p=new URLSearchParams(location.search);
+  if(p.get("doc")){ open_(p.get("doc"), p.get("page")||1); }
+  else if(p.get("q")){ $("#q").value=p.get("q"); loadFigureFor(p.get("q")); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

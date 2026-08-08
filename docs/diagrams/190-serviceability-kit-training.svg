@@ -1,0 +1,65 @@
+<svg viewBox="0 0 1240 800" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1240" height="800" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="48" font-size="16.5" font-weight="700" fill="#e6e9ee" text-anchor="start">THE VIEWER v1.9.0 — serviceability &amp; safety graphics · kit/BOM · wiring pinouts · training · field notes</text>
+<text x="40" y="74" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Built under R13. Additive/rollbackable (R1); read-only except the append-only notes sidecar; no new deps. Every new pure module self-tested.</text>
+<line x1="40" y1="90" x2="1200" y2="90" stroke="#2b333f"/>
+<text x="40" y="116" font-size="12.5" font-weight="700" fill="#e0564f" text-anchor="start">SERVICEABILITY &amp; SAFETY GRAPHICS</text>
+<rect x="40" y="128" width="575" height="108" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="128" width="5" height="108" rx="2.5" fill="#e0564f"/>
+<text x="56" y="150" font-size="11.5" font-weight="700" fill="#e0564f" text-anchor="start">serviceability.py -&gt; /api/serviceability</text>
+<text x="56" y="170" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">extracts SERVICEABLE / WEAR limits (min/max, &#x27;replace if&#x27;,</text>
+<text x="56" y="185" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">not-to-exceed) distinct from nominal + a GO/NO-GO checker:</text>
+<text x="56" y="200" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">measured value -&gt; serviceable / marginal / REPLACE.</text>
+<text x="56" y="215" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">verified: 0.475 vs 0.480 min =&gt; replace. On /part.</text>
+<rect x="625" y="128" width="575" height="108" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="128" width="5" height="108" rx="2.5" fill="#caa24a"/>
+<text x="641" y="150" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">torqueseq.py -&gt; /api/torqueseq</text>
+<text x="641" y="170" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">detects star / criss-cross / sequential pattern + staged torque</text>
+<text x="641" y="185" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">values; renders a NUMBERED bolt-pattern diagram (number =</text>
+<text x="641" y="200" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">tightening order). The &#x27;what order do I torque&#x27; safety graphic.</text>
+<text x="641" y="215" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">star_order(8) = 1,5,2,6,3,7,4,8. On /part.</text>
+<line x1="40" y1="250" x2="1200" y2="250" stroke="#2b333f"/>
+<text x="40" y="278" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">LOGISTICS  ·  WIRING</text>
+<rect x="40" y="290" width="575" height="100" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="290" width="5" height="100" rx="2.5" fill="#2f7d4f"/>
+<text x="56" y="312" font-size="11.5" font-weight="700" fill="#2f7d4f" text-anchor="start">bom.py -&gt; /api/bom  (complete kit)</text>
+<text x="56" y="332" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">one deduped, categorized KIT: parts (+qty) + consumables</text>
+<text x="56" y="347" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(gaskets/seals/O-rings/cotter pins/lube, flagged from the</text>
+<text x="56" y="362" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">procedure) + tools. Folded into the job-package PDF. On /part.</text>
+<rect x="625" y="290" width="575" height="100" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="290" width="5" height="100" rx="2.5" fill="#4f9dff"/>
+<text x="641" y="312" font-size="11.5" font-weight="700" fill="#4f9dff" text-anchor="start">pinouts.py -&gt; /api/pinouts  (wiring)</text>
+<text x="641" y="332" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">extracts CONNECTOR PINOUTS + WIRE COLORS (&#x27;J5 pin B = ground,</text>
+<text x="641" y="347" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">white/black&#x27;) so continuity is checked at the right pins.</text>
+<text x="641" y="362" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">(symptom-&gt;circuit fault isolation = noted follow-up)</text>
+<line x1="40" y1="404" x2="1200" y2="404" stroke="#2b333f"/>
+<text x="40" y="432" font-size="12.5" font-weight="700" fill="#7f77dd" text-anchor="start">PEOPLE  (young + seasoned mechanics)</text>
+<rect x="40" y="444" width="575" height="100" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="40" y="444" width="5" height="100" rx="2.5" fill="#7f77dd"/>
+<text x="56" y="466" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">training.py -&gt; /learn  (cited quiz)</text>
+<text x="56" y="486" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">multiple-choice questions from real corpus values with plausible</text>
+<text x="56" y="501" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">distractors; every answer links to the page to LEARN from.</text>
+<text x="56" y="516" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">reproducible with a seed. Builds knowledge against the TMs.</text>
+<rect x="625" y="444" width="575" height="100" rx="11" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="625" y="444" width="5" height="100" rx="2.5" fill="#1d9e75"/>
+<text x="641" y="466" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">fieldnotes.py -&gt; /api/notes  (audit trail)</text>
+<text x="641" y="486" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">cited field-note TIPS on a part/procedure, on the SAME append-only</text>
+<text x="641" y="501" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">audit store; an SME ENDORSES a tip so young mechanics see which</text>
+<text x="641" y="516" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">are vouched for. institutional knowledge that compounds. On /part.</text>
+<line x1="40" y1="558" x2="1200" y2="558" stroke="#2b333f"/>
+<text x="40" y="586" font-size="12.5" font-weight="700" fill="#2f7d4f" text-anchor="start">R13 POSTURE</text>
+<rect x="40" y="600" width="575" height="66" rx="12" fill="#171d26" stroke="#e0564f" stroke-width="1"/>
+<text x="56" y="622" font-size="11.5" font-weight="700" fill="#e0564f" text-anchor="start">Know when to replace</text>
+<text x="56" y="640" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Nominal size isn&#x27;t safety — the serviceable limit is. Go/no-go answers &#x27;is this part still good?&#x27; with the cited limit.</text>
+<rect x="625" y="600" width="575" height="66" rx="12" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="641" y="622" font-size="11.5" font-weight="700" fill="#caa24a" text-anchor="start">Right order, right kit</text>
+<text x="641" y="640" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Torque-sequence diagrams + a complete kit list mean the job is done in the right order with everything on hand.</text>
+<rect x="40" y="676" width="575" height="66" rx="12" fill="#171d26" stroke="#7f77dd" stroke-width="1"/>
+<text x="56" y="698" font-size="11.5" font-weight="700" fill="#7f77dd" text-anchor="start">Learn from the source</text>
+<text x="56" y="716" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">The quiz is built from cited values and links back to the page — a young mechanic learns the manual, not a guess.</text>
+<rect x="625" y="676" width="575" height="66" rx="12" fill="#171d26" stroke="#1d9e75" stroke-width="1"/>
+<text x="641" y="698" font-size="11.5" font-weight="700" fill="#1d9e75" text-anchor="start">Knowledge, vouched for</text>
+<text x="641" y="716" font-size="9.0" font-weight="400" fill="#9aa6b6" text-anchor="start">Field tips are captured with an append-only trail and SME endorsement — nothing anonymous is presented as truth.</text>
+<rect x="40" y="770" width="1160" height="22" rx="8" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="785" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">R13 above-military-grade · R1 rollbackable · R4 CHANGELOG [1.9.0] · R9 VERIFY-099 (6 modules) · append-only notes · VERSION=1.9.0.</text>
+</svg>

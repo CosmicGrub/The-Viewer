@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Architecture Diagrams (offline)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+         margin: 0; background: #0f1419; color: #e6e6e6; }
+  header { padding: 24px 32px; background: #161b22; border-bottom: 1px solid #2a2f37; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: #9aa4b2; font-size: 13px; }
+  nav { padding: 12px 32px; background:#11161d; border-bottom:1px solid #2a2f37; position:sticky; top:0; z-index:5; }
+  nav a { color:#5cb3ff; margin-right:18px; text-decoration:none; font-size:13px; }
+  section { padding: 28px 32px; border-bottom: 1px solid #2a2f37; }
+  h2 { font-size: 17px; margin: 0 0 4px; }
+  .desc { color:#9aa4b2; font-size:13px; margin: 0 0 16px; }
+  .diagram { background:#0f1419; border-radius:10px; padding:18px; overflow:auto; }
+  .diagram svg { max-width:100%; height:auto; }
+  footer { padding:20px 32px; color:#6b7280; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>THE VIEWER — Architecture &amp; Data-Flow Diagrams</h1>
+  <p>Milestone M1 · fully offline (Mermaid bundled locally) · standing rule R2: a diagram ships with every addition</p>
+</header>
+<nav>
+  <a href="#arch">1 · System Architecture</a>
+  <a href="#flow">2 · Ingestion Data Flow &amp; Queue</a>
+  <a href="#search">3 · Search Query Flow</a>
+  <a href="#data">4 · Data Model</a>
+</nav>
+
+<section id="arch">
+  <h2>1 · System Architecture</h2>
+  <p class="desc">The five parts and how they connect. The source corpus is read-only and never modified.</p>
+  <div class="diagram" id="d_arch"></div>
+</section>
+<section id="flow">
+  <h2>2 · Ingestion Data Flow &amp; Job Queue</h2>
+  <p class="desc">How data is queued — the durable, resumable job queue the standing rule refers to.</p>
+  <div class="diagram" id="d_flow"></div>
+</section>
+<section id="search">
+  <h2>3 · Search Query Flow</h2>
+  <p class="desc">From keystroke to highlighted result: predictive search, typo tolerance, and in-document Ctrl+F.</p>
+  <div class="diagram" id="d_search"></div>
+</section>
+<section id="data">
+  <h2>4 · Data Model</h2>
+  <p class="desc">Versioned, additive schema. New columns are nullable; nothing is dropped destructively.</p>
+  <div class="diagram" id="d_data"></div>
+</section>
+
+<footer>THE VIEWER · generated 2026-06-01 · Mermaid bundled locally (no internet required).</footer>
+
+<script src="mermaid.min.js"></script>
+<script>
+const diagrams = {
+  d_arch: `flowchart TB
+    subgraph SRC["SOURCE OF TRUTH (read-only, never modified)"]
+        CORPUS[("E:\\\\ALL MILITARY TMS<br/>~39,700 files / ~85 GB<br/>PDFs, images, docs, legacy IETM")]
+    end
+    subgraph ING["INGESTION PIPELINE (background worker)"]
+        CRAWL["Crawl / Watch"]
+        EXTRACT["Classify + Extract<br/>text-first"]
+        OCRQ["OCR queue<br/>(deferred)"]
+    end
+    subgraph STORE["INDEX STORE (versioned)"]
+        DB[("viewer.db<br/>SQLite + FTS5<br/>schema_meta + migrations")]
+        ASSETS[("derived assets<br/>figures / thumbnails")]
+    end
+    subgraph APP["APPLICATION SERVICE (local, offline)"]
+        ENGINE["Local web engine<br/>search + serve docs"]
+    end
+    subgraph GUI["GUI (browser)"]
+        SEARCH["Predictive search + Ctrl+F"]
+        VIEW["Document viewer"]
+        PROC["Procedures + part variants"]
+        GFX["Dynamic graphics layer"]
+    end
+    CORPUS -->|read only| CRAWL
+    CRAWL --> EXTRACT
+    EXTRACT --> DB
+    EXTRACT --> ASSETS
+    EXTRACT -.scanned PDFs.-> OCRQ
+    OCRQ -.later.-> DB
+    DB --> ENGINE
+    ASSETS --> ENGINE
+    ENGINE --> SEARCH
+    ENGINE --> VIEW
+    ENGINE --> PROC
+    ENGINE --> GFX`,
+
+  d_flow: `flowchart TB
+    START([New / changed file detected]) --> HASH["Fingerprint<br/>(hash + size + mtime)"]
+    HASH --> SEEN{"Already indexed<br/>and unchanged?"}
+    SEEN -->|yes| SKIP["Skip (idempotent)"]
+    SEEN -->|no| JOB["Create job row<br/>state = discovered"]
+    JOB --> CLASSIFY["Classify file type"]
+    CLASSIFY --> KIND{"Type?"}
+    KIND -->|text PDF / Office| TEXT["Extract text per page<br/>+ metadata: TM#, NSN, title"]
+    KIND -->|scanned / image PDF| OCRQ[["OCR QUEUE<br/>state = pending_ocr"]]
+    KIND -->|image / graphic| GFX["Register figure<br/>+ link svgz/svg source"]
+    KIND -->|unsupported| FAIL["state = failed<br/>(reason, retryable)"]
+    TEXT --> INDEX["Write to viewer.db<br/>pages + pages_fts + documents"]
+    GFX --> INDEX
+    OCRQ -.background pass later.-> OCRRUN["state = ocr_running<br/>tesseract"]
+    OCRRUN --> INDEX
+    INDEX --> DONE["state = indexed"]
+    DONE --> REPORT["Update run log:<br/>seen / new / indexed / queued / failed"]
+    FAIL -.retry.-> CLASSIFY`,
+
+  d_search: `flowchart TB
+    KEY([User types in search bar]) --> PREFIX["Prefix query term*<br/>(predictive, as-you-type)"]
+    PREFIX --> FTS["SQLite FTS5 lookup<br/>BM25 ranking"]
+    FTS --> HITS{"Enough good hits?"}
+    HITS -->|yes| RANK["Rank + boost<br/>title / TM# / NSN"]
+    HITS -->|no / typo| FUZZY["Fuzzy layer<br/>(trigram vocabulary match)"]
+    FUZZY --> RANK
+    RANK --> RESULTS["Result list:<br/>vehicle, TM#, page, snippet"]
+    RESULTS --> OPEN([Open document at page])
+    OPEN --> CTRLF["In-document Ctrl+F<br/>highlight + jump matches"]
+    OPEN --> PROC["Procedure panel:<br/>disassembly / install / tools / variants"]`,
+
+  d_data: `erDiagram
+    documents ||--o{ pages : has
+    documents ||--o{ figures : has
+    documents ||--o{ jobs : tracked_by
+    pages ||--|| pages_fts : indexed_in
+    parts ||--o{ part_variants : disambiguated_by
+    parts ||--o{ procedures : described_by
+    parts ||--o{ figures : illustrated_by
+    procedures ||--o{ figures : illustrated_by
+    pages ||--o{ parts : mentions
+    documents {
+        int id PK
+        string path
+        string fingerprint
+        string type
+        string tm_number
+        string nsn
+        string title
+        string vehicle
+        int page_count
+        string status
+    }
+    pages {
+        int id PK
+        int document_id FK
+        int page_number
+        text body_text
+        string ocr_status
+    }
+    pages_fts {
+        text body_text
+    }
+    parts {
+        int id PK
+        string name
+        string part_number
+        string nsn
+    }
+    part_variants {
+        int id PK
+        int part_id FK
+        string differs_how
+        string how_to_tell_apart
+    }
+    procedures {
+        int id PK
+        int part_id FK
+        string kind
+        text steps
+        text tools_required
+    }
+    figures {
+        int id PK
+        int document_id FK
+        int page_number
+        string source_ref
+    }
+    jobs {
+        int id PK
+        int document_id FK
+        string stage
+        string state
+        int attempts
+        string last_error
+    }
+    schema_meta {
+        int schema_version
+        text migration_history
+    }
+    runs {
+        int id PK
+        datetime started_at
+        int files_seen
+        int indexed
+        int queued
+        int failed
+    }`
+};
+
+mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose", flowchart: { useMaxWidth: true } });
+
+(async () => {
+  for (const [id, def] of Object.entries(diagrams)) {
+    try {
+      const { svg } = await mermaid.render(id + "_svg", def);
+      document.getElementById(id).innerHTML = svg;
+    } catch (e) {
+      document.getElementById(id).innerHTML =
+        '<pre style="color:#b00;white-space:pre-wrap">Diagram error: ' + (e && e.message ? e.message : e) + '</pre>';
+    }
+  }
+})();
+</script>
+</body>
+</html>

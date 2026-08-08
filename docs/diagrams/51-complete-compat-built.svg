@@ -1,0 +1,76 @@
+<svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="700" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — COMPLETE backward compatibility: Win 11 -&gt; Vista  (v0.37.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Every feature works on every Windows from 11 down to Vista. The engine substitutes the right tool per OS; only GPU acceleration (a speed booster) is Win10+.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · SAME FEATURES, PER-OS ENGINES</text>
+<rect x="40" y="126" width="1100" height="250" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="470" y="150" font-size="9.6" font-weight="700" fill="#9aa6b6" text-anchor="middle">Win 11/10</text>
+<text x="640" y="150" font-size="9.6" font-weight="700" fill="#9aa6b6" text-anchor="middle">Win 8/8.1</text>
+<text x="790" y="150" font-size="9.6" font-weight="700" fill="#9aa6b6" text-anchor="middle">Win 7</text>
+<text x="930" y="150" font-size="9.6" font-weight="700" fill="#9aa6b6" text-anchor="middle">Vista</text>
+<text x="58" y="180" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Search · vehicle hub · 104th sheet</text>
+<text x="470" y="180" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">stdlib</text>
+<text x="640" y="180" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">stdlib</text>
+<text x="790" y="180" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">stdlib</text>
+<text x="930" y="180" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">stdlib</text>
+<line x1="56" y1="188" x2="1124" y2="188" stroke="#2b333f"/>
+<text x="58" y="213" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Viewer · HD · loupe · tilt · zoom</text>
+<text x="470" y="213" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="640" y="213" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="790" y="213" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="930" y="213" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<line x1="56" y1="221" x2="1124" y2="221" stroke="#2b333f"/>
+<text x="58" y="246" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Page render</text>
+<text x="470" y="246" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">PyMuPDF</text>
+<text x="640" y="246" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">PyMuPDF/Poppler</text>
+<text x="790" y="246" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">PyMuPDF/Poppler</text>
+<text x="930" y="246" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">Poppler</text>
+<line x1="56" y1="254" x2="1124" y2="254" stroke="#2b333f"/>
+<text x="58" y="279" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">OCR (text recovery)</text>
+<text x="470" y="279" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">PP-OCRv5</text>
+<text x="640" y="279" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">RapidOCR/Tess</text>
+<text x="790" y="279" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">RapidOCR/Tess</text>
+<text x="930" y="279" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">Tesseract</text>
+<line x1="56" y1="287" x2="1124" y2="287" stroke="#2b333f"/>
+<text x="58" y="312" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">Auto-snapshots</text>
+<text x="470" y="312" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="640" y="312" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="790" y="312" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="930" y="312" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<line x1="56" y1="320" x2="1124" y2="320" stroke="#2b333f"/>
+<text x="58" y="345" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">GPU acceleration (speed only)</text>
+<text x="470" y="345" font-size="8.4" font-weight="400" fill="#2f7d4f" text-anchor="middle">yes</text>
+<text x="640" y="345" font-size="8.4" font-weight="400" fill="#5f5e5a" text-anchor="middle">—</text>
+<text x="790" y="345" font-size="8.4" font-weight="400" fill="#5f5e5a" text-anchor="middle">—</text>
+<text x="930" y="345" font-size="8.4" font-weight="400" fill="#5f5e5a" text-anchor="middle">—</text>
+<line x1="56" y1="353" x2="1124" y2="353" stroke="#2b333f"/>
+<text x="58" y="366" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">Only the ENGINE changes by OS — the result (a searchable index, the viewer, the 104th sheet) is identical everywhere.</text>
+<text x="56" y="400" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · HOW (substitution chain, auto-detected by sysprobe)</text>
+<rect x="40" y="410" width="1100" height="180" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="60" y="436" font-size="10" font-weight="700" fill="#caa24a" text-anchor="start">Render:</text>
+<rect x="130" y="420" width="150" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="205" y="440" font-size="8.6" font-weight="400" fill="#e6e9ee" text-anchor="middle">PyMuPDF (modern)</text>
+<text x="290" y="440" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">else</text>
+<rect x="330" y="420" width="150" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="405" y="440" font-size="8.6" font-weight="400" fill="#e6e9ee" text-anchor="middle">Poppler pdftoppm</text>
+<text x="495" y="440" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">(Win7/Vista)</text>
+<text x="60" y="476" font-size="10" font-weight="700" fill="#caa24a" text-anchor="start">OCR:</text>
+<rect x="130" y="460" width="150" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="205" y="480" font-size="8.6" font-weight="400" fill="#e6e9ee" text-anchor="middle">RapidOCR GPU</text>
+<text x="290" y="480" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">else</text>
+<rect x="330" y="460" width="150" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="405" y="480" font-size="8.6" font-weight="400" fill="#e6e9ee" text-anchor="middle">RapidOCR CPU</text>
+<text x="490" y="480" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">else</text>
+<rect x="530" y="460" width="150" height="30" rx="7" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="605" y="480" font-size="8.6" font-weight="400" fill="#e6e9ee" text-anchor="middle">Tesseract</text>
+<text x="690" y="480" font-size="8" font-weight="400" fill="#9aa6b6" text-anchor="start">(Win7/Vista)</text>
+<text x="60" y="516" font-size="10" font-weight="700" fill="#caa24a" text-anchor="start">Core:</text>
+<text x="130" y="516" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">pure Python standard library + SQLite + a browser UI -&gt; runs on any Windows (and old Python).</text>
+<text x="60" y="540" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Python: Win7 -&gt; 3.8 (last supported); Vista -&gt; 3.4, or just run a PRE-BUILT index from the portable build (search/viewer/104th need only stdlib). Install Poppler + Tesseract for</text><text x="60" y="552" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Windows on legacy OS; the probe (render_backend / ocr_backend) reports what&#x27;s present and what to add.</text>
+<rect x="40" y="604" width="1100" height="72" rx="12" fill="#171d26" stroke="#2f7d4f" stroke-width="1"/>
+<text x="58" y="628" font-size="12" font-weight="700" fill="#2f7d4f" text-anchor="start">THE ONE HONEST LIMIT</text>
+<text x="58" y="648" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">NVIDIA GPU acceleration is Win10+ only (CUDA/onnxruntime don&#x27;t exist for Vista/7) — but it&#x27;s a SPEED booster, not a feature. OCR still completes on Vista/7 via Tesseract and the</text><text x="58" y="661" font-size="9.4" font-weight="400" fill="#9aa6b6" text-anchor="start">searchable result is the same. Nothing a user can do is missing on the older OSes.</text>
+<text x="40" y="692" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.37.0 · 2026-06-02 · companion: SYSTEM-REQUIREMENTS.md.</text>
+</svg>

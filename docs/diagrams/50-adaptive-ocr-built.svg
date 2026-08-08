@@ -1,0 +1,97 @@
+<svg viewBox="0 0 1180 820" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b1"/></marker></defs>
+<rect x="0" y="0" width="1180" height="820" rx="0" fill="#0f1419" stroke="#0f1419" stroke-width="1"/>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#e6e9ee" text-anchor="start">BUILT — Hardware probe + autonomous adaptive OCR  (v0.36.0)</text>
+<text x="40" y="70" font-size="11" font-weight="400" fill="#9aa6b6" text-anchor="start">Win11-first, best-effort back to Win7. The app scans your PC, grants the right resources, then runs OCR to 100% unattended on the best engine your hardware supports.</text>
+<line x1="40" y1="86" x2="1140" y2="86" stroke="#2b333f"/>
+<text x="56" y="116" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">1 · CAPABILITY PROBE (before onboarding) -&gt; sysprobe.py</text>
+<rect x="40" y="126" width="1100" height="210" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="60" y="150" width="200" height="150" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="160" y="170" font-size="10" font-weight="700" fill="#4f9dff" text-anchor="middle">detect</text>
+<text x="74" y="190" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• OS + build (Win7..11)</text>
+<text x="74" y="205" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• Python version</text>
+<text x="74" y="220" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• CPU cores</text>
+<text x="74" y="235" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• RAM</text>
+<text x="74" y="250" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• NVIDIA GPU / CUDA</text>
+<text x="74" y="265" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• laptop + battery</text>
+<text x="74" y="280" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">• free disk</text>
+<path d="M260,225 L290,225" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="294" y="150" width="250" height="150" rx="8" fill="#13241c" stroke="#2f7d4f" stroke-width="1"/>
+<text x="419" y="170" font-size="10" font-weight="700" fill="#bfe6cf" text-anchor="middle">hardware_profile.json</text>
+<text x="312" y="192" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• tier</text>
+<text x="312" y="208" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• use_gpu</text>
+<text x="312" y="224" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• ocr_workers</text>
+<text x="312" y="240" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• ocr_dpi</text>
+<text x="312" y="256" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• hd_render_cap</text>
+<text x="312" y="272" font-size="8.8" font-weight="400" fill="#8fbf9f" text-anchor="start">• feature availability</text>
+<path d="M544,225 L574,225" stroke="#1d9e75" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="578" y="150" width="260" height="150" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="708" y="170" font-size="10" font-weight="700" fill="#e6e9ee" text-anchor="middle">launchers read it</text>
+<text x="594" y="196" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">sysprobe.py --get ocr_workers</text>
+<text x="594" y="214" font-size="8.4" font-weight="400" fill="#9aa6b6" text-anchor="start">--get ocr_dpi / use_gpu</text>
+<text x="594" y="238" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">so run_ocr_auto.bat / run_app size</text><text x="594" y="249" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">themselves to the machine.</text>
+<rect x="858" y="150" width="262" height="150" rx="8" fill="#171d26" stroke="#caa24a" stroke-width="1"/>
+<text x="989" y="170" font-size="10" font-weight="700" fill="#caa24a" text-anchor="middle">your Acer Nitro 5</text>
+<text x="874" y="192" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">NVIDIA GPU (GTX/RTX) -&gt; GPU laptop</text><text x="874" y="203" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">tier: PP-OCRv5 on GPU, ~5 workers</text><text x="874" y="214" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">(thermal headroom), 220 dpi. Plug in +</text><text x="874" y="225" font-size="8.6" font-weight="400" fill="#9aa6b6" text-anchor="start">vents clear for the long run.</text>
+<text x="56" y="360" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">2 · TIERS — RESOURCES SCALE TO THE PC (Win11-first, incomplete back to Win7)</text>
+<rect x="40" y="370" width="1100" height="140" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<text x="60" y="392" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">tier</text>
+<text x="330" y="392" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">looks like</text>
+<text x="640" y="392" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">OCR</text>
+<text x="840" y="392" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">workers</text>
+<text x="960" y="392" font-size="9" font-weight="700" fill="#9aa6b6" text-anchor="start">dpi</text>
+<rect x="60" y="404" width="8" height="8" rx="2" fill="#2f7d4f"/>
+<text x="74" y="412" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">GPU laptop / workstation</text>
+<text x="330" y="412" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">NVIDIA+CUDA, Win10/11</text>
+<text x="640" y="412" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">GPU PP-OCRv5</text>
+<text x="850" y="412" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">5-8</text>
+<text x="960" y="412" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">220</text>
+<rect x="60" y="429" width="8" height="8" rx="2" fill="#4f9dff"/>
+<text x="74" y="437" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">Strong CPU</text>
+<text x="330" y="437" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">8+ cores, 16GB+</text>
+<text x="640" y="437" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">CPU</text>
+<text x="850" y="437" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">6</text>
+<text x="960" y="437" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">200</text>
+<rect x="60" y="454" width="8" height="8" rx="2" fill="#caa24a"/>
+<text x="74" y="462" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">Modest CPU</text>
+<text x="330" y="462" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">4 cores, 8GB</text>
+<text x="640" y="462" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">CPU</text>
+<text x="850" y="462" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">3</text>
+<text x="960" y="462" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">165</text>
+<rect x="60" y="479" width="8" height="8" rx="2" fill="#9aa6b6"/>
+<text x="74" y="487" font-size="9.2" font-weight="700" fill="#e6e9ee" text-anchor="start">Legacy / low-power</text>
+<text x="330" y="487" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">2 cores / &lt;8GB / Win7-8</text>
+<text x="640" y="487" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">CPU (best-effort)</text>
+<text x="850" y="487" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">1-2</text>
+<text x="960" y="487" font-size="9" font-weight="700" fill="#e6e9ee" text-anchor="start">130</text>
+<text x="60" y="500" font-size="8.8" font-weight="400" fill="#9aa6b6" text-anchor="start">Workers also capped by RAM (~1.2 GB each); laptop = thermal headroom; battery = throttled. GPU OCR is Win10+ (CUDA); Win7/8 -&gt; CPU.</text>
+<text x="56" y="534" font-size="12" font-weight="700" fill="#4f9dff" text-anchor="start">3 · AUTONOMOUS RUNNER -&gt; run_ocr_auto.bat (unattended to 100%)</text>
+<rect x="40" y="544" width="1100" height="200" rx="12" fill="#171d26" stroke="#2b333f" stroke-width="1"/>
+<rect x="58" y="566" width="168" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="68" y="586" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">1 probe</text>
+<text x="68" y="602" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">pick workers/dpi/gpu</text>
+<path d="M226,594 L236,594" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="238" y="566" width="168" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="248" y="586" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">2 install</text>
+<text x="248" y="602" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">GPU stack + PP-OCRv5 (+v4</text><text x="248" y="612" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">fallback)</text>
+<path d="M406,594 L416,594" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="418" y="566" width="168" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="428" y="586" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">3 gpu_check</text>
+<text x="428" y="602" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">verify CUDA active</text>
+<path d="M586,594 L596,594" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="598" y="566" width="168" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="608" y="586" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">4 snapshot</text>
+<text x="608" y="602" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">pre-ocr restore point</text>
+<path d="M766,594 L776,594" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="778" y="566" width="168" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="788" y="586" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">5 ocrall loop</text>
+<text x="788" y="602" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">auto-restart on crash -&gt; 0</text><text x="788" y="612" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">pending</text>
+<path d="M946,594 L956,594" stroke="#4f9dff" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+<rect x="958" y="566" width="168" height="56" rx="8" fill="#1c2430" stroke="#2b333f" stroke-width="1"/>
+<text x="968" y="586" font-size="9.4" font-weight="700" fill="#e6e9ee" text-anchor="start">6 report + open</text>
+<text x="968" y="602" font-size="8.0" font-weight="400" fill="#9aa6b6" text-anchor="start">detailed OCR report</text>
+<text x="58" y="648" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Self-healing: if a pass crashes with pages left, it waits 8s and resumes. /auto registers a logon task so it resumes after reboots (safe no-op once 100%).</text>
+<text x="58" y="668" font-size="9" font-weight="400" fill="#2f7d4f" text-anchor="start">Accuracy: PP-OCRv5 (~13 pts over v4) guarded by a self-test that auto-falls back to the proven PP-OCRv4 if the newer API differs -- never silently breaks extraction.</text>
+<text x="58" y="692" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">Honest: the OCR compute runs on YOUR GPU (the assistant has no GPU and can&#x27;t run a multi-day job). I made it the fastest, most accurate, most autonomous it can be. When it hits 100% it</text><text x="58" y="705" font-size="9" font-weight="400" fill="#9aa6b6" text-anchor="start">writes docs/OCR-COMPLETION-REPORT.md and opens it; a daily reminder also tracks progress.</text>
+<text x="40" y="808" font-size="9.2" font-weight="400" fill="#6b7280" text-anchor="start">BUILT diagram. Dark (R3). v0.36.0 · 2026-06-02 · companions: SYSTEM-REQUIREMENTS.md, OCR-RUN-GUIDE.md, SETUP-GPU.md.</text>
+</svg>

@@ -8,6 +8,20 @@ modern track lives in `CHANGELOG.md`.
 
 ---
 
+## [1.13.4-legacy] — 2026-08-08 — Live-driving pass + parallel audit: 36 bugs fixed .................... ✓ same
+- 12 resource leaks across 10 pure-stdlib `sqlite3` modules (con=None + finally) — no GPU/WebGL/UI involved ..... ✓ same
+- Search side-filter starvation, did-you-mean ranking, fault-tree/procedure duplicate-doc dedup, 2 uncached
+  aggregate endpoints (`/command`, `/verify` — 60s/300s TTL caches) ............................................. ✓ same
+- `verifystate.py` triple fix (log path, pass-regex, false-positive) + a path-depth bug dating to the v0.96.0
+  restructure — engine-layer, identical on both tracks .......................................................... ✓ same
+- `rpstl.py`/`smrdecode.py`/`standards.py`/`measures.py`/`fluidsmatrix.py` regex/classification tightenings
+  (SMR mislabeling, item-fabrication via prefix-match, oil-grade/newline/RPSTL-suffix measurement collisions) —
+  pure `re`, no rendering path ................................................................................... ✓ same
+- `ingestpipe.py` folder-scan cap fix, `pinouts.py` corrupted-byte cleanup — same on both tracks ................ ✓ same
+- 6 hardcoded example NSNs corrected (index.html/jobcard.html/demo.html) — same static markup both tracks share . ✓ same
+
+---
+
 ## [1.13.3-legacy] — 2026-08-08 — VERIFY.bat confirmed GREEN on host: two real bugs fixed .............. ✓ same
 - `safeguard.db_integrity()` connection leak on the error path (Windows file-lock on the next write) — pure
   stdlib `sqlite3`/`try-finally`, no GPU/WebGL involved ........................................................ ✓ same

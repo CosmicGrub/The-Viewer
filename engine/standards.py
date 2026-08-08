@@ -37,9 +37,16 @@ _COMMON = {
     "MIL-DTL-53072": "CARC coating system", "SAE-J429": "bolt/screw mechanical grades",
 }
 
+
+# v1.13.4: was case-insensitive (re.I). Real TM designations are always written uppercase, so that only
+# ever bought false positives -- the plain English indefinite article "an" immediately preceding a number
+# in ordinary prose ("an 85 gallon tank") was misread as the AN (Army-Navy) hardware-standard family, with
+# no way for the mechanic to tell it apart from a genuine standard callout. Same risk shape for "ms"
+# (very common as the milliseconds abbreviation in electronics timing specs) against the MS family.
+# Uppercase-only match closes both, matching how these designations actually appear in source documents.
 _FAM_RX = re.compile(
     r"\b(MIL-PRF|MIL-DTL|MIL-STD|MIL-SPEC|FED-STD|NASM|NAS|AMS|ASTM|SAE|MS|AN|MIL|A-A)"
-    r"[-\s]?([0-9][0-9A-Z]*(?:[-/][0-9A-Z]+)*)\b", re.I)
+    r"[-\s]?([0-9][0-9A-Z]*(?:[-/][0-9A-Z]+)*)\b")
 
 
 def _norm(fam, num):
@@ -57,10 +64,20 @@ def classify(token):
     fam, num = m.group(1).upper(), m.group(2)
     kind, desc = _FAMILY.get(fam, ("specification", "standard designation"))
     key = _norm(fam, num)
-    # curated exact-series item, if we know it
+    # curated exact-series item, if we know it. v1.13.4: this used to be
+    # key.startswith(ckey_normalized) -- a PREFIX match -- so an uncatalogued, structurally-different
+    # series that merely shares its leading digits with a curated one got a FABRICATED item name (e.g.
+    # "AN9600-5" -> the curated AN960 washer; "MS519571-3" -> the curated MS51957 screw), directly
+    # violating this module's own "never fabricate" discipline stated in its docstring. Now exact,
+    # EXCEPT a single trailing revision LETTER is still allowed (MIL-PRF-2104H = revision H of curated
+    # MIL-PRF-2104 -- MIL-family designations keep their hyphens and aren't dash-suffix-stripped by
+    # _norm() the way MS/AN/NAS are, so compare against the curated key in its own natural form, not
+    # artificially hyphen-stripped) -- a trailing DIGIT is never allowed, since that changes the series
+    # number itself rather than naming a revision of the same series.
     item, curated = None, False
     for ckey, cval in _COMMON.items():
-        if key.startswith(ckey.replace("-", "").replace(" ", "")) or key.startswith(ckey.upper()):
+        ck = ckey.upper()
+        if key == ck or (key.startswith(ck) and len(key) == len(ck) + 1 and key[-1].isalpha()):
             item, curated = cval, True
             break
     out = {"token": m.group(0), "family": fam, "series": key, "kind": kind, "description": desc, "curated": curated}

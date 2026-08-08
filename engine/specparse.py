@@ -81,15 +81,22 @@ def find_for_query(db_path, q, limit=40):
     terms = [t for t in re.findall(r"[A-Za-z0-9]+", q) if len(t) > 1]
     match = " OR ".join(terms) if terms else q
     rows = []
+    # v1.13.4: con=None + finally -- `match` falls back to the raw query verbatim when it has no
+    # alnum characters (e.g. a lone '"'), reaching FTS5's MATCH parser unescaped and raising a syntax
+    # error on ordinary malformed user input, not just a corrupted-db edge case; the old shape leaked
+    # a handle on the PRIMARY viewer.db every time that happened.
+    con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True); con.row_factory = sqlite3.Row
         rows = con.execute(
             "SELECT d.id AS doc, d.vehicle, d.tm_number AS tm, p.page_number AS page, p.body_text AS body "
             "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid JOIN documents d ON d.id=p.document_id "
             "WHERE pages_fts MATCH ? ORDER BY rank LIMIT ?", (match, limit)).fetchall()
-        con.close()
     except Exception as e:
         return {"query": q, "count": 0, "by_kind": {}, "results": [], "error": str(e)}
+    finally:
+        if con is not None:
+            con.close()
     out = []; counts = {}
     for r in rows:
         for m in extract(r["body"] or "", page=r["page"], cap=40):

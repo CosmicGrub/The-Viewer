@@ -54,15 +54,23 @@ def figuresheet(db_path, index_dir, q, dpi=150, max_figs=12):
         return None
     # doc -> path
     paths = {}
+    # v1.13.4: con=None + finally -- backs GET /api/figuresheet (the job-package figure-crop PDF); a
+    # dynamically-built IN(...) query throwing (schema drift, or a locked db mid-ingest) used to leak
+    # the viewer.db handle AND silently continue with an empty `paths` dict (a PDF with no images and
+    # no diagnostic). The empty-paths silent-continue is the existing degrade-gracefully design here --
+    # only the leak is fixed; a caller with zero paths still gets a (blank) PDF rather than a 500.
+    con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True)
         docs = sorted({a["doc"] for a in aps})
         qmarks = ",".join("?" * len(docs))
         for row in con.execute("SELECT id, path FROM documents WHERE id IN (%s)" % qmarks, docs):
             paths[row[0]] = row[1]
-        con.close()
     except Exception:
         pass
+    finally:
+        if con is not None:
+            con.close()
     items = []
     for a in aps[:max_figs]:
         p = paths.get(a["doc"])

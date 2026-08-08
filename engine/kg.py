@@ -47,20 +47,27 @@ def neighbors(kg_db, label, limit=200):
     label = (label or "").strip()
     if not kg_db or not os.path.exists(kg_db) or len(label) < 2:
         return {"query": label, "matched": [], "out": [], "in": []}
+    # v1.13.4: no try/except/finally at all here previously -- any query exception (e.g. kg.db left
+    # mid-build: nodes table present, edges not yet re-created, since build() DROPs-then-CREATEs each
+    # table separately with no wrapping transaction) propagated past con.close(), leaking the handle
+    # while relying on viewer_app's generic top-level 500 handler to avoid crashing the process. Kept
+    # the propagation (still a real 500 on real corruption -- not swallowed) but guaranteed cleanup.
     con = sqlite3.connect("file:%s?mode=ro" % kg_db, uri=True); con.row_factory = sqlite3.Row
-    keys = [r["key"] for r in con.execute(
-        "SELECT key FROM nodes WHERE label=? COLLATE NOCASE OR label LIKE ? LIMIT 20",
-        (label, "%" + label + "%"))]
-    outs, ins, matched = [], [], []
-    for k in keys:
-        matched.append(con.execute("SELECT label FROM nodes WHERE key=?", (k,)).fetchone()[0])
-        for e in con.execute("SELECT e.rel rel, n.type type, n.label label FROM edges e JOIN nodes n ON n.key=e.dst "
-                             "WHERE e.src=? LIMIT ?", (k, limit)):
-            outs.append({"rel": e["rel"], "type": e["type"], "label": e["label"]})
-        for e in con.execute("SELECT e.rel rel, n.type type, n.label label FROM edges e JOIN nodes n ON n.key=e.src "
-                             "WHERE e.dst=? LIMIT ?", (k, limit)):
-            ins.append({"rel": e["rel"], "type": e["type"], "label": e["label"]})
-    con.close()
+    try:
+        keys = [r["key"] for r in con.execute(
+            "SELECT key FROM nodes WHERE label=? COLLATE NOCASE OR label LIKE ? LIMIT 20",
+            (label, "%" + label + "%"))]
+        outs, ins, matched = [], [], []
+        for k in keys:
+            matched.append(con.execute("SELECT label FROM nodes WHERE key=?", (k,)).fetchone()[0])
+            for e in con.execute("SELECT e.rel rel, n.type type, n.label label FROM edges e JOIN nodes n ON n.key=e.dst "
+                                 "WHERE e.src=? LIMIT ?", (k, limit)):
+                outs.append({"rel": e["rel"], "type": e["type"], "label": e["label"]})
+            for e in con.execute("SELECT e.rel rel, n.type type, n.label label FROM edges e JOIN nodes n ON n.key=e.src "
+                                 "WHERE e.dst=? LIMIT ?", (k, limit)):
+                ins.append({"rel": e["rel"], "type": e["type"], "label": e["label"]})
+    finally:
+        con.close()
     # de-dup
     def dd(rows):
         seen = set(); out = []
@@ -76,10 +83,12 @@ def stats(kg_db):
     if not kg_db or not os.path.exists(kg_db):
         return {"nodes": 0, "edges": 0, "by_type": {}}
     con = sqlite3.connect("file:%s?mode=ro" % kg_db, uri=True)
-    n = con.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
-    e = con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
-    bt = {r[0]: r[1] for r in con.execute("SELECT type, COUNT(*) FROM nodes GROUP BY type")}
-    con.close()
+    try:
+        n = con.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+        e = con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
+        bt = {r[0]: r[1] for r in con.execute("SELECT type, COUNT(*) FROM nodes GROUP BY type")}
+    finally:
+        con.close()
     return {"nodes": n, "edges": e, "by_type": bt}
 
 

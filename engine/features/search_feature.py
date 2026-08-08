@@ -289,22 +289,29 @@ def _within1(a, b):
     return diff <= 1
 
 
-def fuzzy_terms(con, word, cap=4):
-    """Indexed terms within edit-distance 1 of `word` (typo tolerance). Bounded by a prefix scan."""
+def fuzzy_terms(con, word, cap=4, min_doc=1):
+    """Indexed terms within edit-distance 1 of `word` (typo tolerance). Bounded by a prefix scan.
+    v1.13.4: rank by document frequency (`doc`, free on pages_vocab's fts5vocab 'row' mode -- was
+    selected but never read), most-attested first. min_doc defaults to 1 (no filtering) because
+    _alts() below feeds this into actual SEARCH query expansion -- a rare OCR-garbled token (e.g.
+    "GASKT" for "gasket") is exactly what lets a fuzzy search still FIND a garbled scanned page, so
+    filtering it out there would cost real recall. did_you_mean() below passes min_doc=2 explicitly:
+    that path prints the suggestion as text TO a mechanic ("did you mean: ..."), where a one-off
+    scan artifact is actively misleading rather than helpful -- a different bar for a different job."""
     w = word.lower()
     if len(w) < 5 or not w.isalpha(): return []
     if not _ensure_vocab(con): return []
     pre = w[:2]
     hi = pre[:-1] + chr(ord(pre[-1]) + 1)
-    out = []
+    cands = []
     try:
-        for (term,) in con.execute("SELECT term FROM pages_vocab WHERE term>=? AND term<? LIMIT 3000", (pre, hi)):
-            if term != w and term.isalpha() and abs(len(term) - len(w)) <= 1 and _within1(w, term):
-                out.append(term)
-                if len(out) >= cap: break
+        for term, doc in con.execute("SELECT term, doc FROM pages_vocab WHERE term>=? AND term<? LIMIT 3000", (pre, hi)):
+            if term != w and term.isalpha() and abs(len(term) - len(w)) <= 1 and _within1(w, term) and doc >= min_doc:
+                cands.append((doc, term))
     except Exception:
         return []
-    return out
+    cands.sort(key=lambda x: -x[0])          # most-attested (likely real) alternatives first
+    return [t for _, t in cands[:cap]]
 
 
 def _alts(con, word, last, use_fuzzy):
@@ -546,7 +553,11 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
 def did_you_mean(q, max_suggestions=3):
     """v0.97.0 (C20): zero-result suggestions, fully offline. Each long alpha token is replaced
     with its closest indexed term (edit distance 1, via the FTS vocab); multi-word queries also
-    fall back to their most specific single token. Read-only; bounded."""
+    fall back to their most specific single token. Read-only; bounded.
+    v1.13.4: min_doc=2 -- this string is shown directly to a mechanic ("did you mean: ..."), so a
+    one-off OCR-garbled vocab entry (e.g. "braae") must not outrank/replace a real suggestion just
+    because of prefix-scan order (see fuzzy_terms() docstring for why _alts()'s search-expansion
+    path, unlike this one, intentionally keeps min_doc=1)."""
     toks = re.findall(r"[A-Za-z0-9]+", (q or ""))
     if not toks: return []
     out = []
@@ -554,7 +565,7 @@ def did_you_mean(q, max_suggestions=3):
     try:
         for i, t in enumerate(toks):
             if len(t) < 5 or not t.isalpha(): continue
-            for alt in fuzzy_terms(con, t, cap=2):
+            for alt in fuzzy_terms(con, t, cap=2, min_doc=2):
                 cand = " ".join(toks[:i] + [alt] + toks[i + 1:])
                 if cand.lower() != (q or "").lower() and cand not in out:
                     out.append(cand)

@@ -29,6 +29,11 @@ def correlations_for(nsn):
     if not n: return {}
     digits = re.sub(r"\D", "", n); niin = digits[4:13] if len(digits) >= 13 else digits
     out = {"available": True}
+    # v1.13.4: con=None + finally -- correlations.db is built incrementally (build_conflicts.py), so
+    # any one of these three queries can legitimately throw against a partially-built sidecar; the old
+    # close()-as-last-try-statement skipped closing on that path, leaking a handle on every such request
+    # (this is the live handler behind GET /api/correlations, hit on every part/dossier page view).
+    con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % p, uri=True); con.row_factory = sqlite3.Row
         r = con.execute("SELECT n_vehicles,n_docs,vehicles FROM nsn_platforms WHERE nsn=?", (n,)).fetchone()
@@ -41,9 +46,11 @@ def correlations_for(nsn):
         sup = con.execute("SELECT current_token FROM supersession_held WHERE old_nsn=?", (n,)).fetchall()
         if sup:
             out["superseded_held"] = [s["current_token"] for s in sup]
-        con.close()
     except Exception as e:
         return {"available": False, "error": str(e)}
+    finally:
+        if con is not None:
+            con.close()
     return out
 
 
@@ -103,13 +110,18 @@ def nsn_aliases(nsn):
     digits = re.sub(r"\D", "", n); niin = digits[4:13] if len(digits) >= 13 else digits
     rp = _reviews_path()
     if not os.path.exists(rp): return [n]
+    # v1.13.4: rc/cc=None + finally -- called on every search-result render (search_feature.py); a
+    # not-yet-created niin_decisions/niin_aliases table used to leak the respective handle on throw.
+    rc = None
     try:
         rc = sqlite3.connect("file:%s?mode=ro" % rp, uri=True); rc.row_factory = sqlite3.Row
         dr = rc.execute("SELECT decision, canonical_nsn FROM niin_decisions WHERE niin=? ORDER BY id DESC LIMIT 1",
                         (niin,)).fetchone()
-        rc.close()
     except Exception:
         return [n]
+    finally:
+        if rc is not None:
+            rc.close()
     if not dr or dr["decision"] != "interchangeable": return [n]
     out = {n}
     if (dr["canonical_nsn"] or "").strip():
@@ -117,15 +129,18 @@ def nsn_aliases(nsn):
         if cn: out.add(cn)
     cp = _corr_path()
     if os.path.exists(cp):
+        cc = None
         try:
             cc = sqlite3.connect("file:%s?mode=ro" % cp, uri=True)
             r = cc.execute("SELECT variants FROM niin_aliases WHERE niin=?", (niin,)).fetchone()
-            cc.close()
             if r and r[0]:
                 for v in r[0].split(" | "):
                     nv = norm_nsn(v)
                     if nv: out.add(nv)
         except Exception: pass
+        finally:
+            if cc is not None:
+                cc.close()
     return sorted(out)
 
 
@@ -134,11 +149,13 @@ def niin_review(limit=200, offset=0, pending_only=False):
     signal). Read from the optional correlations sidecar; merges in the user's recorded decisions."""
     p = _corr_path()
     if not os.path.exists(p): return {"available": False, "items": []}
+    # v1.13.4: con=None + finally -- wired live to GET /api/niin_review; con.close() used to only run
+    # after both queries succeeded, leaking the handle on any throw (missing table, locked file, etc.).
+    con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % p, uri=True); con.row_factory = sqlite3.Row
         total = con.execute("SELECT COUNT(*) FROM niin_aliases").fetchone()[0]
         rows = con.execute("SELECT niin, n, variants FROM niin_aliases ORDER BY n DESC, niin").fetchall()
-        con.close()
         dec = _latest_decisions()
         decided = sum(1 for r in rows if r["niin"] in dec)
         out = []
@@ -155,6 +172,9 @@ def niin_review(limit=200, offset=0, pending_only=False):
                 "offset": offset, "items": page}
     except Exception as e:
         return {"available": False, "error": str(e), "items": []}
+    finally:
+        if con is not None:
+            con.close()
 
 
 def fault_parts(fault, limit=10):

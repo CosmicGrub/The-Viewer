@@ -58,14 +58,20 @@ def currency(db_path, tm_number):
     base = _norm_tm(tm_number)
     if not base:
         return {"tm": tm_number, "current": None, "superseded": [], "n": 0}
+    # v1.13.4: con=None + finally -- same close()-inside-try shape as the other leaks fixed today; the
+    # documents table can throw mid-ingest/dedup (viewer.db briefly unreadable during an os.replace()),
+    # and the except used to return without closing, leaking a handle on the primary index db.
+    con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True); con.row_factory = sqlite3.Row
         like = base[:12] + "%"
         rows = con.execute("SELECT id, tm_number, title FROM documents WHERE REPLACE(UPPER(tm_number),' ','') LIKE ? "
                            "OR REPLACE(UPPER(title),' ','') LIKE ? LIMIT 50", (like, "%" + base + "%")).fetchall()
-        con.close()
     except Exception as e:
         return {"tm": tm_number, "current": None, "superseded": [], "n": 0, "error": str(e)}
+    finally:
+        if con is not None:
+            con.close()
     cand = []
     for r in rows:
         rev = parse_revision((r["tm_number"] or "") + " " + (r["title"] or ""))

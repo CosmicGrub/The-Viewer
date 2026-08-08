@@ -18,16 +18,30 @@ SELFTEST_MODULES = [
 ]
 
 _PASS = re.compile(r"\[([^\]]*?)\s+PASS\]|\b([a-z_]+) self-test (?:OK|PASS)\b|\bpy parse OK\b", re.I)
+# v1.13.4: root VERIFY.bat (the gate since v1.13.0 -- VERIFY-099.bat now just forwards to it) prints its
+# per-assertion results as bare "PASS <name>" lines (tests/test_pillars.py etc.), not the old "[name PASS]"
+# bracket form or "<module> self-test PASS" phrasing above. Without this, parse_verify_log() silently
+# undercounted -- it still caught real FAILs (generic enough), but severely undercounted passes on today's
+# actual log format, on the one page whose whole job is showing the true proof state.
+_PASS_BARE = re.compile(r"^PASS\s+(\S.*)$")
 _FAIL = re.compile(r"\bFAIL\b|Traceback|AssertionError|Error:", re.I)
 
 
 def parse_verify_log(text):
-    """Parse a VERIFY-099 log -> {passes list, failed bool, n_pass, n_fail_lines}. Best-effort."""
+    """Parse a VERIFY.bat (or legacy VERIFY-099) log -> {passes list, failed bool, n_pass, n_fail_lines}.
+    Best-effort."""
     if not text:
         return {"passes": [], "failed": None, "n_pass": 0, "n_fail_lines": 0}
     passes, fails = [], 0
     for ln in text.splitlines():
-        if _FAIL.search(ln) and "0 FAIL" not in ln and "FAIL]" not in ln:
+        stripped = ln.strip()
+        # v1.13.4: an explicit "PASS <name>" label is authoritative -- don't let a generic "Error:"/"FAIL"
+        # substring elsewhere on the SAME line override it. Confirmed live: test_truncation.py's own PASS
+        # message legitimately quotes the error string it just verified recovery from ("PASS DB corruption
+        # detected (ERROR: file is not a database) + recovered (ok)"), which the old naive check flagged as
+        # a failure -- a real GREEN run (0 FAIL, confirmed host-side) would have shown as failed=True.
+        is_explicit_pass = bool(_PASS_BARE.match(stripped))
+        if not is_explicit_pass and _FAIL.search(ln) and "0 FAIL" not in ln and "FAIL]" not in ln:
             # 'audit 0 FAIL' is a pass phrasing; a bare FAIL / traceback is a real failure
             if not re.search(r"\b0\s+FAIL", ln):
                 fails += 1
@@ -35,6 +49,8 @@ def parse_verify_log(text):
         if m:
             label = next((g for g in m.groups() if g), "parse")
             passes.append(label.strip())
+        elif is_explicit_pass:
+            passes.append(_PASS_BARE.match(stripped).group(1).strip())
     return {"passes": passes, "failed": fails > 0, "n_pass": len(passes), "n_fail_lines": fails}
 
 
@@ -53,7 +69,13 @@ def _sidecars(db_path):
 def snapshot(db_path, docs_dir=None):
     """Full cockpit snapshot: last verify result, module self-test roster, sidecar build state."""
     docs_dir = docs_dir or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
-    log_path = os.path.join(docs_dir, "verify_099.log")
+    # v1.13.4: root VERIFY.bat (the authoritative gate since v1.13.0) writes docs/verify.log; the legacy
+    # VERIFY-099.bat name (now just a forwarder) is kept as a fallback so an old captured log still shows.
+    # Prefer whichever is NEWER if both exist -- an old verify.log left over from before a legacy run
+    # shouldn't shadow a more recent VERIFY-099 log, or vice versa.
+    candidates = [os.path.join(docs_dir, "verify.log"), os.path.join(docs_dir, "verify_099.log")]
+    existing = [p for p in candidates if os.path.exists(p)]
+    log_path = max(existing, key=os.path.getmtime) if existing else candidates[0]
     verify = {"present": False}
     if os.path.exists(log_path):
         try:
@@ -61,11 +83,12 @@ def snapshot(db_path, docs_dir=None):
             verify = parse_verify_log(txt)
             verify["present"] = True
             verify["ran"] = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(log_path)))
+            verify["source"] = os.path.basename(log_path)
         except Exception as e:
             verify = {"present": False, "error": str(e)}
     return {"modules": SELFTEST_MODULES, "n_modules": len(SELFTEST_MODULES),
             "sidecars": _sidecars(db_path), "last_verify": verify,
-            "note": "Run VERIFY-099.bat host-side to refresh the proof state."}
+            "note": "Run root VERIFY.bat host-side to refresh the proof state."}
 
 
 # --------------------------------------------------------------------------- #

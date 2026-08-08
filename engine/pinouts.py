@@ -9,9 +9,14 @@ from __future__ import annotations
 import re
 
 # standard MIL/automotive wire-colour abbreviations (+ slash tracers, e.g. WHT/BLK)
+# v1.13.4: removed a corrupted "WH<U+FFFD>" key (confirmed via hexdump: bytes 57 48 EF BF BD, i.e. "WH" +
+# the Unicode replacement character -- a save/encoding accident, not a real wire-colour code). It was dead
+# weight (could never legitimately match real TM text) and its raw replacement-character bytes were also
+# baked directly into the compiled _COLOR_TOK/_PINROW regex below via "|".join(_COLORS). "WHT" already
+# covers white; nothing else referenced this key.
 _COLORS = {"WHT": "white", "BLK": "black", "RED": "red", "GRN": "green", "BLU": "blue", "YEL": "yellow",
            "ORN": "orange", "ORG": "orange", "BRN": "brown", "VIO": "violet", "PUR": "purple", "GRY": "gray",
-           "GRA": "gray", "PNK": "pink", "TAN": "tan", "WH�": "white"}
+           "GRA": "gray", "PNK": "pink", "TAN": "tan"}
 _COLOR_TOK = r"(?:%s)(?:/(?:%s))?" % ("|".join(_COLORS), "|".join(_COLORS))
 _CONN = re.compile(r"\b(?:connector|conn\.?|receptacle|plug)\s+([JPX]\d{1,3}[A-Z]?)\b|\b([JPX]\d{1,3})\b(?=\s*(?:pin|-|,|:))", re.I)
 # a pin row: <pin id>  <color?>  <signal text>   (pin id = a number or a single letter)

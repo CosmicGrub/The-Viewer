@@ -70,6 +70,10 @@ def _collections_defs():
             for slug, name, q in SEED_COLLECTIONS}
     p = _collections_path()
     if os.path.exists(p):
+        # v1.13.4: con=None + finally, not close()-as-last-try-statement -- a query throwing (e.g. a
+        # concurrent writer mid-transaction, or a not-yet-created table) used to skip close() entirely
+        # and leak the handle, the same db_integrity()-shaped bug found across several other modules.
+        con = None
         try:
             con = sqlite3.connect("file:%s?mode=ro" % p, uri=True); con.row_factory = sqlite3.Row
             if con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='collections'").fetchone():
@@ -86,22 +90,27 @@ def _collections_defs():
                                            "vehicle": (r["vehicle"] if has("vehicle") else None) or None,
                                            "mtype": (r["mtype"] if has("mtype") else None) or None,
                                            "pinned": (r["pinned"] if has("pinned") else 0) or 0}
-            con.close()
         except Exception:
             pass
+        finally:
+            if con is not None:
+                con.close()
     return defs
 
 def _seen_map():
     p = _collections_path(); out = {}
     if not os.path.exists(p): return out
+    con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % p, uri=True)
         if con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='collection_seen'").fetchone():
             for slug, lc, ls in con.execute("SELECT slug,last_count,last_seen FROM collection_seen"):
                 out[slug] = {"last_count": lc or 0, "last_seen": ls}
-        con.close()
     except Exception:
         pass
+    finally:
+        if con is not None:
+            con.close()
     return out
 
 def _mark_seen(slug, count):

@@ -308,13 +308,19 @@ def status_summary():
     corr = os.path.exists(_corr_path_b())
     corr_info = None
     if corr:
+        # v1.13.4: cc=None + finally -- backs GET /status, which gets POLLED repeatedly while OCR runs,
+        # so the old close()-on-success-only shape leaked one handle per poll tick on a partially-built
+        # correlations.db, not just once.
+        cc = None
         try:
             cc = sqlite3.connect("file:%s?mode=ro" % _corr_path_b(), uri=True)
             corr_info = {"interchangeable": cc.execute("SELECT COUNT(*) FROM nsn_platforms WHERE n_vehicles>1").fetchone()[0],
                          "niin_review": cc.execute("SELECT COUNT(*) FROM niin_aliases").fetchone()[0],
                          "supersession": cc.execute("SELECT COUNT(*) FROM supersession_held").fetchone()[0]}
-            cc.close()
         except Exception: corr_info = None
+        finally:
+            if cc is not None:
+                cc.close()
     dbsize = os.path.getsize(core.DB_PATH) if os.path.exists(core.DB_PATH) else 0
     return {
         "version": core.VERSION,

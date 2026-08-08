@@ -17,7 +17,14 @@ _SYSTEMS = [
 # fluid specs / types (MIL-spec + common designations)
 _FLUID = re.compile(r"\b(MIL-[A-Z]+-\d+[A-Z0-9/\-]*|OE[AW]?/?H?D?O?|OEA|HDO|GAA|GO\s*\d+|DEXRON[\s-]?[IVX]*|"
                     r"\d+W-\d+|SAE\s*\d+[W]?(?:-\d+)?|BFS|GAA|ANTIFREEZE|ETHYLENE\s+GLYCOL|DOT\s*[3-5])\b", re.I)
-_CAP = re.compile(r"(\d+(?:\.\d+)?)\s*(quarts?|qts?|gallons?|gal|liters?|litres?|l|pints?|pt|ounces?|oz)\b", re.I)
+# v1.13.4: the bare "l" (liter) alternative used to allow zero whitespace before it, so an RPSTL item-
+# number Left/Right suffix like "12L" parsed as "12 liters" -- and since search() returns the LEFTMOST
+# match in the scan window, a real capacity later in the same text ("2.5 pints") was never reached.
+# Requiring a space before the bare-letter form (only "l" -- the word-form units below aren't ambiguous
+# with a fused item-number suffix the same way) closes that without touching genuinely space-separated
+# capacities, which is how they overwhelmingly appear in TM prose.
+_CAP = re.compile(r"(\d+(?:\.\d+)?)(?:\s*(quarts?|qts?|gallons?|gal|liters?|litres?|pints?|pt|ounces?|oz)|"
+                  r"\s+(l))\b", re.I)
 _UNITMAP = {"quart": "qt", "quarts": "qt", "qt": "qt", "qts": "qt", "gallon": "gal", "gallons": "gal",
             "gal": "gal", "liter": "L", "liters": "L", "litre": "L", "litres": "L", "l": "L",
             "pint": "pt", "pints": "pt", "pt": "pt", "ounce": "oz", "ounces": "oz", "oz": "oz"}
@@ -36,18 +43,32 @@ def extract_fluids(text, cap=30):
     tl = t.lower()
     found, seen = [], set()
     for phrase, system in _SYSTEMS:
-        idx = tl.find(phrase)
-        if idx < 0 or system in seen:
+        if system in seen:
             continue
+        # v1.13.4: try EVERY occurrence of the phrase, not just the first. Previously the system was
+        # marked "seen" (permanently skipped) the moment its first literal occurrence was found, even
+        # if that occurrence had no fluid/capacity nearby -- an earlier unrelated mention (a section
+        # heading, an inspection paragraph) permanently blocked a real LO/servicing entry located later
+        # in the exact same document, with the system's data silently dropped and no error raised.
+        entry = None
+        start = 0
+        while True:
+            idx = tl.find(phrase, start)
+            if idx < 0:
+                break
+            window = t[idx: idx + 110]              # look FORWARD from the system name (fluid/qty follow it)
+            fm = _FLUID.search(window)
+            cm = _CAP.search(window)
+            if fm or cm:
+                cap_unit = (cm.group(2) or cm.group(3)) if cm else None   # group 2 = word-form, 3 = bare "l"
+                entry = {"system": system, "fluid": (fm.group(1).upper() if fm else None),
+                         "capacity": (float(cm.group(1)) if cm else None),
+                         "unit": (_norm_unit(cap_unit) if cap_unit else None),
+                         "context": window.strip()}
+                break
+            start = idx + len(phrase)
         seen.add(system)
-        window = t[idx: idx + 110]                 # look FORWARD from the system name (fluid/qty follow it)
-        fm = _FLUID.search(window)
-        cm = _CAP.search(window)
-        entry = {"system": system, "fluid": (fm.group(1).upper() if fm else None),
-                 "capacity": (float(cm.group(1)) if cm else None),
-                 "unit": (_norm_unit(cm.group(2)) if cm else None),
-                 "context": window.strip()}
-        if entry["fluid"] or entry["capacity"]:
+        if entry:
             found.append(entry)
         if len(found) >= cap:
             break

@@ -27,8 +27,19 @@ CREATE INDEX IF NOT EXISTS ix_notes_subj ON notes(subject, id);
 
 
 def _con(db_path):
+    # v1.13.4: connect() succeeds even against a truncated/garbage sidecar (lazy validation); if
+    # executescript(_DDL) then throws, `con` was never returned to the caller (the exception propagates
+    # from inside this function), so nothing could ever close it -- leaking the handle and, on Windows,
+    # deterministically blocking any later os.replace()/rebuild over the same notes.db path. Reproduced
+    # live: a truncated notes.db raised sqlite3.DatabaseError here, then a follow-up os.remove(db) failed
+    # with WinError 32 (file still in use) -- same failure shape as the already-fixed safeguard.py bug.
     con = sqlite3.connect(db_path); con.row_factory = sqlite3.Row
-    con.executescript(_DDL); return con
+    try:
+        con.executescript(_DDL)
+    except Exception:
+        con.close()
+        raise
+    return con
 
 
 def _norm(s):

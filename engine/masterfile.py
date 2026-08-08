@@ -60,22 +60,31 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
     con.executescript(SCHEMA)
 
     # subject label map from the authoritative DB
+    # v1.13.4: v/m/e=None + finally for all three optional-source connections below -- each used to
+    # close() only at the end of its try block, so an execute()/iteration throwing partway (e.g. against
+    # a corrupted or partially-written measures.db/enrich.db, left mid-write by a previously killed
+    # build -- exactly the scenario safeguard.py's whole premise designs around elsewhere) leaked the
+    # connection, which can then block a subsequent rebuild or snapshot/replace targeting the same path.
     doc_veh = {}
     veh_label = {}
+    v = None
     try:
         v = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True)
         for did, veh in v.execute("SELECT id, COALESCE(vehicle,'') FROM documents"):
             doc_veh[did] = (veh or "").strip()
             if veh:
                 veh_label[(veh or "").strip().lower()] = veh.strip()
-        v.close()
     except Exception:
         pass
+    finally:
+        if v is not None:
+            v.close()
 
     raw = []  # (subject, label, doc, page, type, unit, value, value2, tol, context, origin)
 
     # (1) CORPUS measurements (authoritative), page-cited to the real TM files
     if measures_db and os.path.exists(measures_db):
+        m = None
         try:
             m = sqlite3.connect("file:%s?mode=ro" % measures_db, uri=True)
             for doc, page, ty, unit, val, val2, tol, ctx in m.execute(
@@ -83,9 +92,11 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                 label = doc_veh.get(doc, "") or ("doc%s" % doc)
                 subj = label.strip().lower()
                 raw.append((subj, label, doc, page, ty, unit, val, val2, tol, ctx, "corpus"))
-            m.close()
         except Exception:
             pass
+        finally:
+            if m is not None:
+                m.close()
 
     # which (subject,type) the corpus already answers -> corpus is authoritative there
     corpus_have = defaultdict(set)
@@ -94,6 +105,7 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
 
     # (2) EXTERNAL gap-fills (supplemental) -- NO url carried into the Masterfile; only where corpus is silent
     if enrich_db and os.path.exists(enrich_db):
+        e = None
         try:
             e = sqlite3.connect("file:%s?mode=ro" % enrich_db, uri=True)
             for subj, label, ty, unit, val, val2, tol, ctx in e.execute(
@@ -102,9 +114,11 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                 if ty in corpus_have.get(subj, ()):   # corpus wins -> skip
                     continue
                 raw.append((subj, label or subj, None, None, ty, unit, val, val2, tol, ctx, "external"))
-            e.close()
         except Exception:
             pass
+        finally:
+            if e is not None:
+                e.close()
 
     # write RAW layer
     con.executemany(

@@ -12,7 +12,14 @@ _UNITS = [
     # torque (before length, so 'ft-lb'/'in-lb' win over 'ft'/'in')
     (r"ft[\s\-\.]?lb[s]?|lb[s]?[\s\-\.]?ft|foot[\s\-]?pound[s]?", "torque", "ft-lb"),
     (r"in[\s\-\.]?lb[s]?|inch[\s\-]?pound[s]?", "torque", "in-lb"),
-    (r"n[\s·\.]?m|newton[\s\-]?met(?:er|re)[s]?", "torque", "N-m"),
+    # v1.13.4: the multiplication dot in "N·m" is written as several look-alike Unicode chars depending on
+    # the source font/OCR pass -- U+00B7 MIDDLE DOT, U+2022 BULLET, and U+2219 BULLET OPERATOR all show up
+    # in this corpus. Missing any of them used to fall through to the bare-"N" FORCE pattern below and
+    # silently mislabel a torque value (e.g. "854 N•m") as force -- confirmed live via a generated quiz
+    # question that asked "what is the force" with Newton-only answer options for a torque-nut spec.
+    # Separately (found while fixing the above): a plain HYPHEN was never in this character class either,
+    # so the equally-common hyphenated form "25 N-m" matched nothing at all -- only "25 Nm"/"25 N m" did.
+    (r"n[\s·•∙\-\.]?m|newton[\s\-]?met(?:er|re)[s]?", "torque", "N-m"),
     # pressure
     (r"psi[ag]?|lb[s]?/in\^?2|lb[s]?[\s\-]?per[\s\-]?square[\s\-]?inch", "pressure", "psi"),
     (r"kpa|kilopascal[s]?", "pressure", "kPa"),
@@ -24,7 +31,11 @@ _UNITS = [
     (r"amp[s]?|amperes?|(?<![a-z])a(?=\b)", "electrical", "A"),
     (r"milliamp[s]?|ma\b", "electrical", "mA"),
     (r"ohm[s]?|Ω", "electrical", "ohm"),
-    (r"watt[s]?|(?<![a-z])w(?![a-z])", "electrical", "W"),
+    # v1.13.4: exclude "W" immediately followed by "-<digit>" -- that's the SAE oil-viscosity grade
+    # suffix (5W-30, 10W-40, 15W-40, 75W-90, ...), not a wattage reading, and viscosity-grade codes are
+    # standard content in essentially every vehicle TM's lubrication/servicing chart, so without this the
+    # bare-W pattern fabricated a "-5 Watts"/"-15 Watts" electrical spec next to real oil-grade text.
+    (r"watt[s]?|(?<![a-z])w(?![a-z])(?!-\d)", "electrical", "W"),
     (r"hertz|hz\b", "electrical", "Hz"),
     # flow / speed / rotation
     (r"gpm|gal(?:lon)?[s]?[\s/]*(?:per[\s]*)?min", "flow", "gpm"),
@@ -85,14 +96,27 @@ def _classify(unit_raw):
     return "other", unit_raw
 
 
+# v1.13.4: canonical units matched by a BARE single letter/symbol ((?<![a-z])X(?![a-z])-style patterns in
+# _UNITS) -- these are the ones a number can accidentally bridge into across an OCR-linearized table row,
+# since \s* (the number-to-unit connector) matches newlines by default. Multi-char/word units (ft-lb, psi,
+# gpm, ...) aren't included: they're not ambiguous the same way, and guarding them too would cost real
+# recall on genuinely line-wrapped prose measurements.
+_BARE_LETTER_UNITS = {"V", "A", "W", "N", "L", "m", "g"}
+
+
 def extract(text, page=None, cap=200):
     """Return [{type, value, value2, tolerance, unit, raw, context}] for every measurement in `text`."""
     if not text:
         return []
     out = []; seen = set()
     for m in _MEAS.finditer(text):
-        raw = m.group(0).strip()
         typ, canon = _classify(m.group("unit"))
+        if canon in _BARE_LETTER_UNITS and "\n" in m.group(0):
+            # the number and its "unit" were on different source lines -- almost certainly two unrelated
+            # table cells bridged by linearized OCR text, not a real measurement. Confirmed live: a
+            # transmission-solenoid fault-code table produced a fabricated "26 N" / "22 G" this way.
+            continue
+        raw = m.group(0).strip()
         start = max(0, m.start() - 45); end = min(len(text), m.end() + 45)
         ctx = re.sub(r"\s+", " ", text[start:end]).strip()
         key = (raw.lower(), ctx[:30])

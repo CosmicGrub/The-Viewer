@@ -66,7 +66,12 @@ _RECOVER = {
     "A": "Controlled item requiring special handling; recover / return to depot",
 }
 
-_SMR_RX = re.compile(r"\b([A-KM-Z]{2}[A-Z]{3})\b")   # 5 uppercase letters (I excluded from source alpha set)
+_SMR_RX = re.compile(r"\b([A-Z]{5})\b")   # 5 uppercase letters
+# v1.13.4: the old class was "[A-KM-Z]{2}[A-Z]{3}" -- a range-syntax mistake. The comment claimed "I
+# excluded" but A-K already INCLUDES I; the range actually excluded L instead (A-K = A..K, M-Z = M..Z,
+# together missing only L), so candidates whose second letter is L -- including the curated, real source
+# codes ML and AL -- could never match at all. Dropped the restricted class; scan()'s stricter validation
+# below (full decode, not just a source-pair prefix check) is what actually filters false positives now.
 
 
 def decode(code) -> dict:
@@ -105,15 +110,24 @@ def summary(code) -> str:
 
 
 def scan(text, cap=40):
-    """Find candidate SMR codes in text -> list of decode() dicts we can actually name (source known),
-    deduped. Requires a known source code so we don't misread arbitrary 5-letter words."""
+    """Find candidate SMR codes in text -> list of decode() dicts we can actually name (all four fields
+    known), deduped.
+    v1.13.4: used to require ONLY the 2-letter source pair to be curated (c[:2] in _SOURCE), which floods
+    false positives on ordinary English words that happen to start with one of the 25 valid pairs --
+    confirmed live: 'PARTS' starts with 'PA' (a real source code) and was reported as a decoded SMR on
+    virtually any page containing that ordinary word. Now requires the FULL code to decode: source,
+    use-level, repair-level, AND recoverability all resolve to a known meaning -- 'PARTS' fails because
+    its 3rd letter 'R' isn't a valid maintenance-level code, while real codes like PAOZZ still pass."""
     out, seen = [], set()
     for m in _SMR_RX.finditer((text or "").upper()):
         c = m.group(1)
-        if c in seen or c[:2] not in _SOURCE:
+        if c in seen:
+            continue
+        d = decode(c)
+        if not (d["source_meaning"] and d["use_meaning"] and d["repair_meaning"] and d["recover_meaning"]):
             continue
         seen.add(c)
-        out.append(decode(c))
+        out.append(d)
         if len(out) >= cap:
             break
     return out

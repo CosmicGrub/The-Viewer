@@ -812,13 +812,20 @@ function updateSheetPrev(){
 updateSheetPrev();
 
 // ---- learning: rotating example + 'commonly requested' (from successful 104th sheets) ----
+// v1.13.4: 5 of these 6 example NSNs were fabricated-looking and didn't match their labelled item in
+// PUBLOG (e.g. the "GASKET" example resolved to NIIN 011869023 = "SCREW,EXTERNALLY RELIEVED BODY" under
+// FSC 5305, not 5330) -- since exPool() falls back to this SEED array whenever /api/popular is empty
+// (a fresh install with no usage history yet), these were also the clickable "commonly requested" quick
+// picks a first-time user would see, so clicking one silently opened the WRONG part. Replaced with NSNs
+// verified live against publog.lookup() -- each now round-trips to the exact labelled item (see
+// docs/CHANGELOG.md v1.13.4). If publog.db isn't built, these still render as plausible example text.
 const SEED=[
   {item_name:"BATTERY, STORAGE",nsn:"6140-01-485-1472"},
-  {item_name:"GASKET",nsn:"5330-01-186-9023"},
-  {item_name:"ALTERNATOR",nsn:"2920-01-449-2202"},
-  {item_name:"FILTER ELEMENT, FUEL",nsn:"2910-01-374-9226"},
-  {item_name:"BELT, V",nsn:"3030-01-356-1234"},
-  {item_name:"FILTER, LUBE OIL",nsn:"2940-01-431-9476"}
+  {item_name:"GASKET",nsn:"5330-00-001-1952"},
+  {item_name:"ALTERNATOR, ENGINE",nsn:"2920-00-054-7819"},
+  {item_name:"FILTER ELEMENT, FUEL",nsn:"2910-00-353-8421"},
+  {item_name:"BELT, V",nsn:"3030-00-001-6289"},
+  {item_name:"FILTER, LUBE",nsn:"2940-01-038-2728"}
 ];
 let POPULAR=null;
 async function loadPopular(){ if(POPULAR!==null) return POPULAR;

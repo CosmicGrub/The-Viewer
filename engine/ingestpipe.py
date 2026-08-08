@@ -33,6 +33,12 @@ def scan_folder(root, recursive=True, cap=100000):
     out = []
     if not root or not os.path.isdir(root):
         return out
+    # v1.13.4: `break` here only exited the INNER per-directory loop -- os.walk() (the outer loop) kept
+    # being pulled from regardless, so it walked every remaining directory in the tree (each contributing
+    # one more file past the cap) instead of actually stopping. `cap` exists specifically so a user
+    # pointing this at a large drive root can't hang the endpoint; a `return` exits both loops at once,
+    # which also stops advancing the os.walk() generator -- it does no further directory traversal once
+    # we stop pulling from it, unlike `break` which only stopped consuming its already-yielded files.
     walker = os.walk(root) if recursive else [(root, [], os.listdir(root))]
     for dirpath, _dirs, files in walker:
         for fn in files:
@@ -45,7 +51,8 @@ def scan_folder(root, recursive=True, cap=100000):
             except Exception:
                 continue
             if len(out) >= cap:
-                break
+                out.sort(key=lambda x: x["path"])
+                return out
     out.sort(key=lambda x: x["path"])
     return out
 

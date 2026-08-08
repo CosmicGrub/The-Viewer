@@ -66,8 +66,16 @@ def save_override(doc_id, side, by=""):
         except Exception:
             blob = {"overrides": {}, "log": []}
     blob.setdefault("overrides", {}); blob.setdefault("log", [])
-    blob["overrides"][str(int(doc_id))] = {"side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
-    blob["log"].append({"doc_id": int(doc_id), "side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
+    key = str(int(doc_id))
+    prev = blob["overrides"].get(key)
+    blob["overrides"][key] = {"side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    # v1.13.4: only log a REAL change (new doc_id, or the side actually flipped) -- previously every call
+    # appended unconditionally, so a repeat click/retry of the SAME pin (nothing changed) still grew the
+    # log forever with no new information, the same unbounded-write-only-bloat class as the keywords bug
+    # fixed earlier today. "log" is read back nowhere in the codebase (grepped) -- it exists purely as an
+    # audit trail, so only recording actual changes keeps that promise meaningful instead of just noisy.
+    if prev is None or prev.get("side") != side:
+        blob["log"].append({"doc_id": int(doc_id), "side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
     import safeguard          # v1.13: fsync + _replace_retry (absorbs the transient Windows WinError5 lock)
     safeguard.atomic_write(p, json.dumps(blob, indent=2))
     _OVR_CACHE["mtime"] = None                      # force reload

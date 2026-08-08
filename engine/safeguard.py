@@ -148,9 +148,19 @@ def snapshot(label="", with_db=False, db=DB_DEFAULT):
 
 def _sqlite_backup(src, dst):
     """Consistent copy of a live SQLite DB via the online backup API (safe while the app runs)."""
-    s = sqlite3.connect(src); d = sqlite3.connect(dst)
-    with d: s.backup(d)
-    s.close(); d.close()
+    # v1.13.4: `with d:` only wraps d's transaction (commit/rollback) -- it does NOT close either
+    # connection, and re-raises on failure. If s.backup(d) throws (source locked/busy or corrupted --
+    # a scenario this module explicitly designs around elsewhere), both s and d used to leak past this
+    # point since s.close()/d.close() sat unreached after the with-block. Same "connect() succeeds, the
+    # real operation throws, close() skipped" shape as db_integrity() a few lines below, fixed the same
+    # way: close both in finally regardless of outcome.
+    s = None; d = None
+    try:
+        s = sqlite3.connect(src); d = sqlite3.connect(dst)
+        with d: s.backup(d)
+    finally:
+        if s is not None: s.close()
+        if d is not None: d.close()
 
 def db_integrity(db):
     c = None

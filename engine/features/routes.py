@@ -159,11 +159,18 @@ def r_search(h, qs):
         ent = _SEARCH_LRU.get(key)
     if ent is not None and (now - ent[0]) < _SEARCH_LRU_TTL:
         h._send(200, ent[1]); return
-    results = core.search(q_free, limit, mode, match_any, use_fuzzy,
+    # v1.13.4: side filtering happens AFTER the SQL LIMIT, so a naive `search(..., limit)` starves it --
+    # operator-side docs are a minority of the corpus (~29%), so the top `limit` relevance-ranked hits can
+    # easily contain zero of them even when plenty exist deeper in the corpus (confirmed live: "brake" /
+    # "gasket" / "filter" returned 0 operator results despite being common, well-indexed terms). Over-fetch
+    # a larger candidate pool whenever a side filter is active, then truncate back to the requested limit
+    # after filtering -- the caller never sees fetch_limit, just a correctly-populated `limit`-sized page.
+    fetch_limit = min(max(limit * 10, 200), 500) if side in ("operator", "mechanic") else limit
+    results = core.search(q_free, fetch_limit, mode, match_any, use_fuzzy,
                           tm=ops.get("tm"), vehicle=ops.get("vehicle"), nsn=ops.get("nsn"))
     if side in ("operator", "mechanic"):
         results = [r for r in results
-                   if core._side_classify(r.get("doc_id"), r.get("tm_number") or "", r.get("title") or "").get(side)]
+                   if core._side_classify(r.get("doc_id"), r.get("tm_number") or "", r.get("title") or "").get(side)][:limit]
     resp = {"results": results, "side": side or None}
     if ops:
         resp["operators"] = ops
@@ -1043,8 +1050,7 @@ def r_coverage(h, qs):
         cov = core.coverage(v)
         h._send(200, {"vehicle": v, "coverage": cov.get(v) if isinstance(cov, dict) else cov})
         return
-    import coverage
-    h._send(200, coverage.overview(core.DB_PATH, core.INDEX_DIR))
+    h._send(200, _coverage_overview_cached())
 
 
 @get("/api/partlocate")
@@ -1561,10 +1567,47 @@ def r_ops(h, qs):
     h._send(200, core.ops_summary())
 
 
+_COMMAND_STATUS_CACHE = {"t": 0.0, "body": None}
+_COMMAND_STATUS_TTL = 60.0           # v1.13.4: see note at the handler -- same TTL as _SEARCH_LRU
+_COMMAND_STATUS_LOCK = _threading.Lock()
+
+_COVERAGE_OVERVIEW_CACHE = {"t": 0.0, "body": None}
+_COVERAGE_OVERVIEW_TTL = 60.0
+_COVERAGE_OVERVIEW_LOCK = _threading.Lock()
+
+
+def _coverage_overview_cached():
+    """TTL-cached coverage.overview() -- the same 12-53s aggregate (a COUNT(*) scan reading every page's
+    body_text) is called from BOTH /api/command_status and /api/coverage (no ?vehicle=, backing /coverage
+    and /ops). v1.13.4: /api/coverage had no caching at all -- the same 'page silently hangs on Loading...'
+    regression diagnosed and fixed for /command, still live on its other call site. Centralized here (one
+    cache, one TTL) instead of each route keeping a separate copy, so the two routes share one computation
+    per window instead of each paying the full cost independently."""
+    now = time.time()
+    with _COVERAGE_OVERVIEW_LOCK:
+        if _COVERAGE_OVERVIEW_CACHE["body"] is not None and (now - _COVERAGE_OVERVIEW_CACHE["t"]) < _COVERAGE_OVERVIEW_TTL:
+            return _COVERAGE_OVERVIEW_CACHE["body"]
+    import coverage
+    body = coverage.overview(core.DB_PATH, core.INDEX_DIR)
+    with _COVERAGE_OVERVIEW_LOCK:
+        _COVERAGE_OVERVIEW_CACHE["t"] = time.time(); _COVERAGE_OVERVIEW_CACHE["body"] = body
+    return body
+
+
 @get("/api/command_status")
 def r_command_status(h, qs):
     # ONE 'are we complete?' aggregate for the command center: OCR progress, corpus coverage, PUBLOG build
     # state, and Masterfile dimensional gaps. Every piece best-effort so one missing sidecar can't 500.
+    # v1.13.4: coverage.overview() alone measured 12-53s cold (a COUNT(*) scan of every page's body_text
+    # across an 892k-row/3.65GB+ table -- slow until the OS file cache warms, worse on a bigger corpus or
+    # a memory-constrained box) -- live on /command, that read as the page silently hanging on "Loading...".
+    # TTL-cache the whole aggregate like _SEARCH_LRU already does for search: the underlying data only
+    # changes as OCR/ingest progress, so a 60s-stale "glance" dashboard is fine, and it makes every load
+    # after the first one instant instead of re-paying the full aggregate cost every single time.
+    now = time.time()
+    with _COMMAND_STATUS_LOCK:
+        if _COMMAND_STATUS_CACHE["body"] is not None and (now - _COMMAND_STATUS_CACHE["t"]) < _COMMAND_STATUS_TTL:
+            h._send(200, _COMMAND_STATUS_CACHE["body"]); return
     import os
     out = {}
     try:
@@ -1572,8 +1615,7 @@ def r_command_status(h, qs):
     except Exception as e:
         out["ocr"] = {"error": str(e)}
     try:
-        import coverage
-        out["coverage"] = coverage.overview(core.DB_PATH, core.INDEX_DIR)
+        out["coverage"] = _coverage_overview_cached()
     except Exception as e:
         out["coverage"] = {"error": str(e)}
     try:
@@ -1587,6 +1629,8 @@ def r_command_status(h, qs):
         out["masterfile"] = masterfile.coverage(mp) if hasattr(masterfile, "coverage") else {}
     except Exception as e:
         out["masterfile"] = {"error": str(e)}
+    with _COMMAND_STATUS_LOCK:
+        _COMMAND_STATUS_CACHE["t"] = time.time(); _COMMAND_STATUS_CACHE["body"] = out
     h._send(200, out)
 
 
@@ -1606,14 +1650,32 @@ def r_validate(h, qs):
     h._send(200, {"ok": True, "query": q, **res})
 
 
+_INTEGRITY_CACHE = {"t": 0.0, "body": None}
+_INTEGRITY_TTL = 300.0               # v1.13.4: see note below -- longer than _COMMAND_STATUS_TTL on purpose
+_INTEGRITY_LOCK = _threading.Lock()
+
+
 @get("/api/integrity")
 def r_integrity(h, qs):
     # DB corruption / checksum status across the index + sidecars.
+    # v1.13.4: manifest() streams a FULL SHA-256 over every byte of every listed file -- ~13GB total here
+    # (viewer.db ~3.65GB + publog.db ~9GB + the smaller sidecars) -- measured 49s live, on EVERY /verify page
+    # load, since this had no caching at all. TTL-cache it like _COMMAND_STATUS_CACHE; 300s (not 60s) because
+    # this is heavier and the underlying files change far less often than OCR/search state. ?force=1 bypasses
+    # the cache for a genuinely fresh tamper/corruption check on demand -- never silently hide that option.
+    now = time.time()
+    if not qflag(qs, "force"):
+        with _INTEGRITY_LOCK:
+            if _INTEGRITY_CACHE["body"] is not None and (now - _INTEGRITY_CACHE["t"]) < _INTEGRITY_TTL:
+                h._send(200, _INTEGRITY_CACHE["body"]); return
     import integrity, os
     d = os.path.dirname(core.DB_PATH)
     names = ["viewer.db", "publog.db", "masterfile.db", "measures.db", "tables.db", "enrich.db", "kg.db", "signoff.db"]
     paths = [os.path.join(d, n) for n in names]
-    h._send(200, integrity.status(paths))
+    out = integrity.status(paths)
+    with _INTEGRITY_LOCK:
+        _INTEGRITY_CACHE["t"] = time.time(); _INTEGRITY_CACHE["body"] = out
+    h._send(200, out)
 
 
 @get("/api/tmrev")
@@ -1629,8 +1691,13 @@ def r_tmrev(h, qs):
 @get("/api/verifystate")
 def r_verifystate(h, qs):
     import verifystate, os
-    h._send(200, verifystate.snapshot(core.DB_PATH,
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")))
+    # v1.13.4: this file is engine/features/routes.py -- reaching <root>/docs needs THREE dirname() hops
+    # (features -> engine -> root), not two. Left at two since the v0.96.0 restructure moved this code out
+    # of the old engine/viewer_app.py monolith (where two hops WAS correct); it's pointed at the
+    # nonexistent engine/docs ever since, so /verify has never been able to find a verify log at all --
+    # confirmed live: last_verify.present was False even right after a real, fully-GREEN VERIFY.bat run.
+    root_docs = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs")
+    h._send(200, verifystate.snapshot(core.DB_PATH, root_docs))
 
 
 def _signoff_db():

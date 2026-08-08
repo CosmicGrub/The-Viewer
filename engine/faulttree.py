@@ -94,12 +94,23 @@ def find_for_query(db_path, q, limit=25):
         rows = _corpus.fts_pages(match, limit=limit, with_body=True, db_path=db_path)
     except Exception as e:
         return {"query": q, "count": 0, "trees": [], "error": str(e)}
+    # v1.13.4: the corpus commonly holds several duplicate ingestions of the SAME manual (same TM
+    # number/page, different doc_id) -- observed live: "engine will not start" returned the identical
+    # 4-symptom group from TM 10-3930-675-10 p.133 six times over, once per duplicate copy. Dedup by
+    # (tm, page, symptom text): keep the first occurrence's citation, but record how many duplicate
+    # copies corroborate it (useful signal, not noise -- and never silently drops a *different* citation).
+    seen = {}
     for r in rows:
         for e in parse(r["body_text"] or ""):
             if not e["steps"] and not e["symptom"]:
                 continue
             e["doc"] = r["doc_id"]; e["tm"] = r["tm_number"]; e["vehicle"] = r["vehicle"]; e["page"] = r["page_number"]
             e["page_url"] = "/deepzoom?doc=%s&page=%s" % (r["doc_id"], r["page_number"])
+            key = (r["tm_number"] or "", r["page_number"], (e["symptom"] or "").strip().lower())
+            if key in seen:
+                seen[key]["dupe_copies"] = seen[key].get("dupe_copies", 1) + 1
+                continue
+            seen[key] = e
             trees.append(e)
     return {"query": q, "count": len(trees), "trees": trees[:limit]}
 

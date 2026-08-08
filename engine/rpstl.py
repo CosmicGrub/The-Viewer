@@ -8,10 +8,10 @@ parse_line() and parse() are pure and unit-testable. Read-only; every parsed row
 
 from __future__ import annotations
 import re
+import smrdecode
 
 _NSN = re.compile(r"\b(\d{4}-\d{2}-\d{3}-\d{4}|\d{4}-\d{3}-\d{4})\b")
-_SMR = re.compile(r"\b([A-Z]{1}[A-Z0-9]{4,5})\b")            # e.g. PAOZZ, PAFZZ, XAOZZ, PBOZZ
-_SMR_OK = re.compile(r"^[PXKMAF][A-Z0-9]{4,5}$")
+_SMR = re.compile(r"\b([A-Z]{5})\b")            # exactly 5 letters -- the real DoD SMR code length
 _CAGEC = re.compile(r"\b([0-9A-Z]{5})\b")
 _FIG = re.compile(r"\b(?:FIG(?:URE)?\.?)\s*([0-9]{1,3}[A-Z]?)\b", re.I)
 _ITEM = re.compile(r"\b(?:ITEM|IND(?:EX)?)\s*(?:NO\.?)?\s*([0-9]{1,3})\b", re.I)
@@ -28,21 +28,28 @@ def parse_line(line, default_fig=None):
     fig = _FIG.search(t)
     item = _ITEM.search(t)
     qty = _QTY.search(t)
-    # SMR: a 5-6 char code that looks like a maintenance code
+    # SMR: a 5-letter code that fully decodes (source/use/repair/recover ALL resolve to a known meaning).
+    # v1.13.4: the old check only validated the FIRST letter against [PXKMAF] -- an ordinary 5-letter
+    # nomenclature word before the real SMR on the line (e.g. "PLATE", "MOTOR") could pass that alone,
+    # silently grabbing the wrong token and shoving the true SMR into the CAGEC field below. Reusing
+    # smrdecode's canonical curated-table validation (same fix already applied to smrdecode.scan()'s own
+    # "PARTS" false-positive) requires ALL FOUR fields to be known, which real nomenclature words fail.
     smr = None
     for m in _SMR.finditer(t):
-        if _SMR_OK.match(m.group(1)):
+        d = smrdecode.decode(m.group(1))
+        if d["source_meaning"] and d["use_meaning"] and d["repair_meaning"] and d["recover_meaning"]:
             smr = m.group(1); break
-    # CAGEC: a 5-char alnum that isn't the SMR and isn't part of the NSN
+    # CAGEC: a 5-char alnum that isn't the SMR and isn't part of the NSN.
+    # v1.13.4: this had the SAME leftmost-match-wins flaw the SMR fix above just addressed -- a
+    # nomenclature word appearing before the real (usually digit-containing) CAGEC on the line used to
+    # get grabbed first via the bare "not c.isdigit(): break" fallback. Two passes now: prefer a candidate
+    # with at least one digit (how a real CAGE code overwhelmingly looks -- pure-letter nomenclature words
+    # never have one), only falling back to a pure-alphabetic candidate if nothing digit-containing exists.
     cagec = None
-    for m in _CAGEC.finditer(t):
-        c = m.group(1)
-        if c == smr or (nsn and c in nsn.group(0)):
-            continue
-        if c.isdigit() and len(c) == 5:            # cagec is often all digits
-            cagec = c; break
-        if not c.isdigit():
-            cagec = c; break
+    candidates = [m.group(1) for m in _CAGEC.finditer(t)
+                  if m.group(1) != smr and not (nsn and m.group(1) in nsn.group(0))]
+    cagec = next((c for c in candidates if any(ch.isdigit() for ch in c)), None) \
+        or (candidates[0] if candidates else None)
     # part number: a token with a digit and a dash/slash, OR a 6+ char alnum code; not the NSN/CAGEC/SMR
     part = None
     for m in re.finditer(r"\b([0-9A-Z][0-9A-Z\-/]{4,})\b", t):

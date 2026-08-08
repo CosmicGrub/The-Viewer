@@ -92,15 +92,21 @@ def procedure_for(query, limit=6):
             rows = []
     except sqlite3.OperationalError:
         rows = []
-    out = []; seen = set()
+    # v1.13.4: dedup by (tm_number, page) not (doc_id, page) -- the corpus holds confirmed duplicate
+    # ingestions of the same manual (same TM/page, different doc_id; the same root cause already fixed
+    # in faulttree.py's find_for_query()), so keying on doc_id let every duplicate copy fill its own
+    # result slot with an identical procedure instead of surfacing distinct ones.
+    out = []; seen = {}
     for r in rows:
         pr = _parse_procedure(r["body_text"])
         if not pr: continue
-        kk = (r["doc_id"], r["page_number"])
-        if kk in seen: continue
-        seen.add(kk)
+        kk = (r["tm_number"] or "", r["page_number"])
+        if kk in seen:
+            seen[kk]["dupe_copies"] = seen[kk].get("dupe_copies", 1) + 1
+            continue
         pr.update({"doc_id": r["doc_id"], "vehicle": r["vehicle"], "tm_number": r["tm_number"],
                    "doc_title": r["title"], "page": r["page_number"], "source": r["source"]})
+        seen[kk] = pr
         out.append(pr)
         if len(out) >= limit: break
     con.close()

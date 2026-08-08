@@ -1,17 +1,19 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
 **State: v1.13.2 · 2026-07-18** (rewritten 2026-08-08 from ~130 versions of drift — see the reconciliation note
-below). This document + `docs/PORTING.md` (the copy checklist — its own header is still stale at v0.98.0, a known
-gap, see §9) + `docs/CHANGELOG.md` (the full 215-entry version history) + `docs/MASTER-RECONCILIATION.md` (the
-cross-checked feature inventory this rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session
+below). This document + `docs/PORTING.md` (the copy checklist, reconciled to v1.13.2 in the same pass — see its
+own reconciliation note) + `docs/CHANGELOG.md` (the full 215-entry version history) + `docs/MASTER-RECONCILIATION.md`
+(the cross-checked feature inventory this rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session
 hand-off) are everything a new machine — or a new collaborator/AI session — needs to duplicate this project and
-continue it without losing progress. Treat all four as canonical; keep them in sync going forward.
+continue it without losing progress. Treat all five as canonical; keep them in sync going forward.
 
 > **Reconciliation note (2026-08-08):** this file had gone stale at "v0.98.0 · 2026-07-01" while the rest of the
 > project had moved on 130+ versions to **v1.13.2**. `docs/CHANGELOG.md` and `docs/ITERATION-SNAPSHOTS.md` never
 > drifted (each change appends to them directly); this hand-authored summary simply stopped being updated after
 > the 0.96–0.98 restructure. Rewritten below against `docs/MASTER-RECONCILIATION.md` + `CHANGELOG.md` as source of
-> truth. Nothing in the codebase changed as part of this rewrite — docs only.
+> truth. Nothing in the codebase changed as part of this rewrite — docs only. **Follow-up (same day):**
+> `docs/PORTING.md` had the identical drift and has since been reconciled too — every cross-reference to it below
+> now points at the current version, not the stale one.
 
 > **⚠ Architecture updated at v0.96.0 "THE RESTRUCTURE" (and 0.97/0.98), extended through v1.13.0.** Sections below
 > describe the current shape:
@@ -182,14 +184,14 @@ the CAD PNG renderer is CPU-parallel by design.
 3. **Re-baseline the pre-OCR `safeguard.py` snapshot** — the current baseline predates the OCR text layer.
 4. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, optional while OCR is paused.
 5. **OCR completion** — check current % via `/command` or `CAD-STATUS.bat`/OCR watchdog before assuming finished.
-6. **`docs/PORTING.md`** still headed "v0.98.0" — same class of drift this file just had; due for the same
-   treatment.
+
+(`docs/PORTING.md`'s matching "v0.98.0" drift — previously listed here — has since been reconciled; see its own
+header.)
 
 ## 9 · How to duplicate
 
-1. Follow **`docs/PORTING.md`** (copy list, deps, the E:\ path trap, the hardware_profile.json trap, first-run
-   checklist) — note its header is still stale at v0.98.0 (see §8.6); the copy mechanics remain valid, just
-   read it alongside this file and `MASTER-RECONCILIATION.md` for the current feature set.
+1. Follow **`docs/PORTING.md`** (copy list, deps, the E:\ path trap, the hardware_profile.json trap, the v1.13.2
+   persisted-run-mode trap, first-run checklist) — reconciled to v1.13.2 alongside this file.
 2. Give any new collaborator/AI session **this file + `MASTER-RECONCILIATION.md` + `HANDOFF-NOTE.md` + PORTING.md +
    the two changelogs** as context — together they carry the rules (R1–R13), the architecture, the verification
    conventions, and the full feature history.

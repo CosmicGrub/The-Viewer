@@ -1,11 +1,12 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.13.2 · 2026-07-18** (rewritten 2026-08-08 from ~130 versions of drift — see the reconciliation note
-below). This document + `docs/PORTING.md` (the copy checklist, reconciled to v1.13.2 in the same pass — see its
-own reconciliation note) + `docs/CHANGELOG.md` (the full 215-entry version history) + `docs/MASTER-RECONCILIATION.md`
-(the cross-checked feature inventory this rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session
-hand-off) are everything a new machine — or a new collaborator/AI session — needs to duplicate this project and
-continue it without losing progress. Treat all five as canonical; keep them in sync going forward.
+**State: v1.13.4 · 2026-08-08** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09 — see the
+reconciliation notes below). This document + `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
+2026-08-08, now one point release behind again; not touched in this update, see §9) + `docs/CHANGELOG.md` (the
+full 217-entry version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
+rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session hand-off) are everything a new machine —
+or a new collaborator/AI session — needs to duplicate this project and continue it without losing progress.
+Treat all five as canonical; keep them in sync going forward.
 
 > **Reconciliation note (2026-08-08):** this file had gone stale at "v0.98.0 · 2026-07-01" while the rest of the
 > project had moved on 130+ versions to **v1.13.2**. `docs/CHANGELOG.md` and `docs/ITERATION-SNAPSHOTS.md` never
@@ -14,6 +15,10 @@ continue it without losing progress. Treat all five as canonical; keep them in s
 > truth. Nothing in the codebase changed as part of this rewrite — docs only. **Follow-up (same day):**
 > `docs/PORTING.md` had the identical drift and has since been reconciled too — every cross-reference to it below
 > now points at the current version, not the stale one.
+>
+> **Follow-up (2026-08-09):** bumped v1.13.2 → **v1.13.4** throughout. In between, a full live-driving pass +
+> parallel static audit found and fixed 36 real bugs (v1.13.4, following v1.13.3's first-ever confirmed-green
+> `VERIFY.bat` host run) — see §4's updated Dev/verify/ops line and §8's largely-cleared outstanding-items list.
 
 > **⚠ Architecture updated at v0.96.0 "THE RESTRUCTURE" (and 0.97/0.98), extended through v1.13.0.** Sections below
 > describe the current shape:
@@ -129,8 +134,14 @@ Reconciled and cross-checked in full in `docs/MASTER-RECONCILIATION.md` §4 — 
 - **Performance, RPS & stability** — gzip+keep-alive, fitz LRU + thread-local conns + ETag, RPS legacy fallback +
   warmup, parallel CAD batch, GPU-tier OCR, preflight/disk-guard/off-disk backup, `corpus.py` unification + pooled
   `doc_path()` + startup auto-optimizer + bounded worker pool (1.13.0 groundwork), persisted RPS run-mode (1.13.2).
-- **Dev / verify / ops tooling** — root **`VERIFY.bat`** (the one gate, see §6), `engine/tools/check_crlf.py`,
-  `safeguard.py backupdb` (VACUUM INTO + disk guard + keep-2, manual).
+- **Dev / verify / ops tooling** — root **`VERIFY.bat`** (the one gate, see §6) — **confirmed GREEN on an actual
+  host for the first time in 1.13.3**, reconfirmed after the larger 1.13.4 hardening pass (563 PASS / 0 FAIL,
+  658/658 files intact both times) — `engine/tools/check_crlf.py`, `safeguard.py backupdb` (VACUUM INTO + disk
+  guard + keep-2, manual, still never actually run) · **resource-leak + uncached-endpoint + regex-fabrication
+  hardening** (1.13.3/1.13.4): 13 sites where a query throwing after a lazy-validated `sqlite3.connect()`
+  skipped `close()` (all now `con=None`+`finally`), 2 multi-second aggregate endpoints TTL-cached, and several
+  classification bugs that could fabricate or mislabel data (`rpstl.py` SMR/CAGEC, `standards.py` item-name
+  fabrication via prefix-match) fixed to match the app's own R13 "never fabricate" discipline.
 
 ## 5 · Code & data map
 
@@ -144,7 +155,7 @@ Reconciled and cross-checked in full in `docs/MASTER-RECONCILIATION.md` §4 — 
   root **`VERIFY.bat`** — the single authoritative gate.
 - `index/` sidecars: see `PORTING.md` §1 for precious-vs-regenerable (largest: `viewer.db` ~3.65 GB+,
   `publog.db` ~9 GB — both git-ignored, host-generated only).
-- `docs/`: `CHANGELOG.md` (215 entries) / `CHANGELOG-LEGACY.md` (139, dual-track parity per R7),
+- `docs/`: `CHANGELOG.md` (217 entries) / `CHANGELOG-LEGACY.md` (141, dual-track parity per R7),
   `ITERATION-SNAPSHOTS.md` + `ITERATION-DASHBOARD.html`, `MASTER-RECONCILIATION.md`, `HANDOFF-NOTE.md`,
   `diagrams/` (185+ dark-theme PDF/SVG pairs), proof images, `LOCAL-MODELS.md`, `IMAGE3D-SETUP.md`, `PORTING.md`,
   this file.
@@ -172,21 +183,31 @@ the CAD PNG renderer is CPU-parallel by design.
 
 ## 8 · Current state & in-flight (hand-off)
 
-**True current state: v1.13.2, shipped 2026-07-18.** Nothing has shipped between then and today per
-`CHANGELOG.md`'s newest entry. Known outstanding items (host-side, still owed — full detail in
+**True current state: v1.13.4, shipped 2026-08-08.** Nothing has shipped between then and today per
+`CHANGELOG.md`'s newest entry. v1.13.4 was a full live-driving pass (every core feature exercised in the real
+running app) + a parallel static audit, together finding and fixing **36 real bugs** — see `CHANGELOG.md`
+`[1.13.4]` for the complete list. Known outstanding items (host-side, still owed — full detail in
 `MASTER-RECONCILIATION.md` §6):
 
-1. **R10 literal screenshots have never actually been captured** — `docs/screenshots/` holds only a README of
-   intended routes. Every changelog/snapshot entry since R10 was adopted says "pending host-side" (the app only
-   runs on the user's machine, not in the build sandbox).
-2. **`VERIFY.bat`** (the v1.13.0 unified gate) has not been confirmed green on the actual host yet for the
-   v1.13.0–1.13.2 work.
-3. **Re-baseline the pre-OCR `safeguard.py` snapshot** — the current baseline predates the OCR text layer.
-4. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, optional while OCR is paused.
-5. **OCR completion** — check current % via `/command` or `CAD-STATUS.bat`/OCR watchdog before assuming finished.
+1. **R10 literal screenshots have never actually been saved as artifacts** — `docs/screenshots/` still holds
+   only a README of intended routes. The v1.13.4 session DID live-drive the real app with real screenshots and
+   visually confirmed every core page renders correctly, but none were saved to `docs/screenshots/` — only
+   viewed inline during the session. Still the single most consistently-deferred action across every session.
+2. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, still never run; `index/conflicts.db`
+   doesn't exist yet. Optional while OCR is paused.
+3. **`measures.py`'s bare-number-fused-to-single-letter-unit ambiguity** (e.g. an RPSTL item number "489A"
+   reading as "489 Amps") — the same bug class fixed elsewhere in v1.13.4, but broader; needs corpus-wide
+   regression testing before a safe fix. Documented, not yet patched.
+4. **`safeguard.py backupdb`** — documented, manual, still never actually run (distinct from the snapshot
+   vault, which is current as of v1.13.4).
+5. **OCR completion** — confirmed **94.4%** as of the v1.13.4 session (live `/status` check: 1,745,197 of
+   1,848,465 pages searchable); check current % via `/command` or `/status` before assuming fully finished.
 
-(`docs/PORTING.md`'s matching "v0.98.0" drift — previously listed here — has since been reconciled; see its own
-header.)
+Resolved since the last update (kept here for continuity, since these were open as of v1.13.2): `VERIFY.bat`
+confirmed GREEN on host · the pre-OCR `safeguard.py` snapshot re-baselined repeatedly through v1.13.4.
+
+(`docs/PORTING.md`'s matching "v0.98.0" drift — previously listed here — was reconciled on 2026-08-08 to
+v1.13.2, and is now one point release behind again; see its own header, and §9 below.)
 
 ## 9 · How to duplicate
 

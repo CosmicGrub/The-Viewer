@@ -1,15 +1,17 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
-**Compiled 2026-08-08.** This document exists because the project's own canonical docs had drifted out of sync
-with each other across sessions: `docs/CHANGELOG.md` and `docs/ITERATION-SNAPSHOTS.md` were current (**v1.13.2**),
-`docs/HANDOFF-NOTE.md` was two point-releases behind (fixed today — see its own header), and
-`docs/PROJECT-SUMMARY.md` was ~130 versions behind (still headed "v0.98.0"). This file is the reconciled,
+**Compiled 2026-08-08, updated 2026-08-09.** This document exists because the project's own canonical docs had
+drifted out of sync with each other across sessions. As of this update, `CHANGELOG.md`, `ITERATION-SNAPSHOTS.md`,
+`HANDOFF-NOTE.md`, `PROJECT-SUMMARY.md`, and this file all agree on **v1.13.4**. This file is the reconciled,
 single-source feature record, cross-checked against the actual files on disk (not just memory). It supplements —
-does not replace — `CHANGELOG.md` (the full 215-entry per-change log) and `HANDOFF-NOTE.md` (the living session
-hand-off). Treat all three as canonical going forward; keep them in sync.
+does not replace — `CHANGELOG.md` (the full 217-entry per-change log) and `HANDOFF-NOTE.md` (the living session
+hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.13.2, shipped 2026-07-18.** Nothing has shipped between 2026-07-18 and today (2026-08-08)
-— confirmed by CHANGELOG.md's newest entry.
+**True current state: v1.13.4, shipped 2026-08-08.** Nothing has shipped between 2026-08-08 and today (2026-08-09)
+— confirmed by CHANGELOG.md's newest entry. v1.13.4 was a full live-driving pass (every core feature exercised in
+the actual running app) + a parallel static audit, together finding and fixing **36 real bugs** — see §6 for what
+that closed out and §5 for the version-timeline entry. v1.13.3 (the point release just before it) was VERIFY.bat's
+first-ever confirmed-green run on an actual host.
 
 ---
 
@@ -127,7 +129,10 @@ shared signal on pinouts (`harnesstrace.py`, `/api/harnesstrace`, 1.12.6).
 `validate.py` — quarantines garbled/impossible extracted values, red banner on `/part` (1.8.0) → **woven into**
 `/measures` (per-row quality) and `conflicts.detect` (garble dropped pre-grouping so it can't fabricate a safety
 conflict, 1.13.0) · `trust.py` canonical trust level + trust badges on measures/ask/conflicts/publogdiff (1.13.0) ·
-`/verify` verification cockpit (last VERIFY result, module roster, DB integrity, 1.8.0) · `signoff.py` — SME
+`/verify` verification cockpit (last VERIFY result, module roster, DB integrity, 1.8.0; **had a 3-bug chain
+meaning it found ZERO logs, ever, since the v0.96.0 restructure — wrong log filename, stale pass-regex, a
+false-positive fail-trigger, plus a separate path-depth bug — all fixed 1.13.4, now correctly reads the real
+current state**) · `signoff.py` — SME
 approve/reject/override, append-only audit trail, `/review` (1.8.0) · `tmrev.py` — flags a superseded TM revision
 (1.8.0) · `integrity.py` — SQLite corruption + SHA-256 tamper-evidence + online-safe backup (1.8.0) · `conflicts.py`
 — cross-manual disagreement flags on torque/spec, cited + ranked (1.7.0) · **precomputed conflict sweep**
@@ -175,11 +180,16 @@ Settings, `/api/rps_mode` (1.13.2, the current latest).
 
 ### Dev / verify / ops tooling
 Route smoke tests, static audits, end-to-end demo/test suite, the VERIFY-*.bat family · root **`VERIFY.bat`** —
-now the single authoritative gate: exit-code truth, `run_timeout.py` wall-clock guards (no step can hang for
+the single authoritative gate: exit-code truth, `run_timeout.py` wall-clock guards (no step can hang for
 hours), unions audit + GET/POST route sweeps (**281 routes green**) + all regression suites + `rps_lint` +
-`verify_ui` + `check_crlf` + module self-tests + no-truncation completeness (1.13.0, hang-proofed 1.12.7) ·
-`engine/tools/check_crlf.py` — repo-wide CRLF gate for `.bat` files (83 verified, 1.13.0) · `safeguard.py backupdb`
-— VACUUM INTO + disk guard + keep-2, manual (1.13.0).
+`verify_ui` + `check_crlf` + module self-tests + no-truncation completeness (1.13.0, hang-proofed 1.12.7) —
+**confirmed GREEN on an actual host for the first time in 1.13.3**, and again after the larger 1.13.4 hardening
+pass (563 PASS / 0 FAIL, 658/658 files intact both times) · `engine/tools/check_crlf.py` — repo-wide CRLF gate
+for `.bat` files (83 verified, 1.13.0) · `safeguard.py backupdb` — VACUUM INTO + disk guard + keep-2, manual
+(1.13.0; still never actually run — see §6) · **resource-leak hardening** (1.13.3/1.13.4) — 13 sites across 11
+modules where a query throwing after a lazy-validated `sqlite3.connect()` skipped `close()`, leaking a Windows
+file handle; all now `con=None` + `finally` · **two uncached multi-second aggregate endpoints** TTL-cached
+(`/command`, `/coverage` share one cache; `/verify`'s integrity check separately, 300s + `?force=1`) (1.13.4).
 
 ## 5 · Version timeline — the major cuts
 
@@ -196,35 +206,51 @@ hours), unions audit + GET/POST route sweeps (**281 routes green**) + all regres
 | v1.10.0 → 1.12.9 | RPSTL + cross-method scoring + 200-idea roadmap → fleet readiness (readiness/handover/PMCS/bulk-ingest) → decoder + safety batch (air-gap/standards/2407/NSN/SMR/CAGE/harness-trace/MAC) → deep audit closing route-coverage gaps |
 | **v1.13.0** | HOLISTIC HARDENING — four-lane dev-team review: search operators, one-time-use flags, gap log, precomputed conflicts; `corpus.py` unification; trust badges everywhere; `VERIFY.bat` as the one gate; UI coherence pass; independent audit + adversarial hardening (63 hostile cases, 0 fixes needed) |
 | v1.13.1 | AI-generated 3-D illustrative tier (Meshy import lane) |
-| **v1.13.2 (current)** | RPS run-mode becomes a persisted Settings choice |
+| v1.13.2 | RPS run-mode becomes a persisted Settings choice |
+| v1.13.3 | `VERIFY.bat` confirmed GREEN on an actual host for the first time — 2 real bugs found doing it (a resource leak, a duplicate-append bug) |
+| **v1.13.4 (current)** | Full live-driving pass (every core feature exercised live, not just automated suites) + a parallel static audit → **36 real bugs found and fixed**: 12 resource leaks (13 combined with v1.13.3's), 3 dedup/caching issues, 10 regex/classification bugs (incl. two that violated the app's own "never fabricate" R13 discipline), 2 misc, plus the `verifystate.py`/`/verify` chain that had silently found nothing since the v0.96.0 restructure |
 
 ## 6 · Known outstanding items (host-side, still owed as of today)
 
-1. **R10 literal screenshots have never actually been captured** — `docs/screenshots/` holds only a README of
-   intended routes to capture. Every single changelog/snapshot entry since R10 was adopted says "pending
-   host-side" because the app only runs on the user's machine, not in the build sandbox. This is the single most
-   consistently-deferred action across every session. Needs either the Claude-in-Chrome extension connected while
-   `RUN-VIEWER.bat` is running, or a manual computer-use screenshot per the route list in that README.
-2. **`VERIFY.bat`** (the v1.13.0 unified gate) has not been confirmed green on the actual host yet for the
-   v1.13.0–1.13.2 work.
-3. **Re-baseline the pre-OCR `safeguard.py` snapshot** — the current baseline predates the OCR text layer.
-4. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, optional while OCR is paused.
-5. **OCR completion** — was ~43.8% at the v1.0.0 cut per `RELEASE-NOTES-1.0.md`; check current % via `/command` or
-   `CAD-STATUS.bat`/OCR watchdog before assuming it's finished.
-6. **`docs/PROJECT-SUMMARY.md` needs a full rewrite pass** — it's the designated "canonical hand-off for
-   duplication" doc but its header and §4 feature table stop at v0.98.0 and never learned about v0.99.x through
-   v1.13.2. This document (`MASTER-RECONCILIATION.md`) is the interim fix; a proper PROJECT-SUMMARY.md rewrite is
-   still a good idea when there's a session to spend on it.
+**Resolved since the last update** (kept here, struck through in spirit, for continuity — see §5 for detail):
+`VERIFY.bat` confirmed GREEN on host (v1.13.3, reconfirmed v1.13.4) · the pre-OCR `safeguard.py` snapshot
+re-baselined repeatedly through v1.13.4 (current: `SNAP_20260808_184421_v1.13.4-changelog`) ·
+`docs/PROJECT-SUMMARY.md` fully rewritten (2026-08-08) and kept in sync through v1.13.4 · the resource-leak /
+uncached-endpoint / regex-fabrication classes of bug that a full audit specifically went looking for are now
+fixed (36 of them, v1.13.4) — though see item 3 below for the one deliberately-deferred piece of that same class.
+
+**Still open:**
+1. **R10 literal screenshots have never actually been saved as artifacts.** `docs/screenshots/` still holds only
+   a README of intended routes. The v1.13.4 session DID live-drive the real app with real screenshots (3D
+   library + interactive CAD viewer, schematics + Living Schematic flow, Circuit Lab running a simulation, kiosk
+   mode) and visually confirmed every core page renders correctly — but none were saved to `docs/screenshots/`,
+   only viewed inline during the session. This remains the single most consistently-deferred action across every
+   session. Needs a screenshot captured and saved per major page using the `<version>-<page>.png` convention.
+2. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, still never run; `index/conflicts.db`
+   doesn't exist yet. Optional while OCR is paused.
+3. **`measures.py`'s bare-number-fused-to-single-letter-unit ambiguity** (e.g. an RPSTL item number "489A"
+   reading as "489 Amps") — the same bug class the v1.13.4 audit fixed several instances of elsewhere
+   (`fluidsmatrix.py`'s "12L", `measures.py`'s own oil-grade/newline cases), but this specific one is broader
+   and needs corpus-wide regression testing before a safe fix. Documented in `CHANGELOG.md` `[1.13.4]`, not yet
+   patched.
+4. **`safeguard.py backupdb`** (the full off-index DB backup + rotation, distinct from the snapshot vault above)
+   — documented, manual, still never actually run.
+5. **OCR completion** — was ~43.8% at the v1.0.0 cut; **confirmed 94.4% as of the v1.13.4 session** (live
+   `/status` check, 2026-08-08: 1,745,197 of 1,848,465 pages searchable). Check current % via `/command` or
+   `/status` before assuming it's fully finished.
+6. **A live analytics record still carries an old bad NSN** (dated 2026-06-01, traced during v1.13.4's
+   live-driving pass to a since-fixed bad example-data bug) — real historical data, R6 append-only, left for the
+   user to decide whether to touch.
 
 ## 7 · Downloadable artifacts produced across the project's life
 
 - **`docs/diagrams/`** — 185 dark-theme diagram PDFs (+ matching SVGs, several with PNG previews and `.mmd`
   sources), one pair per addition per R2/R3, numbered roughly 00→113+ plus named ones (`CHANGELOG-VISUAL.pdf`,
   `CHANGELOG-DUALTRACK.pdf`).
-- **`docs/CHANGELOG.md`** (215 entries) / **`docs/CHANGELOG-LEGACY.md`** (139 entries, dual-track parity per R7).
+- **`docs/CHANGELOG.md`** (217 entries) / **`docs/CHANGELOG-LEGACY.md`** (141 entries, dual-track parity per R7).
 - **`docs/ITERATION-SNAPSHOTS.md`** + **`docs/ITERATION-DASHBOARD.html`** — the tagged FEATURE/UPGRADE/POLISH/FIX
-  index (213 iterations, 136 legacy-tracked), regenerable via `engine/build_iteration_snapshot.py`.
-- **`docs/HANDOFF-NOTE.md`** — the living session hand-off (reconciled to v1.13.2 today).
+  index (217 iterations, 139 legacy-tracked), regenerable via `engine/build_iteration_snapshot.py`.
+- **`docs/HANDOFF-NOTE.md`** — the living session hand-off (reconciled to v1.13.4).
 - **`docs/ocr_example_before_after.pdf`** — OCR quality proof.
 - **`docs/RELEASE-NOTES-1.0.md`** — the v1.0.0 release notes.
 - This file, **`docs/MASTER-RECONCILIATION.md`**.

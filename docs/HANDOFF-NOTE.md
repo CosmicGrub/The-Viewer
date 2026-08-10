@@ -1,16 +1,84 @@
-# THE VIEWER — Handoff Note (reconciled 2026-08-08)
+# THE VIEWER — Handoff Note (reconciled 2026-08-09)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
-(`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`).
+(`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
+`docs/MASTER-RECONCILIATION.md`).
 
-> **Reconciliation note (2026-08-08):** this file had gone stale at v1.13.0 while `CHANGELOG.md` and
-> `ITERATION-SNAPSHOTS.md` had already moved on to **v1.13.2** (both shipped 2026-07-18, same session, just not
-> back-ported here). No work has landed between 2026-07-18 and today — v1.13.2 is confirmed the true current
-> state on disk. The two missing entries are added below; nothing else changed. `docs/PROJECT-SUMMARY.md` is
-> separately stale (still headed "v0.98.0 · 2026-07-01") — treat `CHANGELOG.md` + this note as the source of
-> truth for version state, not PROJECT-SUMMARY.md's header.
+> **Reconciliation note (2026-08-09):** this file had gone stale at v1.13.2 while `CHANGELOG.md` and
+> `ITERATION-SNAPSHOTS.md` had already moved on to **v1.13.4** (both shipped 2026-08-08). No work has landed
+> between 2026-08-08 and today — v1.13.4 is confirmed the true current state on disk (matches `VERSION` in
+> `engine/viewer_app.py` and the top entry of `CHANGELOG.md`). The two missing entries (v1.13.3, v1.13.4) are
+> added below; nothing else changed. `docs/PROJECT-SUMMARY.md` and `docs/MASTER-RECONCILIATION.md` were
+> reconciled to v1.13.4 in the same pass — all four docs now agree.
 
-## LATEST — v1.13.2 (2026-07-18) — Retroactive Post-Support: run-mode is now a saved Settings choice
+## LATEST — v1.13.4 (2026-08-08) — Full live-driving pass + parallel audit: 36 real bugs found and fixed
+**VERSION → `1.13.4`.** Drove every core feature end to end in the real running app (search, part/dossier,
+procedures/troubleshoot, job packet, 3D/CAD, schematics/Circuit Lab, PUBLOG, decode, master/coverage, command
+center/status, review/collections, ask/learn/verify, command palette/kiosk) — not just the automated suites —
+then ran a parallel static audit (7 finders → dedup → adversarial verify-by-refutation, every finding
+independently re-derived from the real file before being trusted) for the same bug classes elsewhere.
+**36 real bugs found and fixed**, every one root-caused with a live repro before patching.
+- **Found live-driving (10):** search `?side=operator` filtered *after* the SQL `LIMIT`, silently starving
+  common terms of results (fixed: over-fetch before filtering) · did-you-mean suggested OCR garbage (fixed:
+  rank by document frequency) · 5 of 6 hardcoded example NSNs across `index.html`/`jobcard.html`/`demo.html`
+  didn't match their labelled item in PUBLOG (all 6 replaced, verified round-trip) · `faulttree.py` had no
+  dedup across the corpus's confirmed duplicate-document ingestions (fixed: dedup by `(tm, page, symptom)` +
+  `dupe_copies` count) · `/api/command_status` + `/api/integrity` had zero caching on 12-53s / 32-49s
+  aggregates, reading as `/command` and `/verify` silently hanging (fixed: 60s/300s TTL caches) ·
+  `measures.py`'s torque regex missed Unicode dot variants ("854 N•m" silently mislabeled as force — surfaced
+  as a generated quiz question asking "what is the force" with Newton-only answers) + a hyphenated "25 N-m"
+  never matched at all (both fixed) · **`verifystate.py` + its route had a 3-bug chain meaning `/verify` had
+  found ZERO logs, ever, since the v0.96.0 restructure**: wrong log filename (`verify_099.log` vs the real
+  `verify.log`), a pass-counting regex blind to the current log format, a false-positive failure trigger on a
+  PASS line that happened to quote an "Error:" string, plus a separate off-path-depth bug (2 `dirname()` hops
+  instead of 3, since this code moved into the deeper `engine/features/` during the restructure) — all fixed;
+  `/verify` now correctly shows "✓ GREEN · 629 PASS markers".
+- **Found by the audit (26):** **12 resource leaks** (same `db_integrity()`-shaped connect-succeeds/
+  query-throws/close-skipped pattern already fixed in v1.13.3) across `collections_feature.py`,
+  `fieldnotes.py`, `features/parts_feature.py` (×3), `features/browse_feature.py`, `specparse.py`,
+  `figuresheet.py`, `safeguard.py` (`_sqlite_backup`), `masterfile.py`, `kg.py`, `tmrev.py` · **3
+  sidecar/dedup/caching issues**: `sides_feature.save_override()`'s unbounded write-only log (same waste
+  class as the v1.13.3 keywords bug), `procedures_feature.procedure_for()`'s wrong dedup key (same
+  duplicate-corpus-doc bug as faulttree.py, different file), `/api/coverage`'s missing cache (same problem as
+  `/command`, different route — now sharing one `_coverage_overview_cached()`) · **10 regex/classification
+  bugs**: `rpstl.py` could mislabel the SMR code AND manufacturer identity (fixed by reusing `smrdecode`'s
+  full curated-table decode instead of a first-letter check), `smrdecode.py`'s own character-class typo
+  (excluded `L`, so real `ML`/`AL` codes could never be found) and its `scan()`'s 2-letter-prefix-only check
+  (flooded false positives, e.g. "PARTS" → "PA"), `standards.py`'s prefix-matching **fabricated item names**
+  for uncatalogued series sharing leading digits with a curated one (e.g. "AN9600-5" → the curated AN960
+  washer) — directly against its own "never fabricate" docstring — plus a case-insensitive match that read
+  the English word "an" as an AN hardware code, `measures.py`'s bare-W pattern misread SAE oil-viscosity
+  grades ("5W-30") as negative wattage and its zero-whitespace number-unit gap could bridge across a
+  newline in OCR-linearized tables, `fluidsmatrix.py`'s same zero-whitespace ambiguity let an RPSTL item
+  suffix ("12L") displace a real capacity spec, and a "seen system" flag that gave up on the FIRST phrase
+  occurrence even with no data nearby, silently losing a real spec appearing later in the same document ·
+  **2 misc**: `ingestpipe.scan_folder()`'s `cap=` only broke the inner loop, so `os.walk()` kept traversing
+  the whole remaining tree regardless (a folder-scan endpoint could hang on a large drive despite the cap
+  existing to prevent exactly that), and a literal U+FFFD Unicode replacement character baked into
+  `pinouts.py`'s wire-colour table (a save/encoding accident, confirmed via hexdump).
+- **Verified:** regression suites 135/135; full `VERIFY.bat` run three times as fixes landed (the one
+  mid-session `test_hardening` failure was a transient port-cooldown artifact from a standalone test run
+  moments earlier, reproduced and explained, absent on the next clean run); final run: **RESULT ALL GREEN,
+  563 PASS / 0 FAIL, 658/658 files intact.**
+- **Deliberately deferred (documented, not fixed):** `measures.py`'s broader bare-number-fused-to-single-
+  letter-unit ambiguity (e.g. "489A" reading as "489 Amps") needs corpus-wide regression testing first. A
+  live analytics record carrying an old bad NSN was traced but left alone (R6 append-only, real historical
+  data — flagged for the user, not silently altered).
+- **Docs:** `CHANGELOG.md` `[1.13.4]` + legacy parity; `VERSION` bump; `ITERATION-SNAPSHOTS.md`/
+  `ITERATION-DASHBOARD.html` regenerated (R10 integrity confirmed, all 217 versions present). No new diagram
+  (R2/R3) — this is a bug-fix pass, not a feature addition, same precedent as v1.13.3.
+
+## v1.13.3 (2026-08-08) — VERIFY.bat confirmed GREEN on host: two real bugs found + fixed
+**VERSION → `1.13.3`.** `VERIFY.bat` had never been confirmed green on an actual host for the v1.13.0–1.13.2
+work. Running it end-to-end surfaced two real bugs, both root-caused with an isolated repro before fixing:
+`safeguard.db_integrity()` leaked its SQLite connection on the error path (deterministically breaking the
+very next write on Windows — fixed with `try/finally`), and `search_feature.user_keywords_save()` appended
+every submitted keyword group with no dedup (29 identical duplicates had silently accumulated in the live
+`keywords_user.json` from repeated test/route-sweep traffic — fixed with the same case-insensitive dedup its
+sibling `user_tags_add()` already had; the 29 duplicates cleaned to 1). Re-baselined the stale `safeguard.py`
+vault snapshot. Final `VERIFY.bat`: **RESULT ALL GREEN, 563 PASS / 0 FAIL, 658/658 files OK.**
+
+## v1.13.2 (2026-07-18) — Retroactive Post-Support: run-mode is now a saved Settings choice
 **VERSION → `1.13.2`.** The RPS runtime mode (`modern`/`lite`/`legacy`) is no longer env/CLI-only — it's a durable
 user choice. New `engine/settings.py` (stdlib-only, `safeguard.atomic_write` + atomic-rename fallback, fail-open
 read / fail-loud write) persists it to `index/viewer_settings.json`. `status.html` gets a **Run mode** card (Auto ·
@@ -69,27 +137,23 @@ of the dev-team review (ACCURACY · VERIFY/OPS · UI · FEATURES) on top of the 
   + legacy parity; diagram `docs/diagrams/113-holistic-hardening.{svg,pdf}` (`_make_113_holistic.py`); iteration
   snapshot row appended (R10 **literal screenshot still pending host-side** — server not running in the sandbox).
 
-### RUN THESE ON THE HOST (v1.13.0)
-1. **`VERIFY.bat`** (the one gate; VERIFY-099 forwards to it) — must come back GREEN.
+### RUN THESE ON THE HOST (updated 2026-08-09, was "v1.13.0")
+1. **`VERIFY.bat`** — ✅ **DONE, confirmed GREEN** (v1.13.3 and again v1.13.4, run three times total across the
+   two sessions as fixes landed): 563 PASS / 0 FAIL, 658/658 files intact. `VERIFY-099.bat` still forwards to it.
 2. **R10 screenshot:** capture the running app (e.g. `/part` red one-use card, `/command` gap card, or home with the
-   operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Partial progress 2026-08-08:** confirmed the app
-   genuinely running (`THE VIEWER v1.13.2 running at http://127.0.0.1:8765`, GPU CUDA provider present, RPS
-   mode=modern) via `RUN-VIEWER.bat`, and captured one real literal screenshot of `/` (home — search box +
-   maintenance-session/parts-request-sheet fields visible), delivered to you via chat this session. **Could not**
-   reach further routes (`/status`, `/part`, `/command`, `/decode`) or write the PNG directly into
-   `docs/screenshots/` this session: the Claude-in-Chrome extension's controlled tab could not connect to
-   `127.0.0.1:8765` (consistent "frame showing error page" on every route, while a separately-open, already-working
-   Brave window on the same machine loaded the app fine — the extension's tab is on a different network path this
-   session) and the sandboxed tool workspace was down (`Request timed out: startVM`), so there was no working file
-   channel from the captured screenshot into this repo. **To finish R10:** either (a) retry next session once
-   Claude-in-Chrome/the sandbox are healthy — same routes, same convention (`<version>-<page>.png`), or (b) save the
-   chat-delivered screenshot into `docs/screenshots/1.13.2-home.png` by hand and click through
-   `/status`/`/part`/`/command`/`/decode` yourself for the app to screenshot live if you want the rest done
-   immediately.
-3. Optional while OCR is paused: **`BUILD-CONFLICTS.bat`** (precompute the conflict sweep; append-only sidecar).
-4. **`safeguard.py backupdb`** is manual + documented — run for an off-index full-DB backup when wanted.
-5. Still outstanding from before: **re-baseline the stale pre-OCR safeguard snapshot** (`safeguard.py snapshot`)
-   once convenient — the old baseline predates the OCR text layer.
+   operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Still not done as a saved artifact.** The v1.13.4
+   session DID drive the live app with real screenshots (3D library grid + interactive CAD viewer, schematics +
+   Living Schematic flow overlay, Circuit Lab running a simulation, kiosk mode) and visually confirmed every core
+   page renders correctly — but none were saved to `docs/screenshots/`, only viewed inline during the session. **To
+   finish R10:** capture and save at least one real screenshot per major page into `docs/screenshots/` using the
+   `<version>-<page>.png` convention.
+3. Optional while OCR is paused: **`BUILD-CONFLICTS.bat`** (precompute the conflict sweep; append-only sidecar) —
+   still not run; `index/conflicts.db` doesn't exist yet.
+4. **`safeguard.py backupdb`** is manual + documented — run for an off-index full-DB backup when wanted. Still not
+   run (distinct from `safeguard.py snapshot`, item 5, which HAS been run repeatedly).
+5. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, throughout the v1.13.3/v1.13.4 work
+   (current baseline: `SNAP_20260808_184421_v1.13.4-changelog`, confirmed 658/658 OK against the final green
+   VERIFY.bat run). No longer predates the OCR text layer.
 
 ## v1.10 → v1.12.9 (2026-07-02 → 07-03) — compressed (full detail in CHANGELOG.md)
 - **1.10.0 Recommendations wave:** `rpstl.py` structured RPSTL import + `crossmethod.py` cross-method agreement
@@ -244,6 +308,10 @@ wall-clock guards, concise RESULT summary + `pause >nul` (the QuickEdit console-
 (search_quality/hardening/patterns/features/pillars/newmodules/accuracy) · rps_lint · verify_ui · check_crlf ·
 module self-tests · no-truncation completeness (R9). The old subroutine `call :body > log` pattern is retained —
 do **not** re-wrap the body in CMD parens (the `( )` paren-block bug silently killed earlier host-verifies).
+**Confirmed GREEN on an actual host as of v1.13.4** (2026-08-08) — this had been an outstanding item since
+v1.13.0; no longer is. If gate 7's `test_hardening` step ever fails right after a standalone run of the same
+test file, it's very likely the same transient port-8893 TIME_WAIT cooldown hit during the v1.13.4 session —
+re-run VERIFY.bat clean (no standalone test runs immediately before it) before treating it as a real regression.
 
 ## Known gotchas still in force
 - **Mount truncation:** sandbox reads of grown host files are truncated/stale; verify host-side or via the Read tool.
@@ -254,8 +322,15 @@ do **not** re-wrap the body in CMD parens (the `( )` paren-block bug silently ki
 - Standing rules R1–R13 are **THE VIEWER-only**; do not carry them to other projects.
 
 ## Suggested next
-Complete OCR → re-index; re-baseline the pre-OCR safeguard snapshot; run `BUILD-CONFLICTS.bat` (first sweep) and
-`BUILD-MEASURES`/`BUILD-MASTERFILE` refreshes on the grown text layer; real semantic embeddings + hybrid ranking;
-R12 catalog march continues (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
+1. **R10 screenshots** — the one item from the v1.13.0-era host checklist still not done as a saved artifact
+   (see "RUN THESE ON THE HOST" above); the app was live-driven and visually confirmed working this session,
+   just never captured to `docs/screenshots/`.
+2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — needs
+   corpus-wide regression testing before a safe fix; flagged in `CHANGELOG.md` `[1.13.4]`.
+3. Complete OCR → re-index; run `BUILD-CONFLICTS.bat` (first sweep, still never run) and `BUILD-MEASURES`/
+   `BUILD-MASTERFILE` refreshes on the grown text layer; `safeguard.py backupdb` (full off-index DB backup,
+   still never run — distinct from the snapshot vault, which is current).
+4. Real semantic embeddings + hybrid ranking; R12 catalog march continues
+   (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
 
 <!-- END OF FILE -->

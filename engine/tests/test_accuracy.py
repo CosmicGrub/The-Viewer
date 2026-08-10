@@ -22,6 +22,9 @@ GROUND_TRUTH = [
     ("Fill to a capacity of 6 qt.",                            [("capacity", 6.0, "qt")]),
     ("Operating temperature range is -40 F to 120 F.",         [("temperature", -40.0, "F"), ("temperature", 120.0, "F")]),
     ("Engine idle speed is 700 rpm.",                          [("rotation", 700.0, "rpm")]),
+    # v1.13.5: negative case (expects NOTHING) -- guards the new bare-F/C temperature pattern against the
+    # military designators and battery C-rate notation this exact corpus is full of.
+    ("The flight line shows 5 F-16 fighters and 2 C-130 transports; charge spares at a 0.5C rate.", []),
 ]
 
 

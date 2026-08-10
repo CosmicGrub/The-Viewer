@@ -57,6 +57,7 @@ def pct(a, b):
 
 def overview(db_path, index_dir):
     docs = total_pages = ocr_pages = rep = parts_fig_pages = 0
+    ocr_conf_avg = None; ocr_conf_scored = ocr_conf_low = 0
     try:
         con = _db(db_path)
         def scalar(sql):
@@ -68,6 +69,14 @@ def overview(db_path, index_dir):
         rep = scalar("SELECT COUNT(DISTINCT nsn) FROM ref_nsn WHERE " + _THREED_WHERE)
         parts_fig_pages = scalar("SELECT COUNT(*) FROM (SELECT DISTINCT document_id, page FROM parts "
                                  "WHERE fig_no IS NOT NULL AND page IS NOT NULL)")
+        # v1.13.5: real OCR-quality signal (previously only 'ran' vs 'did not run' existed at all --
+        # see ocr_one()/CHANGELOG [1.13.5]). Only scored since this migration; older pages read NULL
+        # until naturally re-OCR'd, so ocr_conf_scored is expected to lag pages_ocr for a long time.
+        # 0.5 is a first-pass, uncalibrated "worth a look" bar -- deliberately conservative (low false-
+        # alarm risk) pending real corpus data to tune it against.
+        ocr_conf_avg = scalar("SELECT AVG(ocr_confidence) FROM pages WHERE ocr_confidence IS NOT NULL")
+        ocr_conf_scored = scalar("SELECT COUNT(*) FROM pages WHERE ocr_confidence IS NOT NULL")
+        ocr_conf_low = scalar("SELECT COUNT(*) FROM pages WHERE ocr_confidence IS NOT NULL AND ocr_confidence < 0.5")
         con.close()
     except Exception:
         pass
@@ -96,7 +105,9 @@ def overview(db_path, index_dir):
         "version": _latest_version(index_dir),
         "generated": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "corpus": {"documents": docs, "pages_total": total_pages},
-        "ocr": {"pages_ocr": ocr_pages, "pages_total": total_pages, "pct": pct(ocr_pages, total_pages)},
+        "ocr": {"pages_ocr": ocr_pages, "pages_total": total_pages, "pct": pct(ocr_pages, total_pages),
+                "avg_confidence": round(ocr_conf_avg, 3) if ocr_conf_avg is not None else None,
+                "confidence_scored_pages": ocr_conf_scored, "low_confidence_pages": ocr_conf_low},
         "cad": {"rendered_v3": cad, "representative_parts": rep, "pct": pct(cad, rep)},
         "schematics": {"netlist_pages": schem, "avg_confidence": sr.get("avg_confidence"),
                        "pages_with_components": sr.get("pages_with_components"), "reviewed": sr.get("pages_reviewed")},

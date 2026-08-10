@@ -41,6 +41,20 @@ def test_measures():
     check("in-lb is torque not length", any(r["unit"] == "in-lb" and r["type"] == "torque" for r in rows))
 
 
+def test_measures_bare_temperature():
+    # v1.13.5: bare F/C (no deg-word or degree-symbol) -- must extract the real readings AND must NOT
+    # collide with military designators (F-15/F-16/C-130/F-A-18 style) or battery C-rate notation, both
+    # of which are genuinely common in this corpus.
+    s = ("Operating range is -40 F to 120 F. The flight line has 5 F-16 fighters and 2 C-130 transports "
+         "plus an F/A-18 on static display. Charge the battery at a 0.5C rate. Storage temp -20 C max.")
+    rows = measures.extract(s, page=9)
+    temps = [r for r in rows if r["type"] == "temperature"]
+    check("bare F -40 extracted", any(r["unit"] == "degF" and r["value"] == "-40" for r in temps))
+    check("bare F 120 extracted", any(r["unit"] == "degF" and r["value"] == "120" for r in temps))
+    check("bare C -20 extracted", any(r["unit"] == "degC" and r["value"] == "-20" for r in temps))
+    check("no designator/C-rate false positives (exactly 3 real readings)", len(temps) == 3)
+
+
 def test_enrich():
     def fake(url, timeout=20):
         if "wayback/available" in url:
@@ -132,7 +146,7 @@ def test_tables():
 
 if __name__ == "__main__":
     print("== extraction/enrichment/masterfile regression ==")
-    test_measures(); test_enrich(); test_masterfile(); test_tables()
+    test_measures(); test_measures_bare_temperature(); test_enrich(); test_masterfile(); test_tables()
     print(("FAILED: " + ", ".join(FAILS)) if FAILS else "ALL EXTRACTION TESTS PASS")
     sys.exit(1 if FAILS else 0)
 # END OF FILE

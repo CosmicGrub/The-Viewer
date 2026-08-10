@@ -60,8 +60,17 @@ _UNITS = [
     (r"gram[s]?|(?<![a-z])g(?=\b)", "weight", "g"),
     (r"ton[s]?", "weight", "ton"),
     # temperature
-    (r"°\s*f|deg(?:ree)?[s]?[\s\.]*f(?:ahrenheit)?", "temperature", "degF"),
-    (r"°\s*c|deg(?:ree)?[s]?[\s\.]*c(?:elsius|entigrade)?", "temperature", "degC"),
+    # v1.13.5: bare F/C (no deg-word or degree-symbol) now also matches -- e.g. "-40 F to 120 F" -- since
+    # that's a real, common way TMs write temperature ranges, and previously extracted NOTHING at all.
+    # Bare single-letter units are the highest collision-risk pattern in this file (see
+    # _BARE_LETTER_UNITS below), and this corpus specifically is full of hyphen-suffixed military
+    # designators that look just like it (F-15, F-16, F/A-18, C-5, C-17, C-130) plus battery "C-rate"
+    # notation (0.5C, 1C) -- (?!-\d)/(?!\d)/(?!/) exclude the designators here (same technique as the
+    # oil-grade "5W-30" guard above); the no-space C-rate form is excluded in extract() below, which can
+    # see whether real whitespace separated the number from the letter (the isolated per-unit regex used
+    # by _classify() cannot -- a positive lookbehind for whitespace would silently stop matching there).
+    (r"°\s*f|deg(?:ree)?[s]?[\s\.]*f(?:ahrenheit)?|(?<![a-z])f(?![a-z])(?!\d)(?!-\d)(?!/)", "temperature", "degF"),
+    (r"°\s*c|deg(?:ree)?[s]?[\s\.]*c(?:elsius|entigrade)?|(?<![a-z])c(?![a-z])(?!\d)(?!-\d)(?!/)", "temperature", "degC"),
     # area
     (r"sq\.?[\s\-]?in|in\^?2|square[\s\-]?inch(?:es)?", "area", "sq-in"),
     (r"sq\.?[\s\-]?ft|ft\^?2|square[\s\-]?f(?:ee|oo)t", "area", "sq-ft"),
@@ -101,7 +110,10 @@ def _classify(unit_raw):
 # since \s* (the number-to-unit connector) matches newlines by default. Multi-char/word units (ft-lb, psi,
 # gpm, ...) aren't included: they're not ambiguous the same way, and guarding them too would cost real
 # recall on genuinely line-wrapped prose measurements.
-_BARE_LETTER_UNITS = {"V", "A", "W", "N", "L", "m", "g"}
+# v1.13.5: degF/degC added -- their new bare-letter F/C alternative (see _UNITS above) has the exact same
+# newline-bridging risk as V/A/W/N/L/m/g. Note this also (harmlessly) applies the guard to a genuine
+# "deg F"/"°F" match that happens to span a newline -- same conservative trade-off already accepted above.
+_BARE_LETTER_UNITS = {"V", "A", "W", "N", "L", "m", "g", "degF", "degC"}
 
 
 def extract(text, page=None, cap=200):
@@ -116,6 +128,16 @@ def extract(text, page=None, cap=200):
             # table cells bridged by linearized OCR text, not a real measurement. Confirmed live: a
             # transmission-solenoid fault-code table produced a fabricated "26 N" / "22 G" this way.
             continue
+        if canon in ("degF", "degC") and len(m.group("unit")) == 1:
+            # v1.13.5: the bare-letter F/C alternative needs REAL whitespace between the number and the
+            # unit -- a no-space form is the signature of a collision, not a genuine temperature: battery
+            # C-rate notation (0.5C, 1C discharge) writes it with no space, and a stray digit immediately
+            # before a designator (e.g. a parts-list count next to "C130") would too. A real prose
+            # temperature reading puts a space there ("120 F", "-40 F"). The ° and "deg" forms are exact
+            # words/symbols already and don't need this extra check.
+            ustart = m.start("unit")
+            if ustart == 0 or not text[ustart - 1].isspace():
+                continue
         raw = m.group(0).strip()
         start = max(0, m.start() - 45); end = min(len(text), m.end() + 45)
         ctx = re.sub(r"\s+", " ", text[start:end]).strip()

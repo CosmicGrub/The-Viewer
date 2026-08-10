@@ -327,8 +327,13 @@ def _page_is_blank(path, page_number):
         return False
 
 def ocr_one(path, page_number):
+    """Returns (text, confidence). confidence is RapidOCR's page-level average of its per-line detection
+    scores (0.0-1.0), rounded to 4dp -- None on the blank-skip path, the Tesseract fallback (no per-line
+    scores exposed the same way), or if RapidOCR returned no scored lines. v1.13.5: this score was always
+    being computed (see _RapidAdapter, r[2]) but silently discarded here -- captured now as the first real,
+    corpus-wide OCR-quality signal (previously the only signal was 'OCR ran' vs 'OCR did not run')."""
     dens = _page_density(path, page_number)
-    if dens is not None and dens < 0.004: return ""   # skip-the-junk: no OCR on blanks (same threshold)
+    if dens is not None and dens < 0.004: return "", None   # skip-the-junk: no OCR on blanks (same threshold)
     dpi = OCR_DPI
     if ADAPTIVE_DPI and dens is not None and dens < 0.02:   # opt-in: sparse pages render lower (never below 160)
         dpi = max(160, OCR_DPI - 50)
@@ -346,14 +351,18 @@ def ocr_one(path, page_number):
         if _have_rapid():
             res, _ = _get_rapid()(img)
             text = "\n".join(r[1] for r in res).strip() if res else ""
+            scores = [r[2] for r in res if len(r) > 2 and isinstance(r[2], (int, float))] if res else []
+            conf = round(sum(scores) / len(scores), 4) if scores else None
         else:
             out = subprocess.run(["tesseract", img, "-", "-l", "eng", "--psm", "1"],
                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
             text = out.stdout.decode("utf-8","ignore").strip()
+            conf = None   # tesseract fallback: no per-line confidence captured (yet)
+        result = (text, conf)
         if h is not None:
             with _DEDUP_LOCK:
-                if len(_DEDUP) < 200000: _DEDUP[h] = text
-        return text
+                if len(_DEDUP) < 200000: _DEDUP[h] = result
+        return result
     finally:
         if img and os.path.exists(img):
             try: os.unlink(img)
@@ -361,8 +370,10 @@ def ocr_one(path, page_number):
 
 def _ocr_task(args):
     pid, pno, path = args
-    try: return pid, ocr_one(path, pno), None
-    except Exception as e: return pid, None, str(e)[:300]
+    try:
+        text, conf = ocr_one(path, pno)
+        return pid, text, conf, None
+    except Exception as e: return pid, None, None, str(e)[:300]
 
 def _db_dir(con):
     try:
@@ -403,10 +414,10 @@ def ocr(con, limit, workers=1):
         _heartbeat(dbdir, 0, 0, 0); return 0
     con.executemany("UPDATE pages SET ocr_status='running' WHERE id=?", [(r[0],) for r in rows]); con.commit()
     if _have_rapid(): _get_rapid()            # build the shared engine once, up front
-    def handle(pid, text, err):
+    def handle(pid, text, conf, err):
         nonlocal done, fail
         if err is None:
-            con.execute("UPDATE pages SET body_text=?, char_count=?, source='ocr', ocr_status='done' WHERE id=?", (text, len(text), pid)); done += 1
+            con.execute("UPDATE pages SET body_text=?, char_count=?, source='ocr', ocr_status='done', ocr_confidence=? WHERE id=?", (text, len(text), conf, pid)); done += 1
         else:
             con.execute("UPDATE pages SET ocr_status='failed' WHERE id=?", (pid,))
             con.execute("INSERT INTO jobs(page_id,stage,state,attempts,last_error) VALUES(?,?, 'failed', 1, ?)", (pid,"ocr",err)); fail += 1

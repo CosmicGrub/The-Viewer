@@ -6,8 +6,38 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 217 | 1.13.4 — Full live-driving pass + parallel audit: 36 real bugs found and fixed | 139 |
+| 218 | 1.13.5 — OCR quality signal + temperature extraction gap | 139 |
 
+
+---
+
+## [1.13.5] — 2026-08-09 — OCR quality signal + temperature extraction gap
+`FEATURE` `FIX`
+
+- Prompted by a direct question ("check the current OCR accuracy numbers") that split into two different answers: the *extraction* layer (measures.py's regex over already-OCR'd text) had a measured, root-caused 80% recall gap; the *OCR* layer itself (image-to-text transcription) had **no accuracy signal of any kind** beyond completion percentage. Both addressed.
+
+**Fixed**
+- **Temperature extraction missed bare F/C entirely.** `measures.extract()`'s temperature pattern required a `°` symbol or the word "deg"/"degrees" before F/C — a bare reading like "-40 F to 120 F" (a real, common way TMs write temperature ranges) extracted **nothing at all**. This was the entire gap behind `test_accuracy.py`'s 80% recall score. Added a bare-letter F/C alternative, guarded against the two real collision classes this corpus is full of: hyphen-suffixed military designators (F-15, F-16, F/A-18, C-5, C-17, C-130 — excluded via the same `(?!-\d)` technique already used for the 5W-30 oil-grade guard) and no-space battery C-rate notation (0.5C, 1C — excluded via a new whitespace-required check in `extract()`, since the isolated per-unit regex `_classify()` re-derives from can't see surrounding-text context). `degF`/`degC` added to `_BARE_LETTER_UNITS` (the OCR-linearized-table newline guard, v1.13.4) since the new bare alternative has the identical bridging risk. `test_accuracy.py` now reports **100% recall (10/10)**; added a negative ground-truth case (designators + C-rate, expects zero extractions) and a dedicated regression test (`test_extraction.py::test_measures_bare_temperature`) asserting the real readings are found and the collisions are not.
+
+**Added**
+- **OCR confidence is now captured, not discarded.** RapidOCR computes a per-line confidence score for every text detection; `ocr_one()` reduced its output to text only and threw the score away — meaning the *only* OCR-quality signal in the entire app was "OCR ran" vs. "OCR did not run," never "OCR probably got this right." `ocr_one()` now returns `(text, confidence)` (the page-level average of RapidOCR's per-line scores, 4dp; `None` for the Tesseract fallback path, which doesn't expose per-line scores the same way). New additive column `pages.ocr_confidence` (migration `0009_ocr_confidence.sql`, nullable, R1-clean — old rows read NULL until naturally re-OCR'd; no backfill/re-OCR pass was run against the live corpus). `coverage.overview()`'s `ocr` block now reports `avg_confidence`, `confidence_scored_pages`, and `low_confidence_pages` (< 0.5 — a deliberately conservative, not-yet-calibrated first-pass bar), feeding `/api/coverage` and `/api/command_status` (both already TTL-cached, v1.13.4).
+
+**Verified**
+- `python tests/test_accuracy.py` — recall 100% (10/10), precision 100%, extras=0 (was 80%/10).
+- `python tests/test_extraction.py` — all checks pass incl. the new bare-temperature regression test.
+- `python measures.py` — self-test OK (all target dimension types still found, no regression).
+- Isolated temp-DB checks: migration 0009 applies cleanly (schema_version → 9), `ocr_one()`'s new `(text, confidence)` contract verified on the blank-page path, `pages.ocr_confidence` round-trips correctly through the exact `UPDATE` statement `ocr()`'s `handle()` uses, and `coverage.overview()`'s new fields compute correctly against known values (avg/scored-count/low-count all asserted).
+- Full `VERIFY.bat` gate: see follow-up note.
+
+**Compatibility (R1)**
+- `pages.ocr_confidence` is an additive, nullable column — no existing query, index, or FTS trigger references it, so unmodified code paths are unaffected. Rollback = don't run future OCR passes; the column stays but nothing new writes to it (the migration itself is not reversed, consistent with every prior additive migration in this file).
+- `ocr_one()`'s return type changed from `str` to `(str, float|None)` — every call site (`_ocr_task()`, `ocr()`'s `handle()`) was updated in the same change; grepped the whole tree for other callers (none found).
+- The temperature regex change is additive (a new alternative in an existing pattern) — no existing torque/pressure/length/electrical/capacity/rotation/flow/angle pattern was touched.
+
+**Known, deliberately deferred**
+- The existing 39,683-document corpus is **not** backfilled with confidence scores — that requires a full re-OCR pass (hours+), which was not run in this change. Confidence coverage grows only as pages are naturally re-ingested going forward.
+- Tesseract-fallback OCR still captures no confidence signal. RapidOCR is the primary engine in this deployment, so this was judged lower priority than shipping the RapidOCR signal now.
+- The `< 0.5` "low confidence" bar in `coverage.py` is a conservative placeholder, not a calibrated threshold — there's no real corpus data yet to tune it against.
 
 ---
 

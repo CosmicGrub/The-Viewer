@@ -1,10 +1,33 @@
 import argparse
+import io
 import pdfplumber
 import json
+import pymupdf
+import pytesseract
 from pathlib import Path
 from datetime import datetime
 
 from config import SOURCE_DIR, OUTPUT_DIR
+
+# Resolution (DPI) to rasterize pages at before handing them to Tesseract.
+# Higher = more accurate OCR but slower / more memory.
+OCR_DPI = 300
+
+
+def ocr_page(doc, page_number, dpi=OCR_DPI):
+    """
+    Render a single page of an already-open pymupdf document and run OCR on it.
+    `page_number` is 1-indexed, to match pdfplumber's numbering.
+    Returns the extracted text (str), or raises on failure.
+    """
+    page = doc[page_number - 1]
+    zoom = dpi / 72  # PDF pages are natively 72 DPI
+    pixmap = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
+    image_bytes = pixmap.tobytes("png")
+
+    from PIL import Image
+    image = Image.open(io.BytesIO(image_bytes))
+    return pytesseract.image_to_string(image)
 
 def extract_pdf_text(pdf_path):
     """
@@ -18,14 +41,37 @@ def extract_pdf_text(pdf_path):
             metadata = pdf.metadata
             num_pages = len(pdf.pages)
 
-            # Extract text from all pages
+            # Extract text from all pages, falling back to OCR for pages
+            # with no extractable text (e.g. scanned/image-only pages).
             full_text = ""
+            ocr_pages = []
+            ocr_doc = None
+            ocr_error = None
+
             for page_num, page in enumerate(pdf.pages, 1):
                 text = page.extract_text()
+
+                if not text or not text.strip():
+                    if ocr_error is None:
+                        try:
+                            if ocr_doc is None:
+                                ocr_doc = pymupdf.open(pdf_path)
+                            text = ocr_page(ocr_doc, page_num)
+                            if text and text.strip():
+                                ocr_pages.append(page_num)
+                        except Exception as ocr_exc:
+                            # Keep going without OCR (e.g. Tesseract not
+                            # installed) rather than failing the whole file.
+                            ocr_error = str(ocr_exc)
+                            text = None
+
                 if text:
                     full_text += f"\n--- PAGE {page_num} ---\n{text}"
 
-            return {
+            if ocr_doc is not None:
+                ocr_doc.close()
+
+            result = {
                 'status': 'success',
                 'filename': pdf_path.name,
                 'filepath': str(pdf_path),
@@ -38,8 +84,13 @@ def extract_pdf_text(pdf_path):
                 },
                 'text_length': len(full_text),
                 'text_preview': full_text[:500] + "..." if len(full_text) > 500 else full_text,
+                'ocr_pages_used': ocr_pages,
                 'extracted_at': datetime.now().isoformat()
             }
+            if ocr_error:
+                result['ocr_error'] = ocr_error
+
+            return result
 
     except Exception as e:
         return {
@@ -64,7 +115,10 @@ def extract_from_directory(directory, max_files=5):
         results.append(result)
 
         if result['status'] == 'success':
-            print(f"✓ ({result['num_pages']} pages, {result['text_length']} chars)")
+            ocr_note = f", {len(result['ocr_pages_used'])} page(s) via OCR" if result['ocr_pages_used'] else ""
+            print(f"✓ ({result['num_pages']} pages, {result['text_length']} chars{ocr_note})")
+            if result.get('ocr_error'):
+                print(f"    ⚠ OCR unavailable for some pages: {result['ocr_error']}")
         else:
             print(f"✗ Error: {result['error']}")
 

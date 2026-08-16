@@ -9,6 +9,8 @@ Pillow==10.2.0
 
 # OCR & Image Processing
 opencv-python==4.8.0.74
+PyMuPDF==1.28.2  # rasterizes PDF pages for OCR fallback (pdfplumber's own
+                  # to_image() requires ImageMagick, which is painful on Windows)
 
 # Search & Indexing
 meilisearch==0.27.0

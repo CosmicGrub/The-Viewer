@@ -62,14 +62,14 @@ python backend/extract_pdf_text.py
 ## Roadmap
 
 - [ ] Make source/output paths configurable (CLI args or `.env`) instead of hardcoded
-- [ ] Add OCR fallback for image-only PDFs (pytesseract is a dependency but not yet wired up)
+- [x] Add OCR fallback for image-only PDFs (pdfplumber pages with no extractable text are rasterized via PyMuPDF and run through pytesseract)
 - [ ] Stand up the FastAPI backend and Meilisearch indexing pipeline
 - [ ] Scaffold the frontend
 - [ ] Expand `backend/tests/` with real coverage (currently a smoke test only)
 
 ## Tech stack
 
-- **Extraction:** pdfplumber, pytesseract, python-docx, Pillow, opencv-python
+- **Extraction:** pdfplumber, PyMuPDF (page rasterization for OCR), pytesseract, python-docx, Pillow, opencv-python
 - **Search:** Meilisearch
 - **Backend:** FastAPI, uvicorn, pydantic
 - **Testing:** pytest

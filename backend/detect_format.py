@@ -1,6 +1,9 @@
+import argparse
 import os
 from pathlib import Path
 from collections import defaultdict
+
+from config import SOURCE_DIR
 
 def detect_format(file_path):
     """
@@ -51,7 +54,7 @@ def scan_directory(directory):
 def print_results(results, total_files, directory):
     """Print formatted results"""
     print("\n" + "=" * 70)
-    print("FORMAT DETECTION RESULTS - K:\\ALL MILITARY TMS")
+    print(f"FORMAT DETECTION RESULTS - {directory}")
     print("=" * 70)
     print(f"\nTotal files scanned: {total_files}")
     print(f"\nClassification Summary:")
@@ -79,12 +82,25 @@ def print_results(results, total_files, directory):
         for img in results['image'][:5]:
             print(f"  - {Path(img).name}")
 
-if __name__ == "__main__":
-    test_dir = "K:\\ALL MILITARY TMS"
+def parse_args():
+    parser = argparse.ArgumentParser(description="Scan a directory and classify files by format.")
+    parser.add_argument(
+        "source_dir",
+        nargs="?",
+        default=SOURCE_DIR,
+        help="Directory to scan (defaults to TM_SOURCE_DIR from env/.env)",
+    )
+    return parser.parse_args()
 
-    if os.path.exists(test_dir):
+if __name__ == "__main__":
+    args = parse_args()
+    test_dir = args.source_dir
+
+    if not test_dir:
+        print("✗ No source directory provided.")
+        print("Pass one as an argument, or set TM_SOURCE_DIR in your environment or .env file.")
+    elif os.path.exists(test_dir):
         results, total = scan_directory(test_dir)
         print_results(results, total, test_dir)
     else:
         print(f"✗ Directory not found: {test_dir}")
-        print("Ensure K: drive is mounted and contains ALL MILITARY TMS folder")

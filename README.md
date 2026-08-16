@@ -44,8 +44,16 @@ requirements.txt           # Python dependencies
 
 ## Usage
 
-The current scripts point at a hardcoded source directory (`K:\ALL MILITARY TMS`) — update the `test_dir` path in `backend/detect_format.py` / `backend/extract_pdf_text.py` before running, or point them at your own document set.
+Source/output paths are configurable via `.env`, environment variables, or CLI arguments (in that order of precedence, CLI wins):
 
+1. Copy `.env.example` to `.env` and set `TM_SOURCE_DIR` (and optionally `TM_OUTPUT_DIR`) for your machine, **or**
+2. Pass a directory directly as an argument:
+   ```bash
+   python backend/detect_format.py "K:\ALL MILITARY TMS"
+   python backend/extract_pdf_text.py "K:\ALL MILITARY TMS" --output-dir data/extracted --max-files 5
+   ```
+
+With `.env` configured, both scripts can be run with no arguments:
 ```bash
 python backend/detect_format.py
 python backend/extract_pdf_text.py

@@ -1,7 +1,10 @@
+import argparse
 import pdfplumber
 import json
 from pathlib import Path
 from datetime import datetime
+
+from config import SOURCE_DIR, OUTPUT_DIR
 
 def extract_pdf_text(pdf_path):
     """
@@ -72,22 +75,47 @@ def save_results(results, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2)
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Extract text from PDFs in a directory.")
+    parser.add_argument(
+        "source_dir",
+        nargs="?",
+        default=SOURCE_DIR,
+        help="Directory to scan for PDFs (defaults to TM_SOURCE_DIR from env/.env)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=OUTPUT_DIR,
+        help="Directory to write extraction_test_results.json to (defaults to TM_OUTPUT_DIR from env/.env)",
+    )
+    parser.add_argument(
+        "--max-files",
+        type=int,
+        default=5,
+        help="Maximum number of PDFs to extract (default: 5)",
+    )
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    test_dir = "K:\\ALL MILITARY TMS"
+    args = parse_args()
+    test_dir = args.source_dir
 
     print("\n" + "=" * 70)
-    print("PDF TEXT EXTRACTION TEST - K:\\ALL MILITARY TMS")
+    print(f"PDF TEXT EXTRACTION TEST - {test_dir or '(no source directory set)'}")
     print("=" * 70)
 
-    if Path(test_dir).exists():
+    if not test_dir:
+        print("\n✗ No source directory provided.")
+        print("Pass one as an argument, or set TM_SOURCE_DIR in your environment or .env file.")
+    elif Path(test_dir).exists():
         print(f"\nScanning for PDFs in {test_dir}...")
-        print("Extracting first 5 PDFs for testing...")
+        print(f"Extracting first {args.max_files} PDFs for testing...")
 
-        results = extract_from_directory(test_dir, max_files=5)
+        results = extract_from_directory(test_dir, max_files=args.max_files)
 
         # Save results
-        output_file = "K:\\tm_search_engine\\data\\extracted\\extraction_test_results.json"
-        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        output_file = Path(args.output_dir) / "extraction_test_results.json"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         save_results(results, output_file)
 
         print(f"\n✓ Extraction complete. Results saved to: {output_file}")
@@ -103,4 +131,4 @@ if __name__ == "__main__":
         print(f"  Total characters extracted: {total_chars:,}")
 
     else:
-        print(f"✗ Directory not found: {test_dir}")
+        print(f"\n✗ Directory not found: {test_dir}")

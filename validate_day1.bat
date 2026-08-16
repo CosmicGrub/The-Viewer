@@ -1,6 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 
+REM Switch console codepage to UTF-8 so the checkmark/cross characters
+REM below render correctly instead of being mangled.
+chcp 65001 >nul
+
 echo.
 echo ====================================
 echo   DAY 1 VALIDATION & AUTO-COMPLETE

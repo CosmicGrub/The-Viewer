@@ -10,7 +10,34 @@ Set TM_SOURCE_DIR / TM_OUTPUT_DIR in a .env file (see .env.example) or in
 your shell environment to point these scripts at your own document set.
 """
 import os
+import sys
 from pathlib import Path
+
+
+def ensure_utf8_stdio():
+    """
+    Make stdout/stderr encode as UTF-8.
+
+    On Windows, a console's default encoding is usually a legacy codepage
+    (e.g. cp1252) rather than UTF-8. print()-ing characters like the ✓/✗/⚠
+    used throughout these scripts then raises UnicodeEncodeError and kills
+    the whole run. TextIOWrapper.reconfigure (Python 3.7+) lets us switch
+    the already-open stdout/stderr streams to UTF-8 without needing
+    PYTHONUTF8=1 or PYTHONIOENCODING set externally.
+
+    Safe to call unconditionally: reconfigure() is a no-op cost-wise if
+    already UTF-8, and any failure (e.g. a stream that isn't a real
+    TextIOWrapper, such as under some test runners) is swallowed rather
+    than crashing the import.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
+
+ensure_utf8_stdio()
 
 try:
     from dotenv import load_dotenv

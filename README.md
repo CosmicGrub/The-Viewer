@@ -4,22 +4,29 @@ A search engine for indexing and searching Technical Manuals (TMs) — extractin
 
 ## Status
 
-Early-stage / Day 1 scaffolding. Core pieces exist as standalone scripts; not yet wired into a running API or indexing pipeline.
+Early-stage. Extraction scripts are functional (including OCR fallback); a FastAPI app skeleton is now in place but not yet backed by a real search index — `/api/search` intentionally returns 501 until the Meilisearch indexing pipeline is wired up.
 
 ## Project structure
 
 ```
 backend/
+  main.py                 # FastAPI app: liveness/status endpoints, mounts routers/
+  config.py                # Shared config (source/output paths, UTF-8 stdio fix)
   detect_format.py       # Classifies files (pdf/docx/image/unsupported) by scanning a directory
-  extract_pdf_text.py     # Extracts text from PDFs via pdfplumber, saves results to JSON
+  extract_pdf_text.py     # Extracts text from PDFs via pdfplumber, with OCR fallback (PyMuPDF + pytesseract)
+  routers/
+    search.py              # /api/search — stubbed out (501) until indexing exists
   tests/
-    test_extraction.py    # Basic import/sanity check for extraction dependencies
+    conftest.py             # Puts backend/ on sys.path for pytest
+    test_extraction.py      # Basic import/sanity check for extraction dependencies
+    test_main.py            # FastAPI TestClient tests for main.py
 frontend/
   src/, public/            # Placeholder — not yet scaffolded
 data/
   extracted/                # Extraction output (gitignored except .gitkeep)
   meilisearch/               # Meilisearch data directory (gitignored except .gitkeep)
   ocr_output/
+docs/                      # Architecture/data-model/setup notes (placeholder)
 validate_environment.py    # Checks required Python modules, external tools, folders, and files
 validate_day1.bat          # Windows batch wrapper for Day 1 validation
 requirements.txt           # Python dependencies
@@ -63,17 +70,45 @@ python backend/detect_format.py
 python backend/extract_pdf_text.py
 ```
 
+## Running the API
+
+From the repo root:
+```bash
+uvicorn main:app --reload --app-dir backend
+```
+or from `backend/`:
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+Then visit `http://127.0.0.1:8000/docs` for interactive Swagger docs. Available routes right now:
+
+| Route | Purpose |
+|---|---|
+| `GET /` | Basic info + link to docs |
+| `GET /health` | Health check |
+| `GET /api/status` | Reports whether `TM_SOURCE_DIR`/`TM_OUTPUT_DIR` are configured |
+| `GET /api/search?q=...` | Stubbed — returns `501` until the Meilisearch indexing pipeline exists |
+
+## Testing
+
+```bash
+pytest backend/tests
+```
+
 ## Roadmap
 
-- [ ] Make source/output paths configurable (CLI args or `.env`) instead of hardcoded
+- [x] Make source/output paths configurable (CLI args or `.env`) instead of hardcoded
 - [x] Add OCR fallback for image-only PDFs (pdfplumber pages with no extractable text are rasterized via PyMuPDF and run through pytesseract)
-- [ ] Stand up the FastAPI backend and Meilisearch indexing pipeline
+- [x] Stand up the FastAPI backend skeleton (liveness/status endpoints, stubbed search route)
+- [ ] Wire up the Meilisearch indexing pipeline behind `/api/search`
 - [ ] Scaffold the frontend
-- [ ] Expand `backend/tests/` with real coverage (currently a smoke test only)
+- [ ] Expand `backend/tests/` with real coverage (currently a smoke test + API skeleton tests only)
 
 ## Tech stack
 
 - **Extraction:** pdfplumber, PyMuPDF (page rasterization for OCR), pytesseract, python-docx, Pillow, opencv-python
 - **Search:** Meilisearch
 - **Backend:** FastAPI, uvicorn, pydantic
-- **Testing:** pytest
+- **Testing:** pytest, httpx (for FastAPI's TestClient)

@@ -46,17 +46,30 @@ def test_search_requires_query_param():
     assert response.status_code == 422
 
 
+class _FakeDocument:
+    """Stands in for meilisearch.models.document.Document — attribute access, not dict-style."""
+
+    def __init__(self, **fields):
+        self.__dict__.update(fields)
+
+
 class _FakeIndex:
     """Stands in for meilisearch.Index — returns a canned response or raises."""
 
-    def __init__(self, response=None, exc=None):
+    def __init__(self, response=None, exc=None, document=None):
         self._response = response
         self._exc = exc
+        self._document = document
 
     def search(self, q, opt_params):
         if self._exc:
             raise self._exc
         return self._response
+
+    def get_document(self, document_id):
+        if self._exc:
+            raise self._exc
+        return self._document
 
 
 class _FakeClient:
@@ -142,3 +155,47 @@ def test_search_unreachable_meilisearch_returns_503(monkeypatch):
 
     assert response.status_code == 503
     assert "Connection refused" in response.json()["detail"]
+
+
+def test_get_document_success(monkeypatch):
+    fake_doc = _FakeDocument(
+        id="abc123",
+        filename="hydraulic_pump_manual.pdf",
+        filepath="C:\\docs\\hydraulic_pump_manual.pdf",
+        text="the full extracted text",
+        num_pages=3,
+        file_size=12345,
+        ocr_pages_used=[2],
+        extracted_at="2026-08-16T12:00:00",
+    )
+    monkeypatch.setattr(
+        "routers.search.get_client",
+        lambda: _FakeClient(_FakeIndex(document=fake_doc)),
+    )
+
+    response = client.get("/api/search/documents/abc123")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "document_id": "abc123",
+        "filename": "hydraulic_pump_manual.pdf",
+        "filepath": "C:\\docs\\hydraulic_pump_manual.pdf",
+        "text": "the full extracted text",
+        "num_pages": 3,
+        "file_size": 12345,
+        "ocr_pages_used": [2],
+        "extracted_at": "2026-08-16T12:00:00",
+    }
+
+
+def test_get_document_not_found_returns_404(monkeypatch):
+    exc = _fake_meilisearch_api_error(code="document_not_found", message="Document not found")
+    monkeypatch.setattr(
+        "routers.search.get_client",
+        lambda: _FakeClient(_FakeIndex(exc=exc)),
+    )
+
+    response = client.get("/api/search/documents/does-not-exist")
+
+    assert response.status_code == 404
+    assert "does-not-exist" in response.json()["detail"]

@@ -23,8 +23,10 @@ backend/
     test_extraction.py      # Basic import/sanity check for extraction dependencies
     test_main.py            # FastAPI TestClient tests (Meilisearch client mocked — hermetic, no live server needed)
 bin/                        # Local Meilisearch server binary (downloaded, gitignored — see Setup)
-frontend/
-  src/, public/            # Placeholder — not yet scaffolded
+frontend/                   # Vite + React + TypeScript + Tailwind CSS UI (see Frontend section)
+  src/
+    App.tsx                 # Search UI: results list + detail pane (snippet/full text tabs)
+    api.ts                  # Typed client for the backend API
 data/
   extracted/                # Extraction output (gitignored except .gitkeep)
   meilisearch/               # Meilisearch data directory (gitignored except .gitkeep)
@@ -122,6 +124,7 @@ Then visit `http://127.0.0.1:8000/docs` for interactive Swagger docs. Available 
 | `GET /health` | Health check |
 | `GET /api/status` | Reports whether `TM_SOURCE_DIR`/`TM_OUTPUT_DIR` are configured |
 | `GET /api/search?q=...&limit=&offset=` | Full-text search over indexed documents. Returns `503` (with a specific message) if Meilisearch is unreachable or the index hasn't been built yet — not a fake empty result set |
+| `GET /api/search/documents/{document_id}` | Full text + metadata for one document (search results only carry a cropped snippet, to keep responses small). `404` if the id doesn't exist |
 
 ## Testing
 
@@ -129,19 +132,43 @@ Then visit `http://127.0.0.1:8000/docs` for interactive Swagger docs. Available 
 pytest backend/tests
 ```
 
+## Frontend
+
+A Vite + React + TypeScript UI in `frontend/`, styled with Tailwind CSS and [lucide-react](https://lucide.dev) icons. Its visual language (dark slate theme, sky-blue accent, search bar with a live-narrowing results list on the left and a tabbed detail pane on the right) is modeled after [CosmicGrub/The-Viewer](https://github.com/CosmicGrub/The-Viewer)'s `react/TheViewer.jsx` reference component — adapted from that project's parts/NSN catalog UI to this project's document search domain.
+
+Setup:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Then visit the printed `http://localhost:3000` (or whatever port Vite falls back to if that one's busy). The dev server proxies `/api/*` and `/health` to the backend at `127.0.0.1:8000` (see `vite.config.ts`), so no CORS setup is needed in dev — just make sure the backend (and Meilisearch, and a built index) are running first.
+
+What it does:
+- Debounced search-as-you-type (300ms) against `GET /api/search`, with `Ctrl`/`Cmd`+`K` to focus the search box
+- Left sidebar lists results (filename, id, match score); selecting one loads its full text + metadata on demand from `GET /api/search/documents/{id}` (cached per document for the session)
+- Detail pane has "Matched snippet" (instant, from the search response) and "Full text" tabs
+- A live backend-status indicator in the header (`GET /health`)
+- Distinguishes real states honestly: idle / loading / no matches / a 503 from the backend (Meilisearch down or index not built) — no fake empty results
+
+`npm run build` type-checks (`tsc -b`) and produces a static `dist/` you could serve separately; there's no production deployment wiring yet (see Roadmap).
+
 ## Roadmap
 
 - [x] Make source/output paths configurable (CLI args or `.env`) instead of hardcoded
 - [x] Add OCR fallback for image-only PDFs (pdfplumber pages with no extractable text are rasterized via PyMuPDF and run through pytesseract)
 - [x] Stand up the FastAPI backend skeleton (liveness/status endpoints, stubbed search route)
 - [x] Wire up the Meilisearch indexing pipeline behind `/api/search`
-- [ ] Scaffold the frontend
+- [x] Scaffold the frontend (search UI, modeled after CosmicGrub/The-Viewer's design language)
 - [ ] Expand `backend/tests/` with real coverage (search endpoint tests mock Meilisearch — still no automated coverage of search_index.py/index_documents.py against a live server)
 - [ ] Index DOCX/image documents too (currently PDF-only — detect_format.py already classifies them, extraction doesn't handle them yet)
+- [ ] Production deployment for the frontend (currently dev-server-only; no static hosting / reverse-proxy config yet)
+- [ ] Automated frontend tests (verified manually via a live browser session so far — see commit history)
 
 ## Tech stack
 
 - **Extraction:** pdfplumber, PyMuPDF (page rasterization for OCR), pytesseract, python-docx, Pillow, opencv-python
 - **Search:** Meilisearch (server binary run locally; `meilisearch` Python package as the client)
 - **Backend:** FastAPI, uvicorn, pydantic
+- **Frontend:** Vite, React, TypeScript, Tailwind CSS, lucide-react
 - **Testing:** pytest, httpx (for FastAPI's TestClient)

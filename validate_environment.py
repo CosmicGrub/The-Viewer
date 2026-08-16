@@ -1,5 +1,5 @@
 import sys
-import subprocess
+import shutil
 import os
 from pathlib import Path
 
@@ -49,15 +49,19 @@ def check_external_tools():
     """Check external tools are in PATH"""
     tools = ['tesseract', 'git', 'node', 'npm']
     missing = []
-    
+
     for tool in tools:
-        try:
-            subprocess.run([tool, '--version'], capture_output=True, check=True, timeout=5)
+        # shutil.which() correctly resolves Windows PATHEXT lookups (.exe,
+        # .cmd, .bat, ...). subprocess.run([tool, ...]) without shell=True
+        # cannot launch .cmd/.bat shims directly (e.g. npm.cmd) even when
+        # the tool is genuinely installed and on PATH, which previously
+        # made npm a false negative here.
+        if shutil.which(tool):
             print(f"✓ {tool}")
-        except:
+        else:
             missing.append(tool)
             print(f"✗ {tool} - NOT FOUND")
-    
+
     return missing
 
 def check_folder_structure():

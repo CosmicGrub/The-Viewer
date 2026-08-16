@@ -36,7 +36,11 @@ requirements.txt           # Python dependencies
    ```bash
    pip install -r requirements.txt
    ```
-3. Install external tools required for OCR: [Tesseract](https://github.com/tesseract-ocr/tesseract) must be on your `PATH`.
+3. Install external tools required for OCR: [Tesseract](https://github.com/tesseract-ocr/tesseract) must be on your `PATH`. On Windows:
+   ```bash
+   winget install --id UB-Mannheim.TesseractOCR
+   ```
+   The installer doesn't always add itself to `PATH` automatically — if `tesseract --version` doesn't work afterward, add `C:\Program Files\Tesseract-OCR` to your user `PATH` and open a new terminal.
 4. Run the environment validator:
    ```bash
    python validate_environment.py

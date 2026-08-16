@@ -8,7 +8,9 @@ python-docx==0.8.11
 Pillow==10.2.0
 
 # OCR & Image Processing
-opencv-python==4.8.0.74
+opencv-python==4.11.0.86  # 4.8.0.74 is built against the NumPy 1.x ABI and
+                           # raises "AttributeError: _ARRAY_API not found"
+                           # under NumPy 2.x; 4.9.0.80+ added NumPy 2 support
 PyMuPDF==1.28.2  # rasterizes PDF pages for OCR fallback (pdfplumber's own
                   # to_image() requires ImageMagick, which is painful on Windows)
 

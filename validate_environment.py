@@ -14,21 +14,35 @@ for _stream in (sys.stdout, sys.stderr):
 
 def check_python_modules():
     """Check all required Python packages"""
+    # (pip package name, the name it's actually imported under) — a
+    # package's PyPI name and its import name don't always match, e.g.
+    # `python-docx` is installed via pip but imported as `docx`.
     modules = [
-        'pdfplumber', 'pytesseract', 'python_docx', 'PIL',
-        'cv2', 'meilisearch', 'fastapi', 'uvicorn', 'pydantic',
-        'pytest', 'black', 'flake8', 'tqdm', 'requests'
+        ('pdfplumber', 'pdfplumber'),
+        ('pytesseract', 'pytesseract'),
+        ('python-docx', 'docx'),
+        ('Pillow', 'PIL'),
+        ('opencv-python', 'cv2'),
+        ('meilisearch', 'meilisearch'),
+        ('fastapi', 'fastapi'),
+        ('uvicorn', 'uvicorn'),
+        ('pydantic', 'pydantic'),
+        ('pytest', 'pytest'),
+        ('black', 'black'),
+        ('flake8', 'flake8'),
+        ('tqdm', 'tqdm'),
+        ('requests', 'requests'),
     ]
-    
+
     missing = []
-    for module in modules:
+    for package_name, import_name in modules:
         try:
-            __import__(module)
-            print(f"✓ {module}")
+            __import__(import_name)
+            print(f"✓ {package_name}")
         except ImportError:
-            missing.append(module)
-            print(f"✗ {module} - MISSING")
-    
+            missing.append(package_name)
+            print(f"✗ {package_name} - MISSING")
+
     return missing
 
 def check_external_tools():

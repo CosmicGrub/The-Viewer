@@ -66,11 +66,15 @@ def check_external_tools():
 
 def check_folder_structure():
     """Check project folder structure"""
+    # 'frontend/public' isn't part of this project's actual layout (there's
+    # no static-assets folder in the Vite scaffold) — it used to be listed
+    # here regardless, so a correctly-scaffolded checkout always failed
+    # this check (finding #38).
     required_dirs = [
-        'backend/tests', 'frontend/src', 'frontend/public',
-        'data/extracted', 'data/meilisearch', 'docs', 'venv'
+        'backend/tests', 'frontend/src',
+        'data/extracted', 'data/meilisearch', 'docs',
     ]
-    
+
     missing = []
     for dir_path in required_dirs:
         if Path(dir_path).exists():
@@ -78,24 +82,47 @@ def check_folder_structure():
         else:
             missing.append(dir_path)
             print(f"✗ {dir_path}/ - MISSING")
-    
+
+    # A virtual environment is expected, but not under one specific
+    # hardcoded name — `venv/`, `.venv/`, and "currently running inside
+    # one" (sys.prefix != sys.base_prefix, true for any activated venv/
+    # conda env regardless of its folder name or location) all count.
+    # Previously only a literal ./venv folder passed, which spuriously
+    # failed anyone using `.venv`, a global env manager, or conda
+    # (finding #40).
+    in_active_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    if in_active_venv or Path('venv').exists() or Path('.venv').exists():
+        print("✓ virtual environment")
+    else:
+        missing.append('virtual environment (venv/, .venv/, or an activated env)')
+        print("✗ virtual environment - NOT FOUND (expected venv/, .venv/, or an activated env)")
+
     return missing
 
 def check_files():
     """Check required project files"""
-    required_files = [
-        'requirements.txt', '.gitignore', 'README.md',
-        '.git/config', '.env' if Path('.env').exists() else None
-    ]
-    
+    required_files = ['requirements.txt', '.gitignore', 'README.md', '.git/config']
+
     missing = []
     for file_path in required_files:
-        if file_path and Path(file_path).exists():
+        if Path(file_path).exists():
             print(f"✓ {file_path}")
-        elif file_path:
+        else:
             missing.append(file_path)
             print(f"✗ {file_path} - MISSING")
-    
+
+    # .env is expected per the README's Setup instructions but isn't
+    # strictly required (TM_SOURCE_DIR/TM_OUTPUT_DIR can be passed as CLI
+    # args instead — see config.py) — so its absence is reported but
+    # doesn't fail validation on its own. Previously this check could
+    # *never* report .env as missing at all (it only checked for it when
+    # it already existed), which is the one file most likely to be
+    # forgotten on a fresh clone (finding #39).
+    if Path('.env').exists():
+        print("✓ .env")
+    else:
+        print("⚠ .env - not found (optional if TM_SOURCE_DIR is set another way — see .env.example)")
+
     return missing
 
 def main():

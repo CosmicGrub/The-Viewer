@@ -6,13 +6,23 @@ helpers both modules use).
 from typing import List, Optional
 
 import meilisearch
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from config import MEILISEARCH_URL, MEILISEARCH_INDEX
+from config import MEILISEARCH_URL, MEILISEARCH_INDEX, logger
 from search_index import get_client
+from security import enforce_search_rate_limit, require_api_key
 
-router = APIRouter(prefix="/api/search", tags=["search"])
+router = APIRouter(
+    prefix="/api/search",
+    tags=["search"],
+    dependencies=[Depends(require_api_key)],
+)
+
+# Longest query string Meilisearch will be asked to search — well beyond
+# any real search phrase, just a backstop against unbounded input (finding
+# #45; min_length is enforced separately per-route below).
+MAX_QUERY_LENGTH = 512
 
 # Length (in words) that cropped snippets are trimmed to around the best
 # matching span, via Meilisearch's attributesToCrop/cropLength.
@@ -23,6 +33,7 @@ class SearchResult(BaseModel):
     document_id: str
     filename: str
     filepath: str
+    title: Optional[str] = None
     snippet: str
     score: Optional[float] = None
 
@@ -37,6 +48,8 @@ class DocumentDetail(BaseModel):
     document_id: str
     filename: str
     filepath: str
+    title: Optional[str] = None
+    author: Optional[str] = None
     text: str
     num_pages: Optional[int] = None
     file_size: Optional[int] = None
@@ -46,6 +59,9 @@ class DocumentDetail(BaseModel):
 
 def _meilisearch_error_to_http(exc, *, not_found_detail: str) -> HTTPException:
     """Shared mapping from meilisearch errors to the HTTPException to raise."""
+    # Finding #44: these used to only ever surface as an HTTP response —
+    # nothing landed in a log a server operator would actually be watching.
+    logger.warning("Meilisearch error mapped to HTTP response: %s", exc)
     if isinstance(exc, meilisearch.errors.MeilisearchApiError):
         if exc.code == "index_not_found":
             return HTTPException(
@@ -65,11 +81,18 @@ def _meilisearch_error_to_http(exc, *, not_found_detail: str) -> HTTPException:
     )
 
 
-@router.get("", response_model=SearchResponse)
+@router.get("", response_model=SearchResponse, dependencies=[Depends(enforce_search_rate_limit)])
 def search(
-    q: str = Query(..., min_length=1, description="Search query text"),
+    q: str = Query(..., min_length=1, max_length=MAX_QUERY_LENGTH, description="Search query text"),
     limit: int = Query(20, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Results to skip, for pagination"),
+    min_pages: Optional[int] = Query(None, ge=0, description="Only include documents with at least this many pages"),
+    max_pages: Optional[int] = Query(None, ge=0, description="Only include documents with at most this many pages"),
+    sort: Optional[str] = Query(
+        None,
+        pattern="^(relevance|newest|oldest)$",
+        description="relevance (default), newest, or oldest (by extracted_at)",
+    ),
 ):
     """
     Full-text search over indexed document text.
@@ -77,21 +100,39 @@ def search(
     Returns 503 (not 500) when Meilisearch itself is the problem — unreachable,
     or the index hasn't been created yet by index_documents.py — since that's
     an infrastructure/setup issue distinct from a bug in this endpoint.
+
+    Rate-limited per client IP (see security.py / TM_SEARCH_RATE_LIMIT) and,
+    if TM_API_KEY is set, requires a matching X-API-Key header.
+
+    min_pages/max_pages/sort expose num_pages/extracted_at — already
+    Meilisearch filterableAttributes/sortableAttributes that nothing in
+    the API surfaced before (finding #8).
     """
     client = get_client()
 
+    filters = []
+    if min_pages is not None:
+        filters.append(f"num_pages >= {min_pages}")
+    if max_pages is not None:
+        filters.append(f"num_pages <= {max_pages}")
+
+    search_params = {
+        "limit": limit,
+        "offset": offset,
+        "attributesToCrop": ["text"],
+        "cropLength": SNIPPET_CROP_LENGTH,
+        "showRankingScore": True,
+    }
+    if filters:
+        search_params["filter"] = " AND ".join(filters)
+    if sort == "newest":
+        search_params["sort"] = ["extracted_at:desc"]
+    elif sort == "oldest":
+        search_params["sort"] = ["extracted_at:asc"]
+
     try:
         index = client.index(MEILISEARCH_INDEX)
-        raw = index.search(
-            q,
-            {
-                "limit": limit,
-                "offset": offset,
-                "attributesToCrop": ["text"],
-                "cropLength": SNIPPET_CROP_LENGTH,
-                "showRankingScore": True,
-            },
-        )
+        raw = index.search(q, search_params)
     except (meilisearch.errors.MeilisearchApiError, meilisearch.errors.MeilisearchCommunicationError) as exc:
         raise _meilisearch_error_to_http(exc, not_found_detail="") from exc
 
@@ -100,6 +141,7 @@ def search(
             document_id=hit["id"],
             filename=hit["filename"],
             filepath=hit["filepath"],
+            title=hit.get("title") or None,
             snippet=hit.get("_formatted", {}).get("text", hit.get("text", "")),
             score=hit.get("_rankingScore"),
         )
@@ -140,6 +182,8 @@ def get_document(document_id: str):
         document_id=doc.id,
         filename=doc.filename,
         filepath=doc.filepath,
+        title=getattr(doc, "title", None) or None,
+        author=getattr(doc, "author", None) or None,
         text=getattr(doc, "text", ""),
         num_pages=getattr(doc, "num_pages", None),
         file_size=getattr(doc, "file_size", None),

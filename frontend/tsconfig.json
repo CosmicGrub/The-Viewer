@@ -1,4 +1,11 @@
 {
+  // Note (finding #37): tsc -b only type-checks files matched by
+  // tsconfig.app.json's ("src") or tsconfig.node.json's ("vite.config.ts")
+  // include globs — a stray .ts/.tsx file outside both would silently go
+  // unchecked by `npm run build`/`npm run typecheck`. `npm run lint`
+  // (eslint.config.js's `files: ["**/*.{ts,tsx}"]`) isn't scoped to either
+  // tsconfig and lints the whole project unconditionally, so that gap is
+  // covered as long as both `typecheck` and `lint` run — which ci.yml does.
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },

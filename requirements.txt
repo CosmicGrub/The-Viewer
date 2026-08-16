@@ -2,10 +2,10 @@
 # Phase 1 MVP Development
 
 # Document Processing
-pdfplumber==0.9.0
-pytesseract==0.3.10
-python-docx==0.8.11
-Pillow==10.2.0
+pdfplumber==0.11.4
+pytesseract==0.3.13
+python-docx==1.1.2  # 0.8.11 (originally pinned) was last released in 2013
+Pillow==10.4.0  # 10.2.0 predates several published CVE fixes (e.g. GHSA-3f63-hfp8-52jq)
 
 # OCR & Image Processing
 opencv-python==4.11.0.86  # 4.8.0.74 is built against the NumPy 1.x ABI and
@@ -23,23 +23,23 @@ meilisearch==0.43.0  # 0.27.0 (originally pinned) predates the pydantic-based
 # sqlite3 is part of the Python standard library — no pip install needed
 
 # Backend API
-fastapi==0.104.0
-uvicorn==0.24.0
-pydantic==2.4.0
-python-multipart==0.0.6
+fastapi==0.115.6  # 0.104.0 (originally pinned) predates several dependency-CVE fixes pulled in via starlette
+uvicorn==0.32.1
+pydantic==2.10.3
+python-multipart==0.0.19  # 0.0.6 is affected by GHSA-2jv5-9r88-3w3p (DoS via malformed multipart)
 
 # Development & Testing
-pytest==7.4.0
-pytest-cov==4.1.0
-black==23.10.0
-flake8==6.1.0
+pytest==8.3.4
+pytest-cov==6.0.0
+black==24.10.0
+flake8==7.1.1
 httpx==0.27.2  # required by fastapi.testclient.TestClient; pin <0.28 —
                 # 0.28 dropped the `app=` shortcut this starlette version needs
 
 # Utilities
-python-dotenv==1.0.0
-tqdm==4.66.0
-requests==2.31.0
+python-dotenv==1.0.1
+tqdm==4.67.1
+requests==2.32.3  # 2.31.0 predates the fix for CVE-2024-35195 (cert verification bypass)
 
 # Optional: Performance monitoring
-psutil==5.9.0
+psutil==6.1.0

@@ -14,8 +14,9 @@ import argparse
 import json
 from pathlib import Path
 
-from config import OUTPUT_DIR, MEILISEARCH_URL, MEILISEARCH_INDEX
-from search_index import index_extraction_results, get_client
+from config import OUTPUT_DIR, SOURCE_DIR, MEILISEARCH_URL, MEILISEARCH_INDEX, logger
+from detect_format import scan_directory
+from search_index import index_extraction_results, get_client, prune_missing_documents
 
 
 def parse_args():
@@ -26,6 +27,19 @@ def parse_args():
         default=str(Path(OUTPUT_DIR) / "extraction_test_results.json"),
         help="Path to the extraction results JSON produced by extract_pdf_text.py "
              "(defaults to TM_OUTPUT_DIR/extraction_test_results.json)",
+    )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="After indexing, remove documents whose source file no longer "
+             "exists under --source-dir (default: TM_SOURCE_DIR). Does a full "
+             "directory scan first, so this is safe to run even when "
+             "input_file only covers a partial batch — see finding #25.",
+    )
+    parser.add_argument(
+        "--source-dir",
+        default=SOURCE_DIR,
+        help="Directory to scan when --prune is set (defaults to TM_SOURCE_DIR).",
     )
     return parser.parse_args()
 
@@ -60,11 +74,30 @@ if __name__ == "__main__":
     try:
         indexed, skipped, task = index_extraction_results(results, client=client)
     except RuntimeError as exc:
+        logger.error("Indexing run failed: %s", exc)
         print(f"\n✗ {exc}")
         raise SystemExit(1)
 
+    logger.info("Indexed %d document(s) from %s (%d skipped)", indexed, input_path, skipped)
     print(f"\n✓ Indexed {indexed} document(s).")
     if skipped:
         print(f"  Skipped {skipped} (failed extractions have no text to index).")
     if task is not None:
         print(f"  Task status: {task.status}")
+
+    if args.prune:
+        if not args.source_dir:
+            print("\n✗ --prune requires --source-dir or TM_SOURCE_DIR to be set.")
+            raise SystemExit(1)
+        print(f"\nScanning {args.source_dir} to find the current file set...")
+        scan_results, total_scanned = scan_directory(args.source_dir)
+        known_filepaths = scan_results["pdf"] + scan_results["docx"] + scan_results["image"]
+        print(f"  {len(known_filepaths)} extractable file(s) found (of {total_scanned} scanned).")
+
+        pruned, prune_task = prune_missing_documents(known_filepaths, client=client)
+        if pruned:
+            print(f"✓ Pruned {pruned} stale document(s) no longer present under {args.source_dir}.")
+            if prune_task is not None:
+                print(f"  Task status: {prune_task.status}")
+        else:
+            print("✓ No stale documents to prune.")

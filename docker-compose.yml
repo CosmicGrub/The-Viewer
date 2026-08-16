@@ -1,0 +1,67 @@
+# Cross-platform (Linux/Mac/Windows via Docker Desktop) deployment path —
+# previously every setup instruction in this repo was Windows-only:
+# validate_day1.bat, UTF-8 stdio workarounds tuned for Windows consoles,
+# Tesseract via winget, a Meilisearch .exe (findings #11, #33).
+#
+# Usage:
+#   cp .env.example .env   # set TM_SOURCE_DIR, MEILI_MASTER_KEY, etc.
+#   docker compose up --build
+# Then visit http://localhost:3000 (frontend) — it proxies to the backend
+# (http://localhost:8000) and Meilisearch (internal-only, not published).
+#
+# Extraction/indexing are still run as one-off commands, same as local dev,
+# just inside the backend container:
+#   docker compose run --rm backend python extract_documents.py
+#   docker compose run --rm backend python index_documents.py --prune
+
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.11.3
+    environment:
+      MEILI_ENV: production
+      # Required: config.py refuses to start the backend against a non-
+      # localhost Meilisearch with no API key (finding #34) — "meilisearch"
+      # is a different container, not localhost, from the backend's point
+      # of view, so this isn't optional here the way it is for a purely
+      # local `--env development` setup.
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY in .env}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      TM_SOURCE_DIR: /data/source
+      TM_OUTPUT_DIR: /data/extracted
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      TM_API_KEY: ${TM_API_KEY:-}
+    volumes:
+      - ${TM_SOURCE_DIR_HOST:-./data/source}:/data/source:ro
+      - extracted_data:/data/extracted
+    ports:
+      - "8000:8000"
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  meilisearch_data:
+  extracted_data:

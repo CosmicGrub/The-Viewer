@@ -60,8 +60,10 @@ class _FakeIndex:
         self._response = response
         self._exc = exc
         self._document = document
+        self.last_search_call = None  # (q, opt_params) — inspected by pagination/filter tests
 
     def search(self, q, opt_params):
+        self.last_search_call = (q, opt_params)
         if self._exc:
             raise self._exc
         return self._response
@@ -102,6 +104,7 @@ def test_search_success(monkeypatch):
                 "id": "abc123",
                 "filename": "hydraulic_pump_manual.pdf",
                 "filepath": "C:\\docs\\hydraulic_pump_manual.pdf",
+                "title": "Hydraulic Pump Manual",
                 "text": "full page text goes here",
                 "_formatted": {"text": "...cropped snippet..."},
                 "_rankingScore": 0.87,
@@ -125,10 +128,60 @@ def test_search_success(monkeypatch):
             "document_id": "abc123",
             "filename": "hydraulic_pump_manual.pdf",
             "filepath": "C:\\docs\\hydraulic_pump_manual.pdf",
+            "title": "Hydraulic Pump Manual",
             "snippet": "...cropped snippet...",
             "score": 0.87,
         }
     ]
+
+
+def test_search_forwards_limit_and_offset(monkeypatch):
+    # Finding #48: nothing previously asserted limit/offset actually reach
+    # Meilisearch's search() call — a regression here (or in the frontend
+    # never sending offset) went undetected by the existing suite.
+    fake_index = _FakeIndex(response={"hits": [], "estimatedTotalHits": 0})
+    monkeypatch.setattr("routers.search.get_client", lambda: _FakeClient(fake_index))
+
+    response = client.get("/api/search", params={"q": "pump", "limit": 5, "offset": 40})
+
+    assert response.status_code == 200
+    _, opt_params = fake_index.last_search_call
+    assert opt_params["limit"] == 5
+    assert opt_params["offset"] == 40
+
+
+def test_search_forwards_page_filters_and_sort(monkeypatch):
+    # Finding #8: num_pages/extracted_at were filterable/sortable in
+    # Meilisearch but nothing in the API surfaced that.
+    fake_index = _FakeIndex(response={"hits": [], "estimatedTotalHits": 0})
+    monkeypatch.setattr("routers.search.get_client", lambda: _FakeClient(fake_index))
+
+    response = client.get(
+        "/api/search",
+        params={"q": "pump", "min_pages": 10, "max_pages": 200, "sort": "newest"},
+    )
+
+    assert response.status_code == 200
+    _, opt_params = fake_index.last_search_call
+    assert opt_params["filter"] == "num_pages >= 10 AND num_pages <= 200"
+    assert opt_params["sort"] == ["extracted_at:desc"]
+
+
+def test_search_omits_filter_and_sort_when_not_requested(monkeypatch):
+    fake_index = _FakeIndex(response={"hits": [], "estimatedTotalHits": 0})
+    monkeypatch.setattr("routers.search.get_client", lambda: _FakeClient(fake_index))
+
+    response = client.get("/api/search", params={"q": "pump"})
+
+    assert response.status_code == 200
+    _, opt_params = fake_index.last_search_call
+    assert "filter" not in opt_params
+    assert "sort" not in opt_params
+
+
+def test_search_rejects_invalid_sort_value():
+    response = client.get("/api/search", params={"q": "pump", "sort": "bogus"})
+    assert response.status_code == 422
 
 
 def test_search_index_not_found_returns_503(monkeypatch):
@@ -162,6 +215,8 @@ def test_get_document_success(monkeypatch):
         id="abc123",
         filename="hydraulic_pump_manual.pdf",
         filepath="C:\\docs\\hydraulic_pump_manual.pdf",
+        title="Hydraulic Pump Manual",
+        author="Dept. of the Army",
         text="the full extracted text",
         num_pages=3,
         file_size=12345,
@@ -180,6 +235,8 @@ def test_get_document_success(monkeypatch):
         "document_id": "abc123",
         "filename": "hydraulic_pump_manual.pdf",
         "filepath": "C:\\docs\\hydraulic_pump_manual.pdf",
+        "title": "Hydraulic Pump Manual",
+        "author": "Dept. of the Army",
         "text": "the full extracted text",
         "num_pages": 3,
         "file_size": 12345,
@@ -199,3 +256,67 @@ def test_get_document_not_found_returns_404(monkeypatch):
 
     assert response.status_code == 404
     assert "does-not-exist" in response.json()["detail"]
+
+
+def test_search_rejects_query_over_max_length():
+    # No mocked client needed — FastAPI validates max_length before the
+    # handler runs (finding #45).
+    response = client.get("/api/search", params={"q": "x" * 513})
+    assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Access control (security.py) — finding #2 / #45
+# ---------------------------------------------------------------------------
+
+def test_search_open_by_default(monkeypatch):
+    """With no TM_API_KEY configured (the default), no header is required."""
+    monkeypatch.setattr("security.API_KEY", None)
+    fake_response = {"hits": [], "estimatedTotalHits": 0}
+    monkeypatch.setattr(
+        "routers.search.get_client",
+        lambda: _FakeClient(_FakeIndex(response=fake_response)),
+    )
+
+    response = client.get("/api/search", params={"q": "pump"})
+    assert response.status_code == 200
+
+
+def test_search_requires_api_key_when_configured(monkeypatch):
+    monkeypatch.setattr("security.API_KEY", "s3cret")
+
+    response = client.get("/api/search", params={"q": "pump"})
+    assert response.status_code == 401
+
+
+def test_search_accepts_matching_api_key(monkeypatch):
+    monkeypatch.setattr("security.API_KEY", "s3cret")
+    fake_response = {"hits": [], "estimatedTotalHits": 0}
+    monkeypatch.setattr(
+        "routers.search.get_client",
+        lambda: _FakeClient(_FakeIndex(response=fake_response)),
+    )
+
+    response = client.get(
+        "/api/search", params={"q": "pump"}, headers={"X-API-Key": "s3cret"}
+    )
+    assert response.status_code == 200
+
+
+def test_search_rate_limit_returns_429(monkeypatch):
+    from security import search_rate_limiter
+
+    monkeypatch.setattr(search_rate_limiter, "limit", 2)
+    search_rate_limiter._hits.clear()
+
+    fake_response = {"hits": [], "estimatedTotalHits": 0}
+    monkeypatch.setattr(
+        "routers.search.get_client",
+        lambda: _FakeClient(_FakeIndex(response=fake_response)),
+    )
+
+    for _ in range(2):
+        assert client.get("/api/search", params={"q": "pump"}).status_code == 200
+
+    response = client.get("/api/search", params={"q": "pump"})
+    assert response.status_code == 429

@@ -5,6 +5,7 @@ export interface SearchResult {
   document_id: string;
   filename: string;
   filepath: string;
+  title: string | null;
   snippet: string;
   score: number | null;
 }
@@ -19,6 +20,8 @@ export interface DocumentDetail {
   document_id: string;
   filename: string;
   filepath: string;
+  title: string | null;
+  author: string | null;
   text: string;
   num_pages: number | null;
   file_size: number | null;
@@ -45,8 +48,8 @@ export class ApiError extends Error {
   }
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -62,13 +65,13 @@ async function getJson<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function search(query: string, limit = 20, offset = 0): Promise<SearchResponse> {
+export function search(query: string, limit = 20, offset = 0, signal?: AbortSignal): Promise<SearchResponse> {
   const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) });
-  return getJson<SearchResponse>(`/api/search?${params}`);
+  return getJson<SearchResponse>(`/api/search?${params}`, signal);
 }
 
-export function getDocument(documentId: string): Promise<DocumentDetail> {
-  return getJson<DocumentDetail>(`/api/search/documents/${encodeURIComponent(documentId)}`);
+export function getDocument(documentId: string, signal?: AbortSignal): Promise<DocumentDetail> {
+  return getJson<DocumentDetail>(`/api/search/documents/${encodeURIComponent(documentId)}`, signal);
 }
 
 export function getStatus(): Promise<StatusResponse> {

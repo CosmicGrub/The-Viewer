@@ -1,10 +1,10 @@
 """
-TM Search Engine API — FastAPI application skeleton.
+TM Search Engine API.
 
-This is a starting point, not a finished API: it exposes liveness/status
-endpoints and a stubbed-out search route so the shape of the service is in
-place before the Meilisearch indexing pipeline (see README roadmap) is
-wired up behind it.
+Exposes liveness/status endpoints plus a real Meilisearch-backed search
+route (see routers/search.py and search_index.py). Requires a running
+Meilisearch server and a built index — see README's "Running Meilisearch"
+and "Building the search index" sections.
 
 Run from the repo root:
     uvicorn main:app --reload --app-dir backend

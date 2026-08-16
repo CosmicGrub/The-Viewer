@@ -47,6 +47,8 @@ htmlcov/
 # Meilisearch
 data/meilisearch/*
 !data/meilisearch/.gitkeep
+# Local Meilisearch server binary (downloaded per-machine, not committed)
+bin/
 
 # Extracted data (large files)
 data/extracted/*

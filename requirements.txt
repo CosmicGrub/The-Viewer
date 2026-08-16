@@ -15,7 +15,9 @@ PyMuPDF==1.28.2  # rasterizes PDF pages for OCR fallback (pdfplumber's own
                   # to_image() requires ImageMagick, which is painful on Windows)
 
 # Search & Indexing
-meilisearch==0.27.0
+meilisearch==0.43.0  # 0.27.0 (originally pinned) predates the pydantic-based
+                      # models this project's Meilisearch server (v1.53.x) and
+                      # search_index.py's task-handling rely on
 
 # Database
 # sqlite3 is part of the Python standard library — no pip install needed

@@ -54,3 +54,10 @@ SOURCE_DIR = os.environ.get("TM_SOURCE_DIR", "")
 
 # Directory where extraction results are written.
 OUTPUT_DIR = os.environ.get("TM_OUTPUT_DIR", str(REPO_ROOT / "data" / "extracted"))
+
+# Meilisearch connection. No master key by default, matching a local
+# `meilisearch --env development` instance with auth disabled — set
+# MEILISEARCH_API_KEY once a real (production or master) key is in use.
+MEILISEARCH_URL = os.environ.get("MEILISEARCH_URL", "http://127.0.0.1:7700")
+MEILISEARCH_API_KEY = os.environ.get("MEILISEARCH_API_KEY") or None
+MEILISEARCH_INDEX = os.environ.get("MEILISEARCH_INDEX", "documents")

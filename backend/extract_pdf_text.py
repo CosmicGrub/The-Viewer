@@ -82,6 +82,7 @@ def extract_pdf_text(pdf_path):
                     'author': metadata.get('Author', 'N/A') if metadata else 'N/A',
                     'subject': metadata.get('Subject', 'N/A') if metadata else 'N/A',
                 },
+                'text': full_text,
                 'text_length': len(full_text),
                 'text_preview': full_text[:500] + "..." if len(full_text) > 500 else full_text,
                 'ocr_pages_used': ocr_pages,

@@ -109,6 +109,14 @@ def atomic_write(path, data, mode="wb"):
         f.write(data); f.flush(); os.fsync(f.fileno())
     _replace_retry(tmp, path)
 
+def atomic_replace(tmp, dst):
+    """Swap an already-built file into place atomically (retried on a transient Windows lock).
+    For callers that build a large file themselves (e.g. a multi-GB SQLite database written
+    directly via sqlite3.connect(tmp_path), not through atomic_write's in-memory `data` argument)
+    and just need the final rename-into-place step to be crash-safe: `dst` is never deleted ahead
+    of time, so a crash mid-build leaves the last-good `dst` untouched and only `tmp` is garbage."""
+    _replace_retry(tmp, dst)
+
 def atomic_copy(src, dst):
     d = os.path.dirname(os.path.abspath(dst)) or "."
     os.makedirs(d, exist_ok=True)

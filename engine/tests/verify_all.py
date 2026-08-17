@@ -43,7 +43,12 @@ def main():
     # regression suites (import viewer_app directly -> a passing run proves the module compiles whole)
     # v0.96.0 (backlog K71/K73/K77): rps_lint (the ES5/legacy gate) + test_hardening (B/J defenses)
     # run with every verify.
-    for fn in ("test_pillars.py", "test_features.py", "test_patterns.py", "test_routes.py", "test_truncation.py", "test_hardening.py", "test_search_quality.py", "rps_lint.py"):
+    # test_procedure.py added after a real incident: parse_procedure() had an i -= 1 typo on its
+    # blank-line branch that infinite-looped on virtually any real OCR'd page (backing
+    # GET /api/procedure_full), and this suite -- the one test that exercises that function --
+    # was never wired in here, so the gate never caught it. The _run() subprocess timeout (900s)
+    # means a future regression of this kind now fails loudly instead of hanging silently forever.
+    for fn in ("test_pillars.py", "test_features.py", "test_patterns.py", "test_routes.py", "test_truncation.py", "test_hardening.py", "test_search_quality.py", "test_procedure.py", "rps_lint.py"):
         p = os.path.join(HERE, fn)
         if os.path.exists(p):
             results.append((fn, _run(fn, [p])))

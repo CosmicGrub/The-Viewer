@@ -134,7 +134,14 @@ def ensure(cache_dir, doc_id, page, pdf_path):
         try: return json.load(open(out, encoding="utf-8"))
         except Exception: pass
     g = graph_for(pdf_path, page)
-    try: json.dump(g, open(out, "w", encoding="utf-8"))
+    try:
+        # safeguard.atomic_write, not a bare open(...,"w"): a crash mid-write used to leave a
+        # truncated/corrupt JSON cache file that the size>0 check above would then treat as
+        # "already cached" forever -- the broken schematic graph was served permanently, never
+        # regenerated. This is also what routes.py's own r_schemgraph-style handler does for its
+        # inline cache write (see the matching fix there).
+        import safeguard
+        safeguard.atomic_write(out, json.dumps(g))
     except Exception: pass
     return g
 

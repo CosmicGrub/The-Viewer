@@ -3,7 +3,7 @@
 sentence-transformers model when installed (true semantic); otherwise falls back to a deterministic hashing bag-of-words
 vector (keyword-ish) so the pipeline still works offline with zero downloads. Build the index host-side
 (BUILD-EMBEDDINGS.bat -> index/embeddings.npy + index/embeddings_ids.tsv); /api/semantic queries it. Read-only."""
-import os, re, math
+import os, re, math, zlib
 
 try:
     import numpy as _np
@@ -37,12 +37,29 @@ def _tokens(s):
 
 
 def _hash_vec(text, dim=DIM):
-    """Deterministic bag-of-tokens hashing vector (unit-normalised). Keyword-level fallback, not true semantics."""
+    """Deterministic bag-of-tokens hashing vector (unit-normalised). Keyword-level fallback, not true semantics.
+
+    Uses zlib.crc32, NOT Python's built-in hash(): str hashing is randomized per process by default
+    (PYTHONHASHSEED) specifically to resist hash-flooding DoS attacks, which means hash(tok) % dim
+    produces a DIFFERENT token->bucket mapping every time a fresh Python process starts. That's fatal
+    here because build_index() runs once, standalone, from BUILD-EMBEDDINGS.bat, while search() runs
+    later inside the long-running server process -- a different process, almost always with a
+    different hash seed. The index-build buckets and query-time buckets never actually agreed, so
+    /api/semantic silently returned near-random cosine similarity with no error, on every install
+    that doesn't have sentence-transformers (the documented default, zero-download offline path).
+    crc32 is a well-defined, non-randomized algorithm -- identical across processes, platforms, and
+    Python versions, so index-build and query time finally hash the same token to the same bucket.
+
+    NOTE: this changes the token->bucket mapping from whatever a given process's hash() happened to
+    produce, to a fixed one. Any embeddings.npy built before this fix was hashed against a mapping
+    that (per the bug above) was already useless across process boundaries -- re-run
+    BUILD-EMBEDDINGS.bat after upgrading to rebuild it against the now-stable mapping.
+    """
     v = _np.zeros(dim, dtype=_np.float32)
     for tok in _tokens(text):
         if len(tok) < 2:
             continue
-        h = hash(tok) % dim  # note: process-stable within a run; the index + query use the same process/build
+        h = zlib.crc32(tok.encode("utf-8")) % dim
         v[h] += 1.0
     n = float(_np.linalg.norm(v))
     return v / n if n else v
@@ -116,6 +133,13 @@ def search(query, index_dir, top=15):
 if __name__ == "__main__":
     if not _OK:
         print("numpy unavailable; skipping"); raise SystemExit(0)
+    # Regression guard for the process-instability bug: a canary token must always land in the
+    # same bucket, regardless of which process/run computes it. Before the crc32 fix, this would
+    # have been a different number on essentially every fresh `python embed.py` invocation
+    # (verified manually: three separate processes previously produced three different buckets for
+    # the same token, via Python's per-process-randomized built-in hash()).
+    assert zlib.crc32(b"alternator") % DIM == 212, "hash bucket for a fixed token must be process-stable"
+    print("hash-bucket stability check OK (bucket=212, process-independent)")
     print("backend:", backend())
     a = embed_text("alternator charging system voltage regulator")
     b = embed_text("alternator not charging, voltage regulator fault")

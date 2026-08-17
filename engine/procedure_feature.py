@@ -55,7 +55,7 @@ def parse_procedure(text, title=""):
     cur = None; in_tools = False; i = 0
     while i < len(lines):
         ln = lines[i]; s = ln.strip()
-        if not s: in_tools = False; i -= 1; continue
+        if not s: in_tools = False; i += 1; continue
         wm = _WARN_RE.match(ln)
         if wm:
             body = wm.group(2).strip()

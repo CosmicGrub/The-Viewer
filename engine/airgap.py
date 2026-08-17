@@ -60,21 +60,56 @@ def signature_valid(manifest, secret):
     return hmac.compare_digest(sig, expect)
 
 
+def _safe_join(root, name):
+    """Join `name` under `root`, refusing anything that would escape it: traversal (`../`),
+    absolute paths, or an alternate drive letter. Returns the resolved path, or None if unsafe."""
+    if not name or os.path.isabs(name) or ":" in name or "\x00" in name:
+        return None
+    root_real = os.path.realpath(root)
+    candidate = os.path.realpath(os.path.join(root, name))
+    try:
+        if os.path.commonpath([root_real, candidate]) != root_real:
+            return None
+    except ValueError:
+        # commonpath raises on e.g. a different drive on Windows -- that's an escape too.
+        return None
+    return candidate
+
+
 def verify(manifest, root, secret):
     """Fail-closed verification on the receiving side. Returns a dict with keys ok, signature_valid,
     files (each name/present/match), missing (list of names), and tampered (list of names).
-    ok is True only if the signature is valid AND every listed file is present and hash-matches."""
+    ok is True only if the signature is valid AND every listed file is present and hash-matches.
+
+    Fail-closed by construction, in two ways that used to be missing:
+      - An invalid/missing signature is rejected *before* the filesystem is touched at all. An
+        unsigned or forged manifest previously still triggered an os.path.isfile()/hash probe for
+        every listed name -- a file-existence oracle for arbitrary paths on the receiving host,
+        reachable without knowing the shared secret.
+      - Every file name is resolved and checked for containment under `root` before any I/O.
+        `../../../etc/shadow`-style names, absolute paths, and alternate drive letters are
+        rejected as tampered rather than silently read from outside `root`.
+    """
     sig_ok = signature_valid(manifest, secret)
+    if not sig_ok:
+        return {"ok": False, "signature_valid": False, "files": [],
+                "missing": [], "tampered": [], "verdict": "REJECT"}
+
     rows, missing, tampered = [], [], []
     for e in manifest.get("files", []):
-        p = os.path.join(root, e["name"])
+        name = e.get("name", "")
+        p = _safe_join(root, name)
+        if p is None:
+            rows.append({"name": name, "present": False, "match": False})
+            tampered.append(name)
+            continue
         present = os.path.isfile(p)
         match = bool(present and _sha256(p) == e.get("sha256"))
-        rows.append({"name": e["name"], "present": present, "match": match})
+        rows.append({"name": name, "present": present, "match": match})
         if not present:
-            missing.append(e["name"])
+            missing.append(name)
         elif not match:
-            tampered.append(e["name"])
+            tampered.append(name)
     ok = sig_ok and not missing and not tampered
     return {"ok": ok, "signature_valid": sig_ok, "files": rows,
             "missing": missing, "tampered": tampered,
@@ -122,6 +157,30 @@ if __name__ == "__main__":
     forged["files"][0]["sha256"] = "0" * 64
     assert not signature_valid(forged, SECRET), "forged manifest must fail signature"
     print("forged-manifest detection OK")
+
+    # security regressions: an unsigned/wrongly-signed manifest must not probe the filesystem at
+    # all -- verify() used to still report present/match for every name even with a bad signature,
+    # making it a file-existence oracle. Point it at TM-B.pdf, which really does exist in `dst`,
+    # via a manifest whose signature is simply wrong -- the fixed code must not even look.
+    oracle_attempt = {"label": "x", "created": 0, "count": 1, "algo": "hmac-sha256",
+                       "files": [{"name": "TM-B.pdf", "size": 0, "sha256": "0" * 64}],
+                       "signature": "not-a-real-signature"}
+    vo = verify(oracle_attempt, dst, SECRET)
+    assert vo["signature_valid"] is False and vo["files"] == [], vo
+    print("unsigned-manifest oracle blocked OK -> no filesystem probing occurred")
+
+    # path traversal: even with a *valid* signature, a name that escapes `root` must be rejected
+    # as tampered, not resolved and read. filename here doesn't need to point at a real file
+    # outside root -- the containment check itself is what's under test.
+    traversal_name = "../" * 6 + "some-file-outside-root.txt"
+    trav_man = dict(man)
+    trav_man["files"] = [{"name": traversal_name, "size": 0, "sha256": "0" * 64}]
+    trav_man["count"] = 1
+    trav_man = sign(trav_man, SECRET)
+    vt2 = verify(trav_man, dst, SECRET)
+    assert not vt2["ok"] and traversal_name in vt2["tampered"], vt2
+    print("path-traversal name rejected OK -> tampered=%s" % vt2["tampered"])
+
     print("airgap self-test PASS")
 
 # END OF FILE

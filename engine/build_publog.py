@@ -37,14 +37,40 @@ def _niin(s):
 
 
 def build(src_dir, db_path, sample=0, log=print):
+    """Rebuildable from scratch (R1). Builds into a temp file in the same directory and only
+    replaces db_path at the very end, once every table + index has committed successfully --
+    db_path itself is never deleted ahead of time. Previously this deleted the existing (last-good,
+    multi-GB) db_path FIRST, then rebuilt with journal_mode=OFF/synchronous=OFF and no indexes
+    until the end: a crash or power loss partway through destroyed the only working copy with
+    nothing to fall back to. Now a crash mid-build leaves the last-good db_path untouched and only
+    orphans a `.building-<pid>` temp file, which is safe to delete."""
     t0 = time.time()
-    if os.path.exists(db_path):
-        os.remove(db_path)                       # rebuildable from scratch (R1)
-    con = sqlite3.connect(db_path)
-    con.execute("PRAGMA journal_mode=OFF")
-    con.execute("PRAGMA synchronous=OFF")
-    cur = con.cursor()
+    tmp_path = db_path + ".building-%d" % os.getpid()
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)                       # stale temp from a prior crashed run -- just scratch space
+    try:
+        con = sqlite3.connect(tmp_path)
+        con.execute("PRAGMA journal_mode=OFF")
+        con.execute("PRAGMA synchronous=OFF")
+        cur = con.cursor()
+        _build_into(con, cur, src_dir, sample, log)
+        con.execute("PRAGMA optimize")
+        con.close()
+    except BaseException:
+        try: con.close()
+        except Exception: pass
+        try: os.remove(tmp_path)
+        except OSError: pass
+        raise
 
+    import safeguard
+    safeguard.atomic_replace(tmp_path, db_path)   # only now does the new build become "publog.db"
+    dt = time.time() - t0
+    log("DONE in %.1fs -> %s (%.1f MB)" % (dt, db_path, os.path.getsize(db_path) / 1e6))
+    return db_path
+
+
+def _build_into(con, cur, src_dir, sample, log):
     # --- schema (NIIN-keyed; NSN = FSC(4) + NIIN(9)) ---
     cur.executescript("""
     CREATE TABLE nsn(niin TEXT, fsc TEXT, inc TEXT, item_name TEXT, end_item_name TEXT, sos TEXT, cancelled_niin TEXT);
@@ -179,11 +205,6 @@ def build(src_dir, db_path, sample=0, log=print):
     cur.execute("INSERT INTO meta VALUES('sample', ?)", (str(sample),))
     cur.execute("INSERT INTO meta VALUES('src', ?)", (src_dir,))
     con.commit()
-    con.execute("PRAGMA optimize")
-    con.close()
-    dt = time.time() - t0
-    log("DONE in %.1fs -> %s (%.1f MB)" % (dt, db_path, os.path.getsize(db_path) / 1e6))
-    return db_path
 
 
 if __name__ == "__main__":

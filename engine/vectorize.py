@@ -101,7 +101,12 @@ def ensure(cache_dir, doc_id, page, pdf_path, dpi=200):
     if not svg:
         return None
     try:
-        open(out, "w", encoding="utf-8").write(svg)
+        # safeguard.atomic_write (temp file + fsync + os.replace), not a bare open(...,"w"): a crash
+        # mid-write used to leave a truncated/corrupt cache file that the size>0 check just above
+        # would then treat as "already cached" forever on every later call -- the broken figure was
+        # served permanently, never regenerated, until someone noticed and deleted it by hand.
+        import safeguard
+        safeguard.atomic_write(out, svg)
         return out
     except Exception:
         return None

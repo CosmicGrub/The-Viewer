@@ -999,7 +999,12 @@ def r_schemgraph(h, qs):
         g = schemgraph.graph_for(pdf_path, pg)
         try:
             os.makedirs(cache_dir, exist_ok=True)
-            json.dump(g, open(schemgraph.cache_path(cache_dir, doc_i, pg), "w", encoding="utf-8"))
+            # safeguard.atomic_write, not a bare open(...,"w") + json.dump: same non-atomic-write
+            # bug as schemgraph.ensure()'s own cache write (see the fix there) -- a crash mid-write
+            # here left a truncated cache file that ensure()'s size>0 check then treated as valid
+            # forever, on every subsequent non-fresh request for this page.
+            import safeguard
+            safeguard.atomic_write(schemgraph.cache_path(cache_dir, doc_i, pg), json.dumps(g))
         except Exception: pass
     else:
         g = schemgraph.ensure(cache_dir, doc_i, pg, pdf_path)
@@ -1321,10 +1326,19 @@ def r_mac(h, qs):
 def r_airgap_manifest(h, qs, payload):
     # build a SIGNED update-package manifest for a folder of manuals (air-gap transfer). Read-only.
     import airgap, ingestpipe, os
+    import features.ingest_feature as ingest_feature
     folder = (payload.get("folder") or "").strip()
     secret = payload.get("secret") or ""
     if not folder or not secret:
         h._send(400, {"error": "folder and secret required"}); return
+    # Same VIEWER_INGEST_ROOTS fence /api/ingest and /api/ingest_preview enforce -- this route
+    # used to call scan_folder() on the raw path directly, bypassing the fence entirely (finding
+    # from the audit: an operator who configures VIEWER_INGEST_ROOTS to restrict which folders may
+    # be touched was still fully exposed via this endpoint).
+    ok, real = ingest_feature.canon_ingest_path(folder)
+    if not ok:
+        h._send(400, {"error": real}); return
+    folder = real
     found = ingestpipe.scan_folder(folder)
     rels = [os.path.relpath(f["path"], folder) for f in found]
     h._send(200, {"ok": True, "manifest": airgap.make_manifest(folder, rels, secret,
@@ -1345,9 +1359,16 @@ def r_airgap_verify(h, qs, payload):
 def r_ingest_scan(h, qs, payload):
     # scan a folder of manuals -> an ingestion plan (new vs already-in-corpus). Read-only over the folder.
     import ingestpipe
+    import features.ingest_feature as ingest_feature
     folder = (payload.get("folder") or "").strip()
     if not folder:
         h._send(400, {"error": "folder path required"}); return
+    # Same VIEWER_INGEST_ROOTS fence as /api/ingest and /api/airgap_manifest -- see the comment on
+    # r_airgap_manifest above.
+    ok, real = ingest_feature.canon_ingest_path(folder)
+    if not ok:
+        h._send(400, {"error": real}); return
+    folder = real
     found = ingestpipe.scan_folder(folder, recursive=bool(payload.get("recursive", True)))
     if not found:
         h._send(200, {"ok": True, "folder": folder, "found": 0,
@@ -1557,13 +1578,32 @@ def r_partsummary(h, qs):
 
 # ---- status / ops / health ---------------------------------------------------------------------------
 
+def _exposed_read_guard(h):
+    """Gate for GET endpoints that leak host internals (filesystem paths, run/ingest state) rather
+    than manual content. do_POST already requires the shared X-Viewer-Token when the server is
+    network-exposed (_EXPOSED); do_GET never did, on the (correct, and kept as-is) assumption that
+    the normal exposed-mode use case is a mechanic's phone browsing/searching manuals over LAN with
+    no way to set a custom header on plain navigation. But that same blanket assumption meant
+    /api/audit, /api/ops, and /api/status -- which reveal real filesystem paths and internal run
+    state, not manual content -- were also wide open to anyone on the network. Gate just these.
+    Returns True if the request may proceed; sends 401 and returns False otherwise."""
+    if not core._EXPOSED:
+        return True
+    if core._auth_ok(h.headers.get("X-Viewer-Token")):
+        return True
+    h._send(401, {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"})
+    return False
+
+
 @get("/api/status")
 def r_status(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.status_summary())
 
 
 @get("/api/ops")
 def r_ops(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.ops_summary())
 
 
@@ -1919,6 +1959,7 @@ def r_notes_post(h, qs, payload):
 
 @get("/api/audit")
 def r_audit(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.file_audit(qint(qs, "limit", 600, 1, 2000)))
 
 

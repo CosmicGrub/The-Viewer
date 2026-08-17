@@ -436,6 +436,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(401, {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}); return
         try: length = int(self.headers.get("Content-Length", 0) or 0)
         except Exception: length = 0
+        # A negative Content-Length used to sail past the "> MAX_POST_BYTES" check below (it's
+        # never greater than a positive cap) and then reach self.rfile.read(length) -- per Python's
+        # io semantics, read() with a negative size reads until EOF, not a bounded amount, silently
+        # defeating the B13 cap entirely. Reject it outright, before any read.
+        if length < 0:
+            self.close_connection = True
+            self._send(400, {"error": "invalid Content-Length"}); return
         if length > MAX_POST_BYTES:
             self.close_connection = True                                         # refuse WITHOUT reading the body
             self._send(413, {"error": "request body too large"}); return        # B13
@@ -567,10 +574,13 @@ def main():
         print("=" * 72)
         print("[EXPOSURE] Binding to a NON-LOOPBACK address (%s) -- the VIEWER is reachable on the network." % args.host)
         if _AUTH_TOKEN:
-            print("[EXPOSURE] Mutating requests require the X-Viewer-Token header (VIEWER_AUTH_TOKEN is set).")
+            print("[EXPOSURE] Mutating requests, plus GET /api/audit, /api/ops, and /api/status (host")
+            print("[EXPOSURE] filesystem paths / internal run state), require the X-Viewer-Token header.")
+            print("[EXPOSURE] All other GETs (search, manual pages, figures, ...) remain open on the LAN by design.")
         else:
-            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs will be REJECTED (401).")
-            print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes over the network.")
+            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs, and GET /api/audit,")
+            print("[EXPOSURE] /api/ops, /api/status, will be REJECTED (401). Other GETs remain open.")
+            print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes + those reads over the network.")
         print("=" * 72)
     srv = _BoundedThreadingHTTPServer((args.host, args.port), Handler)
     print(f"THE VIEWER v{VERSION} running at http://{args.host}:{args.port}  (index: {DB_PATH})"); print("Press Ctrl+C to stop.")

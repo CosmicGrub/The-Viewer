@@ -14,6 +14,16 @@ except Exception:
 _MODEL = None
 DIM = 384  # sentence-transformers all-MiniLM dim; the fallback also uses this width
 
+# Bump this whenever _hash_vec()'s bucket-assignment algorithm changes. Lets search() tell a
+# hash-fallback index built under an OLD, incompatible mapping (e.g. the pre-fix, process-random
+# hash()) apart from a current one -- see build_index()/_index_is_stale() below. Only meaningful
+# for the hash-fallback backend; a sentence-transformers-built index doesn't use this at all.
+HASH_ALGO_VERSION = "crc32-v1"
+
+
+def _meta_path(index_dir):
+    return os.path.join(index_dir, "embeddings.meta.json")
+
 
 def _load_model():
     """Try to load a local sentence-transformers model once; return it or None (fallback)."""
@@ -107,13 +117,51 @@ def build_index(db_path, index_dir, limit=200000, min_chars=60):
     with open(os.path.join(index_dir, "embeddings_ids.tsv"), "w", encoding="utf-8") as f:
         for doc, page in ids:
             f.write("%s\t%s\n" % (doc, page))
+    # Stamp which backend (and, for hash-fallback, which bucket-mapping version) built this index.
+    # Without this, an operator who upgrades but forgets to re-run BUILD-EMBEDDINGS.bat gets no
+    # signal at all -- search() previously only checked file existence, so a pre-crc32-fix index
+    # (built under the old, process-random hash() mapping) kept being served forever with no error,
+    # silently returning the exact near-random similarity results the fix was meant to eliminate.
+    import json
+    used_backend = backend()
+    with open(_meta_path(index_dir), "w", encoding="utf-8") as f:
+        json.dump({
+            "backend": used_backend,
+            "hash_algo_version": HASH_ALGO_VERSION if used_backend == "hash-fallback" else None,
+        }, f)
     return len(ids)
+
+
+def _index_is_stale(index_dir):
+    """True if embeddings.npy needs a rebuild before it can be trusted: it was built by the
+    hash-fallback backend under a different (or unrecorded/unknown) bucket-mapping version than
+    HASH_ALGO_VERSION. A sentence-transformers-built index is never considered stale by this check
+    -- the hash-bucket versioning doesn't apply to it."""
+    meta_path = _meta_path(index_dir)
+    if not os.path.exists(meta_path):
+        # No stamp at all: either predates this version-tracking entirely, or a build that never
+        # finished. Can't assume it's fine -- only the hash-fallback backend is actually at risk,
+        # so that's the only case treated as stale-by-default (conservative: forces a rebuild
+        # rather than silently trusting unverifiable old data).
+        return backend() == "hash-fallback"
+    try:
+        import json
+        meta = json.load(open(meta_path, encoding="utf-8"))
+    except Exception:
+        return backend() == "hash-fallback"
+    if meta.get("backend") != "hash-fallback":
+        return False   # built with sentence-transformers -- the hash-bucket change doesn't apply
+    return meta.get("hash_algo_version") != HASH_ALGO_VERSION
 
 
 def search(query, index_dir, top=15):
     npy = os.path.join(index_dir, "embeddings.npy"); tsv = os.path.join(index_dir, "embeddings_ids.tsv")
     if not _OK or not os.path.exists(npy) or not os.path.exists(tsv):
         return {"ready": os.path.exists(npy), "backend": backend(), "results": []}
+    if _index_is_stale(index_dir):
+        return {"ready": False, "backend": backend(), "results": [], "stale": True,
+                "error": "embeddings index was built under an old/incompatible hash algorithm -- "
+                         "rebuild it via BUILD-EMBEDDINGS.bat"}
     arr = _np.load(npy)
     ids = [ln.rstrip("\n").split("\t") for ln in open(tsv, encoding="utf-8")]
     q = embed_text(query)
@@ -148,5 +196,29 @@ if __name__ == "__main__":
     print("cosine(related): %.3f  cosine(unrelated): %.3f" % (ab, ac))
     assert abs(cosine(a, a) - 1.0) < 1e-5, "self-cosine != 1"
     assert ab > ac, "related text should score higher than unrelated (even in fallback)"
+
+    # Staleness detection: a hash-fallback index with no meta stamp at all (predates version
+    # tracking, or the exact shape a pre-crc32-fix index would have) must be treated as stale;
+    # once build_index() stamps it, search() must accept it.
+    import tempfile, json as _json
+    with tempfile.TemporaryDirectory() as td:
+        _np.save(os.path.join(td, "embeddings.npy"), _np.zeros((1, DIM), dtype=_np.float32))
+        open(os.path.join(td, "embeddings_ids.tsv"), "w").write("doc1\t1\n")
+        if backend() == "hash-fallback":
+            r_missing_meta = search("alternator", td)
+            assert r_missing_meta.get("stale") is True and r_missing_meta["ready"] is False, r_missing_meta
+            print("staleness check (no meta stamp) OK -> ready=False")
+
+            with open(_meta_path(td), "w") as f:
+                _json.dump({"backend": "hash-fallback", "hash_algo_version": "some-old-version"}, f)
+            r_old_version = search("alternator", td)
+            assert r_old_version.get("stale") is True, r_old_version
+            print("staleness check (mismatched version) OK -> ready=False")
+
+            with open(_meta_path(td), "w") as f:
+                _json.dump({"backend": "hash-fallback", "hash_algo_version": HASH_ALGO_VERSION}, f)
+            r_current = search("alternator", td)
+            assert r_current.get("stale") is not True and r_current["ready"] is True, r_current
+            print("staleness check (current version) OK -> ready=True")
     print("embed self-test OK")
 # END OF FILE

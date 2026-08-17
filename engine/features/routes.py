@@ -657,6 +657,7 @@ def r_pdfmeta(h, qs):
 def r_provenance(h, qs):
     # INTERNAL AUDIT (operator, not mechanic): external gap-fills WITH their archived Wayback + original URLs, for
     # spot-checking sources. The only endpoint that surfaces links on purpose; mechanic views stay linkless (R11).
+    if not _exposed_read_guard(h): return
     import enrich, os
     enr = os.path.join(os.path.dirname(core.DB_PATH), "enrich.db")
     subj = qstr(qs, "q", "") or None
@@ -1322,11 +1323,26 @@ def r_mac(h, qs):
     h._send(200, {"ok": True, "rows": macchart.extract_mac(txt)})
 
 
+def _canon_folder_or_400(h, folder):
+    """Shared VIEWER_INGEST_ROOTS fence for every route that takes a caller-supplied folder path
+    (/api/ingest, /api/ingest_preview, /api/airgap_manifest, /api/airgap_verify, /api/ingest_scan).
+    Returns the canonicalized folder on success, or None after already sending a 400 on failure --
+    callers just do `folder = _canon_folder_or_400(h, folder); if folder is None: return`.
+    Factored out so the fence can't be silently skipped by a future route the way
+    /api/airgap_manifest and /api/ingest_scan originally were (they called ingestpipe.scan_folder()
+    directly on the raw path), and /api/airgap_verify still was until this fix."""
+    import features.ingest_feature as ingest_feature
+    ok, real = ingest_feature.canon_ingest_path(folder)
+    if not ok:
+        h._send(400, {"error": real})
+        return None
+    return real
+
+
 @post("/api/airgap_manifest")
 def r_airgap_manifest(h, qs, payload):
     # build a SIGNED update-package manifest for a folder of manuals (air-gap transfer). Read-only.
     import airgap, ingestpipe, os
-    import features.ingest_feature as ingest_feature
     folder = (payload.get("folder") or "").strip()
     secret = payload.get("secret") or ""
     if not folder or not secret:
@@ -1335,10 +1351,8 @@ def r_airgap_manifest(h, qs, payload):
     # used to call scan_folder() on the raw path directly, bypassing the fence entirely (finding
     # from the audit: an operator who configures VIEWER_INGEST_ROOTS to restrict which folders may
     # be touched was still fully exposed via this endpoint).
-    ok, real = ingest_feature.canon_ingest_path(folder)
-    if not ok:
-        h._send(400, {"error": real}); return
-    folder = real
+    folder = _canon_folder_or_400(h, folder)
+    if folder is None: return
     found = ingestpipe.scan_folder(folder)
     rels = [os.path.relpath(f["path"], folder) for f in found]
     h._send(200, {"ok": True, "manifest": airgap.make_manifest(folder, rels, secret,
@@ -1352,6 +1366,12 @@ def r_airgap_verify(h, qs, payload):
     manifest = payload.get("manifest"); folder = (payload.get("folder") or "").strip(); secret = payload.get("secret") or ""
     if not (isinstance(manifest, dict) and folder and secret):
         h._send(400, {"error": "manifest (object), folder, and secret required"}); return
+    # Same fence as the sibling airgap/ingest routes -- previously missing here specifically
+    # (finding from the audit): manifest+secret are both caller-supplied in this same POST body,
+    # so a caller can self-sign an arbitrary manifest and use `folder` to probe file
+    # presence/hashes anywhere on the host, unrestricted by an operator's VIEWER_INGEST_ROOTS.
+    folder = _canon_folder_or_400(h, folder)
+    if folder is None: return
     h._send(200, {"ok": True, "result": airgap.verify(manifest, folder, secret)})
 
 
@@ -1359,16 +1379,13 @@ def r_airgap_verify(h, qs, payload):
 def r_ingest_scan(h, qs, payload):
     # scan a folder of manuals -> an ingestion plan (new vs already-in-corpus). Read-only over the folder.
     import ingestpipe
-    import features.ingest_feature as ingest_feature
     folder = (payload.get("folder") or "").strip()
     if not folder:
         h._send(400, {"error": "folder path required"}); return
     # Same VIEWER_INGEST_ROOTS fence as /api/ingest and /api/airgap_manifest -- see the comment on
     # r_airgap_manifest above.
-    ok, real = ingest_feature.canon_ingest_path(folder)
-    if not ok:
-        h._send(400, {"error": real}); return
-    folder = real
+    folder = _canon_folder_or_400(h, folder)
+    if folder is None: return
     found = ingestpipe.scan_folder(folder, recursive=bool(payload.get("recursive", True)))
     if not found:
         h._send(200, {"ok": True, "folder": folder, "found": 0,
@@ -1583,15 +1600,19 @@ def _exposed_read_guard(h):
     than manual content. do_POST already requires the shared X-Viewer-Token when the server is
     network-exposed (_EXPOSED); do_GET never did, on the (correct, and kept as-is) assumption that
     the normal exposed-mode use case is a mechanic's phone browsing/searching manuals over LAN with
-    no way to set a custom header on plain navigation. But that same blanket assumption meant
-    /api/audit, /api/ops, and /api/status -- which reveal real filesystem paths and internal run
-    state, not manual content -- were also wide open to anyone on the network. Gate just these.
-    Returns True if the request may proceed; sends 401 and returns False otherwise."""
+    no way to set a custom header on plain navigation. But that same blanket assumption left every
+    GET route that reveals real filesystem paths or internal run state -- not manual content --
+    wide open to anyone on the network. Applied to: /api/audit, /api/ops, /api/status,
+    /api/command_status (embeds status_summary(), the same payload /api/status protects),
+    /api/ingest_status (leaks the raw host path of the current/last ingest job), /api/provenance
+    (self-documented "INTERNAL AUDIT (operator, not mechanic)"), and /api/integrity (streams file
+    paths/checksums). Returns True if the request may proceed; sends 401 and returns False otherwise.
+    """
     if not core._EXPOSED:
         return True
     if core._auth_ok(h.headers.get("X-Viewer-Token")):
         return True
-    h._send(401, {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"})
+    h._send(401, core.AUTH_REQUIRED_BODY)
     return False
 
 
@@ -1644,6 +1665,7 @@ def r_command_status(h, qs):
     # TTL-cache the whole aggregate like _SEARCH_LRU already does for search: the underlying data only
     # changes as OCR/ingest progress, so a 60s-stale "glance" dashboard is fine, and it makes every load
     # after the first one instant instead of re-paying the full aggregate cost every single time.
+    if not _exposed_read_guard(h): return
     now = time.time()
     with _COMMAND_STATUS_LOCK:
         if _COMMAND_STATUS_CACHE["body"] is not None and (now - _COMMAND_STATUS_CACHE["t"]) < _COMMAND_STATUS_TTL:
@@ -1703,6 +1725,7 @@ def r_integrity(h, qs):
     # load, since this had no caching at all. TTL-cache it like _COMMAND_STATUS_CACHE; 300s (not 60s) because
     # this is heavier and the underlying files change far less often than OCR/search state. ?force=1 bypasses
     # the cache for a genuinely fresh tamper/corruption check on demand -- never silently hide that option.
+    if not _exposed_read_guard(h): return
     now = time.time()
     if not qflag(qs, "force"):
         with _INTEGRITY_LOCK:
@@ -2021,6 +2044,7 @@ def r_ingest_preview(h, qs):
 
 @get("/api/ingest_status")
 def r_ingest_status(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.ingest_status())
 
 

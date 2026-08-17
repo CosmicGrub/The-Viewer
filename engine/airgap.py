@@ -60,13 +60,17 @@ def signature_valid(manifest, secret):
     return hmac.compare_digest(sig, expect)
 
 
-def _safe_join(root, name):
-    """Join `name` under `root`, refusing anything that would escape it: traversal (`../`),
-    absolute paths, or an alternate drive letter. Returns the resolved path, or None if unsafe."""
-    if not name or os.path.isabs(name) or ":" in name or "\x00" in name:
+def _safe_join(root_real, name):
+    """Join `name` under `root_real` (an already-realpath'd root -- see verify(), which resolves it
+    once per call rather than once per manifest entry), refusing anything that would escape it:
+    traversal (`../`), absolute paths, or an alternate drive letter. Returns the resolved path, or
+    None if unsafe -- including a non-string `name` (a self-signed manifest is fully
+    caller-controlled JSON, so `name` could be an int/list/etc; `not name` alone doesn't catch a
+    non-empty non-string, and os.path.isabs() raises TypeError on one instead of just saying "no").
+    """
+    if not isinstance(name, str) or not name or os.path.isabs(name) or ":" in name or "\x00" in name:
         return None
-    root_real = os.path.realpath(root)
-    candidate = os.path.realpath(os.path.join(root, name))
+    candidate = os.path.realpath(os.path.join(root_real, name))
     try:
         if os.path.commonpath([root_real, candidate]) != root_real:
             return None
@@ -95,10 +99,11 @@ def verify(manifest, root, secret):
         return {"ok": False, "signature_valid": False, "files": [],
                 "missing": [], "tampered": [], "verdict": "REJECT"}
 
+    root_real = os.path.realpath(root)   # resolved once, not once per file (root never changes below)
     rows, missing, tampered = [], [], []
     for e in manifest.get("files", []):
         name = e.get("name", "")
-        p = _safe_join(root, name)
+        p = _safe_join(root_real, name)
         if p is None:
             rows.append({"name": name, "present": False, "match": False})
             tampered.append(name)
@@ -180,6 +185,17 @@ if __name__ == "__main__":
     vt2 = verify(trav_man, dst, SECRET)
     assert not vt2["ok"] and traversal_name in vt2["tampered"], vt2
     print("path-traversal name rejected OK -> tampered=%s" % vt2["tampered"])
+
+    # a self-signed manifest (attacker controls both manifest AND secret, so signature_valid()
+    # trivially passes) with a non-string file name used to crash _safe_join with an unhandled
+    # TypeError (os.path.isabs(123) raises rather than returning False) -- must be rejected as
+    # tampered instead, like any other malformed entry.
+    weird_man = {"label": "x", "created": 0, "count": 1, "algo": "hmac-sha256",
+                 "files": [{"name": 12345, "size": 0, "sha256": "0" * 64}]}
+    weird_man = sign(weird_man, "attacker-chosen-secret")
+    vw2 = verify(weird_man, dst, "attacker-chosen-secret")
+    assert not vw2["ok"] and 12345 in vw2["tampered"], vw2
+    print("non-string file name rejected (no crash) OK -> tampered=%s" % vw2["tampered"])
 
     print("airgap self-test PASS")
 

@@ -206,6 +206,10 @@ def doc_path(doc_id):
 # server is deliberately bound to a non-loopback address, mutating requests must carry a shared token.
 _EXPOSED = False
 _AUTH_TOKEN = os.environ.get("VIEWER_AUTH_TOKEN") or ""
+# Single source of truth for the 401 body, shared by do_POST below and features/routes.py's
+# _exposed_read_guard() (routes.py's `core` IS this module -- core = sys.modules[__name__] -- so
+# both read this same dict rather than each hardcoding their own copy of the message).
+AUTH_REQUIRED_BODY = {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}
 
 
 def _auth_ok(token):
@@ -433,13 +437,21 @@ class Handler(BaseHTTPRequestHandler):
         # shared token (constant-time compared). Loopback (the mechanics' normal path) is unaffected.
         if _EXPOSED and not _auth_ok(self.headers.get("X-Viewer-Token")):
             self.close_connection = True
-            self._send(401, {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}); return
+            self._send(401, AUTH_REQUIRED_BODY); return
         try: length = int(self.headers.get("Content-Length", 0) or 0)
-        except Exception: length = 0
+        except Exception: length = -1     # malformed (non-numeric) header -- see the `length < 0` branch
         # A negative Content-Length used to sail past the "> MAX_POST_BYTES" check below (it's
         # never greater than a positive cap) and then reach self.rfile.read(length) -- per Python's
         # io semantics, read() with a negative size reads until EOF, not a bounded amount, silently
         # defeating the B13 cap entirely. Reject it outright, before any read.
+        #
+        # A malformed (non-numeric) header used to fall into this same except clause but set
+        # length = 0 -- which reads no body at all (`raw = ... if length else b"{}"` below) and
+        # never sets close_connection, even though the client may have actually sent body bytes
+        # after that header. Those bytes then sit unread in the socket buffer and get parsed as the
+        # start of the next request on the same keep-alive connection -- an HTTP framing desync.
+        # Routing "couldn't parse a length at all" through the same length<0 branch as "parsed to a
+        # negative number" closes the connection in both cases instead of just one.
         if length < 0:
             self.close_connection = True
             self._send(400, {"error": "invalid Content-Length"}); return
@@ -574,12 +586,14 @@ def main():
         print("=" * 72)
         print("[EXPOSURE] Binding to a NON-LOOPBACK address (%s) -- the VIEWER is reachable on the network." % args.host)
         if _AUTH_TOKEN:
-            print("[EXPOSURE] Mutating requests, plus GET /api/audit, /api/ops, and /api/status (host")
-            print("[EXPOSURE] filesystem paths / internal run state), require the X-Viewer-Token header.")
+            print("[EXPOSURE] Mutating requests, plus GET /api/audit, /api/ops, /api/status,")
+            print("[EXPOSURE] /api/command_status, /api/ingest_status, /api/provenance, /api/integrity")
+            print("[EXPOSURE] (host filesystem paths / internal run state), require X-Viewer-Token.")
             print("[EXPOSURE] All other GETs (search, manual pages, figures, ...) remain open on the LAN by design.")
         else:
-            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs, and GET /api/audit,")
-            print("[EXPOSURE] /api/ops, /api/status, will be REJECTED (401). Other GETs remain open.")
+            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs, and the GETs listed")
+            print("[EXPOSURE] above (audit/ops/status/command_status/ingest_status/provenance/integrity),")
+            print("[EXPOSURE] will be REJECTED (401). Other GETs remain open.")
             print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes + those reads over the network.")
         print("=" * 72)
     srv = _BoundedThreadingHTTPServer((args.host, args.port), Handler)

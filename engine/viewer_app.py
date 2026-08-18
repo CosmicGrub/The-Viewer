@@ -206,6 +206,34 @@ def doc_path(doc_id):
 # server is deliberately bound to a non-loopback address, mutating requests must carry a shared token.
 _EXPOSED = False
 _AUTH_TOKEN = os.environ.get("VIEWER_AUTH_TOKEN") or ""
+# Single source of truth for the 401 body, shared by do_POST below and features/routes.py's
+# _exposed_read_guard() (routes.py's `core` IS this module -- core = sys.modules[__name__] -- so
+# both read this same dict rather than each hardcoding their own copy of the message).
+AUTH_REQUIRED_BODY = {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}
+
+# The actual bind host/port, set once in main() -- exposed as module globals (not just local
+# variables) so DI callers (routes.py's `core` IS this module) can read the real values instead of
+# blindly trusting client-supplied input. Used by r_qr's Host-header validation (finding #16).
+HOST = "127.0.0.1"
+PORT = 8765
+# Operator-configurable allowlist of additional host[:port] values a client-supplied Host header is
+# allowed to be trusted for (comma-separated), for the "exposed on the LAN, reachable at more than
+# one address" case -- e.g. a friendly hostname or a specific LAN IP. Follows the existing VIEWER_*
+# env-var convention (VIEWER_AUTH_TOKEN, VIEWER_MODE, VIEWER_MAX_WORKERS, ...).
+_ALLOWED_HOSTS = {h.strip().lower() for h in (os.environ.get("VIEWER_ALLOWED_HOSTS") or "").split(",") if h.strip()}
+
+
+def safe_public_base(candidate_host):
+    """Resolve the base URL to embed in operator-facing output (QR codes, deep links) that a
+    client's browser will later be told to visit -- never trust a client-supplied Host header for
+    this blindly (finding #16: a spoofed Host let a QR-code scan send a mechanic's phone to an
+    attacker-controlled URL). `candidate_host` is validated against the actual bind address plus
+    the VIEWER_ALLOWED_HOSTS allowlist; anything else falls back to a safe default derived from how
+    the server was actually started, never the wildcard bind address itself."""
+    safe_default = "127.0.0.1:%d" % PORT if HOST in ("0.0.0.0", "::") else "%s:%d" % (HOST, PORT)
+    allowed = _ALLOWED_HOSTS | {safe_default.lower()}
+    candidate = (candidate_host or "").strip()
+    return "http://" + (candidate if candidate.lower() in allowed else safe_default)
 
 
 def _auth_ok(token):
@@ -433,9 +461,24 @@ class Handler(BaseHTTPRequestHandler):
         # shared token (constant-time compared). Loopback (the mechanics' normal path) is unaffected.
         if _EXPOSED and not _auth_ok(self.headers.get("X-Viewer-Token")):
             self.close_connection = True
-            self._send(401, {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}); return
+            self._send(401, AUTH_REQUIRED_BODY); return
         try: length = int(self.headers.get("Content-Length", 0) or 0)
-        except Exception: length = 0
+        except Exception: length = -1     # malformed (non-numeric) header -- see the `length < 0` branch
+        # A negative Content-Length used to sail past the "> MAX_POST_BYTES" check below (it's
+        # never greater than a positive cap) and then reach self.rfile.read(length) -- per Python's
+        # io semantics, read() with a negative size reads until EOF, not a bounded amount, silently
+        # defeating the B13 cap entirely. Reject it outright, before any read.
+        #
+        # A malformed (non-numeric) header used to fall into this same except clause but set
+        # length = 0 -- which reads no body at all (`raw = ... if length else b"{}"` below) and
+        # never sets close_connection, even though the client may have actually sent body bytes
+        # after that header. Those bytes then sit unread in the socket buffer and get parsed as the
+        # start of the next request on the same keep-alive connection -- an HTTP framing desync.
+        # Routing "couldn't parse a length at all" through the same length<0 branch as "parsed to a
+        # negative number" closes the connection in both cases instead of just one.
+        if length < 0:
+            self.close_connection = True
+            self._send(400, {"error": "invalid Content-Length"}); return
         if length > MAX_POST_BYTES:
             self.close_connection = True                                         # refuse WITHOUT reading the body
             self._send(413, {"error": "request body too large"}); return        # B13
@@ -528,7 +571,7 @@ def _auto_optimize():
 
 
 def main():
-    global DB_PATH, INDEX_DIR
+    global DB_PATH, INDEX_DIR, HOST, PORT
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", DB_PATH))
     ap.add_argument("--port", type=int, default=8765)
@@ -537,6 +580,7 @@ def main():
     ap.add_argument("--mode", default=None, help="force RPS mode: modern | lite | legacy")
     ap.add_argument("--prebake", type=int, default=0, metavar="N", help="pre-render the first N pages of every doc into the cache, then exit")
     args = ap.parse_args(); DB_PATH = os.path.abspath(args.db); INDEX_DIR = os.path.abspath(os.path.dirname(DB_PATH))
+    HOST, PORT = args.host, args.port
     if not os.path.exists(DB_PATH): print(f"[WARN] index not found at {DB_PATH}")
     global RPS_OVERRIDE
     if args.mode: RPS_OVERRIDE = args.mode
@@ -567,10 +611,26 @@ def main():
         print("=" * 72)
         print("[EXPOSURE] Binding to a NON-LOOPBACK address (%s) -- the VIEWER is reachable on the network." % args.host)
         if _AUTH_TOKEN:
-            print("[EXPOSURE] Mutating requests require the X-Viewer-Token header (VIEWER_AUTH_TOKEN is set).")
+            print("[EXPOSURE] Mutating requests, plus GET /api/audit, /api/ops, /api/status,")
+            print("[EXPOSURE] /api/command_status, /api/ingest_status, /api/provenance, /api/integrity")
+            print("[EXPOSURE] (host filesystem paths / internal run state), require X-Viewer-Token.")
+            print("[EXPOSURE] All other GETs (search, manual pages, figures, ...) remain open on the LAN by design.")
         else:
-            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs will be REJECTED (401).")
-            print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes over the network.")
+            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs, and the GETs listed")
+            print("[EXPOSURE] above (audit/ops/status/command_status/ingest_status/provenance/integrity),")
+            print("[EXPOSURE] will be REJECTED (401). Other GETs remain open.")
+            print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes + those reads over the network.")
+        if args.host in ("0.0.0.0", "::") and not _ALLOWED_HOSTS:
+            # Review finding: safe_public_base() (used by /api/qr) refuses any Host it can't
+            # verify and falls back to 127.0.0.1 -- correct for a wildcard bind, where the bind
+            # address itself names no single reachable host, but that means QR codes silently
+            # encode a URL that's meaningless on the SCANNING device (127.0.0.1 resolves to
+            # itself, not this server) unless the operator sets VIEWER_ALLOWED_HOSTS to the
+            # LAN IP/hostname clients actually use -- exactly the deployment this binding is for.
+            print("[EXPOSURE] Bound to %s (a wildcard address) -- QR codes / deep links (/api/qr) will" % args.host)
+            print("[EXPOSURE] encode 127.0.0.1 (useless on a scanning phone) until you set")
+            print("[EXPOSURE] VIEWER_ALLOWED_HOSTS to the LAN IP/hostname clients actually connect to")
+            print("[EXPOSURE] (comma-separated, e.g. VIEWER_ALLOWED_HOSTS=192.168.1.50:%d)." % args.port)
         print("=" * 72)
     srv = _BoundedThreadingHTTPServer((args.host, args.port), Handler)
     print(f"THE VIEWER v{VERSION} running at http://{args.host}:{args.port}  (index: {DB_PATH})"); print("Press Ctrl+C to stop.")

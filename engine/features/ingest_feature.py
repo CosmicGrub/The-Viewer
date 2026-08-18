@@ -16,8 +16,13 @@ ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _INGEST = {"proc": None, "path": "", "started": 0.0}
 
 
-def _canon_ingest_path(path):
-    """Canonicalize + (optionally) fence the ingest folder. Returns (ok, canonical_or_error)."""
+def canon_ingest_path(path):
+    """Canonicalize + (optionally) fence a folder against VIEWER_INGEST_ROOTS. Returns
+    (ok, canonical_or_error). Public (no leading underscore) specifically so every route that
+    reads an arbitrary folder off the host filesystem can share this one fence -- r_airgap_manifest
+    and r_ingest_scan in features/routes.py used to call ingestpipe.scan_folder() on the raw,
+    unvalidated path directly, silently bypassing VIEWER_INGEST_ROOTS even when an operator had
+    configured it specifically to restrict which folders may be indexed/scanned."""
     path = (path or "").strip()
     if not path:
         return False, "Not a folder on this machine: (empty)"
@@ -31,6 +36,10 @@ def _canon_ingest_path(path):
                    rl == os.path.normcase(os.path.realpath(r)).rstrip("\\/") for r in roots):
             return False, "Folder is outside the configured ingest roots (VIEWER_INGEST_ROOTS)."
     return True, real
+
+
+# Back-compat alias -- keep the original private name working for anything else that imported it.
+_canon_ingest_path = canon_ingest_path
 
 
 def ingest_preview(path):

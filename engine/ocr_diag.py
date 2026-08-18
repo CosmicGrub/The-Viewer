@@ -13,9 +13,18 @@ print("RapidOCR available     :", vi._have_rapid())
 
 con = sqlite3.connect(DB, timeout=30)
 # how many pending/failed by path location
-for label, like in [("E:\\ native", "E:%"), ("sandbox /sessions", "/sessions/%"), ("other", "_%")]:
+# Low finding #48: the "other" bucket used to run `LIKE '_%'` -- SQL's `_` is a single-character
+# wildcard, not a literal underscore, so that pattern matched almost every path (anything with at
+# least one character), double-counting into "other" everything already counted in the first two
+# buckets above and invalidating the whole breakdown. Fixed to an actual "doesn't match either of
+# the other two" exclusion instead of a wildcard LIKE.
+for label, where, args in [
+    ("E:\\ native", "d.path LIKE ?", ("E:%",)),
+    ("sandbox /sessions", "d.path LIKE ?", ("/sessions/%",)),
+    ("other", "d.path NOT LIKE ? AND d.path NOT LIKE ?", ("E:%", "/sessions/%")),
+]:
     n = con.execute("SELECT COUNT(*) FROM pages p JOIN documents d ON d.id=p.document_id "
-                    "WHERE p.ocr_status IN ('pending','failed','running') AND d.path LIKE ?", (like,)).fetchone()[0]
+                    "WHERE p.ocr_status IN ('pending','failed','running') AND " + where, args).fetchone()[0]
     print(f"  queued/failed pages with path {label:18}: {n}")
 
 row = con.execute("SELECT d.path, p.page_number FROM pages p JOIN documents d ON d.id=p.document_id "

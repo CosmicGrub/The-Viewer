@@ -5,6 +5,7 @@ word-shingles and measures Jaccard similarity, so near-identical editions cluste
 latest edition, de-duplicate search hits, and correlate change history. Pure stdlib; read-only. Corpus authoritative
 (nothing is deleted -- duplicates are just linked)."""
 import re
+import zlib
 
 _WORD = re.compile(r"[a-z]{3,}")
 
@@ -14,12 +15,20 @@ def _tokens(text):
     return _WORD.findall((text or "").lower())
 
 
+def _stable_hash(s):
+    # zlib.crc32, not the builtin hash() -- str hash() is PYTHONHASHSEED-randomized per process
+    # by default (medium finding #22, same bug already fixed in embed.py's HASH_ALGO_VERSION
+    # path). Currently latent since find_duplicates() has no caller yet, but a shingle set
+    # computed in one process and compared/persisted from another would otherwise never agree.
+    return zlib.crc32(s.encode("utf-8"))
+
+
 def shingles(text, k=4):
     """Set of k-word shingles (as hashes) -- the document fingerprint."""
     toks = _tokens(text)
     if len(toks) < k:
-        return frozenset(hash(t) for t in toks)
-    return frozenset(hash(" ".join(toks[i:i + k])) for i in range(len(toks) - k + 1))
+        return frozenset(_stable_hash(t) for t in toks)
+    return frozenset(_stable_hash(" ".join(toks[i:i + k])) for i in range(len(toks) - k + 1))
 
 
 def jaccard(a, b):

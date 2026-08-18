@@ -13,7 +13,7 @@ sidecar (R1 / R6).
 | Layer / method | Module | Covers | Output |
 |---|---|---|---|
 | **Native PDF text** | indexer / `fitz.get_text` | Born-digital manuals where the text is already selectable | `pages.body_text` → FTS |
-| **OCR (GPU EasyOCR)** | OCR pipeline | Scanned / image-only pages (the majority of legacy TMs) | `pages.body_text` → FTS, `ocr_status` |
+| **OCR (GPU RapidOCR)** | OCR pipeline | Scanned / image-only pages (the majority of legacy TMs) | `pages.body_text` → FTS, `ocr_status` |
 | **Structured tables** | `tables.py` (PyMuPDF `find_tables`) | RPSTL rows, torque tables, PMCS grids, **leading-particulars / spec tables** | `index/tables.db` sidecar, `/api/tables` |
 | **Measurements / dimensions** | `measures.py` | **Every measured value**: length, dia., clearance/tolerance, torque, pressure, capacity, electrical, temp, flow, weight, force, speed, rotation, angle, thread | live FTS + `index/measures.db`, `/measures`, `/api/measures` |
 | **Vector / line-art text** | `vectorize.py` + schematic tools | Callout numbers & labels drawn as vectors (not raster) on schematics/diagrams | figure callouts, `/api/schemgraph` |

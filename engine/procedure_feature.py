@@ -15,7 +15,7 @@ core = None   # injected by viewer_app: _pf.core = sys.modules[__name__]
 try:
     from patterns import NSN_RE, FIG_RE, PN_RE, norm_nsn, nsn_fts_phrase
 except Exception:                      # standalone/test fallback
-    NSN_RE = re.compile(r"(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})")
+    NSN_RE = re.compile(r"\b(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})\b")   # \b-anchored -- see patterns.py's NSN_RE
     FIG_RE = re.compile(r"\bFIG(?:URE)?\.?\s*([0-9]+(?:-[0-9]+)?)", re.I)
     PN_RE  = re.compile(r"\b(?:P/N|PART\s*N[O0]\.?|PART\s*NUMBER)\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-]{3,16})", re.I)
     def norm_nsn(s):
@@ -55,7 +55,7 @@ def parse_procedure(text, title=""):
     cur = None; in_tools = False; i = 0
     while i < len(lines):
         ln = lines[i]; s = ln.strip()
-        if not s: in_tools = False; i -= 1; continue
+        if not s: in_tools = False; i += 1; continue
         wm = _WARN_RE.match(ln)
         if wm:
             body = wm.group(2).strip()

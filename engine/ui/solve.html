@@ -114,7 +114,8 @@ function focusPart(part){
       if(pr.found&&pr.procedures.length){ pr.procedures.forEach(function(p){
         if(!vehicle&&p.vehicle)vehicle=p.vehicle;
         h+='<div style="margin:8px 0"><span class="kind '+kcls(p.kind)+'">'+esc(p.kind)+'</span><a href="/page?doc='+encodeURIComponent(p.doc_id)+'&page='+encodeURIComponent(p.page)+'&dpi=150&clean=1" target="_blank" style="color:var(--acc);text-decoration:none;font-size:12.5px">'+esc(p.vehicle||p.tm_number||"")+' · p.'+esc(p.page)+' ↗</a>';
-        (p.cautions||[]).slice(0,3).forEach(function(c){h+='<div class="caut '+kcls(c.kind)+'"><b>'+esc(c.kind)+'</b> — '+esc(c.text)+'</div>';});
+        (p.cautions||[]).slice(0,3).forEach(function(c){var q=(c.confidence&&c.confidence!=="clean")?(' <i style="color:var(--amb)">(OCR quality: '+esc(c.confidence)+' — verify on page)</i>'):"";
+          h+='<div class="caut '+kcls(c.kind)+'"><b>'+esc(c.kind)+'</b> — '+esc(c.text)+q+'</div>';});
         if(p.tools&&p.tools.length){h+='<div style="margin:6px 0">';p.tools.slice(0,8).forEach(function(t){h+='<span class="tool">'+esc(t)+'</span>';});h+='</div>';}
         if(p.steps&&p.steps.length){h+='<ol class="steps">';p.steps.slice(0,8).forEach(function(s){h+='<li>'+esc(s)+'</li>';});h+='</ol>';if(p.steps.length>8)h+='<div class="step-note">+'+(p.steps.length-8)+' more steps — open the full procedure.</div>';}
         h+='</div>';

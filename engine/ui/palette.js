@@ -13,6 +13,11 @@
   function toggleKiosk(){ var on=!kioskOn(); try{ window.localStorage.setItem("viewer_kiosk", on?"1":"0"); }catch(e){}
       applyKiosk(on); if(typeof window.toast==="function") window.toast(on?"Kiosk mode ON — big touch targets":"Kiosk mode off"); return on; }
   window.viewerToggleKiosk=toggleKiosk;
+  // Review finding: cadview.js/deepzoom.js/threed.html each independently reimplemented this exact
+  // read (one inconsistently). Export it so they can share one implementation instead. Guarded so
+  // whichever of shared.js/palette.js happens to load first on a given page wins -- most pages load
+  // both, but circuitlab.html/scan.html load only palette.js, so this can't only live in shared.js.
+  if(window.viewerKioskOn===undefined) window.viewerKioskOn=kioskOn;
   (function(){ var apply=function(){ applyKiosk(kioskOn()); };
     if(document.body) apply(); else document.addEventListener("DOMContentLoaded",apply); })();
 

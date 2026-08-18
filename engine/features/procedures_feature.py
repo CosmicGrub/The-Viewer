@@ -62,6 +62,26 @@ def _parse_procedure(text):
         m = re.match(r"^(\d{1,3})[\.\)]\s+(.+)", s)
         if m and len(m.group(2)) > 4: steps.append(m.group(2)[:300])
     if not steps and not tools: return None
+    # UX finding #6 (priority 5, R13 safety-relevant): flag each caution's OCR-quality confidence (the
+    # same signal cautions.find_for_query() already computes for /api/cautions via textquality.annotate,
+    # additive -- no change to the {kind, text} shape above) so a mechanic reading a printed Job Card
+    # away from the screen -- with no way to re-check a garbled DANGER line against the corpus -- can
+    # see that it needs verifying, instead of every callout displaying with identical visual weight.
+    # Review finding: the try/except used to wrap the WHOLE loop, so one bad caution mid-list would
+    # silently leave every LATER caution un-annotated (no exception surfaced, no consumer able to tell
+    # "clean" from "never scored") -- exactly the safety-relevant item this fix cares most about could
+    # be the one left unflagged. Each caution is now scored independently.
+    try:
+        import textquality as _tq
+    except Exception:
+        _tq = None
+    if _tq:
+        for c in cautions:
+            try:
+                scored = _tq.annotate({"text": c["text"]}, context_key="text")
+                c["confidence"] = scored["confidence"]; c["quality"] = scored["quality"]
+            except Exception:
+                pass
     return {"kind": kind or "Procedure", "title": (title or "")[:80], "steps": steps[:40],
             "tools": tools[:25], "materials": materials[:20], "references": refs[:12],
             "cautions": cautions[:12]}

@@ -2,7 +2,9 @@
 
 Generated 2026-07-02. A second 100, in 10 **new** themes of 10 — distinct from Vol. 1 (which covered
 extraction, search, diagrams, wiring, fasteners, fluids, workflow, PUBLOG, trust/QA, security). Same R13
-posture. ★ = high leverage · ⚑ = safety-critical · (E) = serves brief-req E "add any file easily".
+posture. ★ = high leverage · ⚑ = safety-critical · (E) = serves brief-req E "add any file easily" ·
+✅ = shipped (see `docs/CHANGELOG.md`) · 🔧 = in progress. Items are unmarked until shipped;
+annotate inline going forward (medium finding #42) — no scheduled re-audit implied.
 
 ---
 

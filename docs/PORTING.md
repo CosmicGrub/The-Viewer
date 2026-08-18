@@ -15,8 +15,13 @@ see reconciliation note below), post-"THE RESTRUCTURE" + the v1.13.0 "HOLISTIC H
 > PROJECT-SUMMARY.md §2). It's inside `engine/`, so "copy the project" already covers it; `make_portable.py`
 > copytree picks it up automatically. Rollback snapshots exist under `backups/`: `pre-v0.96-restructure/`,
 > `pre-v0.97-batch/`, `pre-v0.98-nav/`, and **`pre-v1.13/`** (current rollback point). After moving, run root
-> **`VERIFY.bat`** — the single authoritative gate since v1.13.0 (`VERIFY-099.bat` forwards to it; the older
-> `VERIFY-V098.bat` still works but only covers the pre-1.13 suites).
+> **`VERIFY.bat`** — the single authoritative gate since v1.13.0 (`VERIFY-099.bat` forwards to it; the older,
+> pre-1.13 `VERIFY-V098.bat` was removed -- low finding #50 -- since it was superseded, unreferenced by any
+> other launcher, and had no exit-code truth at all: each test ran `... && echo [X PASS]` on its own
+> independent line (so one failing test did NOT block later tests, unlike the true `&&`-chaining bug
+> VERIFY.bat's header warns about), but the script never checked `errorlevel` or propagated a failure exit
+> code -- it always printed "Done." and relied on a human eyeballing the log for missing `[X PASS]` markers,
+> the exact "eyeball the log" anti-pattern VERIFY.bat's rewrite was built to replace).
 
 ---
 
@@ -96,8 +101,8 @@ Re-ingesting from scratch is the slow third option.
 2. **OCR scan** if still below 100% — it resumes from the index automatically; check current % via `/command` or
    the OCR watchdog before assuming it's finished.
 3. **Root `VERIFY.bat`** — the authoritative gate (exit-code truth, wall-clock guarded, unions every suite +
-   `rps_lint`/`verify_ui`/`check_crlf` + module self-tests). Run this, not the older `VERIFY-ALL.bat`/
-   `VERIFY-V098.bat`, for the current one-shot green check.
+   `rps_lint`/`verify_ui`/`check_crlf` + module self-tests). Run this, not the older `VERIFY-ALL.bat`, for
+   the current one-shot green check. (`VERIFY-V098.bat` was removed -- see the note above.)
 4. Optional, if you skipped them in the lean copy and want them fresh: `BUILD-MASTERFILE.bat`,
    `BUILD-CONFLICTS.bat` (both append-only, safe to run anytime OCR is paused).
 5. `engine\optimize_index.py` once (while OCR is paused) — perf indexes/maintenance.

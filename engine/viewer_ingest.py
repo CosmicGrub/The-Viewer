@@ -16,6 +16,17 @@ try:
     import numpy as _np
 except Exception:
     _np = None
+try:
+    import ocrprep
+except Exception:
+    ocrprep = None
+# OCR pre-processing (deskew/denoise/binarize) before every OCR call (finding #14): ocrprep.py
+# already had a working, self-tested preprocessing pipeline, but nothing in this file ever called
+# it -- every scanned page was OCR'd raw. Operator-toggleable (VIEWER_OCR_PREPROCESS=0 to disable)
+# because the real accuracy effect on this corpus hasn't been benchmarked yet -- default on, but
+# easy to turn off if it turns out to hurt more than it helps. See _ocr_preprocessed_input() below
+# for why RapidOCR and Tesseract get different pipelines (preprocess_light vs. preprocess).
+OCR_PREPROCESS = os.environ.get("VIEWER_OCR_PREPROCESS", "1") != "0"
 
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
@@ -23,17 +34,47 @@ TM_RE  = re.compile(r"\bTM\s*[0-9][0-9A-Za-z\-]+")
 
 _RAPID = None
 OCR_DPI = 200          # render DPI for OCR (profile-tunable)
+# Medium finding #24: every page used to rasterize at the fixed DPI above regardless of its
+# physical size, with no output-resolution ceiling -- a large-format foldout engineering drawing
+# (common in this corpus) at 200 DPI can produce a ~60+ megapixel raster handed straight to OCR/
+# preprocessing with no downscale guard. _render_png() now shrinks the effective DPI for any page
+# whose projected pixel count would exceed this cap; a normal-size page is completely unaffected.
+OCR_MAX_MEGAPIXELS = int(os.environ.get("VIEWER_OCR_MAX_MP", "25")) * 1_000_000
+# Review finding: the DPI floor (previously hardcoded at 100 with no relation to the cap above)
+# could itself push a sufficiently large page's raster back OVER OCR_MAX_MEGAPIXELS, silently
+# defeating the guarantee. The megapixel cap always wins; this floor only prevents a truly
+# degenerate near-zero DPI on an extreme outlier page.
+MIN_OCR_DPI = 20
 USE_CUDA = False       # GPU OCR when True (RapidOCR + onnxruntime-gpu)
 ADAPTIVE_DPI = os.environ.get("VIEWER_ADAPTIVE_DPI") == "1"   # opt-in: lower DPI on sparse pages (default OFF = no accuracy change)
 _RAPID_LOCK = threading.Lock()
 _FITZ_LOCK = threading.Lock()
+# No timeout previously guarded either PDF rendering (PyMuPDF) or OCR inference (RapidOCR/
+# Tesseract) on the default/preferred engine path -- one pathological page could stall an entire
+# multi-hour ocrall() batch forever (finding #15). signal.alarm/SIGALRM isn't usable here: it can
+# only preempt at a bytecode boundary or an interruptible syscall, and a single opaque native call
+# (fitz.Page.get_pixmap(), an ONNX Runtime Run()) is exactly the case with neither -- that's true on
+# any platform, not just Windows. A thread + .join(timeout) is the primitive that actually works:
+# it gives up waiting on a real wall-clock deadline regardless of whether the target thread ever
+# cooperates. The one thread that hung is leaked (never reclaimed -- Python has no safe way to kill
+# a thread), but the process keeps going and the OS reclaims everything when it eventually exits.
+OCR_PAGE_TIMEOUT_SECONDS = int(os.environ.get("VIEWER_OCR_PAGE_TIMEOUT", "120"))
 _DEDUP = {}                       # img_hash -> OCR text: identical pages (boilerplate) reuse text, skip re-inference
 _DEDUP_LOCK = threading.Lock()
 _DEDUP_STATS = {"hits": 0}
 def _page_density(path, page_number):
     """Fraction of dark pixels at 50 DPI gray — a cheap blank/complexity probe (one render reused for both
-    the blank-skip and the optional adaptive DPI). Returns None if PyMuPDF/numpy aren't available."""
+    the blank-skip and the optional adaptive DPI). Returns None if PyMuPDF/numpy aren't available.
+    Review finding: this calls fitz directly and used to run OUTSIDE _FITZ_LOCK even after the
+    render-lock hardening below — PyMuPDF's C state isn't thread-safe, so with --workers>1 this
+    probe (called at the top of every ocr_one()) could still race concurrently against another
+    thread's render, exactly the class of wedge/crash _FITZ_LOCK exists to prevent. Bounded (not
+    unbounded) for the same reason _render_png's acquire is bounded: a busy lock degrades this
+    best-effort probe to "skip it" (default DPI, no blank-skip) instead of blocking a worker thread
+    indefinitely."""
     if fitz is None or _np is None: return None
+    if not _FITZ_LOCK.acquire(timeout=OCR_PAGE_TIMEOUT_SECONDS):
+        return None
     try:
         doc = fitz.open(path); pix = doc[page_number-1].get_pixmap(dpi=50, colorspace=fitz.csGRAY)
         arr = _np.frombuffer(pix.samples, dtype=_np.uint8); doc.close()
@@ -41,6 +82,8 @@ def _page_density(path, page_number):
         return float((arr < 110).mean())
     except Exception:
         return None
+    finally:
+        _FITZ_LOCK.release()
 def _have_rapid():
     try:
         import rapidocr  # modern unified package (PP-OCRv5, higher accuracy)  # noqa
@@ -157,17 +200,52 @@ def _sql_statements(script):
     if tail and any(l.strip() and not l.strip().startswith("--") for l in tail.splitlines()):
         yield tail
 
-def migrate(con, migrations_dir):
+def migrate(con, migrations_dir, db_path=None):
     """v1.13: each migration's DDL + its schema_version bump commit ATOMICALLY (one BEGIN IMMEDIATE ..
     COMMIT). Previously executescript() committed the DDL first and the version bump after -- a crash
     between the two left columns applied with a stale schema_version, the exact crash-loop class
-    fix_schema_version.py exists to patch. Now a crash rolls the whole migration back cleanly."""
+    fix_schema_version.py exists to patch. Now a crash rolls the whole migration back cleanly.
+
+    Backs up db_path via safeguard.backupdb() before applying any pending migration -- docs/
+    ARCHITECTURE.md's standing rule R1 ("no breaking changes without ... a way to roll back")
+    applies to schema DDL as much as anything else, and migrations are the least reversible write
+    class in this codebase (SQLite's ALTER TABLE ADD COLUMN has no clean per-migration undo; only 1
+    of 9 migration files even documents a rollback, and only in a prose comment). The docs used to
+    separately claim this backup already happened (a fictional `viewer.db.bak-<version>-<date>`
+    file) -- it never did; this makes that claim true, via the same VACUUM INTO backup mechanism
+    every other write path that touches viewer.db already uses (ingest_feature.py, run_ocr_auto.bat,
+    ENRICH-PUBLOG.bat, ...). Gated on `pending` being non-empty so the common no-op case (nothing to
+    migrate, which is every read-only CLI invocation) doesn't pay a multi-GB backup cost. Backup
+    failure aborts the whole migrate() call (raises) rather than proceeding without a rollback path
+    -- unlike ingest_feature.py's best-effort pre-ingest snapshot, a migration that can't be rolled
+    back if it goes wrong is exactly the scenario R1 exists to prevent."""
     has = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'").fetchone()
     version = 0
     if has:
         row = con.execute("SELECT schema_version FROM schema_meta WHERE id=1").fetchone()
         version = row[0] if row else 0
     files = sorted(f for f in os.listdir(migrations_dir) if re.match(r"\d{4}_.*\.sql$", f))
+    pending = [f for f in files if int(f[:4]) > version]
+    if pending and db_path and os.path.exists(db_path):
+        import safeguard
+        log(f"migrate: {len(pending)} pending migration(s) -- backing up {db_path} before applying...")
+        try:
+            # Only the CANONICAL index (safeguard.DB_DEFAULT) backs up into the shared, rotated
+            # <repo>/backups/db/ vault every other backup path in this codebase already writes to.
+            # Any OTHER db_path (a test's tempdir DB, a staging/alternate corpus passed via --db)
+            # gets its own sibling backups/db/ folder instead -- review finding: migrating a
+            # throwaway/alternate DB must never write into (and keep=2-rotate stale copies out
+            # of) the real production backup vault. Confirmed live: running the test suite used
+            # to write into and rotate the actual repo's backups/db/ on every run.
+            dest_dir = None
+            if os.path.abspath(db_path) != os.path.abspath(safeguard.DB_DEFAULT):
+                dest_dir = os.path.join(os.path.dirname(os.path.abspath(db_path)), "backups", "db")
+            backup_path = safeguard.backupdb(db_path, dest_dir=dest_dir)
+            log(f"migrate: backup OK -> {backup_path}")
+        except Exception as e:
+            log(f"MIGRATION ABORTED: pre-migration backup failed, refusing to apply DDL with no "
+                f"rollback path. Fix the backup issue (often: free disk space) and rerun. Error: {e}")
+            raise
     applied = 0
     for f in files:
         v = int(f[:4])
@@ -299,14 +377,78 @@ def crawl(con, root, max_files=0, max_seconds=0):
     con.execute("UPDATE runs SET finished_at=datetime('now'), files_seen=?, new_docs=?, pages_indexed=?, ocr_queued=?, failed=? WHERE id=?",(seen,new,pi,q,fail,rid)); con.commit()
     log(f"CRAWL DONE seen={seen} new={new} pages_text={pi} ocr_queued={q} failed={fail}")
 
+def _capped_dpi(w_in, h_in, d):
+    """Shrink `d` (DPI), never below MIN_OCR_DPI, so a page of physical size (w_in, h_in) inches
+    rasterizes at or under OCR_MAX_MEGAPIXELS pixels. Returns `d` unchanged if the page is already
+    under the cap at that DPI, or if the dimensions aren't usable (<=0 -- e.g. a malformed
+    MediaBox). Shared by both render backends (finding #24 review: the fix originally lived only
+    in the PyMuPDF branch, leaving the pdftoppm fallback -- the documented path for machines
+    without PyMuPDF, e.g. Windows 7/Vista per docs/SYSTEM-REQUIREMENTS.md -- fully uncapped).
+    Review finding: the floor used to be 100 DPI, which for a large enough page (area over
+    OCR_MAX_MEGAPIXELS/100**2, e.g. ~2500 sq in at the default 25MP cap) produced a raster WELL
+    OVER the cap -- the exact "~60+ megapixel raster" problem this fix exists to prevent, just at
+    a higher size threshold. MIN_OCR_DPI is deliberately low (not literally 1) only to avoid a
+    truly degenerate near-zero-DPI render on some absurd outlier; the megapixel cap is the hard
+    guarantee this function exists to uphold, and always wins over the OCR-quality floor."""
+    if w_in > 0 and h_in > 0 and (w_in * d) * (h_in * d) > OCR_MAX_MEGAPIXELS:
+        return max(MIN_OCR_DPI, int((OCR_MAX_MEGAPIXELS / (w_in * h_in)) ** 0.5))
+    return d
+
+
+def _pdftoppm_page_size_in(path, page_number):
+    """Physical page size in inches via `pdfinfo` (the same Poppler package pdftoppm ships with),
+    for the non-PyMuPDF fallback render path. Returns (None, None) on any failure (missing
+    pdfinfo, unparseable output, timeout) -- callers must treat that as 'can't determine size,
+    render uncapped' (fail-open: a preprocessing quality/safety nicety must never be the reason a
+    page fails to render at all)."""
+    try:
+        out = subprocess.run(["pdfinfo", "-f", str(page_number), "-l", str(page_number), path],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30).stdout.decode("utf-8", "ignore")
+        m = re.search(r"Page size:\s*([\d.]+)\s*x\s*([\d.]+)\s*pts", out)
+        if m:
+            return float(m.group(1)) / 72.0, float(m.group(2)) / 72.0
+    except Exception:
+        pass
+    return None, None
+
+
 def _render_png(path, page_number, dpi=None):
     d = int(dpi or OCR_DPI)
     if fitz is not None:
-        with _FITZ_LOCK:                       # PyMuPDF is not thread-safe
-            doc = fitz.open(path); pix = doc[page_number-1].get_pixmap(dpi=d)
+        # Bounded acquire, not a bare `with _FITZ_LOCK:` -- PyMuPDF's C state isn't thread-safe, so
+        # every render in this process serializes behind this one lock. If a render ever wedges
+        # *while holding it*, an unbounded acquire means every OTHER worker thread's next call to
+        # _render_png() also blocks forever trying to acquire the same lock -- "one page hangs"
+        # silently becomes "the whole process wedges on its very next render." A bounded acquire
+        # means a page that can't get the lock in time fails fast (raises, caught by _ocr_task's
+        # own timeout/except handling) instead of hanging, so the batch keeps draining even after a
+        # wedge -- degraded, but ocrall() still exits normally and the existing crash/restart loop
+        # in run_ocr_auto.bat can pick it back up (finding #15).
+        if not _FITZ_LOCK.acquire(timeout=OCR_PAGE_TIMEOUT_SECONDS):
+            raise TimeoutError("PyMuPDF render lock busy for >%ds -- a prior render may be wedged" % OCR_PAGE_TIMEOUT_SECONDS)
+        try:
+            doc = fitz.open(path); page = doc[page_number-1]
+            # DPI ceiling (finding #24): shrink the effective DPI, never the requested one, for a
+            # physically large page so the rendered raster stays under OCR_MAX_MEGAPIXELS.
+            w_in, h_in = page.rect.width / 72.0, page.rect.height / 72.0
+            d2 = _capped_dpi(w_in, h_in, d)
+            if d2 != d:
+                log(f"ocr: page {page_number} of {os.path.basename(path)} is {w_in:.1f}x{h_in:.1f}in "
+                    f"-- DPI reduced {d}->{d2} to stay under {OCR_MAX_MEGAPIXELS // 1_000_000}MP")
+                d = d2
+            pix = page.get_pixmap(dpi=d)
             data = pix.tobytes("png"); doc.close()
+        finally:
+            _FITZ_LOCK.release()
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
             tf.write(data); return tf.name
+    w_in, h_in = _pdftoppm_page_size_in(path, page_number)
+    if w_in and h_in:
+        d2 = _capped_dpi(w_in, h_in, d)
+        if d2 != d:
+            log(f"ocr: page {page_number} of {os.path.basename(path)} is {w_in:.1f}x{h_in:.1f}in "
+                f"-- DPI reduced {d}->{d2} to stay under {OCR_MAX_MEGAPIXELS // 1_000_000}MP (pdftoppm fallback)")
+            d = d2
     td = tempfile.mkdtemp(); prefix = os.path.join(td, "pg")
     subprocess.run(["pdftoppm","-r",str(d),"-f",str(page_number),"-l",str(page_number),"-png",path,prefix],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
@@ -326,6 +468,46 @@ def _page_is_blank(path, page_number):
     except Exception:
         return False
 
+def _ocr_preprocessed_input(img_path, for_tesseract):
+    """Best-effort OCR preprocessing (finding #14). Returns what to actually feed to the OCR
+    engine: for RapidOCR (for_tesseract=False), a preprocessed numpy array via
+    ocrprep.preprocess_light() -- deskew + denoise, NOT binarize, since a hard Otsu threshold is a
+    classic-OCR-era optimization that can hurt a deep-learning detector/recognizer by discarding
+    anti-aliasing/gradient information a DL model can actually use. For Tesseract (for_tesseract=
+    True, this project's fallback engine -- a classic pipeline that DOES benefit from
+    binarization), a NEW temp PNG file path via the full ocrprep.preprocess() (deskew + denoise +
+    binarize). Falls back to the raw, unmodified image on any failure or when OpenCV/numpy aren't
+    available -- this is a quality improvement, never a hard requirement; a preprocessing bug must
+    never be the reason a page fails to OCR at all."""
+    if not (OCR_PREPROCESS and ocrprep is not None and ocrprep.available() and _np is not None):
+        return img_path
+    try:
+        from PIL import Image
+        with Image.open(img_path) as im:
+            arr = _np.array(im.convert("RGB"))
+        if for_tesseract:
+            import cv2
+            proc, _meta = ocrprep.preprocess(arr)
+            out_path = img_path + ".prep.png"
+            # cv2.imwrite() can fail (bad path, bad array) by returning False, not by raising --
+            # review finding: the old unconditional `return out_path` broke the docstring's own
+            # "falls back to the raw image on any failure" promise on exactly that failure mode.
+            if not cv2.imwrite(out_path, proc):
+                return img_path
+            return out_path
+        proc, _meta = ocrprep.preprocess_light(arr)
+        # Review finding: preprocess_light() always collapses to a 2-D grayscale array (ocrprep.
+        # _gray() is unconditional inside deskew()/denoise()); RapidOCR is only ever self-tested
+        # against a 3-channel array elsewhere in this codebase, so restore 3 channels here rather
+        # than ship an unverified grayscale-array shape on this default-on path.
+        if getattr(proc, "ndim", 3) == 2:
+            import cv2
+            proc = cv2.cvtColor(proc, cv2.COLOR_GRAY2RGB)
+        return proc
+    except Exception:
+        return img_path
+
+
 def ocr_one(path, page_number):
     """Returns (text, confidence). confidence is RapidOCR's page-level average of its per-line detection
     scores (0.0-1.0), rounded to 4dp -- None on the blank-skip path, the Tesseract fallback (no per-line
@@ -338,6 +520,7 @@ def ocr_one(path, page_number):
     if ADAPTIVE_DPI and dens is not None and dens < 0.02:   # opt-in: sparse pages render lower (never below 160)
         dpi = max(160, OCR_DPI - 50)
     img = None
+    tess_img = None
     try:
         img = _render_png(path, page_number, dpi)
         h = None                                          # identical-page dedup: reuse text for repeated boilerplate
@@ -348,13 +531,18 @@ def ocr_one(path, page_number):
             with _DEDUP_LOCK: cached = _DEDUP.get(h)
             if cached is not None:
                 _DEDUP_STATS["hits"] += 1; return cached
+        # Dedup hash above is deliberately over the RAW render, before preprocessing -- identical
+        # source pages still produce an identical raw render, so the dedup key is unaffected by
+        # whether preprocessing itself is on/off or changes over time.
         if _have_rapid():
-            res, _ = _get_rapid()(img)
+            ocr_input = _ocr_preprocessed_input(img, for_tesseract=False)
+            res, _ = _get_rapid()(ocr_input)
             text = "\n".join(r[1] for r in res).strip() if res else ""
             scores = [r[2] for r in res if len(r) > 2 and isinstance(r[2], (int, float))] if res else []
             conf = round(sum(scores) / len(scores), 4) if scores else None
         else:
-            out = subprocess.run(["tesseract", img, "-", "-l", "eng", "--psm", "1"],
+            tess_img = _ocr_preprocessed_input(img, for_tesseract=True)
+            out = subprocess.run(["tesseract", tess_img, "-", "-l", "eng", "--psm", "1"],
                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
             text = out.stdout.decode("utf-8","ignore").strip()
             conf = None   # tesseract fallback: no per-line confidence captured (yet)
@@ -367,13 +555,33 @@ def ocr_one(path, page_number):
         if img and os.path.exists(img):
             try: os.unlink(img)
             except OSError: pass
+        if tess_img and tess_img != img and os.path.exists(tess_img):
+            try: os.unlink(tess_img)
+            except OSError: pass
 
 def _ocr_task(args):
+    """Runs ocr_one() with a wall-clock deadline (OCR_PAGE_TIMEOUT_SECONDS) via a helper thread +
+    .join(timeout) -- see the module-level comment by OCR_PAGE_TIMEOUT_SECONDS for why this, not
+    signal.alarm or a bare subprocess. Called both from ocr()'s single-threaded loop (workers<=1)
+    and from inside its ThreadPoolExecutor (workers>1) -- wrapping it here (rather than in ocr()
+    itself) means the timeout applies uniformly in both cases with one implementation. Times out ->
+    same (pid, None, None, err) shape as any other failure, so handle() needs no changes: the page
+    is marked 'failed' and the batch moves on to the next one instead of hanging on it forever."""
     pid, pno, path = args
-    try:
-        text, conf = ocr_one(path, pno)
-        return pid, text, conf, None
-    except Exception as e: return pid, None, None, str(e)[:300]
+    box = {}
+    def run():
+        try:
+            box["text"], box["conf"] = ocr_one(path, pno)
+        except Exception as e:
+            box["err"] = str(e)[:300]
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(OCR_PAGE_TIMEOUT_SECONDS)
+    if t.is_alive():
+        return pid, None, None, "timeout after %ds" % OCR_PAGE_TIMEOUT_SECONDS
+    if "err" in box:
+        return pid, None, None, box["err"]
+    return pid, box.get("text"), box.get("conf"), None
 
 def _db_dir(con):
     try:
@@ -437,15 +645,172 @@ def ocr(con, limit, workers=1):
 def cleanup(con):
     # Remove leftover sandbox/Unix-path documents (start with '/') whose files don't exist
     # on this machine, and requeue any pages stuck in 'failed'/'running'. Clear non-cascading
-    # references (request_items, figures) first so the document delete doesn't trip a FK.
+    # references (request_items, figures, parts -- none of these cascade-delete, see prune()'s
+    # docstring below for why) first so the document delete doesn't trip a FK.
     con.execute("UPDATE request_items SET source_document_id=NULL WHERE source_document_id IN (SELECT id FROM documents WHERE path LIKE '/%')")
     con.execute("DELETE FROM figures WHERE document_id IN (SELECT id FROM documents WHERE path LIKE '/%')")
+    # Review finding: this used to omit `parts`, unlike prune()'s otherwise-identical delete
+    # sequence below -- orphaning parts rows for every orphan document this removed.
+    con.execute("DELETE FROM parts WHERE document_id IN (SELECT id FROM documents WHERE path LIKE '/%')")
     n = con.execute("DELETE FROM documents WHERE path LIKE '/%'").rowcount
     con.commit()
     r = con.execute("UPDATE pages SET ocr_status='pending' WHERE ocr_status IN ('failed','running')").rowcount
     con.execute("DELETE FROM jobs WHERE stage='ocr'")
     con.commit()
     print(f"cleanup: removed {n} orphan documents; requeued {r} pages to 'pending'")
+
+def _prune_sidecars(index_dir, doc_ids, log=log):
+    """Best-effort cleanup of the optional per-document sidecars after documents are pruned from the
+    main index. Every sidecar here is built by a SEPARATE host-run script (BUILD-MEASURES.bat etc.)
+    and may simply not exist yet -- that is not an error, just nothing to prune. A sidecar that DOES
+    exist but is locked/corrupt must never abort the (already-committed) main-index prune, so every
+    step is wrapped and merely logged on failure (R1: this is cleanup, not a required step)."""
+    if not index_dir or not doc_ids:
+        return
+    ids = list(doc_ids)
+    # measures.db: doc-keyed rows, explicit DELETE WHERE doc=? (finding #11's own plan)
+    meas_db = os.path.join(index_dir, "measures.db")
+    if os.path.exists(meas_db):
+        try:
+            mc = sqlite3.connect(meas_db, timeout=30)
+            try:
+                qs = ",".join("?" * len(ids))
+                mc.execute("DELETE FROM meas WHERE doc IN (%s)" % qs, ids)
+                mc.execute("DELETE FROM meas_done WHERE doc IN (%s)" % qs, ids)
+                mc.commit()
+            finally:
+                mc.close()
+        except Exception as e:
+            log(f"prune: measures.db cleanup skipped ({e})")
+    # tables.db: same doc-keyed shape, same treatment (schema is build_tables.py's own: tables
+    # `tbl`/`tbl_done`, both doc-keyed -- confirmed against build_tables.py's SCHEMA, NOT
+    # guessed; a review finding caught an earlier version of this using wrong table names,
+    # which made the DELETE a silent permanent no-op).
+    tab_db = os.path.join(index_dir, "tables.db")
+    if os.path.exists(tab_db):
+        try:
+            tc = sqlite3.connect(tab_db, timeout=30)
+            try:
+                qs = ",".join("?" * len(ids))
+                names = {r[0] for r in tc.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                for tbl, col in (("tbl", "doc"), ("tbl_done", "doc")):
+                    if tbl in names:
+                        tc.execute("DELETE FROM %s WHERE %s IN (%s)" % (tbl, col, qs), ids)
+                tc.commit()
+            finally:
+                tc.close()
+        except Exception as e:
+            log(f"prune: tables.db cleanup skipped ({e})")
+    # Cache directories keyed by doc_id, one prefix pattern per directory's OWN naming convention
+    # (confirmed against each cache's cache_path()/cache_key(), not assumed uniform -- a review
+    # finding caught an earlier version of this missing pagecache/ entirely, since rps.py's
+    # pagecache uses a HYPHEN ("<doc>-<page>-d<dpi>.png"), not the underscore the other three
+    # caches use, plus figcache's callout_crop() output ("callout_<doc>_<page>_<item>_<dpi>.png")
+    # doesn't start with the doc_id at all).
+    _CACHE_DIR_PREFIXES = {
+        "figcache":   ("%d_", "callout_%d_"),
+        "schemcache": ("%d_",),
+        "veccache":   ("%d_",),
+        "pagecache":  ("%d-",),
+    }
+    for sub, templates in _CACHE_DIR_PREFIXES.items():
+        d = os.path.join(index_dir, sub)
+        if not os.path.isdir(d):
+            continue
+        prefixes = tuple(t % i for i in ids for t in templates)
+        try:
+            for fn in os.listdir(d):
+                if fn.startswith(prefixes):
+                    try: os.remove(os.path.join(d, fn))
+                    except OSError: pass
+        except Exception as e:
+            log(f"prune: {sub}/ cleanup skipped ({e})")
+
+
+def prune(con, root="", confirm=False, missing_threshold=0.5, index_dir=None):
+    """Reconcile documents whose SOURCE FILE has been deleted or renamed/moved off disk since the
+    last crawl (finding #11). crawl()/upsert_document() only ever ADD or UPDATE documents matched by
+    exact path -- nothing ever notices a source file that is simply gone, so its row (and every page,
+    part, and figure cited from it) sits in the index forever, dead weight that can also surface as a
+    broken 'open the PDF' link in the UI. Dry-run by default (same --yes-to-confirm shape as
+    rollback()); a plain re-run after --yes shows nothing left to prune.
+
+    Safety valves (a prune is a DELETE -- must never mistake 'can't see the corpus right now' for
+    'the corpus shrank'):
+      * corpus root unreachable: if `root` is given and isn't a directory (e.g. an unmounted external
+        drive or an unmapped network share), abort without looking at a single document -- otherwise
+        EVERY document would appear missing and a naive prune would wipe the whole index.
+      * missing-fraction threshold: even with a reachable root, if the fraction of indexed documents
+        whose file is gone exceeds `missing_threshold` (default 50%), abort and ask for confirmation
+        via a higher --missing-threshold -- a mass-disappearance is far more likely a moved corpus
+        root or a bad --root than a real mass-deletion.
+
+    A 'renamed/moved' file is detected without re-reading anything: if a missing document's stored
+    fingerprint (size:mtime:headhash) matches another, PRESENT document's fingerprint, crawl() has
+    already re-discovered that same file under its new path -- the stale old row is a pure duplicate
+    and is safe to drop outright (its content is already indexed under the new row).
+
+    Removes the stale row's non-cascading references first (figures, parts: no ON DELETE CASCADE;
+    request_items: SET NULL, keeping the session's own history instead of erasing it) so the
+    documents DELETE itself doesn't trip a foreign-key error -- pages/jobs DO cascade (schema-level
+    ON DELETE CASCADE) and need no manual handling. Then best-effort-prunes the optional per-document
+    sidecars (measures.db/tables.db/figcache/schemcache/veccache/pagecache) for the same doc_ids.
+
+    Returns a summary dict; never raises for an ordinary abort (aborted reasons are returned, not
+    thrown) so callers/tests can assert on the outcome instead of parsing log output."""
+    if root and not os.path.isdir(root):
+        log(f"prune: ABORT -- corpus root not reachable ({root!r}); refusing to treat every indexed "
+            f"document as deleted. Fix --root (or unmount/mount the drive) and retry.")
+        return {"ok": False, "aborted": "root_unreachable", "root": root}
+
+    rows = con.execute("SELECT id, path, fingerprint FROM documents").fetchall()   # tuple rows (this
+    total = len(rows)                                                              # file's convention --
+    if total == 0:                                                                 # connect() sets no
+        log("prune: no documents in the index -- nothing to do")                  # row_factory)
+        return {"ok": True, "total": 0, "missing": 0, "deleted": 0, "renamed": 0, "removed_ids": []}
+
+    missing = [r for r in rows if not os.path.isfile(r[1])]
+    if not missing:
+        log(f"prune: all {total} indexed documents' files exist -- nothing to do")
+        return {"ok": True, "total": total, "missing": 0, "deleted": 0, "renamed": 0, "removed_ids": []}
+
+    frac = len(missing) / total
+    if frac > missing_threshold:
+        log(f"prune: ABORT -- {len(missing)}/{total} ({frac:.0%}) of indexed documents appear missing, "
+            f"over the {missing_threshold:.0%} safety threshold. This looks like a moved corpus root or "
+            f"an unmounted drive, not a real mass-deletion. Re-run with --root pointing at the corpus, "
+            f"or a higher --missing-threshold if this is genuinely intended.")
+        return {"ok": False, "aborted": "missing_fraction", "total": total, "missing": len(missing),
+                "fraction": round(frac, 4)}
+
+    present_fp = {r[2]: r[0] for r in rows if r[2] and os.path.isfile(r[1])}
+    renamed, deleted = [], []
+    for r in missing:
+        dup = present_fp.get(r[2]) if r[2] else None
+        (renamed if dup else deleted).append((r[0], r[1], dup))
+
+    if not confirm:
+        log(f"prune: DRY RUN -- would remove {len(missing)}/{total} document(s) "
+            f"({len(renamed)} moved/renamed, {len(deleted)} deleted). Re-run with --yes to actually prune.")
+        for doc_id, path, dup in (renamed + deleted)[:25]:
+            tag = f"moved -> now doc {dup}" if dup else "deleted, no replacement found"
+            log(f"  [{tag}] doc {doc_id}: {path}")
+        return {"ok": True, "total": total, "missing": len(missing), "deleted": len(deleted),
+                "renamed": len(renamed), "removed_ids": [d for d, _, _ in renamed + deleted]}
+
+    ids = [d for d, _, _ in renamed + deleted]
+    qs = ",".join("?" * len(ids))
+    con.execute(f"UPDATE request_items SET source_document_id=NULL WHERE source_document_id IN ({qs})", ids)
+    con.execute(f"DELETE FROM figures WHERE document_id IN ({qs})", ids)
+    con.execute(f"DELETE FROM parts WHERE document_id IN ({qs})", ids)
+    con.execute(f"DELETE FROM documents WHERE id IN ({qs})", ids)   # pages/jobs cascade (schema ON DELETE CASCADE)
+    con.commit()
+    log(f"PRUNE DONE: removed {len(ids)} document(s) ({len(renamed)} moved/renamed, {len(deleted)} deleted) "
+        f"+ their figures/parts; {len(renamed)} request_items reference(s) cleared to NULL.")
+    _prune_sidecars(index_dir, ids, log=log)
+    return {"ok": True, "total": total, "missing": len(missing), "deleted": len(deleted),
+            "renamed": len(renamed), "removed_ids": ids}
+
 
 def prioritize(con):
     """Set OCR order: parts catalogs first, then maintenance/troubleshooting, then operator, then rest."""
@@ -502,6 +867,12 @@ def extract_parts(con):
     NSN->part#/nomenclature row alignment is OCR-noisy, so it is intentionally NOT asserted here;
     every record carries its source page for citation/verification."""
     log("extracting structured parts from RPSTL pages...")
+    dbdir = _db_dir(con)
+    # Review finding: ocrall's heartbeat only covered the OCR batch loop, not this phase that runs
+    # after it -- ocr_supervisor.py could mistake a long extract_parts() pass for a stale hang and
+    # kill it, discarding the work (and run_ocr_auto.bat would still declare "OCR COMPLETE" since
+    # OCR itself had already reached 0 pending by then).
+    _heartbeat(dbdir, 0, 0, "extract_parts")
     con.execute("DELETE FROM parts WHERE confidence IS NOT NULL"); con.commit()
     try:
         rows = con.execute(
@@ -512,22 +883,32 @@ def extract_parts(con):
         log(f"parts: FTS query failed ({e}); run migrate/crawl first"); return 0
     batch = []; seen = set(); npages = 0
     for r in rows:
+        # Bug found + fixed during review verification (pre-existing, predates this diff): this
+        # loop used dict-style row access (r["document_id"], ...) against a connection that
+        # returns plain tuples -- connect() sets no row_factory anywhere in this file. Reproduced
+        # directly: extract_parts() raised "tuple indices must be integers or slices, not str" on
+        # the first RPSTL-style page matching the FTS phrase below, which real parts-list text
+        # commonly does. Switched to positional unpacking, matching every other query in this file.
+        document_id, page_number, body_text, vehicle = r
         npages += 1
-        bt = r["body_text"] or ""
+        bt = body_text or ""
         figs = [(m.start(), m.group(1), re.sub(r'\s+', ' ', m.group(2)).strip()) for m in _PARTS_FIG_RE.finditer(bt)]
         for m in _PARTS_NSN_RE.finditer(bt):
             nsn = m.group(1); pos = m.start(); fno = ftit = None
             for fp, fn, ft in figs:
                 if fp <= pos: fno, ftit = fn, ft
                 else: break
-            key = (r["document_id"], r["page_number"], nsn)
+            key = (document_id, page_number, nsn)
             if key in seen: continue
             seen.add(key)
-            batch.append((nsn, ftit, ftit, r["document_id"], r["page_number"], r["vehicle"], fno, ftit, "page"))
+            batch.append((nsn, ftit, ftit, document_id, page_number, vehicle, fno, ftit, "page"))
+        if npages % 200 == 0:
+            _heartbeat(dbdir, npages, 0, "extract_parts")
     con.executemany(
         "INSERT INTO parts(nsn, name, nomenclature, document_id, page, vehicle, fig_no, fig_title, confidence, created_at) "
         "VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))", batch)
     con.commit()
+    _heartbeat(dbdir, npages, 0, 0)
     log(f"parts: {npages} RPSTL pages -> {len(batch)} NSN records ({len(set(b[0] for b in batch))} distinct NSNs)")
     return len(batch)
 
@@ -805,7 +1186,7 @@ def enrich(con, gsa_csv=None, publog_csv=None, publog_dir=None):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["migrate","crawl","ocr","ocrall","prefilter","prioritize","parts","enrich","rollback","run","status","search","cleanup"])
+    ap.add_argument("cmd", choices=["migrate","crawl","ocr","ocrall","prefilter","prioritize","parts","enrich","rollback","run","status","search","cleanup","prune"])
     ap.add_argument("query", nargs="?", default="")
     ap.add_argument("--root", default=os.environ.get("VIEWER_ROOT",""))
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", os.path.join(here,"..","index","viewer.db")))
@@ -820,13 +1201,14 @@ def main():
     ap.add_argument("--gsa", default="", help="path to the official GSA NSN Extract CSV/XLSX (for `enrich`)")
     ap.add_argument("--publog", default="", help="path to a single PUB LOG (DLA) CSV/XLSX (for `enrich`)")
     ap.add_argument("--publog-dir", dest="publog_dir", default="", help="folder of extracted PUB LOG Reading Room CSVs (Identification/Reference/Characteristics/Management/History/...)")
-    ap.add_argument("--yes", action="store_true", help="confirm a destructive action (e.g. `rollback`)")
+    ap.add_argument("--yes", action="store_true", help="confirm a destructive action (e.g. `rollback`, `prune`)")
+    ap.add_argument("--missing-threshold", type=float, default=0.5, help="`prune` abort threshold: max fraction of indexed documents allowed to be missing before refusing (default 0.5 = 50%%)")
     args = ap.parse_args()
     global OCR_DPI, USE_CUDA, ADAPTIVE_DPI
     OCR_DPI = args.dpi; USE_CUDA = args.gpu
     if getattr(args, "adaptive", False): ADAPTIVE_DPI = True
     os.makedirs(os.path.dirname(os.path.abspath(args.db)), exist_ok=True)
-    con = connect(args.db); migrate(con, os.path.join(here,"migrations"))
+    con = connect(args.db); migrate(con, os.path.join(here,"migrations"), db_path=args.db)
     if args.cmd == "migrate": pass
     elif args.cmd == "crawl": crawl(con, args.root, args.max_files, args.max_seconds)
     elif args.cmd == "ocr": ocr(con, args.limit, args.workers)
@@ -846,6 +1228,8 @@ def main():
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)
     elif args.cmd == "cleanup": cleanup(con)
+    elif args.cmd == "prune": prune(con, args.root, confirm=args.yes, missing_threshold=args.missing_threshold,
+                                     index_dir=os.path.dirname(os.path.abspath(args.db)))
     con.close()
 
 if __name__ == "__main__": main()

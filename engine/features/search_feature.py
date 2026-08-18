@@ -507,10 +507,13 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
         if len((q or "").strip()) < 2:
             con.close(); return []
         like = "%" + q + "%"
-        rows = [dict(r) for r in con.execute(
-            "SELECT d.id AS doc_id,d.vehicle,d.tm_number,d.nsn,d.title,p.page_number,substr(p.body_text,1,200) AS snip,p.source "
-            "FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.body_text LIKE ?" + flt_where + " LIMIT ?",
-            [like] + flt_args + [min(limit, 100)]).fetchall()]
+        try:
+            rows = [dict(r) for r in con.execute(
+                "SELECT d.id AS doc_id,d.vehicle,d.tm_number,d.nsn,d.title,p.page_number,substr(p.body_text,1,200) AS snip,p.source "
+                "FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.body_text LIKE ?" + flt_where + " LIMIT ?",
+                [like] + flt_args + [min(limit, 100)]).fetchall()]
+        except sqlite3.OperationalError:
+            rows = []
     # Nomenclature widening: if the catalog-style query is sparse, also try comma-inverted /
     # abbreviation-expanded variants and append unseen hits (additive — never removes results).
     if len(rows) < 3:

@@ -27,6 +27,11 @@
   .disc .dk{font-weight:700;min-width:54px;color:var(--txt)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;border-left:4px solid var(--line)}
+  /* UX finding #10 (priority 5): matches schematics.html's card() thumbnail pattern -- the page is
+     otherwise 100% text/table, so telling two look-alikes apart meant opening two separate tabs and
+     eyeballing two full manual pages, undercutting the page's own "how to tell them apart" tagline. */
+  .thumb{display:block;margin:8px 0;border-radius:8px;overflow:hidden;background:#0a0e13;border:1px solid var(--line);height:120px}
+  .thumb img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
   .card.ref{border-left-color:var(--acc)}
   .card.var{border-left-color:var(--amb)}
   .card.same{border-left-color:var(--grn)}
@@ -101,6 +106,18 @@ function render(d){
     var rel=REL[v.relation]||["var",v.relation];
     h+='<div class="card '+rel[0]+'">';
     h+='<div><span class="nsn">'+esc(v.nsn)+'</span><span class="rel '+rel[0]+'">'+esc(rel[1])+'</span></div>';
+    // UX finding #10: an inline cited-figure thumbnail from this variant's first reference, so a
+    // mechanic sees the actual part while comparing cards instead of only reading attribute tables.
+    // Review finding: a plain truthy check on document_id silently hides the whole thumbnail for a
+    // legitimate doc id of 0 (unlikely with today's INTEGER PRIMARY KEY rowids starting at 1, but not
+    // guaranteed by anything -- a future migration/fixture could reasonably start at 0).
+    if(v.refs&&v.refs.length&&v.refs[0].document_id!=null){
+      var t=v.refs[0];
+      var turl="/page?doc="+encodeURIComponent(t.document_id)+"&page="+encodeURIComponent(t.page||1)+"&dpi=110";
+      var tpage="/page?doc="+encodeURIComponent(t.document_id)+"&page="+encodeURIComponent(t.page||1)+"&dpi=150";
+      h+='<a class="thumb" href="'+tpage+'" target="_blank" title="Open the full cited page">'+
+         '<img loading="lazy" src="'+turl+'" alt="" onerror="this.parentNode.style.display=\'none\'"></a>';
+    }
     h+='<table class="attr">';
     h+=row("UOC", v.uoc, "fits which configuration");
     h+=row("CAGEC", v.cagec, "manufacturer");

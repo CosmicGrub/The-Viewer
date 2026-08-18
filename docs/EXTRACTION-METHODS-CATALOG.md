@@ -13,14 +13,14 @@ append-only sidecars (R1/R6).
 | # | Method | Status | Approach / library | Effort |
 |--|--------|--------|--------------------|--------|
 |1.1| Native PDF text | ✅ | PyMuPDF `get_text` for born-digital pages | — |
-|1.2| GPU OCR (scanned pages) | ✅ | EasyOCR (RTX 4050) | — |
+|1.2| GPU OCR (scanned pages) | ✅ | RapidOCR PP-OCRv5/v4 (RTX 4050, onnxruntime-gpu; Tesseract CPU fallback) — switched from EasyOCR in v0.6.0 | — |
 |1.3| **OCR pre-processing** — deskew, denoise, binarize (Sauvola/Otsu), dewarp | ✅ | `ocrprep.py` (skew/denoise/Otsu, cv2) | — |
 |1.4| **Super-resolution before OCR** — upscale low-DPI scans | ○ | Real-ESRGAN / OpenCV; recovers tiny dimension text | M |
 |1.5| **OCR ensemble / voting** — run 2+ engines, keep highest-confidence tokens | ○ | Tesseract + PaddleOCR/RapidOCR + EasyOCR, merge by confidence | M |
 |1.6| **Transformer OCR (degraded text)** | ○ | TrOCR / PaddleOCR-rec for hard pages only (GPU) | M |
 |1.7| **Handwriting recognition (HTR)** — margin notes, stamps | ○ | Kraken/Calamari or TrOCR-handwritten | L |
 |1.8| Per-page rotation / orientation detection | ✅ | `ocrprep.detect_orientation` (pytesseract OSD) | — |
-|1.9| Per-word OCR **confidence capture** (drives everything downstream) | ○ | EasyOCR already returns conf — persist it per token | S |
+|1.9| Per-word OCR **confidence capture** (drives everything downstream) | ◐ | RapidOCR already returns per-line conf, persisted page-level since v1.13.5 — per-token capture still not built | S |
 
 ## 2. Understanding page structure (layout, reading order, regions)
 
@@ -94,11 +94,11 @@ append-only sidecars (R1/R6).
 
 | # | Method | Status | Approach / library | Effort |
 |--|--------|--------|--------------------|--------|
-|7.1| Edition / duplicate detection across TMs | ✅ | `dedup.py` (shingle + Jaccard clustering) | — |
+|7.1| Edition / duplicate detection across TMs | ◐ | `dedup.py` (shingle + Jaccard clustering) — implemented, no caller yet (no `build_dedup.py` sidecar or `/api/dedup` route) | S |
 |7.2| NIIN-drift correlation + confirmed-interchangeable alias map | ✅ | `correlations.db` | — |
 |7.3| Semantic / embedding index | ✅ | `embed.py` | — |
 |7.4| **Knowledge graph** (part↔figure↔procedure↔spec↔NSN) | ✅ | `kg.py` + `build_kg.py` → `index/kg.db` + `/api/kg` | — |
-|7.5| **Multi-method cross-validation** — same value from ≥2 methods ⇒ higher confidence | ✅ | `crossval.py` (agreement → confidence; conflict flag) | — |
+|7.5| **Multi-method cross-validation** — same value from ≥2 methods ⇒ higher confidence | ✅ | `crossmethod.py` (agreement → confidence; conflict flag; wired to `/api/crossmethod`) | — |
 
 ## 8. External enrichment (fill blanks — corpus authoritative, R11)
 

@@ -15,12 +15,13 @@ keep speed constant and stay RPS-safe (stdlib only; never writes the index -- R1
 
 `core` (the running viewer_app module) is injected by viewer_app -- no import cycle.
 """
-import os, re, json, time
+import os, re, json, time, sqlite3, threading
 
 core = None   # injected: import sides_feature as _sf; _sf.core = sys.modules[__name__]
 
 _CACHE = {"sig": None, "map": {}, "counts": {}}
 _OVR_CACHE = {"mtime": None, "data": {}}
+_CACHE_LOCK = threading.Lock()   # ThreadingHTTPServer can call side_map() concurrently -- see side_map()
 
 _COVER_OP = re.compile(r"OPERATOR'?S?\s+MANUAL|OPERATOR'?S?\s+INSTRUCTIONS", re.I)
 _COVER_MECH = re.compile(r"MAINTENANCE\s+ALLOCATION\s+CHART|\bUNIT\s+MAINTENANCE\b|\bFIELD\s+MAINTENANCE\b|"
@@ -139,12 +140,32 @@ def _build_map(con):
 
 
 def side_map(con):
-    """Cached {doc_id: classification}. Rebuilds only when documents OR overrides change."""
-    sig = _docs_sig(con)
-    if _CACHE["sig"] != sig:
-        _CACHE["map"], _CACHE["counts"] = _build_map(con)
-        _CACHE["sig"] = sig
-    return _CACHE["map"], _CACHE["counts"]
+    """Cached {doc_id: classification}. Rebuilds only when documents OR overrides change.
+
+    Locked (v1.13): ThreadingHTTPServer can call this concurrently, and the rebuild is 3 separate dict
+    writes (map, counts, sig) -- without a lock, one thread's exception-path reset can land between
+    another thread's successful map/counts write and its sig write, pairing a *valid* sig with an
+    *empty* map. Once sig matches, every later call skips rebuilding, so that corrupted pairing would
+    stick forever. Compute the rebuild into locals first and only touch _CACHE once we're done, so a
+    failed rebuild never has a chance to observe (or clobber) another thread's in-progress one."""
+    with _CACHE_LOCK:
+        try:
+            sig = _docs_sig(con)
+            if _CACHE["sig"] != sig:
+                m, counts = _build_map(con)
+                _CACHE["map"], _CACHE["counts"], _CACHE["sig"] = m, counts, sig
+        except sqlite3.OperationalError:
+            # documents is missing a column this classifier depends on (older/partial schema, or a
+            # migration mid-flight) -- degrade to "nothing classified" instead of 500ing every
+            # /api/by_side & /api/side_uncertain call. Logged (unlike a silent swallow) so a PERSISTENT
+            # failure after a prior successful build -- where we keep serving the last known-good map,
+            # deliberately, rather than blanking it -- is still visible to whoever watches the error log.
+            try: core.log_exception("side_map")
+            except Exception: pass
+            if _CACHE["sig"] is None:
+                _CACHE["map"], _CACHE["counts"] = {}, {"operator": 0, "mechanic": 0, "both": 0,
+                                                        "uncertain": 0, "documents": 0}
+        return _CACHE["map"], _CACHE["counts"]
 
 
 def classify(doc_id, tm_number="", title="", path=""):

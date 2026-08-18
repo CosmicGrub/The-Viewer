@@ -14,7 +14,7 @@ import sys
 import tempfile
 import time
 
-from features.registry import get, post, qstr, qint, qflag
+from features.registry import get, post, qstr, qint, qflag, safe_header_token
 
 core = None          # injected by viewer_app at startup
 ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -657,6 +657,7 @@ def r_pdfmeta(h, qs):
 def r_provenance(h, qs):
     # INTERNAL AUDIT (operator, not mechanic): external gap-fills WITH their archived Wayback + original URLs, for
     # spot-checking sources. The only endpoint that surfaces links on purpose; mechanic views stay linkless (R11).
+    if not _exposed_read_guard(h): return
     import enrich, os
     enr = os.path.join(os.path.dirname(core.DB_PATH), "enrich.db")
     subj = qstr(qs, "q", "") or None
@@ -687,9 +688,9 @@ def r_specsheet(h, qs):
 
 @get("/api/qr")
 def r_qr(h, qs):
-    # Offline QR for a part / NSN: encodes a deep-link to that part's dossier ON THIS SERVER
-    # (built from the request Host header) so a scan from a phone/second bay tablet on the same
-    # LAN jumps straight to it. Degrades gracefully when no QR backend is installed.
+    # Offline QR for a part / NSN: encodes a deep-link to that part's dossier ON THIS SERVER so a
+    # scan from a phone/second bay tablet on the same LAN jumps straight to it. Degrades gracefully
+    # when no QR backend is installed.
     import qrgen
     q = qstr(qs, "q", "").strip()
     if len(q) < 2:
@@ -697,18 +698,35 @@ def r_qr(h, qs):
     if not qrgen.available():
         h._send(503, {"ok": False, "unavailable": True,
                       "error": "QR support is not installed. Run: pip install segno"}); return
-    host = (h.headers.get("Host") or "127.0.0.1:8765").strip()
+    # The base URL was previously built straight from the client-supplied Host header with no
+    # validation -- any request could set Host: attacker.example and get back a QR code (which a
+    # mechanic is told to scan with their phone) pointing at an attacker-controlled URL. Validated
+    # against the actual bind address + an operator-configurable allowlist instead (finding #16) --
+    # see core.safe_public_base().
+    base = core.safe_public_base(h.headers.get("Host"))
     page = qstr(qs, "page", "/dossier") or "/dossier"
     try:
         scale = qint(qs, "scale", 6)
     except Exception:
         scale = 6
-    base = "http://" + host
     mime, payload = qrgen.for_part(base, q, page=page, scale=scale)
     if mime is None:
         h._send(503, {"ok": False, "unavailable": True, "error": payload}); return
+    # UX finding #9 (priority 5): safe_public_base() correctly falls back to 127.0.0.1 on the app's own
+    # documented default deployment (loopback-only HOST, no VIEWER_ALLOWED_HOSTS configured) -- but a
+    # QR code encoding 127.0.0.1 resolves to whatever device SCANS it, not this server, so it silently
+    # fails on exactly the shipped default. That was already known (a console-only warning at startup),
+    # but never reached the printed page making the "scan this" claim. Flag it here so the caller (e.g.
+    # packet.html) can show an inline warning instead of an unqualified claim.
+    # Review finding: safe_public_base() (viewer_app.py) emits an UNBRACKETED "::1:PORT" when
+    # HOST=="::1" (`"%s:%d" % (HOST, PORT)`, not the bracketed "[::1]:PORT" form) -- the app explicitly
+    # anticipates --host ::1 as a loopback binding (see viewer_app.py's own _EXPOSED check), so missing
+    # this form meant the exact silent-failure case this fix exists to prevent could itself go
+    # undetected on that one deployment choice. Cover both forms.
+    local_only = base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:", "http://::1:"))
     h._send(200, payload, mime, {"Cache-Control": "max-age=3600",
-                                 "X-QR-Target": qrgen.deep_link(base, q, page)})
+                                 "X-QR-Target": qrgen.deep_link(base, q, page),
+                                 "X-QR-Local-Only": "1" if local_only else "0"})
 
 
 @get("/api/publog")
@@ -903,7 +921,7 @@ def r_partspdf(h, qs):
         except Exception:
             items = []
     pdf = partspdf.build_pdf(items, {"tm": q})
-    fn = "parts_request_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "sheet") + ".pdf"
+    fn = "parts_request_" + (safe_header_token(q) or "sheet") + ".pdf"
     h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
 
 
@@ -999,7 +1017,12 @@ def r_schemgraph(h, qs):
         g = schemgraph.graph_for(pdf_path, pg)
         try:
             os.makedirs(cache_dir, exist_ok=True)
-            json.dump(g, open(schemgraph.cache_path(cache_dir, doc_i, pg), "w", encoding="utf-8"))
+            # safeguard.atomic_write, not a bare open(...,"w") + json.dump: same non-atomic-write
+            # bug as schemgraph.ensure()'s own cache write (see the fix there) -- a crash mid-write
+            # here left a truncated cache file that ensure()'s size>0 check then treated as valid
+            # forever, on every subsequent non-fresh request for this page.
+            import safeguard
+            safeguard.atomic_write(schemgraph.cache_path(cache_dir, doc_i, pg), json.dumps(g))
         except Exception: pass
     else:
         g = schemgraph.ensure(cache_dir, doc_i, pg, pdf_path)
@@ -1075,7 +1098,7 @@ def r_figuresheet(h, qs):
         h._send(400, {"error": "q required (NSN, part number, or name)"}); return
     pdf = figuresheet.figuresheet(core.DB_PATH, core.INDEX_DIR, q, qint(qs, "dpi", 150, 72, 300), qint(qs, "n", 12, 1, 30))
     if pdf:
-        fn = "figuresheet_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "part") + ".pdf"
+        fn = "figuresheet_" + (safe_header_token(q) or "part") + ".pdf"
         h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
     else:
         h._send(404, {"error": "no figures found for that part"})
@@ -1105,7 +1128,7 @@ def r_jobcard(h, qs):
     pdf = jobcard.jobcard(core.DB_PATH, q, procs, tq, lookalike=la,
                           dpi=qint(qs, "dpi", 150, 72, 300), max_figs=qint(qs, "nf", 8, 0, 20))
     if pdf:
-        fn = "workorder_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "task") + ".pdf"
+        fn = "workorder_" + (safe_header_token(q) or "task") + ".pdf"
         h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
     else:
         h._send(404, {"error": "nothing resolved for that task (no procedures, torque, parts, or figures)"})
@@ -1200,7 +1223,7 @@ def r_jobpack(h, qs):
     if len(q) < 2:
         h._send(400, {"error": "q required (part name / NSN / part number)"}); return
     pdf = jobpack.build(pkg)
-    fn = "jobpackage_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "part") + ".pdf"
+    fn = "jobpackage_" + (safe_header_token(q) or "part") + ".pdf"
     h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
 
 
@@ -1317,6 +1340,22 @@ def r_mac(h, qs):
     h._send(200, {"ok": True, "rows": macchart.extract_mac(txt)})
 
 
+def _canon_folder_or_400(h, folder):
+    """Shared VIEWER_INGEST_ROOTS fence for every route that takes a caller-supplied folder path
+    (/api/ingest, /api/ingest_preview, /api/airgap_manifest, /api/airgap_verify, /api/ingest_scan).
+    Returns the canonicalized folder on success, or None after already sending a 400 on failure --
+    callers just do `folder = _canon_folder_or_400(h, folder); if folder is None: return`.
+    Factored out so the fence can't be silently skipped by a future route the way
+    /api/airgap_manifest and /api/ingest_scan originally were (they called ingestpipe.scan_folder()
+    directly on the raw path), and /api/airgap_verify still was until this fix."""
+    import features.ingest_feature as ingest_feature
+    ok, real = ingest_feature.canon_ingest_path(folder)
+    if not ok:
+        h._send(400, {"error": real})
+        return None
+    return real
+
+
 @post("/api/airgap_manifest")
 def r_airgap_manifest(h, qs, payload):
     # build a SIGNED update-package manifest for a folder of manuals (air-gap transfer). Read-only.
@@ -1325,6 +1364,12 @@ def r_airgap_manifest(h, qs, payload):
     secret = payload.get("secret") or ""
     if not folder or not secret:
         h._send(400, {"error": "folder and secret required"}); return
+    # Same VIEWER_INGEST_ROOTS fence /api/ingest and /api/ingest_preview enforce -- this route
+    # used to call scan_folder() on the raw path directly, bypassing the fence entirely (finding
+    # from the audit: an operator who configures VIEWER_INGEST_ROOTS to restrict which folders may
+    # be touched was still fully exposed via this endpoint).
+    folder = _canon_folder_or_400(h, folder)
+    if folder is None: return
     found = ingestpipe.scan_folder(folder)
     rels = [os.path.relpath(f["path"], folder) for f in found]
     h._send(200, {"ok": True, "manifest": airgap.make_manifest(folder, rels, secret,
@@ -1338,6 +1383,12 @@ def r_airgap_verify(h, qs, payload):
     manifest = payload.get("manifest"); folder = (payload.get("folder") or "").strip(); secret = payload.get("secret") or ""
     if not (isinstance(manifest, dict) and folder and secret):
         h._send(400, {"error": "manifest (object), folder, and secret required"}); return
+    # Same fence as the sibling airgap/ingest routes -- previously missing here specifically
+    # (finding from the audit): manifest+secret are both caller-supplied in this same POST body,
+    # so a caller can self-sign an arbitrary manifest and use `folder` to probe file
+    # presence/hashes anywhere on the host, unrestricted by an operator's VIEWER_INGEST_ROOTS.
+    folder = _canon_folder_or_400(h, folder)
+    if folder is None: return
     h._send(200, {"ok": True, "result": airgap.verify(manifest, folder, secret)})
 
 
@@ -1348,6 +1399,10 @@ def r_ingest_scan(h, qs, payload):
     folder = (payload.get("folder") or "").strip()
     if not folder:
         h._send(400, {"error": "folder path required"}); return
+    # Same VIEWER_INGEST_ROOTS fence as /api/ingest and /api/airgap_manifest -- see the comment on
+    # r_airgap_manifest above.
+    folder = _canon_folder_or_400(h, folder)
+    if folder is None: return
     found = ingestpipe.scan_folder(folder, recursive=bool(payload.get("recursive", True)))
     if not found:
         h._send(200, {"ok": True, "folder": folder, "found": 0,
@@ -1557,13 +1612,36 @@ def r_partsummary(h, qs):
 
 # ---- status / ops / health ---------------------------------------------------------------------------
 
+def _exposed_read_guard(h):
+    """Gate for GET endpoints that leak host internals (filesystem paths, run/ingest state) rather
+    than manual content. do_POST already requires the shared X-Viewer-Token when the server is
+    network-exposed (_EXPOSED); do_GET never did, on the (correct, and kept as-is) assumption that
+    the normal exposed-mode use case is a mechanic's phone browsing/searching manuals over LAN with
+    no way to set a custom header on plain navigation. But that same blanket assumption left every
+    GET route that reveals real filesystem paths or internal run state -- not manual content --
+    wide open to anyone on the network. Applied to: /api/audit, /api/ops, /api/status,
+    /api/command_status (embeds status_summary(), the same payload /api/status protects),
+    /api/ingest_status (leaks the raw host path of the current/last ingest job), /api/provenance
+    (self-documented "INTERNAL AUDIT (operator, not mechanic)"), and /api/integrity (streams file
+    paths/checksums). Returns True if the request may proceed; sends 401 and returns False otherwise.
+    """
+    if not core._EXPOSED:
+        return True
+    if core._auth_ok(h.headers.get("X-Viewer-Token")):
+        return True
+    h._send(401, core.AUTH_REQUIRED_BODY)
+    return False
+
+
 @get("/api/status")
 def r_status(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.status_summary())
 
 
 @get("/api/ops")
 def r_ops(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.ops_summary())
 
 
@@ -1604,6 +1682,7 @@ def r_command_status(h, qs):
     # TTL-cache the whole aggregate like _SEARCH_LRU already does for search: the underlying data only
     # changes as OCR/ingest progress, so a 60s-stale "glance" dashboard is fine, and it makes every load
     # after the first one instant instead of re-paying the full aggregate cost every single time.
+    if not _exposed_read_guard(h): return
     now = time.time()
     with _COMMAND_STATUS_LOCK:
         if _COMMAND_STATUS_CACHE["body"] is not None and (now - _COMMAND_STATUS_CACHE["t"]) < _COMMAND_STATUS_TTL:
@@ -1663,6 +1742,7 @@ def r_integrity(h, qs):
     # load, since this had no caching at all. TTL-cache it like _COMMAND_STATUS_CACHE; 300s (not 60s) because
     # this is heavier and the underlying files change far less often than OCR/search state. ?force=1 bypasses
     # the cache for a genuinely fresh tamper/corruption check on demand -- never silently hide that option.
+    if not _exposed_read_guard(h): return
     now = time.time()
     if not qflag(qs, "force"):
         with _INTEGRITY_LOCK:
@@ -1919,6 +1999,7 @@ def r_notes_post(h, qs, payload):
 
 @get("/api/audit")
 def r_audit(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.file_audit(qint(qs, "limit", 600, 1, 2000)))
 
 
@@ -1980,6 +2061,7 @@ def r_ingest_preview(h, qs):
 
 @get("/api/ingest_status")
 def r_ingest_status(h, qs):
+    if not _exposed_read_guard(h): return
     h._send(200, core.ingest_status())
 
 
@@ -1987,12 +2069,12 @@ def r_ingest_status(h, qs):
 
 @get("/api/pagewords")
 def r_pagewords(h, qs):
-    h._send(200, core.page_words(qint(qs, "doc", 0), qstr(qs, "page", "1")))
+    h._send(200, core.page_words(qint(qs, "doc", 0), qint(qs, "page", 1, 1)))
 
 
 @get("/api/callouts")
 def r_callouts(h, qs):
-    h._send(200, core.page_callouts(qint(qs, "doc", 0), qstr(qs, "page", "1")))
+    h._send(200, core.page_callouts(qint(qs, "doc", 0), qint(qs, "page", 1, 1)))
 
 
 @get("/page")
@@ -2112,5 +2194,5 @@ def p_request(h, qs, payload):
     finally:
         try: os.unlink(out)
         except Exception: pass
-    bumper = (payload.get("session", {}).get("bumper") or "request").replace(" ", "_")
+    bumper = safe_header_token(payload.get("session", {}).get("bumper")) or "request"
     h._send(200, data, "application/pdf", {"Content-Disposition": 'attachment; filename="104th_parts_request_%s.pdf"' % bumper})

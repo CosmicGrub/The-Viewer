@@ -101,8 +101,13 @@
       +s.torque.slice(0,10).map(function(t){return '<div class="proc"><span class="tq">'+esc(t.value)+'</span> <span class="muted">— '+esc(t.context||'')+(t.page?(' · p.'+esc(t.page)):'')+'</span></div>';}).join('')+'</div>'; }
     // cautions
     if(s.cautions&&s.cautions.length){ h+='<h2>Safety callouts</h2>'
+      // Review finding (R13 safety-relevant): this page's cautions come from the SAME
+      // cautions.find_for_query() (via /api/partsummary) that dossier.html was fixed to show the
+      // OCR-quality confidence flag for -- part.html (the app's main per-part summary page) was
+      // missed. c.confidence is already in the response; just render it, matching dossier.html.
       +s.cautions.slice(0,8).map(function(c){var cite=c.page?(' <span class="muted">· p.'+esc(c.page)+(c.doc?(' <a href="/deepzoom?doc='+esc(c.doc)+'&page='+esc(c.page)+'" target="_blank" style="color:#4f9dff">open ↗</a>'):'')+'</span>'):'';
-        return '<div class="caut"><b>'+esc(c.kind||'NOTE')+'</b> — '+esc(c.text||'')+cite+'</div>';}).join(''); }
+        var qual=(c.confidence&&c.confidence!=="clean")?(' <span style="color:var(--amb)" title="OCR text quality: '+esc(c.confidence)+'">⚠ verify on page — OCR quality: '+esc(c.confidence)+'</span>'):"";
+        return '<div class="caut"><b>'+esc(c.kind||'NOTE')+'</b> — '+esc(c.text||'')+qual+cite+'</div>';}).join(''); }
     // procedures
     if(s.procedures&&s.procedures.length){ h+='<h2>Procedure</h2><div class="card">'
       +s.procedures.map(function(p){return '<div class="proc"><span class="kind">'+esc(p.kind||'')+'</span>'+esc(p.vehicle||'')+(p.page?(' · p.'+esc(p.page)):'')+' <span class="muted">— '+(p.n_steps||0)+' steps · '+(p.n_tools||0)+' tools</span> <a href="/procedure?q='+enc+'" target="_blank" style="color:#4f9dff">open ↗</a></div>';}).join('')+'</div>'; }

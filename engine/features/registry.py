@@ -15,6 +15,12 @@ POST = {}
 # whatever the per-route default/cap says.
 ABS_MAX_LIMIT = 2000
 
+# SQLite binds integer params into a signed 64-bit column; anything outside this range raises an
+# uncaught OverflowError deep in whichever route/feature module later does con.execute(..., (v,)) --
+# reject it here, once, as a clean 400 instead of letting every qint()-consuming callsite 500 on it.
+_SQLITE_INT_MIN = -(2 ** 63)
+_SQLITE_INT_MAX = 2 ** 63 - 1
+
 
 class ParamError(ValueError):
     """Malformed client input -> 400 (never a 500)."""
@@ -64,7 +70,14 @@ def qint(qs, name, default, lo=None, hi=None):
         v = max(lo, v)
     if hi is not None:
         v = min(hi, v)
-    return min(v, ABS_MAX_LIMIT) if name in ("limit", "n") else v
+    v = min(v, ABS_MAX_LIMIT) if name in ("limit", "n") else v
+    # SQLite-range check runs LAST, after lo/hi/ABS_MAX_LIMIT clamping: most callers pass a small `hi`
+    # that already makes an oversized value safe (previously silently clamped -- keep that), so only
+    # reject here when nothing upstream bounded it (e.g. qint(qs, "doc", 0) has no hi) and the value
+    # would otherwise raise an uncaught OverflowError wherever it's later bound into a SQL query.
+    if v < _SQLITE_INT_MIN or v > _SQLITE_INT_MAX:
+        raise ParamError("parameter '%s' out of range (got %r)" % (name, raw))
+    return v
 
 
 def qfloat(qs, name, default, lo=None, hi=None):
@@ -85,6 +98,15 @@ def qfloat(qs, name, default, lo=None, hi=None):
     if hi is not None:
         v = min(hi, v)
     return v
+
+
+def safe_header_token(s, maxlen=30):
+    """ASCII-only alnum/-_ filter for values embedded in an HTTP header (e.g. a Content-Disposition
+    filename built from a user query). str.isalnum() accepts non-ASCII Unicode digit/letter categories
+    (e.g. Arabic-indic digits) that can't be Latin-1-encoded when the header is written, crashing the
+    response mid-write (the client sees a dropped connection, not a clean error) -- restrict to true
+    ASCII here instead."""
+    return "".join(ch for ch in (s or "") if ch.isascii() and (ch.isalnum() or ch in "-_"))[:maxlen]
 
 
 def qflag(qs, name, default="0"):

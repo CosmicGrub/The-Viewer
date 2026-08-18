@@ -56,9 +56,20 @@ def related(db_path, q, limit=60):
         # siblings: other distinct parts on the same (doc, fig_no)
         siblings = []; seen = set(selfkeys)
         for a in assemblies:
+            # AND binds tighter than OR -- the original "...fig_no IS ? OR (document_id=? AND
+            # fig_no=?)" parsed as (document_id=? AND fig_no IS ?) OR (document_id=? AND fig_no=?),
+            # which (since both document_id checks bind the same value) collapsed to "same doc AND
+            # (no figure at all OR this figure)" -- every part in the document with NO figure
+            # assigned at all was pulled in as a "sibling" of any real figure's parts. Simply
+            # parenthesizing the OR group does NOT fix this on its own -- "fig_no IS NULL OR
+            # fig_no=?" still matches NULL rows regardless of grouping, confirmed by the regression
+            # test below. Siblings are, by definition, other parts on the exact same (doc, fig_no);
+            # there was never a legitimate reason to also match fig_no IS NULL here, so that branch
+            # is dropped entirely rather than reparenthesized.
             srows = con.execute(
-                "SELECT nsn, part_number AS pn, name, fig_no FROM parts WHERE document_id=? AND fig_no IS ? "
-                "OR (document_id=? AND fig_no=?) LIMIT 200", (a["doc"], None, a["doc"], a["fig_no"])).fetchall() \
+                "SELECT nsn, part_number AS pn, name, fig_no FROM parts "
+                "WHERE document_id=? AND fig_no=? LIMIT 200",
+                (a["doc"], a["fig_no"])).fetchall() \
                 if a["fig_no"] else []
             for s in srows:
                 k = (s["nsn"] or "", (s["pn"] or "").upper(), (s["name"] or "").upper())
@@ -104,7 +115,10 @@ if __name__ == "__main__":
         (1, 44, '2920-01-333-3333', 'A1', 'ALTERNATOR', 'FIG 12', 'CHARGING SYSTEM'),
         (1, 44, '5305-01-111-1111', 'B1', 'BOLT', 'FIG 12', 'CHARGING SYSTEM'),
         (1, 44, '5310-01-222-2222', 'N1', 'NUT', 'FIG 12', 'CHARGING SYSTEM'),
-        (1, 60, '2920-01-999-9999', 'V1', 'VOLTAGE REGULATOR', 'FIG 15', 'CHARGING SYSTEM')])
+        (1, 60, '2920-01-999-9999', 'V1', 'VOLTAGE REGULATOR', 'FIG 15', 'CHARGING SYSTEM'),
+        # same document, NO figure assigned at all -- regression case for the operator-precedence
+        # bug (finding #10): must NEVER show up as a "sibling" of the FIG 12 parts above.
+        (1, 90, '5975-01-444-4444', 'X1', 'LOOSE PART NO FIGURE', None, None)])
     c.commit(); c.close()
     r = related(db, "ALTERNATOR")
     print("assemblies:", [(a["fig_no"], a["fig_title"]) for a in r["assemblies"]])
@@ -112,5 +126,7 @@ if __name__ == "__main__":
     print("see_also:", [(x["name"], x["assembly"]) for x in r["see_also"]])
     assert any(s["name"] == "BOLT" for s in r["siblings"]), "sibling BOLT missing"
     assert any(x["name"] == "VOLTAGE REGULATOR" for x in r["see_also"]), "see_also missing"
+    assert not any(s["name"] == "LOOSE PART NO FIGURE" for s in r["siblings"]), \
+        "NULL-fig_no part leaked in as a sibling (operator-precedence bug regressed)"
     print("xref self-test OK")
 # END OF FILE

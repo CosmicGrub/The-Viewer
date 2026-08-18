@@ -131,8 +131,8 @@ The index is a single SQLite file, `viewer.db`. SQLite is chosen partly *because
 
 - A `schema_meta` table records `schema_version` and a full migration history (when, from, to, notes).
 - All schema changes are **additive and migrated**: new columns are added as nullable/defaulted; old columns are never repurposed or dropped destructively. Old readers keep working.
-- Each migration is a numbered, reversible script (`migrations/0001_init.sql`, `0002_*.sql`, …). Every migration has a documented rollback.
-- Before any migration, the engine snapshots `viewer.db` to `viewer.db.bak-<version>-<date>` so a rollback is always one file-copy away.
+- Each migration is a numbered, additive-only script (`migrations/0001_init.sql`, `0002_*.sql`, …) — `ADD COLUMN`/`CREATE TABLE IF NOT EXISTS`, never a destructive `ALTER`/`DROP`. SQLite has no clean per-migration undo for that shape of change, so the practical rollback mechanism is the whole-DB snapshot below, not a per-file down-script.
+- Before applying any *pending* migration, `viewer_ingest.py migrate()` backs up `viewer.db` via `safeguard.backupdb()` (a consistent `VACUUM INTO` copy, integrity-checked, written to `backups/db/viewer-YYYYMMDD-HHMM.db`) — so a rollback is always one file-copy away. Gated on there actually being pending migrations, so the common case (nothing to migrate) doesn't pay a multi-GB backup cost on every CLI invocation; a backup failure aborts the migration rather than proceeding with no rollback path.
 - The corpus itself is never written to, so the original documents are an untouchable backstop.
 
 ### 5.2 Core tables (conceptual)

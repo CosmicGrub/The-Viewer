@@ -83,7 +83,9 @@ def detect_orientation(image):
 
 
 def preprocess(image):
-    """Full clean pipeline for OCR: deskew -> denoise -> binarize. Returns (image, {skew, applied})."""
+    """Full clean pipeline for OCR: deskew -> denoise -> binarize. Returns (image, {skew, applied}).
+    Intended for classic/OCR engines (e.g. the Tesseract fallback path) that were tuned in an era
+    of hard black/white input -- see preprocess_light() for RapidOCR, where binarize is skipped."""
     if not _OK:
         return image, {"skew": 0.0, "applied": []}
     applied = []
@@ -92,6 +94,23 @@ def preprocess(image):
         applied.append("deskew")
     img = denoise(img); applied.append("denoise")
     img = binarize(img); applied.append("binarize")
+    return img, {"skew": a, "applied": applied}
+
+
+def preprocess_light(image):
+    """deskew -> denoise ONLY, no binarize. Same shape as preprocess() (returns (image, {skew,
+    applied})). For a deep-learning OCR engine (RapidOCR, this project's default/preferred engine
+    -- see viewer_ingest.py): a hard Otsu binarize is a classic-OCR-era optimization that throws
+    away anti-aliasing/gradient information a DL detector-then-recognizer model can actually use,
+    and is not a guaranteed accuracy win the way it is for Tesseract. Deskew and light denoise are
+    lower-risk, engine-agnostic cleanup that helps either way."""
+    if not _OK:
+        return image, {"skew": 0.0, "applied": []}
+    applied = []
+    img, a = deskew(image)
+    if a:
+        applied.append("deskew")
+    img = denoise(img); applied.append("denoise")
     return img, {"skew": a, "applied": applied}
 
 
@@ -114,6 +133,10 @@ if __name__ == "__main__":
     assert set(np.unique(b)).issubset({0, 255}), "binarize not black/white"
     out, meta = preprocess(skewed)
     assert "binarize" in meta["applied"] and "denoise" in meta["applied"]
+    out_light, meta_light = preprocess_light(skewed)
+    assert "binarize" not in meta_light["applied"] and "denoise" in meta_light["applied"]
+    assert not set(np.unique(out_light)).issubset({0, 255}), "preprocess_light should NOT be hard black/white"
     assert detect_orientation(base) in (0, 90, 180, 270)
-    print("ocrprep self-test OK  (skew detected %.1f deg, corrected; binarize+denoise+orientation pipeline)" % det)
+    print("ocrprep self-test OK  (skew detected %.1f deg, corrected; binarize+denoise+orientation pipeline; "
+          "preprocess_light skips binarize)" % det)
 # END OF FILE

@@ -211,6 +211,30 @@ _AUTH_TOKEN = os.environ.get("VIEWER_AUTH_TOKEN") or ""
 # both read this same dict rather than each hardcoding their own copy of the message).
 AUTH_REQUIRED_BODY = {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}
 
+# The actual bind host/port, set once in main() -- exposed as module globals (not just local
+# variables) so DI callers (routes.py's `core` IS this module) can read the real values instead of
+# blindly trusting client-supplied input. Used by r_qr's Host-header validation (finding #16).
+HOST = "127.0.0.1"
+PORT = 8765
+# Operator-configurable allowlist of additional host[:port] values a client-supplied Host header is
+# allowed to be trusted for (comma-separated), for the "exposed on the LAN, reachable at more than
+# one address" case -- e.g. a friendly hostname or a specific LAN IP. Follows the existing VIEWER_*
+# env-var convention (VIEWER_AUTH_TOKEN, VIEWER_MODE, VIEWER_MAX_WORKERS, ...).
+_ALLOWED_HOSTS = {h.strip().lower() for h in (os.environ.get("VIEWER_ALLOWED_HOSTS") or "").split(",") if h.strip()}
+
+
+def safe_public_base(candidate_host):
+    """Resolve the base URL to embed in operator-facing output (QR codes, deep links) that a
+    client's browser will later be told to visit -- never trust a client-supplied Host header for
+    this blindly (finding #16: a spoofed Host let a QR-code scan send a mechanic's phone to an
+    attacker-controlled URL). `candidate_host` is validated against the actual bind address plus
+    the VIEWER_ALLOWED_HOSTS allowlist; anything else falls back to a safe default derived from how
+    the server was actually started, never the wildcard bind address itself."""
+    safe_default = "127.0.0.1:%d" % PORT if HOST in ("0.0.0.0", "::") else "%s:%d" % (HOST, PORT)
+    allowed = _ALLOWED_HOSTS | {safe_default.lower()}
+    candidate = (candidate_host or "").strip()
+    return "http://" + (candidate if candidate.lower() in allowed else safe_default)
+
 
 def _auth_ok(token):
     """Constant-time token check for network-exposed mode. Empty configured token = deny all mutation."""
@@ -547,7 +571,7 @@ def _auto_optimize():
 
 
 def main():
-    global DB_PATH, INDEX_DIR
+    global DB_PATH, INDEX_DIR, HOST, PORT
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", DB_PATH))
     ap.add_argument("--port", type=int, default=8765)
@@ -556,6 +580,7 @@ def main():
     ap.add_argument("--mode", default=None, help="force RPS mode: modern | lite | legacy")
     ap.add_argument("--prebake", type=int, default=0, metavar="N", help="pre-render the first N pages of every doc into the cache, then exit")
     args = ap.parse_args(); DB_PATH = os.path.abspath(args.db); INDEX_DIR = os.path.abspath(os.path.dirname(DB_PATH))
+    HOST, PORT = args.host, args.port
     if not os.path.exists(DB_PATH): print(f"[WARN] index not found at {DB_PATH}")
     global RPS_OVERRIDE
     if args.mode: RPS_OVERRIDE = args.mode

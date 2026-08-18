@@ -21,23 +21,45 @@ def _key(ntype, label):
 
 
 def build(kg_db, triples):
-    """Write a graph from `triples` = [(src_type, src_label, rel, dst_type, dst_label)]. Rebuilds cleanly. Append-only
-    sidecar semantics (never touches the corpus). Returns {nodes, edges}."""
-    con = sqlite3.connect(kg_db)
-    con.executescript("DROP TABLE IF EXISTS nodes; DROP TABLE IF EXISTS edges;")
-    con.executescript(SCHEMA)
-    nodes = {}
-    for st, sl, rel, dt, dl in triples:
-        if not sl or not dl:
-            continue
-        sk = _key(st, sl); dk = _key(dt, dl)
-        nodes[sk] = (sk, st, sl.strip()); nodes[dk] = (dk, dt, dl.strip())
-        con.execute("INSERT OR IGNORE INTO edges(src,rel,dst) VALUES(?,?,?)", (sk, rel, dk))
-    con.executemany("INSERT OR REPLACE INTO nodes(key,type,label) VALUES(?,?,?)", list(nodes.values()))
-    con.commit()
-    ne = con.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
-    ee = con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
-    con.close()
+    """Write a graph from `triples` = [(src_type, src_label, rel, dst_type, dst_label)]. Append-only
+    sidecar semantics (never touches the corpus). Returns {nodes, edges}.
+
+    Builds into a temp file in the same directory and only replaces kg_db at the very end, once
+    every table is populated and committed -- kg_db itself is never touched until the swap.
+    Previously this ran DROP TABLE / CREATE TABLE / inserts directly against the live kg_db with a
+    single commit() at the very end; con.executescript() issues an implicit COMMIT before running,
+    so the DROP and each CREATE were individually autocommitted the instant they ran, not wrapped
+    in one transaction -- a crash/kill anywhere in between left kg_db on disk mid-build (e.g. nodes
+    table present, edges not yet re-created), permanently, in place. neighbors() below already had
+    to grow defensive cleanup for exactly that failure mode; this fix removes the failure mode
+    itself instead. Same build-to-temp-then-atomic_replace pattern as build_publog.py."""
+    import safeguard
+    tmp_path = kg_db + ".building-%d" % os.getpid()
+    safeguard.remove_retry(tmp_path)   # stale leftover from a prior crashed run -- just scratch space
+    con = None
+    try:
+        con = sqlite3.connect(tmp_path)
+        con.executescript(SCHEMA)   # CREATE TABLE IF NOT EXISTS -- no DROP needed, the temp file starts empty
+        nodes = {}
+        for st, sl, rel, dt, dl in triples:
+            if not sl or not dl:
+                continue
+            sk = _key(st, sl); dk = _key(dt, dl)
+            nodes[sk] = (sk, st, sl.strip()); nodes[dk] = (dk, dt, dl.strip())
+            con.execute("INSERT OR IGNORE INTO edges(src,rel,dst) VALUES(?,?,?)", (sk, rel, dk))
+        con.executemany("INSERT OR REPLACE INTO nodes(key,type,label) VALUES(?,?,?)", list(nodes.values()))
+        con.commit()
+        ne = con.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+        ee = con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
+        con.close()
+    except BaseException:
+        try: con.close()
+        except Exception: pass
+        try: safeguard.remove_retry(tmp_path)
+        except OSError: pass
+        raise
+
+    safeguard.atomic_replace(tmp_path, kg_db)   # only now does the new build become "kg.db"
     return {"nodes": ne, "edges": ee}
 
 

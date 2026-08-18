@@ -688,9 +688,9 @@ def r_specsheet(h, qs):
 
 @get("/api/qr")
 def r_qr(h, qs):
-    # Offline QR for a part / NSN: encodes a deep-link to that part's dossier ON THIS SERVER
-    # (built from the request Host header) so a scan from a phone/second bay tablet on the same
-    # LAN jumps straight to it. Degrades gracefully when no QR backend is installed.
+    # Offline QR for a part / NSN: encodes a deep-link to that part's dossier ON THIS SERVER so a
+    # scan from a phone/second bay tablet on the same LAN jumps straight to it. Degrades gracefully
+    # when no QR backend is installed.
     import qrgen
     q = qstr(qs, "q", "").strip()
     if len(q) < 2:
@@ -698,13 +698,17 @@ def r_qr(h, qs):
     if not qrgen.available():
         h._send(503, {"ok": False, "unavailable": True,
                       "error": "QR support is not installed. Run: pip install segno"}); return
-    host = (h.headers.get("Host") or "127.0.0.1:8765").strip()
+    # The base URL was previously built straight from the client-supplied Host header with no
+    # validation -- any request could set Host: attacker.example and get back a QR code (which a
+    # mechanic is told to scan with their phone) pointing at an attacker-controlled URL. Validated
+    # against the actual bind address + an operator-configurable allowlist instead (finding #16) --
+    # see core.safe_public_base().
+    base = core.safe_public_base(h.headers.get("Host"))
     page = qstr(qs, "page", "/dossier") or "/dossier"
     try:
         scale = qint(qs, "scale", 6)
     except Exception:
         scale = 6
-    base = "http://" + host
     mime, payload = qrgen.for_part(base, q, page=page, scale=scale)
     if mime is None:
         h._send(503, {"ok": False, "unavailable": True, "error": payload}); return

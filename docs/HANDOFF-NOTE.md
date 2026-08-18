@@ -1,9 +1,22 @@
-# THE VIEWER — Handoff Note (reconciled 2026-08-09)
+# THE VIEWER — Handoff Note (reconciled 2026-08-18)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-18):** this file had gone stale again — pinned to v1.13.4/2026-08-09 while
+> `CHANGELOG.md` and `ITERATION-SNAPSHOTS.md` had moved on to **v1.14.0** (2026-08-18), 9+ days and an entire
+> 12-commit audit run behind. That run is the largest single effort in this project's history by commit
+> count: a full 4-tier code audit (Critical/High/Medium/Low, 50 findings from the original manifest,
+> `08bbb81`→`e4f4bd0`), a follow-up priority-5 UI/UX fix pass (`71c9c4c`/`a32aee9`), this repo's first-ever CI
+> workflow plus the real `test_http.py` bug it caught on day one (`7c4a3ba`), and a Tier-1
+> documentation/dependency/git-hygiene staleness pass (`3054dad`). The missing v1.13.5 entry (OCR confidence +
+> bare-temperature fix, shipped 2026-08-09 — after the prior reconciliation's cutoff) is added below too.
+> Every "current version"/"as of" claim in this file is now updated to **v1.14.0 / `3054dad` / 2026-08-18**;
+> see "## LATEST — v1.14.0" below for the full breakdown. `docs/PROJECT-SUMMARY.md` and
+> `docs/MASTER-RECONCILIATION.md` are due the same reconciliation in this pass — check their own headers
+> rather than assuming from here if this note is ever stale relative to them.
+>
 > **Reconciliation note (2026-08-09):** this file had gone stale at v1.13.2 while `CHANGELOG.md` and
 > `ITERATION-SNAPSHOTS.md` had already moved on to **v1.13.4** (both shipped 2026-08-08). No work has landed
 > between 2026-08-08 and today — v1.13.4 is confirmed the true current state on disk (matches `VERSION` in
@@ -11,7 +24,155 @@
 > added below; nothing else changed. `docs/PROJECT-SUMMARY.md` and `docs/MASTER-RECONCILIATION.md` were
 > reconciled to v1.13.4 in the same pass — all four docs now agree.
 
-## LATEST — v1.13.4 (2026-08-08) — Full live-driving pass + parallel audit: 36 real bugs found and fixed
+## LATEST — v1.14.0 (2026-08-18) — 50-finding 4-tier audit + UX pass + CI + doc reconciliation
+**VERSION → `1.14.0`.** The largest single effort in this project's history by commit count (12 commits,
+2026-08-17 → 2026-08-18): a full 4-tier code audit (Critical/High/Medium/Low, 50 findings from the original
+manifest), a follow-up UI/UX audit + priority-5 fix pass, this repo's first-ever CI workflow (plus a real bug
+it caught on day one), and the documentation-reconciliation finding the Medium tier itself explicitly
+deferred until everything else was done (this file's update is part of that). Every tier: implement →
+independent xhigh-effort multi-agent code review → fix every real review finding in its own follow-up commit
+→ next tier — the same discipline applied to the review findings themselves in the CI-fix and staleness passes.
+- **Critical (8 findings + 13 review findings, `08bbb81`→`086aed3`):** an infinite loop in
+  `procedure_feature.py` (wrong loop-index direction on the blank-line branch) hung on virtually any real
+  OCR'd page, backing `GET /api/procedure_full` and exhausting the bounded thread pool one request at a
+  time — `test_procedure.py` (22 tests, never wired into the verify gate before now) now passes instantly ·
+  `airgap.py verify()` fails closed against a file-existence oracle + a path-traversal escape ·
+  `/api/airgap_manifest` + `/api/ingest_scan` now fenced by the same `VIEWER_INGEST_ROOTS` their sibling
+  ingest routes already enforced · a negative `Content-Length` used to sail past the POST body cap and read
+  until EOF, a malformed one desynced keep-alive — both rejected outright now · `GET /api/audit`/`/ops`/
+  `/status` + (review pass) `command_status`/`ingest_status`/`provenance`/`integrity` now require the same
+  token the POST auth path already enforced · `embed.py`'s hash-fallback semantic search used Python's
+  per-process-randomized `hash()` — silently broken across every server restart on the documented
+  zero-download default; switched to `zlib.crc32` + a version stamp (`embed.HASH_ALGO_VERSION`) so a stale
+  pre-fix index now reports `ready=False` with a rebuild instruction instead of silently serving broken
+  results · `build_publog.py`'s destructive rebuild now builds to a temp file and only swaps it in
+  (`safeguard.atomic_replace`) once every table/index has committed · non-atomic sidecar-cache writes across
+  `vectorize.py`/`schemgraph.py`/`routes.py ?fresh=1` moved to `safeguard.atomic_write`, plus a real race in
+  that helper's own PID-only temp filename fixed (verified live: 16 threads, 320 racing writes, zero
+  corruption) · `verify_all.py`'s test gate was a hardcoded filename allowlist — replaced with glob-based
+  auto-discovery, surfacing **8 previously-never-run test suites** (~1,200 lines) in the same change.
+- **High (12 findings + 15 review findings, `04bd4a5`→`48c7a63`):** `kg.py` now rebuilds to a temp file and
+  atomically swaps in too, matching `build_publog.py`'s crash-safe pattern · a SQL condition in `xref.py`
+  matched NULL-`fig_no` rows regardless of doc filter, leaking a part's loose rows into every other document's
+  sibling-parts list · new **`viewer_ingest.py prune`** subcommand reconciles documents whose source file was
+  deleted/renamed since the last crawl (fingerprint rename-detection, cascade-safe cleanup, dry-run default,
+  missing-fraction abort threshold so an unmounted drive can't look like a mass deletion) · `migrate()` now
+  snapshots the DB before applying any pending migration · the NSN regex across
+  `patterns.py`/`core_pillars.py`/`partlocate.py` is now word-boundary-anchored (no longer matches inside
+  invoice/PO numbers) · OCR preprocessing (deskew/denoise/binarize) existed but was never actually wired into
+  the OCR path — now called · new **`ocr_supervisor.py`** + `run_ocr_auto.bat`: a heartbeat-staleness
+  watchdog that force-kills and recovers a HUNG (not just crashed) OCR pass, plus a per-page timeout
+  (`VIEWER_OCR_PAGE_TIMEOUT`); review pass caught a real bug in the watchdog itself — a leftover heartbeat
+  from a *prior* session made it kill a brand-new healthy pass on its first poll, fixed by tracking the
+  child's own start time as the baseline · **`safe_public_base()`** replaces trusting the raw `Host` header
+  with a validated allowlist for the QR-code deep-link base URL · this repo's first CI workflow,
+  **`.github/workflows/ci.yml`**, runs `verify_all.py` on every push/PR to `main` · 171 new regression checks
+  across 3 new test files covering 7 previously-zero-coverage feature modules + the Tier-1 corpus-build
+  pipeline.
+- **Medium (19 of 24 findings + 14 review findings, `0059dc8`→`3590cb2`):** `xref.py` fabricated a fake NSN
+  from any 13+-digit run instead of rejecting it — anchored · `dedup.py`'s shingle hashing had the same
+  process-randomized-`hash()` bug as the Critical-tier `embed.py` fix — switched to `zlib.crc32` · a large
+  foldout page could rasterize uncapped (48×36in @ 200 DPI ≈ 69MP against a 25MP intended ceiling) — fixed,
+  extended to the Poppler fallback render path (which had no cap at all); review pass caught the ceiling's
+  own 100-DPI floor could itself push a large enough page back *over* the cap — lowered · `masterfile.py
+  build()` rewritten to stream into an incremental aggregator instead of materializing every measurement row
+  into one Python list first (verified byte-for-byte output-equivalent across 10 rounds of randomized data +
+  a dedicated edge case) · `kg.py neighbors()` now tries an indexed exact/prefix lookup before the slow
+  substring scan; review pass caught the initial fix silently dropping valid substring matches whenever an
+  exact/prefix match also existed — both queries now always run, merged + deduped · 8 batch-script hardening
+  fixes (hardcoded personal-machine paths, silent-success anti-patterns, busy-looping retries, missing
+  errorlevel checks) across `VERIFY.bat`/`FIRST-RUN.bat`/`RUN-ALL-VERIFY.bat`/`run_indexing.bat`/
+  `RE-RENDER-CAD.bat`/`RUN-CAD-TIERS.bat`/`FIX-PORT.bat`/`KILL-ZOMBIE-ADMIN.bat` · 5 findings deliberately
+  deferred with recorded reasoning (a genuine FTS5-vs-completeness tradeoff in `kg.py`, two
+  duplicated-but-differently-wound CAD mesh builders left unmerged pending visual verification, this doc
+  reconciliation itself), 1 N/A (an orphaned mockup with no live surface).
+- **Low (6 findings + 2 review findings, `aad1709`→`e4f4bd0`):** removed a stray `.orig` backup file, a dead
+  duplicate module (`crossval.py`, zero external callers), and a superseded batch script still carrying a bug
+  its own successor's header documents fixing · fixed a `tables.py` short-circuit (`if False`) that always
+  returned 0 regardless of actual content · fixed an unescaped SQL `LIKE` wildcard in `ocr_diag.py` that
+  double-counted diagnostics into "other" · `verifystate.py`'s self-test module roster had drifted ~40%
+  behind `VERIFY.bat`'s actual gate list — fixed, and hardened to cross-check itself against the real gate
+  list going forward so this exact class of silent drift can't recur unnoticed.
+- **Priority-5 UI/UX pass (10 findings + 20 review findings, `71c9c4c`/`a32aee9`):** a follow-up UI/UX audit
+  (rendering, 3D/CAD, schematics, OCR-facing UX, motion/gestures, scanning) surfaced 52 findings; the 10
+  highest-priority shipped here, each verified live against a running instance: `index.html`'s front door was
+  ES6-only with no fallback — added a genuine **ES5 capability probe + minimal fallback shell**
+  (RPS-Legacy/IE11/old-Firefox support, this app's own stated tier) · Interactive 3D + its SVG fallback
+  gained **touch-orbit + pinch-zoom** (ported from CAD-rotate) + an always-visible zoom/reset row · the local
+  AI-illustrative 3D model gained an on-canvas watermark on its default tab (R13: AI tiers must never
+  visually pass as authoritative) · **Circuit Lab wires can now be selected and deleted individually**
+  instead of only wiping the canvas · Deep Zoom now falls back to a chip list for OCR-only-page callouts
+  instead of discarding them · safety callouts (WARNING/CAUTION/DANGER) now propagate their OCR-quality
+  confidence signal to all 4 pages + the printed Job Card that render them · kiosk/glove-mode's touch-target
+  minimum now covers `[role=button]` + the app-wide footer nav, with a `min-width` fix so circular badges
+  can't distort into ovals · bin/shelf audit no longer fabricates a fake NIIN from a scan that isn't a clean
+  9/13-digit NSN · the QR job-packet deep-link now explains itself instead of silently failing under
+  loopback-only deployment · Look-Alike Parts gained an inline cited-figure thumbnail per variant. Review
+  pass caught two severe regressions re-introducing the exact bugs the fixes above were meant to close (a
+  rejected bin-audit scan could still silently discard the whole in-progress scan list; the NIIN-fabrication
+  fix used `>=13` instead of `===13`, so 14+-digit codes were still fabricated) plus 18 more real findings (a
+  legacy-fallback redraw path wiping the new 3D zoom bar/watermark, a checkbox-sizing regression, an
+  unintended button-height change, a missed IPv6 deployment case, a blob URL leak, cleanup). New
+  `engine/tests/test_uiux_fixes.py`: 174 checks.
+- **CI (`7c4a3ba`; 3 root causes + 6 review findings):** CI's own Autofix flagged `test_http.py` failing on
+  the very first PR this workflow ran against. 8 of 11 failing routes shared one root cause (the test's
+  synthetic DB fixture had drifted from the real `documents` schema — missing `type`/`nsn`/`page_count`); 3
+  more were flagged "non-JSON" but are legitimately binary-PDF endpoints by design; `/api/search` had one
+  genuinely unguarded query. Stress-testing beyond CI's own config surfaced 3 more real, unrelated crashes
+  fixed in the same pass: `registry.qint()` had no ceiling against SQLite's 64-bit bind range
+  (`OverflowError` on an oversized numeric param), two routes passed `page` unvalidated into a bare `int()`,
+  and a non-ASCII "digit" surviving a filename filter crashed a PDF response mid-write with a Latin-1
+  encoding error. Review pass caught a genuine concurrency race in one of its own new guards (two threads
+  could pair a valid cache signature with an empty map, permanently) — serialized under a lock, verified
+  with a 64-thread stress test.
+- **Staleness pass, Tier 1 (`3054dad`; 6 items + 10 review findings):** a separate full-project staleness
+  audit (dependencies, git hygiene, docs-vs-reality, backlog-vs-fixed, dead code, repo bloat — `docs/audit/`
+  + the "Viewer Drift Report" artifact from this session) found PyMuPDF's deprecated `fitz` import alias
+  printing an unsuppressible warning on every server start — all 19 (+3 more, review pass) call sites
+  migrated to `import pymupdf as fitz`. Also fixed: a real test-isolation bug that had already contaminated
+  the live, git-tracked `keywords_user.json` sidecar with leftover test data (cleaned); two stale, fully-merged
+  git branches deleted; 6 small hygiene fixes (a 14-release-stale version comment, hardcoded
+  personal-machine paths, a dead `.gitattributes` rule, a drifting hardcoded test-file count). **This is only
+  Tier 1 of 6** — dependency-version hardening, further doc reconciliation, and repo-bloat cleanup are
+  tracked separately, not part of this entry (see "Suggested next" below).
+- **Verified:** `engine/tests/verify_all.py` **26/26, ALL GREEN**, stable across every run from the CI-fix
+  commit onward — the first point in this project's history the suite has been fully clean end to end (a
+  2-failure baseline, `test_http.py` + `safeguard verify`, held through most of this run and was eliminated
+  by the CI-fix and Tier-1-staleness commits respectively). 23 `test_*.py` files total now, all
+  auto-discovered by glob (no hardcoded list) — 6 new this run: `test_seven_modules.py` (105 checks),
+  `test_build_pipeline.py` (44), `test_prune.py` (22), `test_medium_fixes.py` (29), `test_uiux_fixes.py`
+  (174), `test_ocr_supervisor.py` (11).
+- **Docs:** `CHANGELOG.md` `[1.14.0]`; `VERSION` bump; `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html`
+  regenerated (`build_iteration_snapshot.py`) to include the new entry (both already current — don't
+  regenerate again for this reconciliation); this file and `docs/PROJECT-SUMMARY.md` reconciled to v1.14.0 in
+  the same pass (`PROJECT-SUMMARY.md`'s own header confirms it); `docs/MASTER-RECONCILIATION.md` is due the
+  same treatment — check its own header rather than assuming from here.
+
+## v1.13.5 (2026-08-09) — OCR quality signal + temperature extraction gap
+**VERSION → `1.13.5`.** Prompted by a direct question ("check the current OCR accuracy numbers") that split
+into two different answers: the *extraction* layer (`measures.py`'s regex over already-OCR'd text) had a
+measured, root-caused 80% recall gap; the *OCR* layer itself (image-to-text transcription) had **no accuracy
+signal of any kind** beyond completion percentage. Both addressed.
+- **Fixed — temperature extraction missed bare F/C entirely.** `measures.extract()`'s temperature pattern
+  required a `°` symbol or the word "deg"/"degrees" before F/C — a bare reading like "-40 F to 120 F" (a
+  real, common way TMs write temperature ranges) extracted **nothing at all**. This was the entire gap behind
+  `test_accuracy.py`'s 80% recall score. Added a bare-letter F/C alternative, guarded against the two real
+  collision classes this corpus is full of: hyphen-suffixed military designators (F-15, F-16, F/A-18, C-5,
+  C-17, C-130 — excluded via the same `(?!-\d)` technique already used for the 5W-30 oil-grade guard) and
+  no-space battery C-rate notation (0.5C, 1C — excluded via a new whitespace-required check). `degF`/`degC`
+  added to `_BARE_LETTER_UNITS` (the OCR-linearized-table newline guard, v1.13.4) since the new bare
+  alternative has the identical bridging risk. `test_accuracy.py` now reports **100% recall (10/10)**.
+- **Added — OCR confidence is now captured, not discarded.** RapidOCR computes a per-line confidence score
+  for every text detection; `ocr_one()` used to reduce its output to text only and throw the score away —
+  meaning the *only* OCR-quality signal in the entire app was "OCR ran" vs. "OCR did not run," never "OCR
+  probably got this right." `ocr_one()` now returns `(text, confidence)` (page-level average of RapidOCR's
+  per-line scores, 4dp; `None` for the Tesseract fallback path). New additive column `pages.ocr_confidence`
+  (migration `0009_ocr_confidence.sql`, nullable, R1-clean — old rows read NULL until naturally re-OCR'd; no
+  backfill pass was run against the live corpus). `coverage.overview()`'s `ocr` block now reports
+  `avg_confidence`, `confidence_scored_pages`, `low_confidence_pages` (< 0.5 — a deliberately conservative
+  first-pass bar), feeding `/api/coverage` + `/api/command_status` (both already TTL-cached, v1.13.4).
+
+## v1.13.4 (2026-08-08) — Full live-driving pass + parallel audit: 36 real bugs found and fixed
 **VERSION → `1.13.4`.** Drove every core feature end to end in the real running app (search, part/dossier,
 procedures/troubleshoot, job packet, 3D/CAD, schematics/Circuit Lab, PUBLOG, decode, master/coverage, command
 center/status, review/collections, ask/learn/verify, command palette/kiosk) — not just the automated suites —
@@ -137,23 +298,28 @@ of the dev-team review (ACCURACY · VERIFY/OPS · UI · FEATURES) on top of the 
   + legacy parity; diagram `docs/diagrams/113-holistic-hardening.{svg,pdf}` (`_make_113_holistic.py`); iteration
   snapshot row appended (R10 **literal screenshot still pending host-side** — server not running in the sandbox).
 
-### RUN THESE ON THE HOST (updated 2026-08-09, was "v1.13.0")
-1. **`VERIFY.bat`** — ✅ **DONE, confirmed GREEN** (v1.13.3 and again v1.13.4, run three times total across the
-   two sessions as fixes landed): 563 PASS / 0 FAIL, 658/658 files intact. `VERIFY-099.bat` still forwards to it.
+### RUN THESE ON THE HOST (updated 2026-08-18, was "2026-08-09")
+1. **`VERIFY.bat`** (→ `engine/tests/verify_all.py`) — ✅ **DONE, confirmed GREEN**, repeatedly: v1.13.3,
+   v1.13.4 (563 PASS / 0 FAIL, 658/658 files intact — pre-v1.14.0 baseline), and every one of the 12 commits
+   in the 2026-08-17→08-18 audit run landed on a full green pass before moving to the next tier. As of
+   `3054dad` (v1.14.0) it's **26/26, ALL GREEN** — the first point in this project's history the suite has
+   been fully clean end to end (23 `test_*.py` files, glob-discovered, no hardcoded list). This repo now also
+   has CI (`.github/workflows/ci.yml`) running the same gate on every push/PR to `main`, so a host run is no
+   longer the only place this gets checked. `VERIFY-099.bat` still forwards to it.
 2. **R10 screenshot:** capture the running app (e.g. `/part` red one-use card, `/command` gap card, or home with the
-   operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Still not done as a saved artifact.** The v1.13.4
-   session DID drive the live app with real screenshots (3D library grid + interactive CAD viewer, schematics +
-   Living Schematic flow overlay, Circuit Lab running a simulation, kiosk mode) and visually confirmed every core
-   page renders correctly — but none were saved to `docs/screenshots/`, only viewed inline during the session. **To
-   finish R10:** capture and save at least one real screenshot per major page into `docs/screenshots/` using the
-   `<version>-<page>.png` convention.
+   operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Still not done as a saved artifact** — unchanged
+   by the 2026-08-17/08-18 audit run, which verified everything live-in-browser but, per its own pattern, didn't
+   save screenshots either. **To finish R10:** capture and save at least one real screenshot per major page
+   into `docs/screenshots/` using the `<version>-<page>.png` convention.
 3. Optional while OCR is paused: **`BUILD-CONFLICTS.bat`** (precompute the conflict sweep; append-only sidecar) —
    still not run; `index/conflicts.db` doesn't exist yet.
 4. **`safeguard.py backupdb`** is manual + documented — run for an off-index full-DB backup when wanted. Still not
    run (distinct from `safeguard.py snapshot`, item 5, which HAS been run repeatedly).
-5. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, throughout the v1.13.3/v1.13.4 work
-   (current baseline: `SNAP_20260808_184421_v1.13.4-changelog`, confirmed 658/658 OK against the final green
-   VERIFY.bat run). No longer predates the OCR text layer.
+5. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, through v1.13.3/v1.13.4 (current
+   recorded baseline: `SNAP_20260808_184421_v1.13.4-changelog`, confirmed 658/658 OK against that era's final
+   green VERIFY.bat run). No longer predates the OCR text layer. Not confirmed re-baselined again during the
+   2026-08-17/08-18 audit run — worth a fresh snapshot next time `safeguard.py` runs on the host, now that
+   v1.14.0's changes are on disk.
 
 ## v1.10 → v1.12.9 (2026-07-02 → 07-03) — compressed (full detail in CHANGELOG.md)
 - **1.10.0 Recommendations wave:** `rpstl.py` structured RPSTL import + `crossmethod.py` cross-method agreement
@@ -304,33 +470,46 @@ now loads five more FLIS tables (standardization/ISC, MOE/AAC, phrase/TECH_DOC, 
 ## VERIFY wiring (current)
 Root **`VERIFY.bat`** is the single authoritative gate (v1.13.0): exit-code truth per step, `run_timeout.py`
 wall-clock guards, concise RESULT summary + `pause >nul` (the QuickEdit console-hang lesson), CRLF-safe.
-`VERIFY-099.bat` forwards to it. It unions: audit · test_routes (GET+POST sweeps) · the regression suites
-(search_quality/hardening/patterns/features/pillars/newmodules/accuracy) · rps_lint · verify_ui · check_crlf ·
-module self-tests · no-truncation completeness (R9). The old subroutine `call :body > log` pattern is retained —
-do **not** re-wrap the body in CMD parens (the `( )` paren-block bug silently killed earlier host-verifies).
-**Confirmed GREEN on an actual host as of v1.13.4** (2026-08-08) — this had been an outstanding item since
-v1.13.0; no longer is. If gate 7's `test_hardening` step ever fails right after a standalone run of the same
-test file, it's very likely the same transient port-8893 TIME_WAIT cooldown hit during the v1.13.4 session —
-re-run VERIFY.bat clean (no standalone test runs immediately before it) before treating it as a real regression.
+`VERIFY-099.bat` forwards to it. It unions: audit · test_routes (GET+POST sweeps) · the regression suites ·
+rps_lint · verify_ui · check_crlf · module self-tests · no-truncation completeness (R9). **The regression-suite
+list is no longer hardcoded** — a v1.14.0 Critical-tier fix (`08bbb81`) replaced `verify_all.py`'s fixed
+filename allowlist with glob-based auto-discovery, which is what surfaced 8 previously-never-run test suites
+(~1,200 lines, including `test_procedure.py`'s 22 tests catching the live `procedure_feature.py` infinite
+loop) in that same change. **23 `test_*.py` files, 26/26 gates ALL GREEN as of `3054dad`** (v1.14.0,
+2026-08-18) — the first point in this project's history the suite has been fully clean end to end. The old
+subroutine `call :body > log` pattern is retained — do **not** re-wrap the body in CMD parens (the `( )`
+paren-block bug silently killed earlier host-verifies). If gate 7's `test_hardening` step ever fails right
+after a standalone run of the same test file, it's very likely the same transient port-8893 TIME_WAIT cooldown
+hit during the v1.13.4 session — re-run VERIFY.bat clean (no standalone test runs immediately before it)
+before treating it as a real regression. **New in v1.14.0:** this same gate now also runs in CI —
+**`.github/workflows/ci.yml`** (this project's first-ever CI workflow) invokes `verify_all.py` on every
+push/PR to `main`; it caught a real `test_http.py` bug (11 failing routes, 3 distinct root causes) on the very
+first PR it ran against, fixed in `7c4a3ba`.
 
 ## Known gotchas still in force
 - **Mount truncation:** sandbox reads of grown host files are truncated/stale; verify host-side or via the Read tool.
   Snapshot/verify HOST-SIDE (`safeguard.py` / root `VERIFY.bat`).
 - **Never** write the big `viewer.db` through the mount; sidecars are written by host-run builders only.
 - **LF-only .bat blink-crashes** — now gated mechanically by `engine/tools/check_crlf.py` (in VERIFY).
-- Duplicate route paths silently override — audited (244 GET + 20 POST, no collisions) + covered by the audit rule.
+- Duplicate route paths silently override — audited (244 GET + 21 POST, 265 total, no collisions) + covered by the audit rule.
 - Standing rules R1–R13 are **THE VIEWER-only**; do not carry them to other projects.
 
 ## Suggested next
-1. **R10 screenshots** — the one item from the v1.13.0-era host checklist still not done as a saved artifact
-   (see "RUN THESE ON THE HOST" above); the app was live-driven and visually confirmed working this session,
-   just never captured to `docs/screenshots/`.
-2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — needs
-   corpus-wide regression testing before a safe fix; flagged in `CHANGELOG.md` `[1.13.4]`.
-3. Complete OCR → re-index; run `BUILD-CONFLICTS.bat` (first sweep, still never run) and `BUILD-MEASURES`/
+1. **R10 screenshots** — still the one item from the v1.13.0-era host checklist not done as a saved artifact
+   (see "RUN THESE ON THE HOST" above); unchanged by the v1.14.0 audit run.
+2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — still open;
+   needs corpus-wide regression testing before a safe fix; flagged since `CHANGELOG.md` `[1.13.4]`, not
+   touched by the v1.14.0 audit.
+3. **Staleness-audit Tiers 2–6** — the "Viewer Drift Report" this session's Tier-1 pass (`3054dad`) only
+   partly addresses: dependency-version hardening, further documentation reconciliation, and repo-bloat
+   cleanup are tracked separately and not yet started (see `docs/audit/` + the Viewer Drift Report artifact).
+4. **5 Medium-tier findings deliberately deferred** (see `CHANGELOG.md` `[1.14.0]`, Medium-tier entry) plus
+   that tier's own duplicated `_box()` CAD mesh-builder cleanup — each with recorded reasoning at the commit
+   that deferred it.
+5. Complete OCR → re-index; run `BUILD-CONFLICTS.bat` (first sweep, still never run) and `BUILD-MEASURES`/
    `BUILD-MASTERFILE` refreshes on the grown text layer; `safeguard.py backupdb` (full off-index DB backup,
    still never run — distinct from the snapshot vault, which is current).
-4. Real semantic embeddings + hybrid ranking; R12 catalog march continues
+6. Real semantic embeddings + hybrid ranking; R12 catalog march continues
    (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
 
 <!-- END OF FILE -->

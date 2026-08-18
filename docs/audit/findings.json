@@ -1,4 +1,12 @@
 {
+  "superseded_by": {
+    "note": "This audit is HISTORICAL (v0.72.3, 2026-06-03) and no longer reflects the app. A much larger 4-tier audit closed 2026-08-17/18 at v1.14.0: 8 Critical + 12 High + 24 Medium + 6 Low findings (commits 08bbb81..276790e), plus a follow-up priority-5 UI/UX pass (10 findings, 71c9c4c/a32aee9), a CI-fix pass (7c4a3ba), and a Tier-1 staleness pass (3054dad). See docs/CHANGELOG.md's [1.14.0] entry for the full commit-by-commit summary. No equivalent machine-readable findings.json has been generated for that audit -- this file (and docs/audit/AUDIT-REPORT.html) were hand-authored one-off deliverables for the 2026-06-03 session, not build output from a generator script, so there is nothing to re-run.",
+    "version": "1.14.0",
+    "date": "2026-08-18",
+    "commits": "08bbb81..276790e",
+    "counts": {"critical": 8, "high": 12, "medium": 24, "low": 6},
+    "see": "docs/CHANGELOG.md, entry [1.14.0]"
+  },
   "audit": "THE VIEWER — top-to-bottom audit + mutation testing",
   "date": "2026-06-03",
   "version_at_audit": "0.72.3",

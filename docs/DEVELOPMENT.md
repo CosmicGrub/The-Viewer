@@ -56,6 +56,10 @@ Do this around every change session (it takes seconds):
    gate) — the two aren't competing, they're tiered by cost/occasion: use `VERIFY-ALL.bat` here,
    every time; run `VERIFY.bat` (and `RUN-ALL-VERIFY.bat` for the slower fuzz/mutation passes)
    before a release or milestone. See the repo root `README.md` for the full verify-script tiering.
+   A fourth tier now runs with no local action needed: every push and PR to `main` triggers GitHub
+   Actions CI (`.github/workflows/ci.yml`), which runs `python tests/verify_all.py --snapshot` on a
+   clean checkout — a backstop gate this loop's local `VERIFY-ALL.bat` doesn't replace, since a
+   change can still be pushed without anyone having run it by hand.
 4. Read the summary line:
    - `ALL GREEN` → suites pass and every protected file matches the vault. Done.
    - Any file shown `TRUNCATED` / `SHRUNK` → the file on disk was damaged; restore it:

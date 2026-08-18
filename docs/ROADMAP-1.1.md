@@ -1,5 +1,12 @@
 # THE VIEWER — v1.1 Roadmap
 
+> **historical — superseded, describes the v1.0.0/v1.1.0-era roadmap only.** Every item below (real semantic
+> search, the visual index, hybrid ranking, and the rest) shipped long ago — see `docs/MASTER-RECONCILIATION.md`'s
+> feature inventory. The codebase has since moved through 13+ more versions to **v1.14.0** (2026-08-18, the
+> 50-finding 4-tier audit + UX pass + CI + doc reconciliation). For what's actually shipped and what's still
+> open, read `docs/CHANGELOG.md` (newest entry first) instead of this file. Kept as-is below for historical
+> record — not maintained.
+
 v1.0.0 is cut and verify-green. This is the prioritized next lap: **[UPGRADE]** = new capability, **[EFFICIENCY]** =
 speed/resource win, **[DEBT]** = cleanup that pays down risk. Effort: **S** ≤ half-day · **M** 1–2 days · **L** multi-day.
 

@@ -1,5 +1,11 @@
 # THE VIEWER — v1.0.0 Release Notes
 
+> **historical — describes only the v1.0.0 cut.** Figures below (OCR ~43.8%, semantic/visual indexes "must be
+> built") are the state at that release and are long since superseded — OCR is now ~94%+ and both indexes have
+> been live for a long time. The codebase has since moved through 13+ more versions to **v1.14.0** (2026-08-18,
+> the 50-finding 4-tier audit + UX pass + CI + doc reconciliation). For current state, read
+> `docs/CHANGELOG.md` (newest entry first). Kept as-is below for historical record — not maintained.
+
 **An offline search engine + dynamic viewer for military Technical Manuals**, built for mechanics: find any part or
 procedure fast, see how to remove/install it with the right tools and torque, tell look-alike parts apart, and read the
 figures with dynamic graphics — all with **no internet**.

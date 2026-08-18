@@ -219,7 +219,7 @@ K72 exists / K74–K76, L79/L80/L82, M83–M85, N86/N87, O90.
 
 **Verified:** all 8 suites green in the isolation tree. Rollback: `backups/pre-v0.97-batch/` (R1).
 
-**Still open after v0.97.0:** C19/C21/C24, D25–D32, E33–E38/E40–E41, F42–F45, H52–H58, I59–I65,
+**Still open after v0.97.0:** C19/C21/C24, D25–D32, E33–E38/E40–E41, F42–F45, H52–H58, I60–I65,
 K72/K74–K76, L79/L80/L82, M83–M85, N86/N87, O90.
 
 ### 2026-06-10 — v0.98.0 (third batch: nav consolidation, by direct request)
@@ -230,3 +230,10 @@ K72/K74–K76, L79/L80/L82, M83–M85, N86/N87, O90.
 - Touches **E33** (shared header concept — partially: home page nav now structured) and finishes
   the practical goal of **E39**. Verified 10/10 acceptance + 7 suites + RPS gate.
   Rollback: `backups/pre-v0.98-nav/`.
+
+### 2026-08-18 — v1.14.0 (50-finding 4-tier audit + UX pass + CI + doc reconciliation)
+**DONE:**
+- **I59** — per-page OCR timeout shipped: `VIEWER_OCR_PAGE_TIMEOUT` in `viewer_ingest.py`, paired
+  with new `ocr_supervisor.py`'s heartbeat-staleness watchdog so a HUNG (not just crashed) pass is
+  force-killed and recovered too. High-tier audit fixes, commit `04bd4a5` (range `04bd4a5`→`48c7a63`).
+  See `docs/CHANGELOG.md` `[1.14.0]` for the full audit.

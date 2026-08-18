@@ -269,6 +269,17 @@ checkpoints the WAL. Binds 127.0.0.1 unless `--host` says otherwise.
 
 ### Gates (run with every change)
 
-`tests/verify_all.py` (= `VERIFY-ALL.bat`) now runs: test_pillars · test_features · test_patterns ·
-test_routes (59-route live smoke) · test_truncation · **test_hardening (12 defense checks)** ·
-**rps_lint (the ES5/legacy gate — all 31 UI files classified)** · safeguard verify.
+`tests/verify_all.py` (= `VERIFY-ALL.bat`) no longer runs a fixed, hand-maintained list of suites —
+it **auto-discovers every `test_*.py` file** in `engine/tests/` via `glob.glob(os.path.join(HERE,
+"test_*.py"))`, runs each as its own subprocess (900s timeout each, so a hang fails loudly instead
+of blocking the gate forever), then runs `rps_lint.py` (the ES5/legacy gate — all 31 UI files
+classified) and `safeguard verify`. This replaced an earlier hardcoded tuple of suite names after
+that tuple let `test_procedure.py` — the one suite that would have caught `procedure_feature.py`'s
+`i -= 1` infinite-loop typo — go silently unexecuted; at the same time 9 *other* real `test_*.py`
+files (~1,200 lines combined) were also never run here, for the identical reason. See
+`verify_all.py`'s own comment above its `glob.glob()` call for the full incident writeup. There are
+23 `test_*.py` files today, and a new one joins the gate automatically the moment it's added —
+nothing else to remember, and nothing here to go stale again.
+
+Pushes and PRs to `main` now also run `tests/verify_all.py --snapshot` automatically, via GitHub
+Actions (`.github/workflows/ci.yml`) — the project's first CI of any kind.

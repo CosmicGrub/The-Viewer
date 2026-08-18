@@ -10,9 +10,18 @@ def _db(db_path):
     con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True); con.row_factory = sqlite3.Row; return con
 
 
+_NSN_RE = re.compile(r"\b(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})\b")
+
+
 def _norm_nsn(s):
-    d = re.sub(r"\D", "", s or "")
-    return "%s-%s-%s-%s" % (d[0:4], d[4:6], d[6:9], d[9:13]) if len(d) >= 13 else (s or "").strip()
+    # \b-anchored, matching patterns.py's canonical NSN_RE (medium finding #21): the old
+    # `len(d) >= 13` form stripped ALL non-digits from the whole input and accepted anything
+    # 13+ digits long, silently slicing out only the first 13 -- a 15/16-digit invoice or
+    # tracking number pasted into search fabricated a plausible-looking but bogus NSN instead
+    # of being rejected. Falls through to the raw string (unchanged) for the name/part-number
+    # OR-lookup below when no real NSN is present.
+    m = _NSN_RE.search((s or "").strip())
+    return ("%s-%s-%s-%s" % (m.group(1), m.group(2), m.group(3), m.group(4))) if m else (s or "").strip()
 
 
 def related(db_path, q, limit=60):

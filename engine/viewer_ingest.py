@@ -34,6 +34,12 @@ TM_RE  = re.compile(r"\bTM\s*[0-9][0-9A-Za-z\-]+")
 
 _RAPID = None
 OCR_DPI = 200          # render DPI for OCR (profile-tunable)
+# Medium finding #24: every page used to rasterize at the fixed DPI above regardless of its
+# physical size, with no output-resolution ceiling -- a large-format foldout engineering drawing
+# (common in this corpus) at 200 DPI can produce a ~60+ megapixel raster handed straight to OCR/
+# preprocessing with no downscale guard. _render_png() now shrinks the effective DPI for any page
+# whose projected pixel count would exceed this cap; a normal-size page is completely unaffected.
+OCR_MAX_MEGAPIXELS = int(os.environ.get("VIEWER_OCR_MAX_MP", "25")) * 1_000_000
 USE_CUDA = False       # GPU OCR when True (RapidOCR + onnxruntime-gpu)
 ADAPTIVE_DPI = os.environ.get("VIEWER_ADAPTIVE_DPI") == "1"   # opt-in: lower DPI on sparse pages (default OFF = no accuracy change)
 _RAPID_LOCK = threading.Lock()
@@ -381,7 +387,15 @@ def _render_png(path, page_number, dpi=None):
         if not _FITZ_LOCK.acquire(timeout=OCR_PAGE_TIMEOUT_SECONDS):
             raise TimeoutError("PyMuPDF render lock busy for >%ds -- a prior render may be wedged" % OCR_PAGE_TIMEOUT_SECONDS)
         try:
-            doc = fitz.open(path); pix = doc[page_number-1].get_pixmap(dpi=d)
+            doc = fitz.open(path); page = doc[page_number-1]
+            # DPI ceiling (finding #24): shrink the effective DPI, never the requested one, for a
+            # physically large page so the rendered raster stays under OCR_MAX_MEGAPIXELS. A page
+            # under the cap at the requested DPI is untouched (w_in/h_in <= 0 -- e.g. a malformed
+            # MediaBox -- also skips this and falls back to the raw requested DPI unchanged).
+            w_in, h_in = page.rect.width / 72.0, page.rect.height / 72.0
+            if w_in > 0 and h_in > 0 and (w_in * d) * (h_in * d) > OCR_MAX_MEGAPIXELS:
+                d = max(100, int((OCR_MAX_MEGAPIXELS / (w_in * h_in)) ** 0.5))
+            pix = page.get_pixmap(dpi=d)
             data = pix.tobytes("png"); doc.close()
         finally:
             _FITZ_LOCK.release()

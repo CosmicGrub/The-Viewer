@@ -48,9 +48,15 @@ def main():
         print("masterfile.db absent — run BUILD-MASTERFILE.bat for dimension edges.")
 
     # figureparts sample -> part/figure/nsn/vehicle (best-effort; needs the parts index)
+    # Medium finding #27: this deliberately samples the first 400 docs' page 1 only, capped at
+    # 5000 parts -- cheap, but nothing downstream could previously tell "this edge doesn't exist"
+    # apart from "this edge exists but is outside the sample." kg_meta below records the actual
+    # sample size against the corpus total so kg.stats()/`  /api/kg` can disclose it.
+    kg_meta = {}
     try:
         import figureparts, partlocate
         con = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
+        total_docs = con.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
         docs = [r[0] for r in con.execute("SELECT id FROM documents LIMIT 400")]
         con.close()
         seen = 0
@@ -70,10 +76,17 @@ def main():
                 seen += 1
             if seen > 5000:
                 break
+        kg_meta = {
+            "figureparts_docs_sampled": str(len(docs)), "figureparts_docs_total": str(total_docs),
+            "figureparts_pages_per_doc": "1 (page 1 only)", "figureparts_parts_cap": "5000",
+            "figureparts_parts_seen": str(seen),
+        }
+        print("  figureparts coverage: %d/%d docs sampled, page 1 only, %d parts (cap 5000)"
+              % (len(docs), total_docs, seen))
     except Exception as e:
         print("figureparts source skipped:", e)
 
-    r = kg.build(KG, triples)
+    r = kg.build(KG, triples, meta=kg_meta)
     print("Knowledge graph built -> %s" % KG)
     print("  %d nodes, %d edges from %d triples" % (r["nodes"], r["edges"], len(triples)))
     print("  by type:", kg.stats(KG)["by_type"])

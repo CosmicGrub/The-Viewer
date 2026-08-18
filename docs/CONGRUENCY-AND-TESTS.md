@@ -54,6 +54,31 @@ and confirms the suite catches every one. Two earlier candidates were identified
 mutants** (loosening `within1`'s final `<=1` bound, which the `abs(len)` guard + early `diff>1` exit
 make unreachable) and were replaced with genuinely-killable mutations.
 
+## Why not pytest (medium finding #43)
+
+`engine/tests/` is deliberately a stdlib-script + subprocess-per-file model
+(`engine/tests/verify_all.py` glob-discovers every `test_*.py` and runs each as its own
+`subprocess.run([PY, path], ...)`, checking the real process exit code), not pytest. This was a
+choice, not neglect:
+
+- **Hard process isolation between test files.** Several tests patch `sys.argv` to dispatch a CLI
+  subcommand end-to-end (e.g. `test_prune.py` drives `viewer_ingest.main()` this way) — inside one
+  shared pytest process those mutations could leak between test files; a fresh subprocess per file
+  can't.
+- **Glob-based auto-discovery already solves the actual historical failure mode.** `verify_all.py`'s
+  own docstring documents why: a hand-maintained tuple of test filenames once silently omitted
+  `test_procedure.py` (and 9 other real suites) from the "authoritative" gate, and its bug shipped
+  undetected. `glob.glob("test_*.py")` guarantees every test file added to the directory runs
+  automatically — the actual problem pytest's collection would also solve, already solved here.
+- **`mutation_runner.py`/`mutation_xl.py` import test modules directly** (`importlib.import_module`
+  + reload) and depend on their current plain-script shape to re-run pillar checks after each
+  injected fault.
+
+A full migration would touch all ~20 test files (3,000+ lines), reconcile two different execution
+models (subprocess-per-file exit-code checks in CI/`verify_all.py` vs. pytest's in-process
+collection), and rework the mutation harness's importlib-based reuse — for a style/tooling
+preference with no functional bug behind it. Not pursued.
+
 ## How to reproduce
 
 ```

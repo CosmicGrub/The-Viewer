@@ -53,7 +53,21 @@ def _canonical(vals):
 
 
 def build(db_path, measures_db, enrich_db, master_db, md_path=None):
-    """Consolidate corpus + external into master_db (+ optional Markdown export). Returns a summary dict."""
+    """Consolidate corpus + external into master_db (+ optional Markdown export). Returns a summary dict.
+
+    Medium finding #25: streams both sources directly into master_raw + an incremental (subject,
+    type,unit,origin)->Counter aggregator instead of first materializing EVERY measurement row
+    (including its free-text context field) into one flat Python list -- unlike build_tables.py's
+    per-document streaming, this had no bound, and at 85GB/~40k-file corpus scale the accumulated
+    list could grow arbitrarily large before a single byte was written. Peak Python-side memory is
+    now O(distinct (subject,type,unit,origin,value) combinations feeding master_filtered), not
+    O(total measurement rows). Output is exactly equivalent to the prior list-based implementation:
+    the same single end-of-build commit (nothing resumable/checkpointed here, matching the
+    unconditional DROP-and-rebuild-from-scratch above), the same tie-break order for the
+    "representative" value (Counter accumulated in the same read order -> identical
+    most_common(1) result), and the same n=0/""/""/"" row for a (subject,type,unit,origin) group
+    whose only rows had a null/empty value (a real, if rare, case the original's unconditional
+    `groups[key].append(val)` could produce -- verified against the original algorithm directly."""
     con = sqlite3.connect(master_db)
     con.executescript("DROP TABLE IF EXISTS master_raw; DROP TABLE IF EXISTS master_filtered; "
                       "DROP TABLE IF EXISTS master_meta;")
@@ -66,21 +80,49 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
     # build -- exactly the scenario safeguard.py's whole premise designs around elsewhere) leaked the
     # connection, which can then block a subsequent rebuild or snapshot/replace targeting the same path.
     doc_veh = {}
-    veh_label = {}
     v = None
     try:
         v = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True)
         for did, veh in v.execute("SELECT id, COALESCE(vehicle,'') FROM documents"):
             doc_veh[did] = (veh or "").strip()
-            if veh:
-                veh_label[(veh or "").strip().lower()] = veh.strip()
     except Exception:
         pass
     finally:
         if v is not None:
             v.close()
 
-    raw = []  # (subject, label, doc, page, type, unit, value, value2, tol, context, origin)
+    raw_buf = []                       # small rolling buffer -- flushed periodically, never holds the whole corpus
+    groups = defaultdict(Counter)      # (subj,ty,unit,origin) -> Counter({value: count}), None/"" never counted
+    bounds = {}                        # (subj,ty,unit,origin) -> (min_numeric, max_numeric) running span
+    labels = {}
+    corpus_have = defaultdict(set)
+    subjects_seen = set()
+    n_raw = corpus_raw = external_raw = 0
+    FLUSH_AT = 2000
+
+    def flush():
+        if raw_buf:
+            con.executemany(
+                "INSERT INTO master_raw(subject,subject_label,doc,page,type,unit,value,value2,tolerance,context,origin) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)", raw_buf)
+            raw_buf.clear()
+
+    def accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin):
+        nonlocal n_raw, corpus_raw, external_raw
+        raw_buf.append((subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin))
+        if len(raw_buf) >= FLUSH_AT:
+            flush()
+        labels[subj] = label; subjects_seen.add(subj); n_raw += 1
+        if origin == "corpus": corpus_raw += 1
+        else: external_raw += 1
+        key = (subj, ty, unit, origin)
+        counter = groups[key]        # touch the group even for a null/empty value -- matches the
+        if val not in (None, ""):    # original's unconditional groups[key].append(val) + _canonical's
+            counter[val] += 1        # later filtering, so an all-null group still yields an n=0 row
+            n = _num(val)
+            if n is not None:
+                lo, hi = bounds.get(key, (n, n))
+                bounds[key] = (min(lo, n), max(hi, n))
 
     # (1) CORPUS measurements (authoritative), page-cited to the real TM files
     if measures_db and os.path.exists(measures_db):
@@ -91,17 +133,13 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                     "SELECT doc,page,type,unit,value,value2,tolerance,context FROM meas"):
                 label = doc_veh.get(doc, "") or ("doc%s" % doc)
                 subj = label.strip().lower()
-                raw.append((subj, label, doc, page, ty, unit, val, val2, tol, ctx, "corpus"))
+                corpus_have[subj].add(ty)   # must be complete before the enrich loop below reads it
+                accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, "corpus")
         except Exception:
             pass
         finally:
             if m is not None:
                 m.close()
-
-    # which (subject,type) the corpus already answers -> corpus is authoritative there
-    corpus_have = defaultdict(set)
-    for r in raw:
-        corpus_have[r[0]].add(r[4])
 
     # (2) EXTERNAL gap-fills (supplemental) -- NO url carried into the Masterfile; only where corpus is silent
     if enrich_db and os.path.exists(enrich_db):
@@ -113,27 +151,26 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                 subj = (subj or "").strip().lower()
                 if ty in corpus_have.get(subj, ()):   # corpus wins -> skip
                     continue
-                raw.append((subj, label or subj, None, None, ty, unit, val, val2, tol, ctx, "external"))
+                accumulate(subj, label or subj, None, None, ty, unit, val, val2, tol, ctx, "external")
         except Exception:
             pass
         finally:
             if e is not None:
                 e.close()
 
-    # write RAW layer
-    con.executemany(
-        "INSERT INTO master_raw(subject,subject_label,doc,page,type,unit,value,value2,tolerance,context,origin) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?)", raw)
+    flush()
 
     # FILTERED layer: one canonical row per (subject,type,unit,origin)
-    groups = defaultdict(list)
-    labels = {}
-    for subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin in raw:
-        groups[(subj, ty, unit, origin)].append(val)
-        labels[subj] = label
     filt = []
-    for (subj, ty, unit, origin), vals in groups.items():
-        rep, low, high, n = _canonical(vals)
+    for (subj, ty, unit, origin), counter in groups.items():
+        n = sum(counter.values())
+        if n == 0:
+            rep, low, high = "", "", ""
+        else:
+            rep = counter.most_common(1)[0][0]
+            lo, hi = bounds.get((subj, ty, unit, origin), (None, None))
+            low = ("%g" % lo) if lo is not None else ""
+            high = ("%g" % hi) if hi is not None else ""
         auth = 1 if origin == "corpus" else 0
         note = "authoritative (corpus)" if auth else "external reference — unconfirmed"
         filt.append((subj, labels.get(subj, subj), ty, unit, rep, low, high, n, origin, auth, note))
@@ -141,17 +178,15 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
         "INSERT INTO master_filtered(subject,subject_label,type,unit,value,low,high,n,origin,authoritative,note) "
         "VALUES(?,?,?,?,?,?,?,?,?,?,?)", filt)
 
-    n_subj = len({r[0] for r in raw})
-    meta = {"built_ts": str(time.time()), "n_subjects": str(n_subj), "n_raw": str(len(raw)),
-            "n_filtered": str(len(filt)), "corpus_raw": str(sum(1 for r in raw if r[10] == "corpus")),
-            "external_raw": str(sum(1 for r in raw if r[10] == "external"))}
+    meta = {"built_ts": str(time.time()), "n_subjects": str(len(subjects_seen)), "n_raw": str(n_raw),
+            "n_filtered": str(len(filt)), "corpus_raw": str(corpus_raw), "external_raw": str(external_raw)}
     con.executemany("INSERT OR REPLACE INTO master_meta(k,v) VALUES(?,?)", list(meta.items()))
     con.commit(); con.close()
 
     if md_path:
         _export_md(master_db, md_path, meta)
-    return {"subjects": n_subj, "raw": len(raw), "filtered": len(filt),
-            "corpus": int(meta["corpus_raw"]), "external": int(meta["external_raw"])}
+    return {"subjects": len(subjects_seen), "raw": n_raw, "filtered": len(filt),
+            "corpus": corpus_raw, "external": external_raw}
 
 
 def _export_md(master_db, md_path, meta):

@@ -1,11 +1,12 @@
 @echo off
 setlocal enabledelayedexpansion
 set "LOG=%~dp0index\fixport.txt"
-echo === Killing EVERY process listening on 8765 (by PID, ignores command line) === > "%LOG%"
-for /f "tokens=5" %%P in ('netstat -ano ^| findstr :8765 ^| findstr LISTENING') do (
-  echo   taskkill /F /PID %%P >> "%LOG%"
-  taskkill /F /PID %%P >> "%LOG%" 2>>&1
-)
+REM Medium finding #38: this used to kill WHATEVER PID netstat found listening on 8765 with no
+REM check that it was actually THE VIEWER -- a blind port-kill risks taking down an unrelated
+REM process that happens to be reusing that port. Filtered by command line instead, same safe
+REM pattern RESTART-CLEAN.bat already uses (only viewer_app.py / run_app.bat processes are killed).
+echo === Killing THE VIEWER server processes (command-line filtered: viewer_app.py / run_app.bat) === > "%LOG%"
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'viewer_app\.py' -or $_.CommandLine -match 'run_app\.bat' } | ForEach-Object { Write-Output ('  killing PID ' + $_.ProcessId + '  ' + $_.Name); Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOG%"
 echo Waiting for sockets to release... >> "%LOG%"
 timeout /t 3 /nobreak >nul
 echo. >> "%LOG%"

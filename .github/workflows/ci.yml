@@ -2,8 +2,8 @@ name: CI
 
 # Previously nothing here at all -- no .github/, no CI of any kind (audit finding #18). This runs
 # the project's own single health-check entrypoint, engine/tests/verify_all.py, which auto-
-# discovers and runs every engine/tests/test_*.py file (20 as of this writing) plus the RPS
-# ES5-lint gate. All 20 test files are self-contained (tempfile-based fixtures, no real corpus, no
+# discovers and runs every engine/tests/test_*.py file (22 as of this writing) plus the RPS
+# ES5-lint gate. All 22 test files are self-contained (tempfile-based fixtures, no real corpus, no
 # GPU, no network egress -- see each file's own docstring) and every optional native dependency
 # (cv2/pytesseract/tesseract binary) is already try/except-guarded in the modules under test, so a
 # bare `pip install -r requirements.txt` on a stock runner is sufficient.

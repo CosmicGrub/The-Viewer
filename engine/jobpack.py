@@ -132,7 +132,13 @@ def build(pkg: dict) -> bytes:
                                         ("p." + _esc(p.get("page"))) if p.get("page") else ""] if x)
             E.append(Paragraph("<b>%s</b>  <font size=7 color='#666'>%s</font>" % (hdr, cite), ss["Body"]))
             for c in (p.get("cautions") or [])[:4]:
-                E.append(Paragraph("&#9888; <b>%s</b> &mdash; %s" % (_esc(c.get("kind")), _esc(c.get("text"))), ss["Warn"]))
+                # UX finding #6 (priority 5, R13 safety-relevant): this printed PDF is exactly the
+                # "away from the screen, can't re-check the corpus" case the OCR-confidence flag
+                # matters most for -- surface it the same way dossier.html/packet.html/solve.html/
+                # stepflow.html now do, instead of a garbled DANGER line printing with no indication.
+                conf = c.get("confidence")
+                qual = "  <font size=7 color='#a05a00'>(OCR quality: %s &mdash; verify on page)</font>" % _esc(conf) if conf and conf != "clean" else ""
+                E.append(Paragraph("&#9888; <b>%s</b> &mdash; %s%s" % (_esc(c.get("kind")), _esc(c.get("text")), qual), ss["Warn"]))
             if p.get("tools"):
                 E.append(Paragraph("<b>Tools:</b> " + _esc(", ".join(p["tools"][:20])), ss["Small"]))
             steps = p.get("steps") or []

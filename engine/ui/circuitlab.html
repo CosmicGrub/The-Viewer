@@ -266,7 +266,20 @@
     if(bgUrlCur){var img=el("image",{x:0,y:0,opacity:(+document.getElementById("bgOp").value/100)});img.setAttribute("href",bgUrlCur);img.setAttribute("width",W);img.setAttribute("height",H);img.setAttribute("preserveAspectRatio","xMidYMid meet");ed.appendChild(img);}
     var gW=el("g",{transform:"translate("+view.x+","+view.y+")"}); ed.appendChild(gW);
     wires.forEach(function(w){var v=sim?nodeVolt(key(w.a.gx,w.a.gy)):null;
-      gW.appendChild(el("line",{x1:w.a.gx*G,y1:w.a.gy*G,x2:w.b.gx*G,y2:w.b.gy*G,stroke:(v!==null?vColor(v):"#6b7686"),"stroke-width":3,"stroke-linecap":"round"}));});
+      var wsel=(selected&&selected.kind==="wire"&&selected.id===w.id);
+      gW.appendChild(el("line",{x1:w.a.gx*G,y1:w.a.gy*G,x2:w.b.gx*G,y2:w.b.gy*G,
+        stroke:(v!==null?vColor(v):(wsel?"#4f9dff":"#6b7686")),"stroke-width":(wsel?4:3),"stroke-linecap":"round"}));
+      // UX finding #4 (priority 5): a fat invisible hit-path so a wire can be clicked/selected/deleted
+      // individually -- the same transparent-overlay technique schemhl.js already uses (lines 39-57) for
+      // exactly this "make a thin line clickable" problem. Skipped while actively drawing a new wire
+      // (tool==="wire") so a click there still means "place the next wire endpoint", matching
+      // startDrag()'s own tool==="wire" -> onWirePin redirect for components.
+      var hit=el("line",{x1:w.a.gx*G,y1:w.a.gy*G,x2:w.b.gx*G,y2:w.b.gy*G,stroke:"transparent","stroke-width":9,
+        "stroke-linecap":"round",style:"cursor:pointer"});
+      hit.addEventListener("click",function(ev){ev.stopPropagation();if(tool==="wire")return;
+        selected={kind:"wire",id:w.id};renderProps();draw();});
+      gW.appendChild(hit);
+    });
     comps.forEach(function(c){drawComp(gW,c);});
     // node voltage labels + scope handles
     var seen={};
@@ -363,15 +376,25 @@
   function endDrag(){document.removeEventListener("mousemove",onDrag);document.removeEventListener("mouseup",endDrag);if(drag&&drag.moved&&sim){sim=makeSim();safeDC();}drag=null;draw();}
   function nearestPin(c,ev){var gp=gridAt(ev),ps=pinsOf(c),best=ps[0],bd=1e9;ps.forEach(function(p){var d=Math.abs(p.gx-gp.gx)+Math.abs(p.gy-gp.gy);if(d<bd){bd=d;best=p;}});return best;}
   function onWirePin(p){if(!wireStart){wireStart={gx:p.gx,gy:p.gy};draw();return;}if(wireStart.gx===p.gx&&wireStart.gy===p.gy){wireStart=null;draw();return;}
-    wires.push({a:{gx:wireStart.gx,gy:wireStart.gy},b:{gx:p.gx,gy:p.gy}});wireStart=null;if(sim){sim=makeSim();safeDC();}draw();}
+    wires.push({id:nextId++,a:{gx:wireStart.gx,gy:wireStart.gy},b:{gx:p.gx,gy:p.gy}});wireStart=null;if(sim){sim=makeSim();safeDC();}draw();}
   ed.addEventListener("mousedown",function(ev){if(tool!=="wire")return;if(ev.target!==ed&&ev.target.tagName!=="rect"&&ev.target.tagName!=="line")return;onWirePin(gridAt(ev));});
   function addComp(type,gx,gy){var c={id:nextId++,type:type,gx:gx,gy:gy,rot:0,value:PARTS[type].def,freq:PARTS[type].freq};selected=c;comps.push(c);renderProps();if(sim){sim=makeSim();safeDC();}draw();}
-  function delSelected(){if(!selected)return;comps=comps.filter(function(c){return c!==selected;});selected=null;renderProps();if(sim){sim=makeSim();safeDC();}draw();}
-  function rotSelected(){if(!selected)return;selected.rot=((selected.rot||0)+90)%360;if(sim){sim=makeSim();safeDC();}draw();}
+  function delSelected(){if(!selected)return;
+    if(selected.kind==="wire"){wires=wires.filter(function(w){return w.id!==selected.id;});}
+    else{comps=comps.filter(function(c){return c!==selected;});}
+    selected=null;renderProps();if(sim){sim=makeSim();safeDC();}draw();}
+  function rotSelected(){if(!selected||selected.kind==="wire")return;selected.rot=((selected.rot||0)+90)%360;if(sim){sim=makeSim();safeDC();}draw();}
 
   function renderProps(){
     var box=document.getElementById("props"),tune=document.getElementById("tune");
     if(!selected){box.innerHTML="Nothing selected.";tune.innerHTML="";return;}
+    if(selected.kind==="wire"){
+      box.innerHTML="<b>Wire</b> <span class='k'>#"+selected.id+"</span>";
+      tune.innerHTML="";
+      var db=document.createElement("button");db.className="b";db.style.width="100%";db.textContent="🗑 Delete wire (Del)";
+      db.addEventListener("click",delSelected);tune.appendChild(db);
+      return;
+    }
     var P=PARTS[selected.type],html="<b>"+P.nm+"</b> <span class='k'>#"+selected.id+"</span>";
     if(sim){var cur=0;try{cur=sim.i("c"+selected.id);}catch(e){}if(selected.type!=="GND")html+="<br><span class='k'>current</span> <b>"+fmtSI(cur,"A")+"</b>";
       if(selected.type==="RELAY"){try{var st=sim.state("c"+selected.id);if(st)html+="<br><span class='k'>contact</span> <b>"+(st.closed?"CLOSED":"open")+"</b>";}catch(e){}}}
@@ -456,7 +479,10 @@
 
   // save / load / export
   function serialize(){return JSON.stringify({v:2,comps:comps,wires:wires,nextId:nextId},null,1);}
-  function deserialize(s){try{var o=JSON.parse(s);if(!o.comps)return false;comps=o.comps;wires=o.wires||[];nextId=o.nextId||(comps.length+1);selected=null;scopeKey=null;sim=null;stopRun();refreshVmax();renderProps();draw();return true;}catch(e){return false;}}
+  function deserialize(s){try{var o=JSON.parse(s);if(!o.comps)return false;comps=o.comps;wires=o.wires||[];nextId=o.nextId||(comps.length+1);
+    // UX finding #4: a circuit saved before wires had ids -- backfill so selection/deletion works on it.
+    wires.forEach(function(w){if(w.id==null)w.id=nextId++;});
+    selected=null;scopeKey=null;sim=null;stopRun();refreshVmax();renderProps();draw();return true;}catch(e){return false;}}
   document.getElementById("btnSave").addEventListener("click",function(){try{localStorage.setItem("circuitlab.save",serialize());toast("Saved to this browser.");}catch(e){toast("Save unavailable here.");}});
   document.getElementById("btnLoad").addEventListener("click",function(){try{var s=localStorage.getItem("circuitlab.save");if(s&&deserialize(s))toast("Loaded last save.");else toast("No saved circuit found.");}catch(e){toast("Load unavailable.");}});
   function download(name,text,mime){var b=new Blob([text],{type:mime||"text/plain"}),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(u);},800);}
@@ -490,7 +516,7 @@
   function loadSample(which){
     comps=[];wires=[];nextId=1;selected=null;scopeKey=null;scopeData=[];stopRun();
     function C(type,gx,gy,rot,val,extra){var c={id:nextId++,type:type,gx:gx,gy:gy,rot:rot||0,value:val!==undefined?val:PARTS[type].def};if(extra)for(var k in extra)c[k]=extra[k];comps.push(c);return c;}
-    function W(ax,ay,bx,by){wires.push({a:{gx:ax,gy:ay},b:{gx:bx,gy:by}});}
+    function W(ax,ay,bx,by){wires.push({id:nextId++,a:{gx:ax,gy:ay},b:{gx:bx,gy:by}});}
     if(which==="divider"){C("V",2,2,0,5);C("R",2,2,0,1000);C("R",4,2,90,1000);C("GND",2,6);W(2,4,2,6);W(4,4,2,4);scopeKey=key(4,2);}
     else if(which==="rc"){C("V",2,2,0,5);C("R",2,2,0,2000);C("C",4,2,90,1e-5);C("GND",2,6);W(2,4,2,6);W(4,4,2,4);scopeKey=key(4,2);}
     else if(which==="rlc"){C("V",2,2,0,5);C("R",2,2,0,60);C("L",4,2,0,.08);C("C",6,2,90,5e-5);C("GND",2,6);W(6,4,2,6);W(2,4,2,6);scopeKey=key(6,2);}

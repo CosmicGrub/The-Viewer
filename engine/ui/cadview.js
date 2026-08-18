@@ -15,7 +15,13 @@
     container.appendChild(hint);
     // controls
     var bar=el('div','position:absolute;right:8px;top:8px;display:flex;gap:4px;z-index:3');
-    function mk(t,title){ return el('button','background:rgba(20,28,38,.82);color:#cfe;border:1px solid #2f4858;border-radius:6px;width:30px;height:26px;cursor:pointer;font-size:13px;line-height:1',t); }
+    // UX finding #7 (priority 5): reads localStorage's 'viewer_kiosk' flag directly (the same key
+    // palette.js itself persists to/reads from) instead of a hardcoded 30x26px, so this row grows to a
+    // real touch target in glove mode. Deliberately not reading the --kiosk-min CSS var here: this
+    // mounts on-demand (a tab click, not page load) so palette.js has normally already run by then, but
+    // localStorage has no such ordering dependency at all, so it's the more robust source either way.
+    function kioskMin(fallback){ try{ if(window.localStorage && localStorage.getItem('viewer_kiosk')==='1') return 44; }catch(e){} return fallback; }
+    function mk(t,title){ var m=kioskMin(30); return el('button','background:rgba(20,28,38,.82);color:#cfe;border:1px solid #2f4858;border-radius:6px;width:'+m+'px;height:'+Math.max(26,m)+'px;cursor:pointer;font-size:13px;line-height:1',t); }
     var bSpin=mk('⟳','auto-rotate'), bZin=mk('+','zoom in'), bZout=mk('−','zoom out'), bRst=mk('⌂','reset view');
     bSpin.title='auto-rotate'; bZin.title='zoom in'; bZout.title='zoom out'; bRst.title='reset view';
     bar.appendChild(bSpin); bar.appendChild(bZin); bar.appendChild(bZout); bar.appendChild(bRst); container.appendChild(bar);

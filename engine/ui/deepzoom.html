@@ -49,7 +49,15 @@
     $('#opendoc').href='/page?doc='+encodeURIComponent(doc)+'&page='+page+'&dpi=200';
     $('#vec').href='/vectorize?doc='+encodeURIComponent(doc)+'&page='+page+'&dpi=200';
     if(!doc){ $('#stage').innerHTML='<div style="padding:24px;color:#8a98a8">No document specified. Open this page as <code>/deepzoom?doc=ID&page=N</code>.</div>'; return; }
-    dz=DeepZoom.mount($('#stage'), doc, page, { onInfo:function(o){ $('#cinfo').textContent = o.callouts? (o.callouts+' callout'+(o.callouts===1?'':'s')+' — click a number to jump to the part') : 'no anchored callouts on this page'; } });
+    dz=DeepZoom.mount($('#stage'), doc, page, { onInfo:function(o){
+      // UX finding #5: distinguish "nothing extracted" from "found some, just no position data yet"
+      // (the latter used to read the exact same as the former -- confusing on every OCR-only page).
+      var msg;
+      if(o.total===0){ msg='no NSN/part/figure callouts detected in this page’s text.'; }
+      else if(o.callouts>0){ msg=o.callouts+' callout'+(o.callouts===1?'':'s')+' — click a number to jump to the part'+(o.unboxed?(' ('+o.unboxed+' more listed below, no position data)'):''); }
+      else { msg=o.total+' callout'+(o.total===1?'':'s')+' found but this page has no OCR position data yet — click below to open anyway.'; }
+      $('#cinfo').textContent=msg;
+    } });
   }
   // doc title in the meta line
   fetch('/api/doc?id='+encodeURIComponent(doc)).then(function(r){return r.json();}).then(function(j){

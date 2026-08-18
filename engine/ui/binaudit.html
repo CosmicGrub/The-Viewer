@@ -42,7 +42,14 @@
   /* esc()/toast() from /shared.js */
   var ITEMS=[];   // {nsn, niin}
 
-  function niinOf(s){ var d=(s||'').replace(/[^0-9]/g,''); return d.length>=13?d.slice(-9):(d.length===9?d:(d?d.padStart(9,'0').slice(0,9):'')); }
+  // UX finding #8 (priority 5, R13 "never fabricate"): a scanned code with 1-8 or 10-12 digits used to
+  // be zero-padded/truncated into a fake 9-digit NIIN and used verbatim as the PUBLOG lookup + dedup
+  // key -- a near-guaranteed catalog miss, or worse, a coincidental collision with an unrelated real
+  // NIIN rendering a wrong item_name/supersession verdict with no indication the number was made up.
+  // Only accept exactly what scanner.js's own looksNSN() already accepts elsewhere in this app (9 or
+  // 13+ digits); anything else is rejected (empty string), matching scanner.js's own reverse-lookup
+  // fallback for a manufacturer part number instead of coercing it into a bogus NSN.
+  function niinOf(s){ var d=(s||'').replace(/[^0-9]/g,''); return (d.length===9||d.length>=13)?(d.length>=13?d.slice(-9):d):''; }
   function add(code){
     var niin=niinOf(code); if(!niin) return false;
     if(ITEMS.some(function(x){return x.niin===niin;})) { flashCount('already in list'); return true; }
@@ -50,11 +57,26 @@
   }
   function flashCount(extra){ $('#count').textContent=ITEMS.length+' items.'+(extra?(' '+extra):''); }
 
-  // hand-scanner hook: scans append to the list instead of navigating
-  window.onScan=function(code){ add(code); $('#scanind').innerHTML='<span class="scanning">● scanning — '+ITEMS.length+' captured</span>'; return true; };
+  // hand-scanner hook: a captured scan appends to the list instead of navigating (return true, per
+  // scanner.js's contract). A REJECTED scan (not a recognizable 9/13+-digit NSN) now returns add()'s
+  // real `false` instead of always claiming success -- scanner.js's own route() then falls through to
+  // its existing manufacturer-part-number reverse lookup (/publog?pn=) rather than this page silently
+  // discarding the scan with no feedback at all.
+  window.onScan=function(code){
+    var ok=add(code);
+    if(ok) $('#scanind').innerHTML='<span class="scanning">● scanning — '+ITEMS.length+' captured</span>';
+    return ok;
+  };
 
-  $('#add').onclick=function(){ if(add($('#q').value)) $('#q').value=''; };
-  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ if(add($('#q').value)) $('#q').value=''; }});
+  // manual entry gets the same rejection, now with feedback (R13 "fail loud") instead of a silent no-op
+  // -- the input is deliberately left in place (not cleared) so the mechanic can see/edit what they typed.
+  function addManual(){
+    var v=$('#q').value;
+    if(add(v)){ $('#q').value=''; }
+    else if((v||'').trim() && typeof window.toast==='function'){ toast('Not a recognizable NSN (need 9 or 13+ digits) — not added.'); }
+  }
+  $('#add').onclick=addManual;
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ addManual(); }});
   $('#clear').onclick=function(){ ITEMS=[]; $('#warns').innerHTML=''; $('#out').innerHTML=''; render(); };
   $('#run').onclick=audit;
 

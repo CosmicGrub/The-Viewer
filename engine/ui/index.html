@@ -213,6 +213,26 @@
     .result{padding:14px 16px}
     .searchbar input{padding:13px}
   }
+  /* UX finding #1 (priority 5): this file's main script (below) is ES6 syntax throughout and is
+     intentionally MODERN_BY_DESIGN (rps_lint.py) -- on a true ES5 engine (IE11, old Firefox on
+     Win7/Vista, exactly what RPS-Legacy targets) that whole script fails to parse and NOTHING in it
+     runs, including its ES5-style search/sidegate functions. #legacyHome is a small, independently
+     ES5-safe fallback (own script block, checked separately by tools/check_es5_fallback.py) that a tiny
+     capability probe reveals only when the main script can't run, so legacy hardware still gets a
+     working search + side chooser instead of a dead page.
+  */
+  #legacyHome{display:none}
+  html.viewer-legacy-fallback #legacyHome{display:block}
+  html.viewer-legacy-fallback main{display:none}
+  #legacyHome{max-width:640px;margin:24px auto;padding:0 20px 40px}
+  #legacyHome h2{font-size:15px;margin:26px 0 10px}
+  #legacyHome ul{margin:0;padding-left:20px;line-height:1.9}
+  #legacyHome .note{font-size:12.5px;color:var(--sub)}
+  #legacyHome input[type=text]{width:100%;padding:11px;font-size:15px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:6px;color:var(--txt)}
+  #legacyHome .lresult{padding:10px 0;border-bottom:1px solid var(--line)}
+  #legacyHome .lresult a{color:var(--accent);text-decoration:none;font-weight:600}
+  #legacyHome button.go,#legacyHome button.ghost{min-height:44px}
 </style>
 <script src="/rps.js"></script>
 <script src="/palette.js"></script>
@@ -275,6 +295,95 @@
     <button class="ghost" id="editBtn" title="Start or edit a parts-request session (fills the 104th sheet header) — reopens the onboarding window">📋 Parts session</button>
   </div>
 </header>
+<script>
+/* UX finding #1 (priority 5): ES5-only capability probe. Must be the FIRST script after <header> and
+   must itself never use ES6 syntax (checked by engine/tools/check_es5_fallback.py, same PATTERNS as
+   rps_lint.py). Detects whether this engine can even parse arrow-function syntax; if not, the giant
+   ES6 script further down this page (MODERN_BY_DESIGN, intentionally not ES5-safe) will fail to parse
+   and never run at all -- so we reveal the #legacyHome fallback instead of leaving a dead page. */
+var VIEWER_LEGACY = false;
+try { Function("return (function(){}); (a)=>a;")(); } catch (probeErr) { VIEWER_LEGACY = true; }
+if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallback"; }
+</script>
+
+<div id="legacyHome">
+  <p class="note">Running in compatibility mode for this browser — <a href="/help">full guide</a></p>
+  <h2>Search — part #, NSN, material #, or key term</h2>
+  <form id="lgSearchForm">
+    <input id="lgQ" type="text" placeholder="Search a part…" autocomplete="off">
+    <button type="submit" class="go" style="margin-top:8px">Search</button>
+  </form>
+  <div id="lgResults"></div>
+
+  <h2>Choose your side of the house</h2>
+  <button id="lgOperator" class="ghost">Operator (10-level)</button>
+  <button id="lgMechanic" class="ghost" style="margin-left:8px">Mechanic (20-level)</button>
+  <p id="lgSideNote" class="note"></p>
+
+  <h2>Tools</h2>
+  <ul>
+    <li><a href="/torque">Torque &amp; fastener reference</a></li>
+    <li><a href="/procedure">Procedures</a></li>
+    <li><a href="/collections">Smart Collections</a></li>
+    <li><a href="/pmcs">PMCS worksheet</a></li>
+    <li><a href="/decode">Decoders (standards / NSN / SMR / CAGE)</a></li>
+    <li><a href="/status">System status</a></li>
+    <li><a href="/help">Help &amp; feature guide</a></li>
+  </ul>
+</div>
+<script>
+/* UX finding #1: the fallback's own logic -- kept ES5-only (checked by
+   engine/tools/check_es5_fallback.py) and deliberately independent of the main script below (which
+   never runs on the engines this code exists for). Reuses the SAME localStorage key + body-class
+   convention as chooseSide()/saveSide() further down this file, so a side chosen here is honored the
+   same way if the user later opens the app on a modern machine, and vice versa. */
+(function () {
+  function $(sel) { return document.querySelector(sel); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function saveSide(side) {
+    try { localStorage.setItem("viewer_side", side); } catch (e) {}
+    try {
+      document.body.className = (document.body.className || "").replace(/\bviewer-(operator|mechanic)\b/g, "").trim() + " viewer-" + side;
+    } catch (e) {}
+    var note = $("#lgSideNote");
+    if (note) { note.textContent = "Side set to " + (side === "operator" ? "Operator (10-level)" : "Mechanic (20-level)") + "."; }
+  }
+  var opBtn = $("#lgOperator"), mechBtn = $("#lgMechanic");
+  if (opBtn) { opBtn.onclick = function () { saveSide("operator"); }; }
+  if (mechBtn) { mechBtn.onclick = function () { saveSide("mechanic"); }; }
+
+  function renderResults(list) {
+    var box = $("#lgResults");
+    if (!box) return;
+    if (!list || !list.length) { box.innerHTML = '<p class="note">No matches.</p>'; return; }
+    var html = "";
+    for (var i = 0; i < list.length && i < 30; i++) {
+      var r = list[i];
+      var href = "/page?doc=" + encodeURIComponent(r.doc_id) + "&page=" + encodeURIComponent(r.page_number || 1) + "&dpi=150";
+      html += '<div class="lresult"><a href="' + href + '" target="_blank" rel="noopener">' +
+        esc(r.tm_number || r.title || ("document " + r.doc_id)) + " — p." + (r.page_number || "?") + "</a>" +
+        (r.vehicle ? (" <span class=\"note\">" + esc(r.vehicle) + "</span>") : "") + "</div>";
+    }
+    box.innerHTML = html;
+  }
+  var form = $("#lgSearchForm");
+  if (form) {
+    form.onsubmit = function (ev) {
+      ev.preventDefault();
+      var q = ($("#lgQ") || {}).value || "";
+      if (!q.replace(/^\s+|\s+$/g, "")) return;
+      var box = $("#lgResults");
+      if (box) box.innerHTML = '<p class="note">Searching…</p>';
+      fetch("/api/search?limit=30&q=" + encodeURIComponent(q)).then(function (r) { return r.json(); })
+        .then(function (d) { renderResults((d && d.results) || []); })
+        .catch(function () { if (box) box.innerHTML = '<p class="note">Search error.</p>'; });
+    };
+  }
+})();
+</script>
+
 <script>
 /* v0.98.0: Tools menu — accessible toggle (Esc + outside-click close, aria-expanded synced). */
 (function(){

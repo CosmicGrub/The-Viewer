@@ -712,8 +712,16 @@ def r_qr(h, qs):
     mime, payload = qrgen.for_part(base, q, page=page, scale=scale)
     if mime is None:
         h._send(503, {"ok": False, "unavailable": True, "error": payload}); return
+    # UX finding #9 (priority 5): safe_public_base() correctly falls back to 127.0.0.1 on the app's own
+    # documented default deployment (loopback-only HOST, no VIEWER_ALLOWED_HOSTS configured) -- but a
+    # QR code encoding 127.0.0.1 resolves to whatever device SCANS it, not this server, so it silently
+    # fails on exactly the shipped default. That was already known (a console-only warning at startup),
+    # but never reached the printed page making the "scan this" claim. Flag it here so the caller (e.g.
+    # packet.html) can show an inline warning instead of an unqualified claim.
+    local_only = base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:"))
     h._send(200, payload, mime, {"Cache-Control": "max-age=3600",
-                                 "X-QR-Target": qrgen.deep_link(base, q, page)})
+                                 "X-QR-Target": qrgen.deep_link(base, q, page),
+                                 "X-QR-Local-Only": "1" if local_only else "0"})
 
 
 @get("/api/publog")

@@ -17,12 +17,29 @@
    `display:` class can never leave a `hidden` element on screen again. (verify_ui.py guards this.) */
 [hidden]{display:none !important}
 /* KIOSK / GLOVE MODE (bay-floor tablet): bigger text, larger touch targets, higher contrast.
-   Toggled from the command palette ("Toggle kiosk mode"); persisted in localStorage; applied app-wide. */
-body.kiosk-mode{font-size:16px; --sub:#c3cede; --mut:#8c99a8}
-body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{
-  min-height:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
+   Toggled from the command palette ("Toggle kiosk mode"); persisted in localStorage; applied app-wide.
+   --kiosk-min: the touch-target minimum, exposed as a CSS var so script-driven controls that size
+   themselves inline (deepzoom.js's zoom/fit/callout buttons, cadview.js's zoom/spin/reset row) can read
+   the SAME number instead of hardcoding 22-30px that this rule can never reach. */
+:root{--kiosk-min:30px}
+body.kiosk-mode{font-size:16px; --sub:#c3cede; --mut:#8c99a8; --kiosk-min:44px}
+/* UX finding #7 (priority 5): the original selector list missed three real interactive-control
+   categories -- palette.js's #cmdk-pill/#bench-pill (role="button" DIVs, the only way to open the
+   command palette or pin-to-bench on a keyboardless touchscreen), shared.js's #vw-footer Back/Home nav
+   (injected on every non-home page, bare <a> tags), and any other ARIA role="button" control. Also adds
+   min-width alongside the existing min-height -- without it, script-sized square/circular controls
+   (deepzoom.js's 22px callout badges, cadview.js's 30px zoom buttons) only grew taller, not wider,
+   which would visibly distort a circular badge into an oval. */
+body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,body.kiosk-mode input,
+body.kiosk-mode select,body.kiosk-mode [role="button"],body.kiosk-mode #vw-footer a,
+body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{
+  min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
 body.kiosk-mode a{text-decoration:underline}
 body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
+/* the discoverability pills and footer nav are compact pill/text controls, not boxy buttons -- keep
+   their own padding/shape but still guarantee the 44px minimum footprint via min-height/min-width above */
+body.kiosk-mode #vw-footer a{padding:9px 10px;display:inline-flex;align-items:center;justify-content:center}
+body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{padding:11px 16px;font-size:13px}
 body{margin:0;background:var(--bg);color:var(--txt);
   font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
 a{color:var(--acc)}

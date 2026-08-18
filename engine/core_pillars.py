@@ -5,7 +5,7 @@ HTTP server. It is a COPY for testing; viewer_app.py remains the source of truth
 (Created because the sandbox mount caches viewer_app.py's inode and cannot re-read it.)"""
 import argparse, json, os, re, sqlite3, sys, tempfile, time, urllib.parse
 try:
-    import fitz
+    import pymupdf as fitz
 except Exception:
     fitz = None
 

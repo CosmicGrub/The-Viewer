@@ -82,7 +82,7 @@ def stitch(page_tables):
 if __name__ == "__main__":
     if not _OK:
         print("pdfplumber unavailable; skipping"); raise SystemExit(0)
-    import fitz, tempfile
+    import pymupdf as fitz, tempfile
     # borderless spec table (no ruling lines)
     d = fitz.open(); pg = d.new_page(width=400, height=260)
     for r, row in enumerate([["ITEM", "DIMENSION", "UNIT"], ["Overall length", "180", "in"],

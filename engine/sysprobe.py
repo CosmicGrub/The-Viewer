@@ -166,7 +166,7 @@ def build_profile():
     else: tier = "Legacy / low-power"
 
     # Available engines / tools — THE VIEWER substitutes per OS so every FEATURE works back to Vista.
-    has_pymupdf = _have_module("fitz")
+    has_pymupdf = _have_module("pymupdf")
     has_pillow = _have_module("PIL")
     has_rapid = _have_module("rapidocr") or _have_module("rapidocr_onnxruntime")
     has_tesseract = bool(shutil.which("tesseract"))

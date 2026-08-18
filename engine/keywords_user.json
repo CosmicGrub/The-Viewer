@@ -1,20 +1,5 @@
 {
-  "tags": {
-    "nsn:5305-01-674-1467": {
-      "name": "BOLT, MACHINE",
-      "nsn": "5305-01-674-1467",
-      "tags": [
-        "test tag",
-        "hardening"
-      ]
-    }
-  },
-  "groups": [
-    [
-      "smoke",
-      "test",
-      "alias"
-    ]
-  ],
+  "tags": {},
+  "groups": [],
   "_comment": "User-added keyword/tag groups (live). Each list = words that find each other in search."
 }

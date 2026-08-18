@@ -9,7 +9,7 @@ OCR parallelism uses THREADS (shared engine; PyMuPDF render under a lock) -- rel
 import argparse, hashlib, os, re, sqlite3, subprocess, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 try:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz  # PyMuPDF
 except Exception:
     fitz = None
 try:

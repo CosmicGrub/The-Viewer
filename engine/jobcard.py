@@ -265,7 +265,7 @@ def build_pdf(meta, procedures, torque, parts, figure_items, warnings=None):
 # ---- data gathering -----------------------------------------------------------------------------------
 def _page_image(pdf_path, page, dpi):
     try:
-        import fitz
+        import pymupdf as fitz
         from PIL import Image
         doc = fitz.open(pdf_path); pix = doc[int(page) - 1].get_pixmap(dpi=int(dpi)); img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples); doc.close(); return img
     except Exception:
@@ -390,7 +390,7 @@ if __name__ == "__main__":
     pdf = build_pdf({"task": "remove alternator", "label": "ALTERNATOR", "nsn": "2920-01-111-1111", "subtitle": "2 appearances", "intent": _task_intent("remove alternator")},
                     ordered, tq, parts, figs, warnings=[_lookalike_warning(la)])
     open("/tmp/jobcard_test.pdf", "wb").write(pdf)
-    import fitz
+    import pymupdf as fitz
     d = fitz.open("/tmp/jobcard_test.pdf")
     print("pdf bytes:", len(pdf), "| valid:", pdf[:5] == b"%PDF-", "| pages:", d.page_count, "| first ordered kind:", ordered[0]["kind"])
     d.close()

@@ -195,9 +195,11 @@ if __name__ == "__main__":
     print("publog norm_niin OK")
 
     if not available():
-        # try to build a tiny sample db from a reachable PUBLOG folder so the query path is exercised
-        cand = [r"C:\Users\User\Desktop\publog", "/sessions/beautiful-admiring-dirac/mnt/publog",
-                os.path.join(os.path.dirname(_DB), "..", "..", "..", "publog")]
+        # try to build a tiny sample db from a reachable PUBLOG folder so the query path is exercised.
+        # (a second _DB-relative candidate used to live here too, but _DB is itself __file__-relative --
+        # it resolved one directory level above this one, a bug, and always to the identical target once
+        # correct, so it was pure redundancy either way; removed rather than fixed-to-duplicate.)
+        cand = [os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "publog")]
         src = next((c for c in cand if os.path.isdir(c)), None)
         if not src:
             print("publog self-test SKIPPED (no publog.db and no PUBLOG source folder reachable). "

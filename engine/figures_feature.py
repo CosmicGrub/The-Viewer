@@ -16,7 +16,7 @@ Read-only on the index (R1/R6). `core` injected by viewer_app. Requires fitz (Py
 """
 import os, re
 try:
-    import fitz
+    import pymupdf as fitz
     # Silence cosmetic MuPDF stderr noise (e.g. "cmsOpenProfileFromMem failed" from PDFs with a broken
     # embedded ICC colour profile). MuPDF falls back to a default colour space and still renders the page,
     # so the crop is unaffected -- this just stops the harmless message from flooding the console.

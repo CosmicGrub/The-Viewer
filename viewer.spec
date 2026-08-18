@@ -1,4 +1,6 @@
-# PyInstaller spec for THE VIEWER (v0.99.32) -- builds a standalone folder/exe so the app runs on a shop PC
+# PyInstaller spec for THE VIEWER -- builds a standalone folder/exe so the app runs on a shop PC
+# (version comes from engine/viewer_app.py's VERSION constant -- not duplicated here, so this comment
+# can't drift out of sync with it the way it did before: last read v0.99.32 while the app was on v1.13.2)
 # with NO Python install. Build host-side:  BUILD-INSTALLER.bat  (which runs: pyinstaller viewer.spec)
 # The corpus/index are NOT bundled (they're huge + machine-specific) -- FIRST-RUN.bat junctions/points to them.
 # -*- mode: python ; coding: utf-8 -*-

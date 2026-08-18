@@ -71,7 +71,7 @@ def vectorize_page(pdf_path, page, dpi=200, **kw):
     if not _OK or not pdf_path or not str(pdf_path).lower().endswith(".pdf") or not os.path.exists(pdf_path):
         return None
     try:
-        import fitz
+        import pymupdf as fitz
         doc = fitz.open(pdf_path)
         pg = doc[int(page) - 1]
         pix = pg.get_pixmap(dpi=int(dpi))

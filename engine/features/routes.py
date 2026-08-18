@@ -495,7 +495,7 @@ def r_measures(h, qs):
 
 
 def _page_gray(path, page, dpi=150):
-    import fitz, numpy as np, os
+    import pymupdf as fitz, numpy as np, os
     if not path or not os.path.exists(path):
         return None
     d = fitz.open(path); pix = d[page - 1].get_pixmap(dpi=dpi)
@@ -572,7 +572,7 @@ def r_dimscan(h, qs):
         h._send(200, {"doc": doc, "page": page, "available": dimscan.available(), "lines": [], "summary": {}}); return
     lines = []
     try:
-        import fitz, numpy as np, os
+        import pymupdf as fitz, numpy as np, os
         if os.path.exists(path):
             d = fitz.open(path); pix = d[page - 1].get_pixmap(dpi=150)
             arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)

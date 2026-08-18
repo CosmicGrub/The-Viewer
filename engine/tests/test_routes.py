@@ -156,6 +156,10 @@ def run():
     db, _corr = fixture.build(tmp)
     import viewer_app
     viewer_app.DB_PATH = db                      # point the server at the fixture
+    from features import search_feature as SF    # v1.13.6: keep the /api/tags & /api/keywords POST_BODY
+    SF.KEYWORDS_USER_PATH = os.path.join(tmp, "keywords_user.json")  # writes out of the real tracked sidecar
+    SF._load_synonyms()   # reset SYN against the override now, rather than relying on the first write's own
+    # live-reload -- see test_hardening.py's identical fix for why.
     from http.server import ThreadingHTTPServer
     srv = ThreadingHTTPServer(("127.0.0.1", 0), viewer_app.Handler)
     port = srv.server_address[1]

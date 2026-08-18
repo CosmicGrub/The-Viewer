@@ -5,7 +5,7 @@ Offline, Windows-friendly, backwards-compatible, and resumable.
 
 ## What it does
 
-1. **Crawls** `E:\ALL MILITARY TMS` (read-only — your files are never modified).
+1. **Crawls** `D:\path\to\your\TMs` (read-only — your files are never modified).
 2. **Text-first**: pulls embedded text from every readable PDF page and indexes it
    immediately into a SQLite **FTS5** full-text index (`index\viewer.db`).
 3. **Queues** scanned/image-only pages as `pending_ocr`.
@@ -33,9 +33,9 @@ re-run later; it resumes.
 ## Manual commands
 
 ```
-python viewer_ingest.py crawl  --root "E:\ALL MILITARY TMS"      # text-first index
+python viewer_ingest.py crawl  --root "D:\path\to\your\TMs"      # text-first index
 python viewer_ingest.py ocr    --limit 500 --workers 4           # OCR a batch (repeat)
-python viewer_ingest.py run    --root "E:\ALL MILITARY TMS" --workers 4   # crawl then OCR all
+python viewer_ingest.py run    --root "D:\path\to\your\TMs" --workers 4   # crawl then OCR all
 python viewer_ingest.py status                                   # progress counts
 python viewer_ingest.py search "dual voltage alternator"         # quick search test
 ```

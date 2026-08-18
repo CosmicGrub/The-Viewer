@@ -56,6 +56,12 @@ def main():
     db, _corr = fixture.build(tmp)
     import viewer_app as V
     V.DB_PATH = db; V.INDEX_DIR = os.path.dirname(db)
+    from features import search_feature as SF          # v1.13.6: keep tag/keyword-group writes (/api/tags,
+    SF.KEYWORDS_USER_PATH = os.path.join(tmp, "keywords_user.json")  # /api/keywords below) out of the real,
+    # git-tracked sidecar -- was landing there and occasionally tripping verify_all.py's self-baseline snapshot.
+    SF._load_synonyms()   # SF's module-import-time call already ran against the real (now-overridden) path,
+    # so SYN would otherwise stay seeded from the real file until the first write -- reset it now, same
+    # discipline as the codebase's existing V._VOCAB_READY = False reset after swapping fixture data.
     from http.server import ThreadingHTTPServer
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), V.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start(); time.sleep(0.4)

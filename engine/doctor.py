@@ -39,7 +39,7 @@ def main():
     out("index db: " + DB + ("  (present)" if os.path.exists(DB) else "  !! MISSING"))
 
     out("\n[dependencies]")
-    for label, imp in [("PyMuPDF (fitz)", "fitz"), ("Pillow (PIL)", "PIL"), ("numpy", "numpy"),
+    for label, imp in [("PyMuPDF (fitz)", "pymupdf"), ("Pillow (PIL)", "PIL"), ("numpy", "numpy"),
                        ("OpenCV (cv2)", "cv2"), ("reportlab", "reportlab"),
                        ("rapidocr", "rapidocr_onnxruntime"), ("onnxruntime", "onnxruntime")]:
         ok = _dep(imp)
@@ -50,7 +50,7 @@ def main():
     out("\n[corpus paths]  %d/%d sampled documents reachable at their stored path" % (ok, tot))
     if tot and ok < tot:
         out("  !! some corpus PDFs are NOT where the index says — deep-zoom / vectorize / open-page will fail for those.")
-        out("     fix: keep the corpus at E:\\ALL MILITARY TMS, or junction it (mklink /J). See docs/PORTING.md.")
+        out("     fix: keep the corpus at the path you originally crawled from, or junction it (mklink /J). See docs/PORTING.md.")
     for p, e in res[:6]:
         out("   [%s] %s" % ("ok" if e else "MISSING", p))
 

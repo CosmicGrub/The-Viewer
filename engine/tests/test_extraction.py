@@ -129,7 +129,7 @@ def test_masterfile():
 def test_tables():
     if tables is None or not tables.available():
         print("  skip  tables (PyMuPDF not installed)"); return
-    import fitz
+    import pymupdf as fitz
     doc = fitz.open(); pg = doc.new_page(width=400, height=300)
     for i in range(4):
         y = 60 + i * 30; pg.draw_line((40, y), (360, y))

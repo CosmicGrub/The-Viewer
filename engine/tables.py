@@ -7,7 +7,7 @@ is absent."""
 import os, re
 
 try:
-    import fitz
+    import pymupdf as fitz
     _OK = True
 except Exception:
     fitz = None; _OK = False

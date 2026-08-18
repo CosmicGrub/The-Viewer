@@ -114,6 +114,20 @@ def _meta_rows(con, where, args, limit):
 # ---- enhanced keyword search: synonyms + part#/FIG + ANY + offline fuzzy ----
 SYN = {}
 
+# v1.13.6: test override for the live-editable user sidecar. Was previously always ENGINE_DIR/keywords_user.json
+# with no test-injectable seam -- test_hardening.py/test_routes.py POST real tag/keyword data through
+# user_tags_add()/user_keywords_save(), which landed in the actual git-tracked file instead of a fixture
+# copy, occasionally making verify_all.py --snapshot's self-baseline see the file mid-mutation and false-fail
+# (a recurrence of the same class of bug 5e8be64 fixed once already: duplicate entries silently accumulating
+# in this file from repeated local runs). Tests set KEYWORDS_USER_PATH to a tempdir path before serving.
+KEYWORDS_USER_PATH = None
+
+
+def _kw_user_path():
+    # `is not None` (not a truthy check) so a caller accidentally setting KEYWORDS_USER_PATH = "" doesn't
+    # silently fall through to the real tracked sidecar -- the exact isolation this override exists for.
+    return KEYWORDS_USER_PATH if KEYWORDS_USER_PATH is not None else os.path.join(ENGINE_DIR, "keywords_user.json")
+
 
 def _load_synonyms():
     """Load extensible alias groups from synonyms.json + keywords.json (bidirectional). keywords.json holds
@@ -121,10 +135,13 @@ def _load_synonyms():
     functional search still finds the right part. Both are plain JSON, offline; extend with build_keywords.py."""
     global SYN
     m = {}
-    # synonyms.json + keywords.json are curated (code); keywords_user.json is YOUR live-editable additions.
-    for fn in ("synonyms.json", "keywords.json", "keywords_user.json"):
+    # synonyms.json + keywords.json are curated (code, always ENGINE_DIR); keywords_user.json is YOUR
+    # live-editable additions (test-overridable via KEYWORDS_USER_PATH, see _kw_user_path()).
+    for fn, path in (("synonyms.json", os.path.join(ENGINE_DIR, "synonyms.json")),
+                      ("keywords.json", os.path.join(ENGINE_DIR, "keywords.json")),
+                      ("keywords_user.json", _kw_user_path())):
         try:
-            data = json.load(open(os.path.join(ENGINE_DIR, fn), encoding="utf-8"))
+            data = json.load(open(path, encoding="utf-8"))
             for grp in data.get("groups", []):
                 terms = [str(t).lower().strip() for t in grp if str(t).strip()]
                 for t in terms:
@@ -142,10 +159,6 @@ def _load_synonyms():
 
 
 _load_synonyms()
-
-
-def _kw_user_path():
-    return os.path.join(ENGINE_DIR, "keywords_user.json")
 
 
 def user_keywords_list():

@@ -29,7 +29,7 @@ import argparse, json, os, re, sqlite3, sys, tempfile, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
-    import fitz
+    import pymupdf as fitz
 except Exception:
     fitz = None
 

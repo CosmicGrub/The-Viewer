@@ -16,9 +16,10 @@ SCOPE / SAFETY:
     sandbox mount. Use `--sample N` to build a tiny db from the first N rows of each CSV for testing.
 
 USAGE (host):
-    python build_publog.py "C:\\Users\\User\\Desktop\\publog"            # full build
-    python build_publog.py "C:\\Users\\User\\Desktop\\publog" --sample 5000   # quick test db
-BUILD-PUBLOG.bat wraps this with the default source path.
+    python build_publog.py "D:\\path\\to\\publog"            # full build
+    python build_publog.py "D:\\path\\to\\publog" --sample 5000   # quick test db
+BUILD-PUBLOG.bat wraps this with a project-relative default source path (%~dp0publog), and uses the
+identical "D:\path\to\publog" placeholder in its own usage message.
 """
 
 from __future__ import annotations
@@ -226,8 +227,10 @@ if __name__ == "__main__":
         if a.startswith("--sample"):
             try: sample = int(a.split("=", 1)[1]) if "=" in a else int(sys.argv[sys.argv.index(a) + 1])
             except Exception: sample = 5000
-    src = args[0] if args else r"C:\Users\User\Desktop\publog"
     here = os.path.dirname(os.path.abspath(__file__))
+    # project-relative default (mirrors BUILD-PUBLOG.bat's %~dp0publog) -- was a hardcoded path
+    # meaningful only on the original developer's own machine (medium finding #34's exact anti-pattern).
+    src = args[0] if args else os.path.join(os.path.dirname(here), "publog")
     out = os.path.join(here, "index", "publog.db")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     if not os.path.isdir(src):

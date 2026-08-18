@@ -652,7 +652,7 @@ try:
                               procs, [], [], [], warnings=[])
     ok("jobcard_py_builds_pdf_with_confidence_data", pdf[:5] == b"%PDF-")
     try:
-        import fitz as _fitz
+        import pymupdf as _fitz
         _d = _fitz.open(stream=pdf, filetype="pdf")
         _text = "".join(p.get_text() for p in _d); _d.close()
         ok("jobcard_py_pdf_shows_qualifier_for_poor_only",

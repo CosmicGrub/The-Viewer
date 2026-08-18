@@ -56,7 +56,7 @@ except Exception as e:
 # #24 -- OCR DPI/megapixel ceiling: an oversized page is downscaled, a normal page is untouched
 # =====================================================================================================
 try:
-    import fitz
+    import pymupdf as fitz
     from PIL import Image
     import viewer_ingest as VI
 

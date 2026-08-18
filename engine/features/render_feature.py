@@ -12,7 +12,7 @@ import threading as _threading
 from patterns import NSN_RE, FIG_RE as _FIG_RE, PN_RE as _PN_RE, norm_nsn, digits as _digits
 
 try:
-    import fitz
+    import pymupdf as fitz
 except Exception:
     fitz = None
 

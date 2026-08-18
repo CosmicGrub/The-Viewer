@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prove the CAD q-pass: render every TIER (v1/v2/v3) for several parts into one grid so the quality + the
-tier ladder are both visible. Host-side (full cad_render.py). -> docs/cad_quality_v4.png"""
+tier ladder are both visible. Host-side (full cad_render.py). -> docs/cad_quality_v5.png"""
 import os, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 import cad_render

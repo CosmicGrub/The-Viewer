@@ -42,6 +42,15 @@ def extract_fallback_span(html_text):
     si = html_text.find(START_MARKER)
     if si < 0:
         return None
+    # Review finding (self-caught while fixing another finding): START_MARKER's text lives INSIDE the
+    # probe's own explanatory /* ... */ comment, so a span starting exactly there begins mid-comment --
+    # missing the opening "/*" left the rest of that same comment's prose (which legitimately mentions
+    # words like "await" while explaining the fix) unrecognized as a comment by _blank_comments(),
+    # causing false-positive ES6 hits on prose, not code. Back up to the comment's real opening so the
+    # whole thing is included and correctly blanked.
+    comment_start = html_text.rfind("/*", 0, si)
+    if comment_start >= 0:
+        si = comment_start
     ei = html_text.find(END_MARKER, si)
     if ei < 0:
         return None
@@ -49,6 +58,8 @@ def extract_fallback_span(html_text):
 
 
 _QUOTED_STRING = re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'')
+_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+_LINE_COMMENT = re.compile(r"//[^\n]*")
 
 
 def _blank_quoted_strings(line):
@@ -61,14 +72,28 @@ def _blank_quoted_strings(line):
     return _QUOTED_STRING.sub(lambda m: m.group(0)[0] + (" " * (len(m.group(0)) - 2)) + m.group(0)[0], line)
 
 
+def _blank_comments(text):
+    """Replace /* ... */ and // ... comment CONTENTS with spaces (block comments keep their internal
+    newlines, so line numbers in reported hits stay accurate). Review finding: explanatory prose in this
+    very file's own comments (the word "await", or "..." as an ellipsis) was tripping the scanner --
+    comments are never code, a real JS parser ignores them entirely, and this should too.
+    Approximate (regex, not a real tokenizer): a string literal containing a literal "/*" or "//" would
+    be misblanked, but that's an acceptable tradeoff for a small, human-authored, self-scanned span."""
+    text = _BLOCK_COMMENT.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+    text = _LINE_COMMENT.sub(lambda m: " " * len(m.group(0)), text)
+    return text
+
+
 def check_span(span_text):
     """Return a list of (pattern_name, line_no, line_text) for every ES6 hit in span_text."""
     hits = []
-    for i, line in enumerate(span_text.splitlines(), 1):
+    code_text = _blank_comments(span_text)
+    orig_lines = span_text.splitlines()
+    for i, line in enumerate(code_text.splitlines(), 1):
         code_only = _blank_quoted_strings(line)
         for name, pat in PATTERNS:
             if pat.search(code_only):
-                hits.append((name, i, line.strip()[:100]))
+                hits.append((name, i, orig_lines[i - 1].strip()[:100]))
     return hits
 
 

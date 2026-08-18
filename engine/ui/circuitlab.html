@@ -481,6 +481,16 @@
   function serialize(){return JSON.stringify({v:2,comps:comps,wires:wires,nextId:nextId},null,1);}
   function deserialize(s){try{var o=JSON.parse(s);if(!o.comps)return false;comps=o.comps;wires=o.wires||[];nextId=o.nextId||(comps.length+1);
     // UX finding #4: a circuit saved before wires had ids -- backfill so selection/deletion works on it.
+    // Review finding: the pre-existing o.nextId||(comps.length+1) fallback under-counts whenever
+    // component ids aren't contiguous (e.g. some were deleted before saving) -- previously harmless
+    // since wires had no id concept to collide with, but backfilling wire ids from that same weak
+    // counter could now hand out an id that already belongs to a live component (e.g. comps [5,8] with
+    // no o.nextId computes nextId=3, so a backfilled wire could get id:5). Scan actual ids instead of
+    // trusting the count-based guess, so a new wire id can never collide with anything already in use.
+    var maxKnownId=nextId-1;
+    comps.forEach(function(c){if(c.id>maxKnownId)maxKnownId=c.id;});
+    wires.forEach(function(w){if(w.id!=null&&w.id>maxKnownId)maxKnownId=w.id;});
+    if(maxKnownId>=nextId)nextId=maxKnownId+1;
     wires.forEach(function(w){if(w.id==null)w.id=nextId++;});
     selected=null;scopeKey=null;sim=null;stopRun();refreshVmax();renderProps();draw();return true;}catch(e){return false;}}
   document.getElementById("btnSave").addEventListener("click",function(){try{localStorage.setItem("circuitlab.save",serialize());toast("Saved to this browser.");}catch(e){toast("Save unavailable here.");}});

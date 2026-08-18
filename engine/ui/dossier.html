@@ -212,7 +212,7 @@ function render(q, part, ref, pd, pr){
       // weight to one from a pristine page. Flag anything less than 'clean' so a mechanic knows to
       // verify on the actual page rather than trust the OCR text as-is.
       r.slice(0,10).forEach(function(c){
-        var qual=(c.confidence&&c.confidence!=="clean")?(' <span style="color:#e8a06a" title="OCR text quality: '+esc(c.confidence)+'">⚠ verify on page — OCR quality: '+esc(c.confidence)+'</span>'):"";
+        var qual=(c.confidence&&c.confidence!=="clean")?(' <span style="color:var(--amb)" title="OCR text quality: '+esc(c.confidence)+'">⚠ verify on page — OCR quality: '+esc(c.confidence)+'</span>'):"";
         hh+='<div class="hit"><b style="color:'+(col[c.severity]||"#ccc")+'">'+esc(c.severity)+'</b> <span class="muted">'+esc((c.text||"").slice(0,150))+'</span>'+qual+' <a href="'+esc(c.page_url)+'" target="_blank" style="color:var(--acc);text-decoration:none">p.'+esc(c.page)+' ↗</a></div>';});
       box.className=""; box.innerHTML=hh;
     } else box.innerHTML='<span class="empty">No safety callouts parsed for this part yet (grows with OCR).</span>';

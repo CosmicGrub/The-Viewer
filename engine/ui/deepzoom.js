@@ -17,13 +17,14 @@
     var bar=el('div','position:absolute;left:8px;top:8px;display:flex;gap:4px;z-index:4');
     // UX finding #7 (priority 5): base.css's kiosk-mode rule can enlarge min-height on real <button>s,
     // but these dimensions are set inline (min-width/height as plain px), so kiosk mode could never
-    // reach them. Reads localStorage directly (the same 'viewer_kiosk' key palette.js itself persists
-    // to and reads from) rather than the --kiosk-min CSS var: this script tag loads and mounts BEFORE
-    // palette.js runs (deepzoom.html's own script order), so body.kiosk-mode isn't applied to the DOM
-    // yet at button-creation time -- reading the CSS var here would silently always see the pre-kiosk
-    // 30px default. localStorage has no such ordering dependency.
-    function kioskMin(fallback){ try{ if(window.localStorage && localStorage.getItem('viewer_kiosk')==='1') return 44; }catch(e){} return fallback; }
-    function mk(t,ti){ var b=el('button',null,t); b.title=ti||t; var m=kioskMin(30); b.style.cssText='background:rgba(20,28,38,.85);color:#cfe;border:1px solid #2f4858;border-radius:6px;min-width:'+m+'px;height:'+Math.max(26,m)+'px;cursor:pointer;font-size:13px;padding:0 7px'; return b; }
+    // reach them. Uses the shared window.viewerKioskOn() (shared.js loads FIRST on this page, before
+    // this script -- deepzoom.html's own script order -- unlike palette.js, which loads last; that
+    // ordering is exactly why this can't just read body.kiosk-mode's class or the --kiosk-min CSS var
+    // at mount time: neither would be applied yet). Review finding: the non-kiosk default height must
+    // stay exactly 26px -- an earlier draft's Math.max(26,m) silently grew it to 30px for every user.
+    function kioskOn(){ return typeof window.viewerKioskOn==='function' && window.viewerKioskOn(); }
+    function mk(t,ti){ var b=el('button',null,t); b.title=ti||t; var on=kioskOn(); var w=on?44:30, h=on?44:26;
+      b.style.cssText='background:rgba(20,28,38,.85);color:#cfe;border:1px solid #2f4858;border-radius:6px;min-width:'+w+'px;height:'+h+'px;cursor:pointer;font-size:13px;padding:0 7px'; return b; }
     var bIn=mk('+','zoom in'), bOut=mk('−','zoom out'), bFit=mk('⌂','fit'), bHot=mk('⌖','toggle callouts'), bDpi=mk('','');
     bDpi.style.cursor='default'; bDpi.style.color='#8fb'; bDpi.textContent='150 dpi';
     bar.appendChild(bIn); bar.appendChild(bOut); bar.appendChild(bFit); bar.appendChild(bHot); bar.appendChild(bDpi); container.appendChild(bar);
@@ -50,6 +51,9 @@
 
     function placeHotspots(g){ hot.innerHTML=''; if(!hotOn||!callouts.length) return;
       var dpr=window.devicePixelRatio||1;
+      // Review finding (efficiency): checked ONCE per draw() call, not once per visible callout badge
+      // -- draw() is a real hot path (fires on every drag-pan/wheel-zoom/pinch frame).
+      var bd=kioskOn()?44:22;
       for(var i=0;i<callouts.length;i++){ var c=callouts[i]; if(!c.box) continue;
         var cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2;          // normalized 0..1 centre
         var px=(g.dx+cx*g.dw)/dpr, py=(g.dy+cy*g.dh)/dpr;
@@ -57,8 +61,7 @@
         (function(cc,x,y){ var m=el('button',null,String(cc._n));
           // UX finding #7: width and height MUST move together here -- a badge that only grew taller
           // (the old bug: kiosk-mode set min-height but never min-width) would distort a circle into
-          // an oval. kioskMin() drives both dimensions from the one shared token.
-          var bd=kioskMin(22);
+          // an oval. Shared `bd` (computed once above) drives both dimensions.
           m.title=cc.label||cc.text; m.style.cssText='position:absolute;transform:translate(-50%,-50%);left:'+x+'px;top:'+y+'px;pointer-events:auto;'+
             'background:rgba(79,157,255,.92);color:#08111d;border:2px solid #fff;border-radius:50%;width:'+bd+'px;height:'+bd+'px;font-size:11px;font-weight:700;cursor:pointer;z-index:5';
           m.onclick=function(ev){ ev.stopPropagation(); if(opts.onCallout){ opts.onCallout(cc); } else if(cc.url){ window.open(cc.url,'_blank'); } };
@@ -109,7 +112,17 @@
       'flex-wrap:wrap;max-height:74px;overflow:auto;padding:6px;border-radius:9px;background:rgba(15,20,25,.82)');
     container.appendChild(chipBar);
     var unboxed=[];
-    function calloutClick(cc){ if(opts.onCallout){ opts.onCallout(cc); } else if(cc.url){ window.open(cc.url,'_blank'); } }
+    // Review finding: a FIG-kind callout (from /api/callouts) has no .url, only .find (a "find this
+    // figure" query) -- the unboxed chip bar's tooltip promises "click to open anyway" for every chip,
+    // but a FIG chip with neither opts.onCallout (deepzoom.html never passes one) nor .url was a dead
+    // click. index.html's own inline viewer resolves this via its own in-document find; that machinery
+    // doesn't exist here (deepzoom is a single page/zoom view, not a multi-page in-doc search), so the
+    // honest working equivalent is a corpus-wide search for the same query in a new tab.
+    function calloutClick(cc){
+      if(opts.onCallout){ opts.onCallout(cc); }
+      else if(cc.url){ window.open(cc.url,'_blank'); }
+      else if(cc.find){ window.open('/?q='+encodeURIComponent(cc.find),'_blank'); }
+    }
     function renderChipBar(){
       chipBar.innerHTML='';
       if(!unboxed.length){ chipBar.style.display='none'; return; }

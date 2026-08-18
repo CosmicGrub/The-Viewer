@@ -183,7 +183,12 @@ def build_pdf(meta, procedures, torque, parts, figure_items, warnings=None):
         p.gap(4); p.line("%s — %s" % (pr.get("kind") or "Procedure", (pr.get("title") or "").strip() or label), "Helvetica-Bold", 11.5, _INK)
         p.line(cite, "Helvetica-Oblique", 8.5, _SUB)
         for ca in (pr.get("cautions") or [])[:8]:
-            p.line("%s: %s" % (ca.get("kind", "NOTE"), ca.get("text", "")), "Helvetica-Bold", 9, _WARN, indent=8)
+            # Review finding (R13 safety-relevant): the Work Order PDF -- explicitly the take-to-the-bay,
+            # away-from-the-screen document per this module's own header -- never showed the OCR-quality
+            # confidence its sibling jobpack.py Job Packet PDF was fixed to show in this same review.
+            conf = ca.get("confidence")
+            qual = "  (OCR quality: %s -- verify on page)" % conf if conf and conf != "clean" else ""
+            p.line("%s: %s%s" % (ca.get("kind", "NOTE"), ca.get("text", ""), qual), "Helvetica-Bold", 9, _WARN, indent=8)
         if pr.get("tools"):
             p.gap(2); p.line("Tools / test equipment:", "Helvetica-Bold", 9.5, _ACC, indent=4)
             for tl in pr["tools"][:20]: p.line("• " + tl, "Helvetica", 9, _INK, indent=14)

@@ -18,22 +18,32 @@
 [hidden]{display:none !important}
 /* KIOSK / GLOVE MODE (bay-floor tablet): bigger text, larger touch targets, higher contrast.
    Toggled from the command palette ("Toggle kiosk mode"); persisted in localStorage; applied app-wide.
-   --kiosk-min: the touch-target minimum, exposed as a CSS var so script-driven controls that size
-   themselves inline (deepzoom.js's zoom/fit/callout buttons, cadview.js's zoom/spin/reset row) can read
-   the SAME number instead of hardcoding 22-30px that this rule can never reach. */
-:root{--kiosk-min:30px}
-body.kiosk-mode{font-size:16px; --sub:#c3cede; --mut:#8c99a8; --kiosk-min:44px}
+   Review finding: an earlier draft also introduced a --kiosk-min CSS var for script-driven controls to
+   read, but it turned out unreadable at the time those scripts actually needed it (deepzoom.js mounts
+   before palette.js applies body.kiosk-mode on its page) -- every consumer ended up reading
+   window.viewerKioskOn() (shared.js/palette.js) directly instead, leaving the var itself unused
+   everywhere including this very rule. Removed rather than left as dead, misleading "single source of
+   truth" that nothing actually reads. */
+body.kiosk-mode{font-size:16px; --sub:#c3cede; --mut:#8c99a8}
 /* UX finding #7 (priority 5): the original selector list missed three real interactive-control
    categories -- palette.js's #cmdk-pill/#bench-pill (role="button" DIVs, the only way to open the
    command palette or pin-to-bench on a keyboardless touchscreen), shared.js's #vw-footer Back/Home nav
    (injected on every non-home page, bare <a> tags), and any other ARIA role="button" control. Also adds
    min-width alongside the existing min-height -- without it, script-sized square/circular controls
    (deepzoom.js's 22px callout badges, cadview.js's 30px zoom buttons) only grew taller, not wider,
-   which would visibly distort a circular badge into an oval. */
-body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,body.kiosk-mode input,
-body.kiosk-mode select,body.kiosk-mode [role="button"],body.kiosk-mode #vw-footer a,
+   which would visibly distort a circular badge into an oval.
+   Review finding: min-width must NOT apply to checkbox/radio inputs -- the original (pre-existing,
+   unchanged) rule already gave text inputs/selects min-height, and this diff's min-width addition
+   landed on the SAME shared "input" selector, inflating every checkbox/radio app-wide (e.g.
+   procedure.html's step-tick checklist, collections.html's pin checkbox) into a distorted 44x44 square.
+   Scoped out here; they keep their original min-height-only sizing. */
+body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,
+body.kiosk-mode input:not([type="checkbox"]):not([type="radio"]),body.kiosk-mode select,
+body.kiosk-mode [role="button"],body.kiosk-mode #vw-footer a,
 body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{
   min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
+body.kiosk-mode input[type="checkbox"],body.kiosk-mode input[type="radio"]{
+  min-height:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
 body.kiosk-mode a{text-decoration:underline}
 body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
 /* the discoverability pills and footer nav are compact pill/text controls, not boxy buttons -- keep

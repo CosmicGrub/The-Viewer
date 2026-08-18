@@ -298,11 +298,22 @@
 <script>
 /* UX finding #1 (priority 5): ES5-only capability probe. Must be the FIRST script after <header> and
    must itself never use ES6 syntax (checked by engine/tools/check_es5_fallback.py, same PATTERNS as
-   rps_lint.py). Detects whether this engine can even parse arrow-function syntax; if not, the giant
-   ES6 script further down this page (MODERN_BY_DESIGN, intentionally not ES5-safe) will fail to parse
-   and never run at all -- so we reveal the #legacyHome fallback instead of leaving a dead page. */
+   rps_lint.py). Detects whether this engine can even parse the ES6 syntax the giant script further
+   down this page (MODERN_BY_DESIGN, intentionally not ES5-safe) actually uses; if not, that script
+   will fail to parse and never run at all -- so we reveal the #legacyHome fallback instead of leaving
+   a dead page.
+   Review finding: the first draft only tested arrow-function support -- an engine supporting arrows
+   but not async/await (a real, non-hypothetical gap; e.g. Firefox ~22-51) would pass the probe and
+   still get a fully broken page, since the guarded script below uses async/await ~10 times. This now
+   exercises every ES6 construct rps_lint.py's own PATTERNS list checks for (the same constructs known
+   to appear SOMEWHERE in the guarded script), all inside one Function(...) constructor call -- syntax
+   errors are caught at CONSTRUCTION time, before the function body would ever need to run, so none of
+   this is actually executed on any engine. */
 var VIEWER_LEGACY = false;
-try { Function("return (function(){}); (a)=>a;")(); } catch (probeErr) { VIEWER_LEGACY = true; }
+try {
+  Function("const c=1; let l=2; var f=(a)=>a; var t=`x`; for (var i of [1]) {} var s=[...[1]];" +
+           "class C {} async function g(){ await 1; }");
+} catch (probeErr) { VIEWER_LEGACY = true; }
 if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallback"; }
 </script>
 
@@ -1406,11 +1417,15 @@ function placeCallouts(){
   const r=img.getBoundingClientRect(), pr=img.parentNode.getBoundingClientRect();
   ov.style.left=(r.left-pr.left)+"px"; ov.style.top=(r.top-pr.top)+"px"; ov.style.width=r.width+"px"; ov.style.height=r.height+"px";
   const W=r.width, H=r.height, cs=(VP._callouts||[]).filter(c=>c.box); ov.innerHTML="";
+  // Review finding: these hotspot markers have the identical inline-sized-circle kiosk-touch-target
+  // gap deepzoom.js's callout badges were fixed for in this same review -- width/height move together
+  // (never distorting the circle) and the centering offset (half the diameter) is derived, not hardcoded.
+  const bd=(typeof window.viewerKioskOn==="function"&&window.viewerKioskOn())?44:18;
   cs.forEach((c,i)=>{ const cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2;
     const px=(VP.flip?(1-cx):cx)*W, py=cy*H;
     const d=document.createElement("div"); d.title=c.label;
-    d.style.cssText="position:absolute;left:"+(px-9)+"px;top:"+(py-9)+"px;width:18px;height:18px;border-radius:50%;"
-      +"background:"+calloutColor(c.kind)+";color:#0a0e12;font:700 10px/18px Arial;text-align:center;cursor:pointer;"
+    d.style.cssText="position:absolute;left:"+(px-bd/2)+"px;top:"+(py-bd/2)+"px;width:"+bd+"px;height:"+bd+"px;border-radius:50%;"
+      +"background:"+calloutColor(c.kind)+";color:#0a0e12;font:700 10px/"+bd+"px Arial;text-align:center;cursor:pointer;"
       +"pointer-events:auto;box-shadow:0 1px 6px rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.85)";
     d.textContent=(i+1); d.onclick=ev=>{ ev.stopPropagation(); calloutAct(c); };
     ov.appendChild(d); });

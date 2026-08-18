@@ -159,8 +159,16 @@ if errorlevel 1 set "FAILED=!FAILED! test_accuracy"
 if errorlevel 1 set "FAILED=!FAILED! test_extraction"
 %PY% tests\test_congruency.py
 if errorlevel 1 set "FAILED=!FAILED! test_congruency"
+%PY% tests\test_uiux_fixes.py
+if errorlevel 1 set "FAILED=!FAILED! test_uiux_fixes"
 %PY% tests\rps_lint.py
 if errorlevel 1 set "FAILED=!FAILED! rps_lint"
+REM rps_lint.py exempts index.html as MODERN_BY_DESIGN (it legitimately uses ES6 throughout) -- but
+REM that means it can't protect the small ES5-only #legacyHome fallback span index.html also carries
+REM (priority-5 UX finding #1). check_es5_fallback.py is the dedicated gate for that one span; without
+REM it wired in here, a regression there would pass a green VERIFY.bat run undetected.
+%PY% tools\check_es5_fallback.py
+if errorlevel 1 set "FAILED=!FAILED! check_es5_fallback"
 
 echo.
 echo --- [gate 8] long-running suites ^(hard wall-clock timeouts via run_timeout.py^) ---

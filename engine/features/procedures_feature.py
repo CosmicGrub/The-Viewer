@@ -67,13 +67,21 @@ def _parse_procedure(text):
     # additive -- no change to the {kind, text} shape above) so a mechanic reading a printed Job Card
     # away from the screen -- with no way to re-check a garbled DANGER line against the corpus -- can
     # see that it needs verifying, instead of every callout displaying with identical visual weight.
+    # Review finding: the try/except used to wrap the WHOLE loop, so one bad caution mid-list would
+    # silently leave every LATER caution un-annotated (no exception surfaced, no consumer able to tell
+    # "clean" from "never scored") -- exactly the safety-relevant item this fix cares most about could
+    # be the one left unflagged. Each caution is now scored independently.
     try:
         import textquality as _tq
-        for c in cautions:
-            scored = _tq.annotate({"text": c["text"]}, context_key="text")
-            c["confidence"] = scored["confidence"]; c["quality"] = scored["quality"]
     except Exception:
-        pass
+        _tq = None
+    if _tq:
+        for c in cautions:
+            try:
+                scored = _tq.annotate({"text": c["text"]}, context_key="text")
+                c["confidence"] = scored["confidence"]; c["quality"] = scored["quality"]
+            except Exception:
+                pass
     return {"kind": kind or "Procedure", "title": (title or "")[:80], "steps": steps[:40],
             "tools": tools[:25], "materials": materials[:20], "references": refs[:12],
             "cautions": cautions[:12]}

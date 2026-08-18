@@ -143,7 +143,10 @@ window.GL3D = (function(){
     function touchDist(e){const a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
     canvas.addEventListener('touchstart',e=>{
       if(e.touches.length===1){drag=true;px=e.touches[0].clientX;py=e.touches[0].clientY;pause();}
-      else if(e.touches.length===2){drag=false;pinchDist=touchDist(e);}
+      // Review finding: the two-finger (pinch) branch never called pause() -- unlike every other
+      // interaction path (mousedown, wheel, one-finger touchstart), so idle auto-rotate kept
+      // incrementing st.ry throughout a pinch gesture, fighting the user's attempt to hold it still.
+      else if(e.touches.length===2){drag=false;pinchDist=touchDist(e);pause();}
       e.preventDefault();
     },{passive:false});
     canvas.addEventListener('touchmove',e=>{
@@ -157,7 +160,11 @@ window.GL3D = (function(){
       }
       e.preventDefault();
     },{passive:false});
-    canvas.addEventListener('touchend',()=>{if(drag){drag=false;resumeSoon();}pinchDist=0;});
+    // Review finding (follow-on): touchend only called resumeSoon() when drag was true -- a pinch
+    // gesture sets drag=false, so adding pause() to the pinch-start branch above would otherwise leave
+    // autospin permanently off after any pinch (never resumed). Resume whenever either kind of gesture
+    // was actually in progress (drag, or a pinch that had a real distance reading).
+    canvas.addEventListener('touchend',()=>{if(drag||pinchDist){drag=false;resumeSoon();}pinchDist=0;});
     function reset(){st.rx=-0.5;st.ry=0.6;st.dist=3.0;autospin=true;loop();}
     function setColor(hex){color=hexToRgb(hex);kick();}
     function setMaterial(m){if(m&&m.length===3){material=[m[0],m[1],m[2]];kick();}}

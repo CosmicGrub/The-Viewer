@@ -718,7 +718,12 @@ def r_qr(h, qs):
     # fails on exactly the shipped default. That was already known (a console-only warning at startup),
     # but never reached the printed page making the "scan this" claim. Flag it here so the caller (e.g.
     # packet.html) can show an inline warning instead of an unqualified claim.
-    local_only = base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:"))
+    # Review finding: safe_public_base() (viewer_app.py) emits an UNBRACKETED "::1:PORT" when
+    # HOST=="::1" (`"%s:%d" % (HOST, PORT)`, not the bracketed "[::1]:PORT" form) -- the app explicitly
+    # anticipates --host ::1 as a loopback binding (see viewer_app.py's own _EXPOSED check), so missing
+    # this form meant the exact silent-failure case this fix exists to prevent could itself go
+    # undetected on that one deployment choice. Cover both forms.
+    local_only = base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:", "http://::1:"))
     h._send(200, payload, mime, {"Cache-Control": "max-age=3600",
                                  "X-QR-Target": qrgen.deep_link(base, q, page),
                                  "X-QR-Local-Only": "1" if local_only else "0"})

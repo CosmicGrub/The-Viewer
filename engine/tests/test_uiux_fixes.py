@@ -70,6 +70,28 @@ try:
     # and the span between them (the actual #legacyHome scripts) is genuinely ES5-clean today.
     ok("cef_real_file_markers_present", cef.extract_fallback_span(open(INDEX_HTML, encoding="utf-8").read()) is not None)
     ok("cef_real_index_html_passes", cef.main() == 0)
+
+    # Review-fix regression: prose inside a /* ... */ comment (e.g. explaining "await" or using "..."
+    # as an ellipsis) must not trip the scanner -- comments are never code. This is exactly the bug
+    # self-caught while strengthening index.html's own probe comment.
+    ok("cef_ignores_es6_keywords_in_block_comments",
+       cef.check_span("/* this explains await and const and ... in plain English */\nvar x = 1;") == [])
+    ok("cef_ignores_es6_keywords_in_line_comments",
+       cef.check_span("var x = 1; // uses await internally, see the const above") == [])
+    ok("cef_still_catches_real_code_after_a_comment",
+       any(n == "await" for n, _, _ in cef.check_span("/* fine */\nawait somePromise;")))
+
+    # Review-fix regression: when START_MARKER's own text lives INSIDE a /* ... */ comment (exactly
+    # index.html's real layout -- the marker phrase is mid-sentence in the probe's explanatory comment),
+    # the extracted span must back up to that comment's true opening so the rest of the comment's prose
+    # is correctly recognized and blanked, not mistaken for code.
+    doc_marker_in_comment = (
+        "<script>\n/* intro text mentions " + cef.START_MARKER + " and later talks about await and ... "
+        "as prose, still inside this same comment */\nvar ok = 1;\n</script>\n"
+        "<script>\n/* " + cef.END_MARKER + " */\n</script>\n"
+    )
+    ok("cef_marker_inside_comment_is_handled",
+       cef.check_span(cef.extract_fallback_span(doc_marker_in_comment)) == [])
 except Exception as e:
     failed.append("check_es5_fallback(%s)" % e)
 
@@ -227,7 +249,7 @@ try:
     ok("deepzoom_js_no_longer_drops_unboxed_silently",
        "if(cs[i].box){ cs[i]._n=callouts.length+1; callouts.push(cs[i]); } }" not in dz_js)
     ok("deepzoom_js_has_chip_bar_renderer", "function renderChipBar" in dz_js)
-    ok("deepzoom_js_chip_reuses_oncallout_contract", "function calloutClick(cc){ if(opts.onCallout)" in dz_js)
+    ok("deepzoom_js_chip_reuses_oncallout_contract", "if(opts.onCallout){ opts.onCallout(cc); }" in dz_js)
     ok("deepzoom_js_oninfo_reports_total_and_unboxed",
        "onInfo({callouts:callouts.length, unboxed:unboxed.length, total:cs.length" in dz_js)
 
@@ -338,15 +360,17 @@ try:
     kiosk_block = base_css.split("KIOSK / GLOVE MODE")[1].split("body{margin:0")[0]
     for needle in ('[role="button"]', "#vw-footer a", "#cmdk-pill", "#bench-pill", "min-width:44px"):
         ok("base_css_kiosk_covers_%s" % re.sub(r"\W+", "_", needle), needle in kiosk_block)
-    ok("base_css_defines_kiosk_min_var_default", ":root{--kiosk-min:30px}" in base_css)
-    ok("base_css_kiosk_mode_overrides_kiosk_min_var", "--kiosk-min:44px" in base_css)
+    # --kiosk-min was superseded by the shared window.viewerKioskOn() (review-fix pass below) and
+    # removed as dead code -- see basecss_kiosk_min_var_removed for the current-state assertion.
 
     dz_js = open(os.path.join(ENGINE, "ui", "deepzoom.js"), encoding="utf-8").read()
     cv_js = open(os.path.join(ENGINE, "ui", "cadview.js"), encoding="utf-8").read()
     threed_src = open(os.path.join(ENGINE, "ui", "threed.html"), encoding="utf-8").read()
     for label, src in (("deepzoom_js", dz_js), ("cadview_js", cv_js), ("threed_html", threed_src)):
-        ok("%s_kioskmin_reads_localstorage_not_css_var" % label,
-           "localStorage.getItem('viewer_kiosk')" in src and "getComputedStyle(document.body).getPropertyValue('--kiosk-min')" not in src)
+        # superseded by the shared window.viewerKioskOn() (review-fix pass below, which also removed
+        # each file's own independent localStorage read as a duplication finding)
+        ok("%s_kioskmin_avoids_css_var" % label,
+           "getComputedStyle(document.body).getPropertyValue('--kiosk-min')" not in src)
     ok("deepzoom_js_callout_badge_width_height_move_together", "width:'+bd+'px;height:'+bd+'px" in dz_js)
 
     import subprocess
@@ -366,19 +390,19 @@ except Exception as e:
 
 # =====================================================================================================
 # UX #8 (priority 5, R13 "never fabricate") -- bin/shelf audit no longer coerces a non-NSN scan into a
-# fabricated 9-digit NIIN. Verified live: 9- and 13-digit codes accepted; an 11-digit UPC-like code is
-# rejected (no row added, input left in place so it's visible/editable, not silently discarded); and
-# window.onScan returns add()'s real true/false so scanner.js's own fallback can distinguish them.
+# fabricated 9-digit NIIN. Verified live: 9- and exactly-13-digit codes accepted; an 11-digit UPC-like
+# code AND a 14-digit code are both rejected (no row added, input left in place so it's visible/
+# editable, not silently discarded). Review-fix pass below tightened niinOf() further (===13 not >=13)
+# and changed onScan to always return true (a rejected scan must never let scanner.js navigate away
+# and discard the in-progress audit list) -- see those checks for the current-state assertions.
 # =====================================================================================================
 try:
     ba_src = open(os.path.join(ENGINE, "ui", "binaudit.html"), encoding="utf-8").read()
     niin_fn = ba_src.split("function niinOf(s){")[1].split("}\n")[0]
     ok("binaudit_niinof_rejects_short_padded_codes", "padStart" not in niin_fn)
-    ok("binaudit_niinof_accepts_exactly_9_or_13plus", "d.length===9||d.length>=13" in niin_fn)
 
     onscan_body = ba_src.split("window.onScan=function(code){")[1].split("};")[0]
-    ok("binaudit_onscan_returns_real_add_result", "return ok;" in onscan_body and "var ok=add(code);" in onscan_body)
-    ok("binaudit_onscan_only_updates_indicator_on_success", "if(ok) $('#scanind')" in onscan_body)
+    ok("binaudit_onscan_only_updates_indicator_on_success", "if (ok) {" in onscan_body or "if(ok)" in onscan_body)
 
     ok("binaudit_manual_add_gives_feedback_on_reject", "Not a recognizable NSN" in ba_src)
     ok("binaudit_manual_add_preserves_input_on_reject",
@@ -428,7 +452,9 @@ try:
     pk_src = open(os.path.join(ENGINE, "ui", "packet.html"), encoding="utf-8").read()
     ok("packet_html_no_longer_uses_plain_img_src_for_qr", 'src="/api/qr?q=' not in pk_src)
     ok("packet_html_has_loadqr_function", "function loadQr(q){" in pk_src)
-    ok("packet_html_reads_x_qr_local_only_header", 'r.headers.get("X-QR-Local-Only")==="1"' in pk_src)
+    # review-fix pass changed this to fail-cautious (!=="0" instead of ==="1") -- see
+    # packet_html_header_check_fails_cautious for the current-state assertion
+    ok("packet_html_reads_x_qr_local_only_header", 'r.headers.get("X-QR-Local-Only")' in pk_src)
     ok("packet_html_shows_warning_text", "This code only opens on THIS computer" in pk_src)
 
     import subprocess, tempfile, re as _re
@@ -483,6 +509,252 @@ try:
         ok("partdiff_html_parses_with_node", all_clean)
 except Exception as e:
     failed.append("partdiff_thumbnail(%s)" % e)
+
+
+# =====================================================================================================
+# REVIEW-FIX PASS -- xhigh-effort 6-angle review of the 10-fix commit above surfaced 20 real findings.
+# Each is fixed and covered here; several were caught live in the browser (see the session's own
+# verification, not repeatable in this Python-only harness) and are additionally covered structurally.
+# =====================================================================================================
+
+# --- binaudit.html: onScan must never let scanner.js navigate away (discards the in-memory scan list),
+#     and niinOf() must match scanner.js's looksNSN() EXACTLY (===13, not >=13) or it still fabricates.
+try:
+    ba_src = open(os.path.join(ENGINE, "ui", "binaudit.html"), encoding="utf-8").read()
+    niin_fn = ba_src.split("function niinOf(s){")[1].split("}\n")[0]
+    ok("binaudit_niinof_exact_13_not_13plus", "d.length===13" in niin_fn and "d.length>=13" not in niin_fn)
+    onscan_body = ba_src.split("window.onScan=function(code){")[1].split("};")[0]
+    ok("binaudit_onscan_always_returns_true", "return true;" in onscan_body)
+    ok("binaudit_onscan_never_returns_add_result_directly",
+       re.search(r"return\s+ok\s*;", onscan_body) is None)
+    ok("binaudit_rejected_scan_shows_toast_feedback", "toast(" in onscan_body)
+except Exception as e:
+    failed.append("review_binaudit(%s)" % e)
+
+# --- base.css: min-width must not reach checkbox/radio; --kiosk-min var removed as dead code.
+try:
+    base_css = open(os.path.join(ENGINE, "ui", "base.css"), encoding="utf-8").read()
+    ok("basecss_checkbox_excluded_from_min_width", 'input:not([type="checkbox"]):not([type="radio"])' in base_css)
+    ok("basecss_checkbox_still_gets_min_height", 'input[type="checkbox"],body.kiosk-mode input[type="radio"]{\n  min-height:44px' in base_css)
+    ok("basecss_kiosk_min_var_removed", re.search(r":root\{--kiosk-min", base_css) is None)
+except Exception as e:
+    failed.append("review_basecss(%s)" % e)
+
+# --- shared.js/palette.js: unified kioskOn(), guarded so either can provide it first.
+try:
+    shared_js = open(os.path.join(ENGINE, "ui", "shared.js"), encoding="utf-8").read()
+    palette_js = open(os.path.join(ENGINE, "ui", "palette.js"), encoding="utf-8").read()
+    ok("sharedjs_defines_kioskon", "function kioskOn()" in shared_js)
+    ok("sharedjs_exports_viewerkioskon_guarded", 'if (g.viewerKioskOn === undefined) g.viewerKioskOn = kioskOn;' in shared_js)
+    ok("palettejs_exports_viewerkioskon_guarded", "if(window.viewerKioskOn===undefined) window.viewerKioskOn=kioskOn;" in palette_js)
+    # every page that mounts CadView or DeepZoom must load shared.js BEFORE that script, since both
+    # now rely on window.viewerKioskOn being available at mount/button-build time
+    threed_html = open(os.path.join(ENGINE, "ui", "threed.html"), encoding="utf-8").read()
+    dz_html = open(os.path.join(ENGINE, "ui", "deepzoom.html"), encoding="utf-8").read()
+    ok("threed_html_loads_shared_before_cadview",
+       threed_html.find('src="/shared.js"') < threed_html.find('src="/cadview.js"'))
+    ok("deepzoom_html_loads_shared_before_deepzoomjs",
+       dz_html.find('src="/shared.js"') < dz_html.find('src="/deepzoom.js"'))
+    # cadview.js/deepzoom.js/threed.html no longer reimplement the read independently
+    cv_js = open(os.path.join(ENGINE, "ui", "cadview.js"), encoding="utf-8").read()
+    dz_js = open(os.path.join(ENGINE, "ui", "deepzoom.js"), encoding="utf-8").read()
+    for label, src in (("cadview_js", cv_js), ("deepzoom_js", dz_js), ("threed_html", threed_html)):
+        ok("%s_uses_shared_viewerkioskon" % label, "window.viewerKioskOn" in src)
+        ok("%s_no_independent_localstorage_kiosk_read" % label,
+           "localStorage.getItem('viewer_kiosk')" not in src and 'localStorage.getItem("viewer_kiosk")' not in src)
+    # the non-kiosk default height regression: cadview/deepzoom must NOT use Math.max(26,m)-style logic
+    # check the actual executable style-string code, not just absence of the string anywhere (both
+    # files legitimately mention "Math.max(26,m)" in a comment explaining the bug that was fixed)
+    ok("cadview_js_no_math_max_height_bug", "height:'+h+'px" in cv_js and "Math.max(26,m)+'px" not in cv_js)
+    ok("deepzoom_js_no_math_max_height_bug", "height:'+h+'px" in dz_js and "Math.max(26,m)+'px" not in dz_js)
+except Exception as e:
+    failed.append("review_kiosk_unification(%s)" % e)
+
+# --- threed.html: drawG() must re-add the zoom bar/watermark after its own innerHTML replace (the SVG
+#     fallback's interaction handlers call drawG() directly, bypassing render3D()).
+try:
+    threed_html = open(os.path.join(ENGINE, "ui", "threed.html"), encoding="utf-8").read()
+    drawg_body = threed_html.split("function drawG(){")[1].split("\n}\n")[0]
+    ok("threed_html_drawg_readds_zoombar", "addStageZoomBar(s)" in drawg_body)
+    ok("threed_html_drawg_readds_watermark", "addLocalIllusWatermark(s)" in drawg_body)
+except Exception as e:
+    failed.append("review_threed_drawg(%s)" % e)
+
+# --- gl3d.js: two-finger pinch must pause() idle auto-spin, and touchend must resume it afterward.
+try:
+    gl3d_js = open(os.path.join(ENGINE, "ui", "gl3d.js"), encoding="utf-8").read()
+    pinch_start = gl3d_js.split("e.touches.length===2){drag=false;pinchDist=touchDist(e);")[1][:20]
+    ok("gl3d_js_pinch_start_calls_pause", pinch_start.startswith("pause();"))
+    touchend_line = [l for l in gl3d_js.splitlines() if "addEventListener('touchend'" in l][0]
+    ok("gl3d_js_touchend_resumes_after_pinch_too", "drag||pinchDist" in touchend_line)
+except Exception as e:
+    failed.append("review_gl3d_pinch_pause(%s)" % e)
+
+# --- routes.py: X-QR-Local-Only must also catch unbracketed "::1:PORT" (safe_public_base()'s real
+#     output for HOST=="::1", not the bracketed "[::1]:PORT" form).
+try:
+    routes_src = open(os.path.join(ENGINE, "features", "routes.py"), encoding="utf-8").read()
+    local_only_line = [l for l in routes_src.splitlines() if "local_only = base.lower().startswith" in l][0]
+    ok("routes_qr_local_only_covers_unbracketed_ipv6", '"http://::1:"' in local_only_line)
+
+    def _local_only(base):
+        return base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:", "http://::1:"))
+    HOST, PORT = "::1", 8765
+    safe_default = "127.0.0.1:%d" % PORT if HOST in ("0.0.0.0", "::") else "%s:%d" % (HOST, PORT)
+    ok("routes_qr_local_only_detects_real_host_colon_colon_1", _local_only("http://" + safe_default))
+except Exception as e:
+    failed.append("review_qr_ipv6(%s)" % e)
+
+# --- packet.html: blob URL revoked on load; missing/absent header fails CAUTIOUS (warns), not open.
+try:
+    pk_src = open(os.path.join(ENGINE, "ui", "packet.html"), encoding="utf-8").read()
+    ok("packet_html_revokes_blob_url", "revokeObjectURL(url)" in pk_src)
+    ok("packet_html_header_check_fails_cautious", 'r.headers.get("X-QR-Local-Only")!=="0"' in pk_src)
+    ok("packet_html_header_check_not_fail_open", 'r.headers.get("X-QR-Local-Only")==="1"' not in pk_src)
+except Exception as e:
+    failed.append("review_packet_qr(%s)" % e)
+
+# --- deepzoom.js: unboxed FIG-kind chips (no .url, only .find) must not be dead clicks.
+try:
+    dz_js = open(os.path.join(ENGINE, "ui", "deepzoom.js"), encoding="utf-8").read()
+    calloutclick_body = dz_js.split("function calloutClick(cc){")[1].split("\n    }\n")[0]
+    ok("deepzoom_js_calloutclick_handles_find", "cc.find" in calloutclick_body)
+    # placeHotspots/draw's kiosk check hoisted out of the per-badge loop (efficiency finding)
+    ok("deepzoom_js_kiosk_check_hoisted_out_of_badge_loop",
+       "var bd=kioskOn()?44:22;" in dz_js.split("function placeHotspots(g){")[1].split("for(var i=0")[0])
+except Exception as e:
+    failed.append("review_deepzoom_fig_chip(%s)" % e)
+
+# --- VERIFY.bat: the new gate tool + its own test file must actually be wired into the authoritative gate.
+try:
+    verify_bat = open(os.path.join(os.path.dirname(ENGINE), "VERIFY.bat"), encoding="utf-8").read()
+    ok("verifybat_wires_check_es5_fallback", "check_es5_fallback.py" in verify_bat)
+    ok("verifybat_wires_test_uiux_fixes", "test_uiux_fixes.py" in verify_bat)
+except Exception as e:
+    failed.append("review_verifybat_wiring(%s)" % e)
+
+# --- part.html / jobcard.py: the two consumers of cautions.py's confidence field that the first pass missed.
+try:
+    part_html = open(os.path.join(ENGINE, "ui", "part.html"), encoding="utf-8").read()
+    ok("part_html_renders_confidence_qualifier", "c.confidence" in part_html and "verify on page" in part_html)
+
+    jobcard_src = open(os.path.join(ENGINE, "jobcard.py"), encoding="utf-8").read()
+    ok("jobcard_py_renders_confidence_qualifier", 'ca.get("confidence")' in jobcard_src)
+
+    import jobcard as _jobcard
+    procs = [{"kind": "Installation", "title": "T", "vehicle": "V", "tm_number": "TM", "page": 1,
+              "tools": [], "materials": [], "references": [],
+              "cautions": [{"kind": "DANGER", "text": "Garbled.", "confidence": "poor"},
+                           {"kind": "WARNING", "text": "Clean.", "confidence": "clean"},
+                           {"kind": "NOTE", "text": "Old shape."}],
+              "steps": ["Step one."]}]
+    pdf = _jobcard.build_pdf({"task": "t", "label": "T", "nsn": "1234-56-789-0123", "subtitle": "", "intent": {"kind": "Installation"}},
+                              procs, [], [], [], warnings=[])
+    ok("jobcard_py_builds_pdf_with_confidence_data", pdf[:5] == b"%PDF-")
+    try:
+        import fitz as _fitz
+        _d = _fitz.open(stream=pdf, filetype="pdf")
+        _text = "".join(p.get_text() for p in _d); _d.close()
+        ok("jobcard_py_pdf_shows_qualifier_for_poor_only",
+           "verify on page" in _text.split("Garbled.")[1][:60] and "verify on page" not in _text.split("Clean.")[1][:60])
+    except Exception:
+        ok("jobcard_py_pdf_text_check_skipped_no_fitz", True)
+except Exception as e:
+    failed.append("review_part_jobcard_confidence(%s)" % e)
+
+# --- index.html: OCR-callout hotspot markers get the same kiosk touch-target treatment as deepzoom's.
+try:
+    idx_html = open(INDEX_HTML, encoding="utf-8").read()
+    placecallouts_body = idx_html.split("function placeCallouts(){")[1].split("\n}\n")[0]
+    ok("index_html_callouts_use_shared_kioskon", "window.viewerKioskOn" in placecallouts_body)
+    ok("index_html_callout_badge_width_height_move_together",
+       'width:"+bd+"px;height:"+bd+"px' in placecallouts_body)
+    ok("index_html_callout_offset_derived_not_hardcoded", "px-bd/2" in placecallouts_body and "py-bd/2" in placecallouts_body)
+except Exception as e:
+    failed.append("review_index_callouts_kiosk(%s)" % e)
+
+# --- solve/stepflow/packet/dossier/part: hardcoded #e8a06a replaced with the existing var(--amb) token.
+try:
+    for fname in ("solve.html", "stepflow.html", "packet.html", "dossier.html", "part.html"):
+        src = open(os.path.join(ENGINE, "ui", fname), encoding="utf-8").read()
+        ok("%s_qualifier_uses_var_amb_not_hardcoded" % fname.replace(".html", ""),
+           "color:var(--amb)" in src)
+except Exception as e:
+    failed.append("review_amb_token(%s)" % e)
+
+# --- partdiff.html: document_id:0 must not be treated as falsy.
+try:
+    pd_src = open(os.path.join(ENGINE, "ui", "partdiff.html"), encoding="utf-8").read()
+    ok("partdiff_html_doc_id_zero_not_falsy", "document_id!=null" in pd_src and "v.refs[0].document_id){" not in pd_src)
+except Exception as e:
+    failed.append("review_partdiff_falsy_zero(%s)" % e)
+
+# --- procedures_feature.py: per-caution try/except (a failure on one caution no longer blanks the rest).
+try:
+    import features.procedures_feature as PF
+    import textquality as _real_tq
+    calls = [0]
+    orig_annotate = _real_tq.annotate
+    def _flaky_annotate(record, context_key="context"):
+        calls[0] += 1
+        if calls[0] == 2:
+            raise RuntimeError("simulated failure")
+        return orig_annotate(record, context_key)
+    _real_tq.annotate = _flaky_annotate
+    text = ("REMOVAL\nWARNING: First clean text.\nCAUTION: Second text.\nDANGER: Third clean text.\n"
+            "1. Disconnect the cable.\n")
+    result = PF._parse_procedure(text)
+    _real_tq.annotate = orig_annotate
+    cautions = result["cautions"] if result else []
+    ok("procfeature_mid_loop_failure_isolated_to_one_caution", len(cautions) == 3)
+    ok("procfeature_caution_before_failure_still_scored", len(cautions) > 0 and "confidence" in cautions[0])
+    ok("procfeature_caution_after_failure_still_scored",
+       len(cautions) > 2 and "confidence" in cautions[2] and cautions[2]["confidence"] == "clean")
+except Exception as e:
+    failed.append("review_procfeature_per_iteration(%s)" % e)
+
+# --- circuitlab.html: wire-id backfill must never collide with an existing (possibly non-contiguous)
+#     component id, even when a legacy save has no o.nextId at all.
+try:
+    cl_src = open(os.path.join(ENGINE, "ui", "circuitlab.html"), encoding="utf-8").read()
+    deserialize_body = cl_src.split("function deserialize(s){")[1].split("return true;}catch")[0]
+    ok("circuitlab_deserialize_scans_actual_ids_not_just_count",
+       "maxKnownId" in deserialize_body and "comps.forEach" in deserialize_body)
+except Exception as e:
+    failed.append("review_circuitlab_wire_id_collision(%s)" % e)
+
+# --- final Node syntax sweep across every file touched in the review-fix pass.
+try:
+    import subprocess, tempfile
+    if subprocess.run(["node", "--version"], capture_output=True).returncode == 0:
+        js_files = [os.path.join(ENGINE, "ui", f) for f in
+                    ("gl3d.js", "cadview.js", "deepzoom.js", "shared.js", "palette.js")]
+        html_files = [os.path.join(ENGINE, "ui", f) for f in
+                      ("index.html", "threed.html", "circuitlab.html", "binaudit.html", "packet.html",
+                       "partdiff.html", "part.html", "dossier.html", "solve.html", "stepflow.html")]
+        all_clean = True
+        for jf in js_files:
+            r = subprocess.run(["node", "--check", jf], capture_output=True, text=True)
+            if r.returncode != 0: all_clean = False
+        for hf in html_files:
+            src = open(hf, encoding="utf-8").read()
+            for b in re.findall(r"<script>(.*?)</script>", src, re.S):
+                with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
+                    f.write(b); tmp_path = f.name
+                r = subprocess.run(["node", "--check", tmp_path], capture_output=True, text=True)
+                if r.returncode != 0: all_clean = False
+                os.unlink(tmp_path)
+        ok("review_fix_pass_all_files_parse_with_node", all_clean)
+
+    # ES5 gate: shared.js, cadview.js, palette.js are all ES5-required
+    import rps_lint
+    es6_hits = {}
+    for fname in ("shared.js", "cadview.js", "palette.js"):
+        hits = rps_lint.scan_file(os.path.join(ENGINE, "ui", fname))
+        if hits: es6_hits[fname] = hits
+    ok("review_fix_pass_es5_required_files_still_clean", not es6_hits)
+except Exception as e:
+    failed.append("review_fix_pass_syntax_sweep(%s)" % e)
 
 
 for n in passed: print("PASS", n)

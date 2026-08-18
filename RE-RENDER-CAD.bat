@@ -17,6 +17,8 @@ REM Medium finding #37: this used to print an unconditional success message even
 REM outright failed (make_cad.py's main() returns 1 on a real error -- no errorlevel check
 REM existed here before). Keep running all three tiers (each is independent, resumable) rather
 REM than aborting mid-run; only the final message is now conditional on what actually happened.
+REM (Same exit-code-truth idiom VERIFY.bat/RUN-ALL-VERIFY.bat use -- see VERIFY.bat's header for
+REM why this project checks real errorlevels instead of grepping output for PASS/FAIL text.)
 if not defined FAILED (
   echo === All three tiers re-rendered. Spin sheets regenerate on demand. ===
 ) else (

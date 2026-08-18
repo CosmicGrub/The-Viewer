@@ -3,25 +3,25 @@
 it belongs to (fig_no + fig_title), its SIBLINGS (other parts called out on the same figure = same assembly), and
 SEE-ALSO parts (parts in other figures with the same assembly title). Read-only on the parts index; db_path explicit.
 Powers a 'related' panel on the dossier so a mechanic sees what a part sits inside and what ships with it."""
-import os, re, sqlite3
+import os, sqlite3
 
 
 def _db(db_path):
     con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True); con.row_factory = sqlite3.Row; return con
 
 
-_NSN_RE = re.compile(r"\b(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})\b")
-
-
 def _norm_nsn(s):
-    # \b-anchored, matching patterns.py's canonical NSN_RE (medium finding #21): the old
-    # `len(d) >= 13` form stripped ALL non-digits from the whole input and accepted anything
-    # 13+ digits long, silently slicing out only the first 13 -- a 15/16-digit invoice or
-    # tracking number pasted into search fabricated a plausible-looking but bogus NSN instead
-    # of being rejected. Falls through to the raw string (unchanged) for the name/part-number
-    # OR-lookup below when no real NSN is present.
-    m = _NSN_RE.search((s or "").strip())
-    return ("%s-%s-%s-%s" % (m.group(1), m.group(2), m.group(3), m.group(4))) if m else (s or "").strip()
+    """Canonical NSN if `s` contains one, else `s` unchanged (for the name/part-number OR-lookup
+    below). Delegates to patterns.norm_nsn -- the project's single \\b-anchored source of truth --
+    instead of a local regex copy (medium finding #21: the old `len(d) >= 13` form here stripped
+    ALL non-digits from the whole input and accepted anything 13+ digits long, silently slicing
+    out only the first 13 -- a 15/16-digit invoice or tracking number pasted into search fabricated
+    a plausible-looking but bogus NSN instead of being rejected. Review finding on the first fix:
+    that bug was fixed by adding yet another verbatim regex copy -- the 8th+ across this codebase
+    -- instead of importing the canonical implementation, which is a one-line adaptation since
+    patterns.norm_nsn returns None on no match, not the raw string)."""
+    import patterns
+    return patterns.norm_nsn(s) or (s or "").strip()
 
 
 def related(db_path, q, limit=60):

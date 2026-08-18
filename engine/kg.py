@@ -86,19 +86,31 @@ def neighbors(kg_db, label, limit=200):
     # the propagation (still a real 500 on real corruption -- not swallowed) but guaranteed cleanup.
     con = sqlite3.connect("file:%s?mode=ro" % kg_db, uri=True); con.row_factory = sqlite3.Row
     try:
-        # Two-tier lookup (finding #28): the old single OR query (exact OR leading-wildcard LIKE)
-        # could never use ix_node_label at all -- SQLite's OR-optimization requires every branch to
-        # be independently indexable, and a leading-wildcard LIKE never is, so EVERY /kg lookup did
-        # a full table scan. Try exact + PREFIX match first (both servable from the NOCASE-collated
-        # index); only fall back to the slow substring-anywhere scan when that finds nothing, so a
-        # match in the middle of a label (e.g. "hmmwv" inside "M998 HMMWV") still works, it just
-        # doesn't cost the common exact/prefix case a full scan.
-        keys = [r["key"] for r in con.execute(
-            "SELECT key FROM nodes WHERE label=? COLLATE NOCASE OR label LIKE ? LIMIT 20",
-            (label, label + "%"))]
-        if not keys:
-            keys = [r["key"] for r in con.execute(
-                "SELECT key FROM nodes WHERE label LIKE ? LIMIT 20", ("%" + label + "%",))]
+        # Review finding against the first version of finding #28's fix: falling back to the
+        # substring scan ONLY "if not keys" silently DROPPED real mid-string matches whenever an
+        # exact/prefix match ALSO existed (e.g. an exact node "HMMWV" coexisting with "M998 HMMWV
+        # WIRING") -- a genuine completeness regression, not just a performance trade-off, and the
+        # original single-query behavior never had this gap. SQLite's OR-optimization requires
+        # every branch to be independently indexable, and a leading-wildcard LIKE never is, so a
+        # true substring-anywhere match is fundamentally NOT servable from a plain B-tree index
+        # without FTS5 trigram tokenization (a separate, larger change) -- there is no way to both
+        # skip the slow scan AND guarantee completeness with the current schema. Correctness wins:
+        # both queries always run now; the indexed exact/prefix query still runs first purely so
+        # its (usually most-relevant) matches are ranked first in the merged, deduped result.
+        # Also escape literal SQL LIKE wildcards (%, _) that may already be present in `label`
+        # itself -- unescaped, they silently corrupt matching (e.g. a query "50%" matching an
+        # unrelated node containing a literal "50" followed by anything).
+        esc_label = label.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        fast_keys = [r["key"] for r in con.execute(
+            "SELECT key FROM nodes WHERE label=? COLLATE NOCASE OR label LIKE ? ESCAPE '\\' LIMIT 20",
+            (label, esc_label + "%"))]
+        slow_keys = [r["key"] for r in con.execute(
+            "SELECT key FROM nodes WHERE label LIKE ? ESCAPE '\\' LIMIT 20", ("%" + esc_label + "%",))]
+        seen_k = set(); keys = []
+        for k in fast_keys + slow_keys:
+            if k not in seen_k:
+                seen_k.add(k); keys.append(k)
+        keys = keys[:20]
         outs, ins, matched = [], [], []
         for k in keys:
             matched.append(con.execute("SELECT label FROM nodes WHERE key=?", (k,)).fetchone()[0])
@@ -148,9 +160,17 @@ if __name__ == "__main__":
         ("part", "Alternator", "has_spec", "spec", "28 VDC"),
         ("part", "Alternator", "has_nsn", "nsn", "2920-01-371-9577"),
         ("part", "Bracket", "on_figure", "figure", "FIG 4-2"),
+        # a mid-string match that COEXISTS with an exact match for the same query ("HMMWV") --
+        # review finding: the first version of #28's fix silently dropped this once any exact/
+        # prefix match existed.
+        ("part", "M998 HMMWV Bracket", "on_figure", "figure", "FIG 9-1"),
+        # literal SQL LIKE wildcard characters in a label -- review finding: unescaped, these used
+        # to corrupt matching semantics.
+        ("part", "50% Duty Solenoid", "has_spec", "spec", "12V"),
+        ("part", "50-999 Widget", "on_figure", "figure", "FIG 2-1"),
     ]
     r = build(kg, triples, meta={"figureparts_docs_sampled": "400", "figureparts_docs_total": "7300"})
-    assert r["edges"] == 6 and r["nodes"] == 7, r   # 7 distinct: alternator, fig, hmmwv, procedure, spec, nsn, bracket
+    assert r["edges"] == 9 and r["nodes"] == 13, r
     nb = neighbors(kg, "alternator")
     outrels = {(o["rel"], o["label"]) for o in nb["out"]}
     assert ("on_figure", "FIG 4-2") in outrels and ("in_vehicle", "HMMWV") in outrels, outrels
@@ -162,11 +182,25 @@ if __name__ == "__main__":
     # the label IS "HMMWV", so use a real embedded-substring case instead.
     nb2 = neighbors(kg, "MMW")   # matches inside "HMMWV" (starts with H, "MMW" is not a prefix)
     assert any(m.lower() == "hmmwv" for m in nb2["matched"]), nb2
+    # Review finding: the first version of this fix silently dropped a mid-string match whenever an
+    # exact/prefix match ALSO existed for the same query -- both "HMMWV" (exact) and "M998 HMMWV
+    # Bracket" (mid-string) must be returned together.
+    nb3 = neighbors(kg, "HMMWV")
+    matched_lower = {m.lower() for m in nb3["matched"]}
+    assert "hmmwv" in matched_lower, nb3
+    assert "m998 hmmwv bracket" in matched_lower, ("mid-string match dropped despite an exact match coexisting", nb3)
+    # Review finding: a literal SQL LIKE wildcard (%) in the query must not corrupt matching --
+    # "50%" must find the node actually named "50% Duty Solenoid" and must NOT falsely match the
+    # unrelated "50-999 Widget" node (which an unescaped "%50%%" pattern would wrongly hit).
+    nb4 = neighbors(kg, "50%")
+    matched4_lower = {m.lower() for m in nb4["matched"]}
+    assert "50% duty solenoid" in matched4_lower, nb4
+    assert "50-999 widget" not in matched4_lower, ("unescaped wildcard caused a false match", nb4)
     st = stats(kg)
-    assert st["by_type"]["part"] == 2 and st["edges"] == 6, st
+    assert st["by_type"]["part"] == 5 and st["edges"] == 9, st
     # finding #27: build-provenance meta round-trips through build() -> stats()
     assert st["meta"].get("figureparts_docs_sampled") == "400", st
     assert st["meta"].get("figureparts_docs_total") == "7300", st
     print("kg self-test OK  (%d nodes / %d edges; neighbors resolves part->figure/vehicle/nsn/spec + procedure->part; "
-          "substring fallback + coverage meta OK)" % (st["nodes"], st["edges"]))
+          "substring+exact coexist correctly, wildcard-safe, coverage meta OK)" % (st["nodes"], st["edges"]))
 # END OF FILE

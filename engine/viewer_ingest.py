@@ -40,6 +40,11 @@ OCR_DPI = 200          # render DPI for OCR (profile-tunable)
 # preprocessing with no downscale guard. _render_png() now shrinks the effective DPI for any page
 # whose projected pixel count would exceed this cap; a normal-size page is completely unaffected.
 OCR_MAX_MEGAPIXELS = int(os.environ.get("VIEWER_OCR_MAX_MP", "25")) * 1_000_000
+# Review finding: the DPI floor (previously hardcoded at 100 with no relation to the cap above)
+# could itself push a sufficiently large page's raster back OVER OCR_MAX_MEGAPIXELS, silently
+# defeating the guarantee. The megapixel cap always wins; this floor only prevents a truly
+# degenerate near-zero DPI on an extreme outlier page.
+MIN_OCR_DPI = 20
 USE_CUDA = False       # GPU OCR when True (RapidOCR + onnxruntime-gpu)
 ADAPTIVE_DPI = os.environ.get("VIEWER_ADAPTIVE_DPI") == "1"   # opt-in: lower DPI on sparse pages (default OFF = no accuracy change)
 _RAPID_LOCK = threading.Lock()
@@ -372,6 +377,41 @@ def crawl(con, root, max_files=0, max_seconds=0):
     con.execute("UPDATE runs SET finished_at=datetime('now'), files_seen=?, new_docs=?, pages_indexed=?, ocr_queued=?, failed=? WHERE id=?",(seen,new,pi,q,fail,rid)); con.commit()
     log(f"CRAWL DONE seen={seen} new={new} pages_text={pi} ocr_queued={q} failed={fail}")
 
+def _capped_dpi(w_in, h_in, d):
+    """Shrink `d` (DPI), never below MIN_OCR_DPI, so a page of physical size (w_in, h_in) inches
+    rasterizes at or under OCR_MAX_MEGAPIXELS pixels. Returns `d` unchanged if the page is already
+    under the cap at that DPI, or if the dimensions aren't usable (<=0 -- e.g. a malformed
+    MediaBox). Shared by both render backends (finding #24 review: the fix originally lived only
+    in the PyMuPDF branch, leaving the pdftoppm fallback -- the documented path for machines
+    without PyMuPDF, e.g. Windows 7/Vista per docs/SYSTEM-REQUIREMENTS.md -- fully uncapped).
+    Review finding: the floor used to be 100 DPI, which for a large enough page (area over
+    OCR_MAX_MEGAPIXELS/100**2, e.g. ~2500 sq in at the default 25MP cap) produced a raster WELL
+    OVER the cap -- the exact "~60+ megapixel raster" problem this fix exists to prevent, just at
+    a higher size threshold. MIN_OCR_DPI is deliberately low (not literally 1) only to avoid a
+    truly degenerate near-zero-DPI render on some absurd outlier; the megapixel cap is the hard
+    guarantee this function exists to uphold, and always wins over the OCR-quality floor."""
+    if w_in > 0 and h_in > 0 and (w_in * d) * (h_in * d) > OCR_MAX_MEGAPIXELS:
+        return max(MIN_OCR_DPI, int((OCR_MAX_MEGAPIXELS / (w_in * h_in)) ** 0.5))
+    return d
+
+
+def _pdftoppm_page_size_in(path, page_number):
+    """Physical page size in inches via `pdfinfo` (the same Poppler package pdftoppm ships with),
+    for the non-PyMuPDF fallback render path. Returns (None, None) on any failure (missing
+    pdfinfo, unparseable output, timeout) -- callers must treat that as 'can't determine size,
+    render uncapped' (fail-open: a preprocessing quality/safety nicety must never be the reason a
+    page fails to render at all)."""
+    try:
+        out = subprocess.run(["pdfinfo", "-f", str(page_number), "-l", str(page_number), path],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30).stdout.decode("utf-8", "ignore")
+        m = re.search(r"Page size:\s*([\d.]+)\s*x\s*([\d.]+)\s*pts", out)
+        if m:
+            return float(m.group(1)) / 72.0, float(m.group(2)) / 72.0
+    except Exception:
+        pass
+    return None, None
+
+
 def _render_png(path, page_number, dpi=None):
     d = int(dpi or OCR_DPI)
     if fitz is not None:
@@ -389,18 +429,26 @@ def _render_png(path, page_number, dpi=None):
         try:
             doc = fitz.open(path); page = doc[page_number-1]
             # DPI ceiling (finding #24): shrink the effective DPI, never the requested one, for a
-            # physically large page so the rendered raster stays under OCR_MAX_MEGAPIXELS. A page
-            # under the cap at the requested DPI is untouched (w_in/h_in <= 0 -- e.g. a malformed
-            # MediaBox -- also skips this and falls back to the raw requested DPI unchanged).
+            # physically large page so the rendered raster stays under OCR_MAX_MEGAPIXELS.
             w_in, h_in = page.rect.width / 72.0, page.rect.height / 72.0
-            if w_in > 0 and h_in > 0 and (w_in * d) * (h_in * d) > OCR_MAX_MEGAPIXELS:
-                d = max(100, int((OCR_MAX_MEGAPIXELS / (w_in * h_in)) ** 0.5))
+            d2 = _capped_dpi(w_in, h_in, d)
+            if d2 != d:
+                log(f"ocr: page {page_number} of {os.path.basename(path)} is {w_in:.1f}x{h_in:.1f}in "
+                    f"-- DPI reduced {d}->{d2} to stay under {OCR_MAX_MEGAPIXELS // 1_000_000}MP")
+                d = d2
             pix = page.get_pixmap(dpi=d)
             data = pix.tobytes("png"); doc.close()
         finally:
             _FITZ_LOCK.release()
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
             tf.write(data); return tf.name
+    w_in, h_in = _pdftoppm_page_size_in(path, page_number)
+    if w_in and h_in:
+        d2 = _capped_dpi(w_in, h_in, d)
+        if d2 != d:
+            log(f"ocr: page {page_number} of {os.path.basename(path)} is {w_in:.1f}x{h_in:.1f}in "
+                f"-- DPI reduced {d}->{d2} to stay under {OCR_MAX_MEGAPIXELS // 1_000_000}MP (pdftoppm fallback)")
+            d = d2
     td = tempfile.mkdtemp(); prefix = os.path.join(td, "pg")
     subprocess.run(["pdftoppm","-r",str(d),"-f",str(page_number),"-l",str(page_number),"-png",path,prefix],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)

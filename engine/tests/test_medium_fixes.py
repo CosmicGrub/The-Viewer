@@ -72,6 +72,26 @@ try:
     png_normal = VI._render_png(normal_pdf, 1, dpi=200)
     sz = Image.open(png_normal).size
     ok("ocr_dpi_normal_page_unaffected", sz == (int(8.5 * 200), int(11 * 200)))
+
+    # Review finding: the old 100-DPI floor could itself push a sufficiently large page's raster
+    # back OVER the cap (defeating the fix's own guarantee) -- reproduced by reviewers with a
+    # 100x150in page (150,000 sq in -> forced-100-DPI raster = 150MP, 6x over a 25MP cap).
+    huge_pdf = os.path.join(d, "huge.pdf")
+    doc = fitz.open(); doc.new_page(width=100 * 72, height=150 * 72); doc.save(huge_pdf); doc.close()
+    png_huge = VI._render_png(huge_pdf, 1, dpi=200)
+    mp_huge = (Image.open(png_huge).size[0] * Image.open(png_huge).size[1]) / 1e6
+    ok("ocr_dpi_floor_never_exceeds_cap", mp_huge <= VI.OCR_MAX_MEGAPIXELS / 1e6 + 0.5)
+
+    # _capped_dpi() is the shared helper both render backends now use (review finding: the
+    # original fix lived only in the PyMuPDF branch, leaving the pdftoppm fallback -- the
+    # documented path for machines without PyMuPDF -- completely uncapped).
+    ok("capped_dpi_zero_dims_unchanged", VI._capped_dpi(0, 0, 200) == 200)
+    ok("capped_dpi_small_page_unchanged", VI._capped_dpi(8.5, 11, 200) == 200)
+    ok("capped_dpi_matches_huge_page_case", VI._capped_dpi(100, 150, 200) == 40)
+
+    # _pdftoppm_page_size_in() degrades gracefully (fail-open) when pdfinfo is unavailable/fails
+    w, h = VI._pdftoppm_page_size_in("/no/such/file.pdf", 1)
+    ok("pdftoppm_page_size_graceful_on_missing_file", w is None and h is None)
 except Exception as e:
     failed.append("ocr_dpi_ceiling(%s)" % e)
 
@@ -88,9 +108,15 @@ try:
         ("part", "Alternator", "on_figure", "figure", "FIG 4-2"),
         ("part", "Alternator", "in_vehicle", "vehicle", "HMMWV"),
         ("part", "Bracket", "on_figure", "figure", "FIG 4-2"),
+        # a mid-string match COEXISTING with an exact match for the same query -- review finding:
+        # the first version of #28's fix silently dropped this.
+        ("part", "M998 HMMWV Bracket", "on_figure", "figure", "FIG 9-1"),
+        # literal SQL LIKE wildcards in a label -- review finding: unescaped, these corrupted matching.
+        ("part", "50% Duty Solenoid", "has_spec", "spec", "12V"),
+        ("part", "50-999 Widget", "on_figure", "figure", "FIG 2-1"),
     ]
     r = kg.build(kgdb, triples, meta={"figureparts_docs_sampled": "400", "figureparts_docs_total": "7300"})
-    ok("kg_build_ok", r["nodes"] == 4 and r["edges"] == 3)   # Alternator, Bracket, FIG 4-2, HMMWV
+    ok("kg_build_ok", r["nodes"] == 10 and r["edges"] == 6)
 
     st = kg.stats(kgdb)
     ok("kg_coverage_meta_present", st["meta"].get("figureparts_docs_sampled") == "400"
@@ -108,6 +134,20 @@ try:
     # no match at all
     nb_none = kg.neighbors(kgdb, "nonexistent-xyz")
     ok("kg_no_match", nb_none["matched"] == [])
+
+    # regression: an exact match must NOT suppress a coexisting mid-string match (the bug caught
+    # during review -- the first version of this fix dropped "M998 HMMWV Bracket" whenever the
+    # exact "HMMWV" node also existed, since the substring fallback only ran when the fast path
+    # found NOTHING at all).
+    nb_both = kg.neighbors(kgdb, "HMMWV")
+    both_lower = {m.lower() for m in nb_both["matched"]}
+    ok("kg_exact_and_midstring_coexist", "hmmwv" in both_lower and "m998 hmmwv bracket" in both_lower)
+
+    # regression: a literal "%" in the query must not act as an unescaped SQL LIKE wildcard
+    nb_wild = kg.neighbors(kgdb, "50%")
+    wild_lower = {m.lower() for m in nb_wild["matched"]}
+    ok("kg_wildcard_query_matches_literal", "50% duty solenoid" in wild_lower)
+    ok("kg_wildcard_query_no_false_match", "50-999 widget" not in wild_lower)
 
     # empty-db early return is untouched (no "meta" key) -- matches test_build_pipeline.py's own
     # exact-equality assertion on this same call shape

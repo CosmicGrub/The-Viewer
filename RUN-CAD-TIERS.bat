@@ -22,6 +22,7 @@ echo === [3/3] Rendering LEGACY tier (v1) for the whole set ===
 if errorlevel 1 set "FAILED=!FAILED! v1"
 echo.
 REM Medium finding #37: unconditional success message before, even if a tier actually failed.
+REM (Same exit-code-truth idiom VERIFY.bat/RUN-ALL-VERIFY.bat use -- see VERIFY.bat's header.)
 if not defined FAILED (
   echo === All three tiers rendered. ===
 ) else (

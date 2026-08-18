@@ -28,7 +28,13 @@ if errorlevel 1 set "FAILED=!FAILED! test_http"
 
 echo [3/4] Mutation testing [slow; close the window to skip] ...
 call "%~dp0RUN-MUTATION.bat" >> "%LOG%" 2>&1
-if errorlevel 1 set "FAILED=!FAILED! mutation"
+REM Review finding: an `if errorlevel 1` check here would be vacuous, not exit-code-truth --
+REM RUN-MUTATION.bat's own tools (tests\mutate.py, tests\mutation_xl.py) always exit 0 by design,
+REM regardless of survivor count (they're a human-reviewed report -- "Copy the SUMMARY lines back
+REM to Claude if you want them reviewed" -- not a pass/fail gate). Claiming to check this step's
+REM real exit code when it can never be non-zero would be WORSE than not checking it at all: a
+REM check that can never fire reads as a guarantee that doesn't exist. Read index\
+REM MUTATION-RESULTS.txt (opened automatically above) and look for "survived" lines by hand.
 
 echo [4/4] Build visual-search index [figure crops -> phash.tsv] ...
 cd /d "%~dp0engine"

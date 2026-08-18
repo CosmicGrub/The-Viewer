@@ -145,7 +145,12 @@ def main():
           % (done, skipped, failed, el, (done/el if el else 0), CDIR))
     if failed:
         print("=== %d failure(s) logged with reasons -> %s ===" % (failed, fail_log_path))
-    return 0
+    # Review finding: this used to unconditionally `return 0` regardless of `failed`, so
+    # RE-RENDER-CAD.bat/RUN-CAD-TIERS.bat's new errorlevel checks (added alongside this exact
+    # fix) could never fire for the scenario finding #32's own docstring describes -- a systemic
+    # problem (bad font, full disk, a corrupted install) failing every render in a ~98,000-item
+    # batch would still print an unconditional "all tiers rendered" success message.
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

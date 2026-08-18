@@ -38,18 +38,33 @@ def _num(v):
         return None
 
 
-def _canonical(vals):
-    """Given a list of value strings for one (subject,type,unit,origin): representative value (most common), plus the
-    numeric low/high span and the count. Returns (value, low, high, n)."""
-    vals = [v for v in vals if v not in (None, "")]
-    n = len(vals)
+def _canonical_core(counter, low, high):
+    """Shared math for the representative value + numeric span, given an already-aggregated
+    Counter of values and a running (low, high) numeric span (either or both may be None if no
+    numeric value was seen). Both _canonical() (batch, from a raw value list) and build()'s
+    streaming accumulator reduce to this one implementation -- review finding: the streaming
+    rewrite (medium finding #25) originally duplicated this most_common()/min-max-formatting logic
+    inline instead of sharing it, leaving _canonical() itself dead in the production path."""
+    n = sum(counter.values())
     if not n:
         return "", "", "", 0
-    rep = Counter(vals).most_common(1)[0][0]
+    rep = counter.most_common(1)[0][0]
+    low_s = ("%g" % low) if low is not None else ""
+    high_s = ("%g" % high) if high is not None else ""
+    return rep, low_s, high_s, n
+
+
+def _canonical(vals):
+    """Given a list of value strings for one (subject,type,unit,origin): representative value (most common), plus the
+    numeric low/high span and the count. Returns (value, low, high, n). Kept as a public, list-based
+    convenience wrapper around _canonical_core() -- build() below calls _canonical_core() directly
+    against its incrementally-aggregated Counter instead of materializing a list to pass here."""
+    vals = [v for v in vals if v not in (None, "")]
+    counter = Counter(vals)
     nums = [x for x in (_num(v) for v in vals) if x is not None]
-    low = ("%g" % min(nums)) if nums else ""
-    high = ("%g" % max(nums)) if nums else ""
-    return rep, low, high, n
+    low = min(nums) if nums else None
+    high = max(nums) if nums else None
+    return _canonical_core(counter, low, high)
 
 
 def build(db_path, measures_db, enrich_db, master_db, md_path=None):
@@ -94,9 +109,8 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
     raw_buf = []                       # small rolling buffer -- flushed periodically, never holds the whole corpus
     groups = defaultdict(Counter)      # (subj,ty,unit,origin) -> Counter({value: count}), None/"" never counted
     bounds = {}                        # (subj,ty,unit,origin) -> (min_numeric, max_numeric) running span
-    labels = {}
+    labels = {}                        # also doubles as the distinct-subjects set (labels.keys())
     corpus_have = defaultdict(set)
-    subjects_seen = set()
     n_raw = corpus_raw = external_raw = 0
     FLUSH_AT = 2000
 
@@ -112,7 +126,7 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
         raw_buf.append((subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin))
         if len(raw_buf) >= FLUSH_AT:
             flush()
-        labels[subj] = label; subjects_seen.add(subj); n_raw += 1
+        labels[subj] = label; n_raw += 1
         if origin == "corpus": corpus_raw += 1
         else: external_raw += 1
         key = (subj, ty, unit, origin)
@@ -163,14 +177,8 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
     # FILTERED layer: one canonical row per (subject,type,unit,origin)
     filt = []
     for (subj, ty, unit, origin), counter in groups.items():
-        n = sum(counter.values())
-        if n == 0:
-            rep, low, high = "", "", ""
-        else:
-            rep = counter.most_common(1)[0][0]
-            lo, hi = bounds.get((subj, ty, unit, origin), (None, None))
-            low = ("%g" % lo) if lo is not None else ""
-            high = ("%g" % hi) if hi is not None else ""
+        lo, hi = bounds.get((subj, ty, unit, origin), (None, None))
+        rep, low, high, n = _canonical_core(counter, lo, hi)
         auth = 1 if origin == "corpus" else 0
         note = "authoritative (corpus)" if auth else "external reference — unconfirmed"
         filt.append((subj, labels.get(subj, subj), ty, unit, rep, low, high, n, origin, auth, note))
@@ -178,14 +186,14 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
         "INSERT INTO master_filtered(subject,subject_label,type,unit,value,low,high,n,origin,authoritative,note) "
         "VALUES(?,?,?,?,?,?,?,?,?,?,?)", filt)
 
-    meta = {"built_ts": str(time.time()), "n_subjects": str(len(subjects_seen)), "n_raw": str(n_raw),
+    meta = {"built_ts": str(time.time()), "n_subjects": str(len(labels)), "n_raw": str(n_raw),
             "n_filtered": str(len(filt)), "corpus_raw": str(corpus_raw), "external_raw": str(external_raw)}
     con.executemany("INSERT OR REPLACE INTO master_meta(k,v) VALUES(?,?)", list(meta.items()))
     con.commit(); con.close()
 
     if md_path:
         _export_md(master_db, md_path, meta)
-    return {"subjects": len(subjects_seen), "raw": n_raw, "filtered": len(filt),
+    return {"subjects": len(labels), "raw": n_raw, "filtered": len(filt),
             "corpus": corpus_raw, "external": external_raw}
 
 

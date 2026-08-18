@@ -60,6 +60,12 @@ REM ERRORLEVEL -- a persistently crashing OCR pass (corrupt index, missing depen
 REM re-invoked the same failing command forever with no backoff and no cap. Now the real exit code
 REM is captured (before `type`/`findstr`, both of which would reset it) and a run of 3 consecutive
 REM non-zero exits aborts with a clear message instead of busy-looping.
+REM Review finding (scope note): this only catches a CRASHED pass (nonzero exit code), not a
+REM HUNG one -- a genuine hang never produces a nonzero exit at all, so this loop's cap can't
+REM detect it. engine\run_ocr_auto.bat already solves that harder problem via ocr_supervisor.py's
+REM heartbeat-based hang detection + force-kill (finding #15, an earlier audit tier). This script
+REM is the simpler first-run entry point and deliberately keeps a lighter-weight safety net; for
+REM a long/unattended OCR run, prefer run_ocr_auto.bat.
 :ocrloop
 %PY% "%~dp0viewer_ingest.py" ocr --limit 500 --db "%VIEWER_DB%" > "%TEMP%\viewer_ocr_last.txt"
 set "OCR_RC=%ERRORLEVEL%"

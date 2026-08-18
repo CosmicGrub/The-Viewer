@@ -14,6 +14,21 @@ echo === Listeners on 8765 after kill (should be NONE) === >> "%LOG%"
 netstat -ano | findstr :8765 | findstr LISTENING >> "%LOG%"
 echo (end of listener list) >> "%LOG%"
 echo. >> "%LOG%"
+
+REM Review finding: the command-line-filtered kill above is safe but, unlike the ORIGINAL blind
+REM netstat-based kill it replaced, can't touch a process whose command line doesn't match (a
+REM wrapper-launched or compiled build, or genuinely something unrelated squatting the port) --
+REM that regressed this script's actual job ("unstick port 8765") to doing nothing in that case.
+REM Restore that capability as a clearly-labeled LAST RESORT, only if the port is STILL occupied
+REM after the safe attempt above.
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr :8765 ^| findstr LISTENING') do (
+  echo === Port 8765 still occupied by PID %%P after the safe kill -- falling back to a direct kill === >> "%LOG%"
+  echo   ^(this PID's command line didn't match viewer_app.py/run_app.bat -- check what it is before^) >> "%LOG%"
+  echo   ^(re-running this script, if freeing the port for THE VIEWER wasn't actually intended^)      >> "%LOG%"
+  taskkill /F /PID %%P >> "%LOG%" 2>&1
+)
+timeout /t 2 /nobreak >nul
+echo. >> "%LOG%"
 echo === Starting ONE fresh server === >> "%LOG%"
 start "THE VIEWER" "%~dp0engine\run_app.bat"
 echo Started run_app.bat in a new window. >> "%LOG%"

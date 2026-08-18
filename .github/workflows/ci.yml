@@ -16,15 +16,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # requirements.txt's own header says 3.11-3.14 are all supported (3.14 fully, not just
+        # "should work") -- this is the first time any of that is actually tested instead of assumed.
+        python-version: ["3.12", "3.13", "3.14"]
     defaults:
       run:
         working-directory: engine
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: requirements.txt
 

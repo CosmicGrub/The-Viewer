@@ -14,7 +14,7 @@ import sys
 import tempfile
 import time
 
-from features.registry import get, post, qstr, qint, qflag
+from features.registry import get, post, qstr, qint, qflag, safe_header_token
 
 core = None          # injected by viewer_app at startup
 ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -921,7 +921,7 @@ def r_partspdf(h, qs):
         except Exception:
             items = []
     pdf = partspdf.build_pdf(items, {"tm": q})
-    fn = "parts_request_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "sheet") + ".pdf"
+    fn = "parts_request_" + (safe_header_token(q) or "sheet") + ".pdf"
     h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
 
 
@@ -1098,7 +1098,7 @@ def r_figuresheet(h, qs):
         h._send(400, {"error": "q required (NSN, part number, or name)"}); return
     pdf = figuresheet.figuresheet(core.DB_PATH, core.INDEX_DIR, q, qint(qs, "dpi", 150, 72, 300), qint(qs, "n", 12, 1, 30))
     if pdf:
-        fn = "figuresheet_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "part") + ".pdf"
+        fn = "figuresheet_" + (safe_header_token(q) or "part") + ".pdf"
         h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
     else:
         h._send(404, {"error": "no figures found for that part"})
@@ -1128,7 +1128,7 @@ def r_jobcard(h, qs):
     pdf = jobcard.jobcard(core.DB_PATH, q, procs, tq, lookalike=la,
                           dpi=qint(qs, "dpi", 150, 72, 300), max_figs=qint(qs, "nf", 8, 0, 20))
     if pdf:
-        fn = "workorder_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "task") + ".pdf"
+        fn = "workorder_" + (safe_header_token(q) or "task") + ".pdf"
         h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
     else:
         h._send(404, {"error": "nothing resolved for that task (no procedures, torque, parts, or figures)"})
@@ -1223,7 +1223,7 @@ def r_jobpack(h, qs):
     if len(q) < 2:
         h._send(400, {"error": "q required (part name / NSN / part number)"}); return
     pdf = jobpack.build(pkg)
-    fn = "jobpackage_" + ("".join(ch for ch in q if ch.isalnum() or ch in "-_")[:30] or "part") + ".pdf"
+    fn = "jobpackage_" + (safe_header_token(q) or "part") + ".pdf"
     h._send(200, pdf, "application/pdf", {"Content-Disposition": "inline; filename=\"%s\"" % fn})
 
 
@@ -2069,12 +2069,12 @@ def r_ingest_status(h, qs):
 
 @get("/api/pagewords")
 def r_pagewords(h, qs):
-    h._send(200, core.page_words(qint(qs, "doc", 0), qstr(qs, "page", "1")))
+    h._send(200, core.page_words(qint(qs, "doc", 0), qint(qs, "page", 1, 1)))
 
 
 @get("/api/callouts")
 def r_callouts(h, qs):
-    h._send(200, core.page_callouts(qint(qs, "doc", 0), qstr(qs, "page", "1")))
+    h._send(200, core.page_callouts(qint(qs, "doc", 0), qint(qs, "page", 1, 1)))
 
 
 @get("/page")
@@ -2194,5 +2194,5 @@ def p_request(h, qs, payload):
     finally:
         try: os.unlink(out)
         except Exception: pass
-    bumper = (payload.get("session", {}).get("bumper") or "request").replace(" ", "_")
+    bumper = safe_header_token(payload.get("session", {}).get("bumper")) or "request"
     h._send(200, data, "application/pdf", {"Content-Disposition": 'attachment; filename="104th_parts_request_%s.pdf"' % bumper})

@@ -12,7 +12,7 @@ no headings are found -- so it can never be worse than the document-level split.
 
 Read-only on the index (R1/R6). Stdlib only (regex/json), RPS-safe. `core` is injected by viewer_app.
 """
-import os, re, json
+import os, re, json, sqlite3
 
 core = None   # injected: import chapters_feature as _ch; _ch.core = sys.modules[__name__]
 
@@ -135,8 +135,16 @@ def _build_ranges(con, doc_id):
 
 
 def _doc_row(con, doc_id):
-    return con.execute("SELECT id, tm_number, title, path, page_count FROM documents WHERE id=?",
-                       (doc_id,)).fetchone()
+    try:
+        return con.execute("SELECT id, tm_number, title, path, page_count FROM documents WHERE id=?",
+                           (doc_id,)).fetchone()
+    except sqlite3.OperationalError:
+        # schema drift (older/partial DB) -- degrade to "not found" (chapters() already treats that as
+        # "not a combined manual, use whole-book") instead of 500ing. Logged so a real, persistent DB
+        # problem for a valid doc_id doesn't silently look identical to "no such document" forever.
+        try: core.log_exception("chapters._doc_row")
+        except Exception: pass
+        return None
 
 
 def chapters(doc_id):
@@ -192,8 +200,16 @@ def review(limit=300):
     and correct them. Counts are cheap (cached); building ranges is lazy + cached per doc."""
     con = core.db()
     try:
-        rows = con.execute("SELECT id, tm_number, title, path, page_count FROM documents "
-                           "WHERE type LIKE 'pdf%' ORDER BY COALESCE(tm_number,''), id").fetchall()
+        try:
+            rows = con.execute("SELECT id, tm_number, title, path, page_count FROM documents "
+                               "WHERE type LIKE 'pdf%' ORDER BY COALESCE(tm_number,''), id").fetchall()
+        except sqlite3.OperationalError:
+            # schema drift -- degrade to an empty review list instead of 500ing. Logged: this endpoint
+            # backs the human chapter-audit UI, so a silent empty result would misread as "nothing to
+            # review" rather than "the query never ran."
+            try: core.log_exception("chapters.review")
+            except Exception: pass
+            rows = []
         combined = []
         for r in rows:
             cls = core.tm_side(r["tm_number"] or "", r["title"] or "", r["path"] or "")

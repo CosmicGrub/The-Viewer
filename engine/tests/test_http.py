@@ -14,12 +14,33 @@ def _free_port():
     s = socket.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); return p
 
 
+# Routes that legitimately return a binary body (PDF/PNG/SVG), not JSON, on a successful /api/ GET --
+# mirrors the expect_json=False list test_routes.py already curates for the same routes.
+BINARY_API_ROUTES = {
+    "/api/form_2404", "/api/form_2407", "/api/partspdf", "/api/callout_crop",
+    "/api/qr", "/api/specsheet", "/api/figuresheet", "/api/jobcard", "/api/jobpack",
+}
+
+
+def _is_binary_route(url):
+    path = url.split("?", 1)[0]
+    return path in BINARY_API_ROUTES
+
+
 def _synth_db():
+    # documents' columns mirror migrations/0001_init.sql (rel_path/fingerprint/type/nsn/page_count/etc.) --
+    # a stripped-down subset here previously caused false-positive 500s (missing-column errors) on every
+    # route that touches documents (by_side, chapters*, doc, vehicles, search): the routes were fine, this
+    # fixture just drifted from the real schema. Keep it in sync; see engine/migrations/0001_init.sql.
     d = tempfile.mkdtemp(prefix="httptest_"); db = os.path.join(d, "viewer.db"); c = sqlite3.connect(db)
-    c.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, path TEXT, vehicle TEXT, tm_number TEXT, title TEXT, status TEXT)")
+    c.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, path TEXT, rel_path TEXT, fingerprint TEXT, "
+              "type TEXT, tm_number TEXT, nsn TEXT, title TEXT, vehicle TEXT, page_count INTEGER DEFAULT 0, "
+              "size_bytes INTEGER, mtime REAL, status TEXT DEFAULT 'discovered', "
+              "created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))")
     c.execute("CREATE TABLE parts(id INTEGER PRIMARY KEY, document_id INT, page INT, nsn TEXT, part_number TEXT, name TEXT, nomenclature TEXT, cagec TEXT, smr TEXT, uoc TEXT, fig_no TEXT, fig_title TEXT)")
     c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT)")
-    c.execute("INSERT INTO documents VALUES(1,'/x/a.pdf','HMMWV M998','TM 9-2320-280-24P','Maint','indexed')")
+    c.execute("INSERT INTO documents(id,path,type,tm_number,nsn,title,vehicle,page_count,status) "
+              "VALUES(1,'/x/a.pdf','pdf_text','TM 9-2320-280-24P','5305-01-111-1111','Maint','HMMWV M998',12,'indexed')")
     c.execute("INSERT INTO parts(document_id,page,nsn,name,fig_no,fig_title) VALUES(1,12,'5305-01-111-1111','BOLT','FIG 5','ELEC')")
     c.execute("INSERT INTO pages(document_id,page_number,body_text,ocr_status) VALUES(1,12,'PREVENTIVE MAINTENANCE CHECKS AND SERVICES. 1. Check the bolt torque to 30 ft-lb.','done')")
     c.commit(); c.close(); return db
@@ -57,7 +78,7 @@ def main():
             hit += 1
             if code >= 500:
                 fails.append("%s -> HTTP %d (5xx)" % (url, code))
-            if url.startswith("/api/") and code < 400:
+            if url.startswith("/api/") and code < 400 and not _is_binary_route(url):
                 try:
                     json.loads(body.decode("utf-8", "replace"))
                 except Exception:

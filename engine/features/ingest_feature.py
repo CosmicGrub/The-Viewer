@@ -56,7 +56,14 @@ def ingest_preview(path):
             if f.lower().endswith(".pdf"): pdfs.append(os.path.join(dp, f))
         if len(pdfs) > 8000: break
     con = core.db()
-    try: have = {r[0] for r in con.execute("SELECT path FROM documents")}
+    # realpath() both sides before comparing -- `pdfs` above is built from `path`, already realpath'd
+    # by _canon_ingest_path(), but a documents.path row can have been recorded via a DIFFERENT (but
+    # equivalent) representation of the same on-disk location: a junction/symlink, or -- confirmed
+    # live on a GitHub Actions Windows runner -- an 8.3 short-name alias in %TEMP% (RUNNER~1 vs the
+    # long form). A plain string comparison then miscounts an already-indexed file as new. realpath()
+    # is idempotent and cheap relative to the os.walk() above; a missing/renamed file just returns its
+    # own (still-comparable) normalized form rather than raising.
+    try: have = {os.path.realpath(r[0]) for r in con.execute("SELECT path FROM documents")}
     except Exception: have = set()
     con.close()
     new = [p for p in pdfs if p not in have]

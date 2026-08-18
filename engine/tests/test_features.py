@@ -88,6 +88,33 @@ ok("ingest_total_4", ip["ok"] and ip["total_pdfs"] == 4)
 ok("ingest_new_3", ip["new_pdfs"] == 3)            # old.pdf already in documents
 ok("ingest_bad_path", V.ingest_preview("/no/such/folder")["ok"] is False)
 
+# --- ingest_preview: a documents.path row recorded via a DIFFERENT (but equivalent) string for the
+# same on-disk folder must still be recognized as "already indexed", not double-counted as new.
+# Found live on a GitHub Actions Windows runner (%TEMP% resolves to an 8.3 short-name alias there,
+# e.g. RUNNER~1 vs the long form) -- ingest_preview() realpath()s the folder it walks but previously
+# compared the result against RAW documents.path strings, so an aliased path silently miscounted.
+# Reproduced here with an OS-native alias (a Windows junction / POSIX symlink) instead, since that's
+# reproducible on any machine, not just a GHA runner's specific temp-dir quirk.
+try:
+    alias_target = tempfile.mkdtemp(prefix="viewer_feat_alias_target_")
+    open(os.path.join(alias_target, "aliased.pdf"), "w").write("x")
+    alias_link = os.path.join(tempfile.mkdtemp(prefix="viewer_feat_alias_link_"), "alias")
+    if os.name == "nt":
+        import subprocess
+        subprocess.run(["cmd", "/c", "mklink", "/J", alias_link, alias_target], check=True, capture_output=True)
+    else:
+        os.symlink(alias_target, alias_link)
+    # record the document via the ALIAS path (simulating however it was originally aliased at ingest
+    # time), then preview via the REAL (unaliased) path -- realpath() must reconcile the two.
+    _con = sqlite3.connect(DBP)
+    _con.execute("INSERT INTO documents(id,path) VALUES(99,?)", (os.path.join(alias_link, "aliased.pdf"),))
+    _con.commit(); _con.close()
+    ip2 = V.ingest_preview(alias_target)
+    ok("ingest_alias_total_1", ip2["ok"] and ip2["total_pdfs"] == 1)
+    ok("ingest_alias_recognized_not_new", ip2["new_pdfs"] == 0)
+except Exception as e:
+    failed.append("ingest_alias_setup(%s)" % e)
+
 # --- RPS mode (via the rps module) ---
 try:
     import rps

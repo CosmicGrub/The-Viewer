@@ -59,6 +59,22 @@ _FITZ_LOCK = threading.Lock()
 # cooperates. The one thread that hung is leaked (never reclaimed -- Python has no safe way to kill
 # a thread), but the process keeps going and the OS reclaims everything when it eventually exits.
 OCR_PAGE_TIMEOUT_SECONDS = int(os.environ.get("VIEWER_OCR_PAGE_TIMEOUT", "120"))
+# Separate, smaller budget for acquiring _FITZ_LOCK specifically (High-tier review finding: dual
+# use of OCR_PAGE_TIMEOUT_SECONDS conflated two different things). Under heavy --workers
+# contention, a worker can burn most/all of OCR_PAGE_TIMEOUT_SECONDS just queued for the
+# process-wide lock, then get killed by _ocr_task's outer deadline right as it starts real work --
+# indistinguishable from a genuine hang in the render/OCR call itself. A small fixed floor (not a
+# fraction of the main timeout -- they govern qualitatively different things: queue-wait tolerance
+# vs. total-work tolerance) lets a busy-but-healthy lock fail fast and be reported as lock
+# contention, while OCR_PAGE_TIMEOUT_SECONDS remains the ceiling on the whole page.
+OCR_LOCK_TIMEOUT_SECONDS = int(os.environ.get("VIEWER_OCR_LOCK_TIMEOUT", "20"))
+# Review finding: the two timeouts above are independently operator-configurable via env vars with no
+# cross-check. If VIEWER_OCR_PAGE_TIMEOUT is set below VIEWER_OCR_LOCK_TIMEOUT's default (e.g. a tighter
+# per-page SLA), a single lock acquire could outlast the whole page's outer deadline -- the outer watchdog
+# reports "timeout" and moves on while the leaked worker thread is still blocked inside acquire() for
+# longer than that, defeating the split's whole point (a busy-but-healthy lock should fail fast and be
+# reported as lock contention, distinct from a genuine page-level hang). Clamp, don't just document.
+OCR_LOCK_TIMEOUT_SECONDS = min(OCR_LOCK_TIMEOUT_SECONDS, OCR_PAGE_TIMEOUT_SECONDS)
 _DEDUP = {}                       # img_hash -> OCR text: identical pages (boilerplate) reuse text, skip re-inference
 _DEDUP_LOCK = threading.Lock()
 _DEDUP_STATS = {"hits": 0}
@@ -73,7 +89,7 @@ def _page_density(path, page_number):
     best-effort probe to "skip it" (default DPI, no blank-skip) instead of blocking a worker thread
     indefinitely."""
     if fitz is None or _np is None: return None
-    if not _FITZ_LOCK.acquire(timeout=OCR_PAGE_TIMEOUT_SECONDS):
+    if not _FITZ_LOCK.acquire(timeout=OCR_LOCK_TIMEOUT_SECONDS):
         return None
     try:
         doc = fitz.open(path); pix = doc[page_number-1].get_pixmap(dpi=50, colorspace=fitz.csGRAY)
@@ -424,8 +440,8 @@ def _render_png(path, page_number, dpi=None):
         # own timeout/except handling) instead of hanging, so the batch keeps draining even after a
         # wedge -- degraded, but ocrall() still exits normally and the existing crash/restart loop
         # in run_ocr_auto.bat can pick it back up (finding #15).
-        if not _FITZ_LOCK.acquire(timeout=OCR_PAGE_TIMEOUT_SECONDS):
-            raise TimeoutError("PyMuPDF render lock busy for >%ds -- a prior render may be wedged" % OCR_PAGE_TIMEOUT_SECONDS)
+        if not _FITZ_LOCK.acquire(timeout=OCR_LOCK_TIMEOUT_SECONDS):
+            raise TimeoutError("PyMuPDF render lock busy for >%ds -- a prior render may be wedged" % OCR_LOCK_TIMEOUT_SECONDS)
         try:
             doc = fitz.open(path); page = doc[page_number-1]
             # DPI ceiling (finding #24): shrink the effective DPI, never the requested one, for a

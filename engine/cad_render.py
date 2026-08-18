@@ -17,6 +17,8 @@ try:
 except Exception:
     Image = None
 
+import cad_mesh
+
 CAD_VERSION = "7"          # 7 = colour + material TEXTURE on EVERY tier (v1/v2/v3); max-quality SS4 + key/fill
 TAU = math.pi * 2
 
@@ -127,10 +129,7 @@ def _gear(R, td, n, h, bore, seg=0):
     return V, F
 
 def _box(w, h, d):
-    x, y, z = w/2, h/2, d/2
-    V = [[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]]
-    F = [[0,3,2,1],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,4,7,3]]
-    return V, F
+    return cad_mesh.box_mesh(w, h, d, origin="center")
 
 class _Mesh:
     def __init__(self): self.V = []; self.F = []

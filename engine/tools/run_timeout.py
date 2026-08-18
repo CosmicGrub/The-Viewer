@@ -10,6 +10,10 @@ import os
 import subprocess
 import sys
 
+HERE = os.path.dirname(os.path.abspath(__file__))          # engine/tools
+sys.path.insert(0, os.path.dirname(HERE))                  # engine/ (proctree.py lives there)
+import proctree  # noqa: E402  -- shared process-tree kill/flags logic (also used by ocr_supervisor.py)
+
 
 def main():
     if len(sys.argv) < 3:
@@ -22,12 +26,8 @@ def main():
         return 2
     cmd = sys.argv[2:]
 
-    flags = 0
-    if os.name == "nt":
-        # own process group so taskkill /T can reap children (e.g. a spawned server thread/proc)
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     try:
-        proc = subprocess.Popen(cmd, creationflags=flags)
+        proc = subprocess.Popen(cmd, creationflags=proctree.new_process_group_flags())
     except FileNotFoundError:
         sys.stderr.write("run_timeout: command not found: %s\n" % " ".join(cmd))
         return 2
@@ -37,21 +37,7 @@ def main():
     except subprocess.TimeoutExpired:
         sys.stdout.flush()
         sys.stderr.write("\n!!! TIMEOUT after %gs -- killing hung step: %s !!!\n" % (secs, " ".join(cmd)))
-        try:
-            if os.name == "nt":
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            else:
-                proc.kill()
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-        try:
-            proc.wait(timeout=15)
-        except Exception:
-            pass
+        proctree.kill_tree(proc)
         return 124
 
 

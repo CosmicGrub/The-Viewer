@@ -23,7 +23,7 @@ identical "D:\path\to\publog" placeholder in its own usage message.
 """
 
 from __future__ import annotations
-import csv, os, sqlite3, sys, time
+import csv, os, sys, time
 
 csv.field_size_limit(1 << 24)   # some CLEAR_TEXT / DEFINITION fields are large
 
@@ -44,18 +44,16 @@ def build(src_dir, db_path, sample=0, log=print):
     multi-GB) db_path FIRST, then rebuilt with journal_mode=OFF/synchronous=OFF and no indexes
     until the end: a crash or power loss partway through destroyed the only working copy with
     nothing to fall back to. Now a crash mid-build leaves the last-good db_path untouched and only
-    orphans a `.building-<pid>` temp file, which is safe to delete."""
+    orphans a `.building-<pid>` temp file, which is safe to delete. The build-to-temp-then-swap
+    scaffold (remove any stale temp, connect, atomic_replace on success, close+remove_retry+re-raise
+    on any failure) is shared with kg.py via safeguard.atomic_sqlite_build() -- see that docstring
+    for the exact crash-safety contract. The stale-temp remove_retry it does up front matters here
+    especially: a large leftover file is exactly what antivirus/the search indexer is likely to have
+    open right now, so it needs the same transient-lock retry every other file-swap in this module
+    already gets."""
     import safeguard
     t0 = time.time()
-    tmp_path = db_path + ".building-%d" % os.getpid()
-    con = None
-    try:
-        # stale temp from a prior crashed run -- just scratch space, but a large leftover file is
-        # exactly what antivirus/the search indexer is likely to have open right now, so this needs
-        # the same transient-lock retry every other file-swap in this module already gets (was a
-        # bare os.remove() with no retry, able to crash the whole batch job on a momentary lock).
-        safeguard.remove_retry(tmp_path)
-        con = sqlite3.connect(tmp_path)
+    with safeguard.atomic_sqlite_build(db_path) as (con, tmp_path):
         con.execute("PRAGMA journal_mode=OFF")
         con.execute("PRAGMA synchronous=OFF")
         cur = con.cursor()
@@ -63,21 +61,13 @@ def build(src_dir, db_path, sample=0, log=print):
         # Everything above this point is fully committed by _build_into() itself. PRAGMA optimize
         # is a pure maintenance nicety (query-planner statistics) -- a failure here (e.g. a
         # transient disk-I/O error) must not discard an otherwise 100%-valid, already-committed
-        # rebuild via the except block below, so it gets its own tolerant try instead of sharing
-        # the outer one.
+        # rebuild via atomic_sqlite_build's failure-cleanup path, so it gets its own tolerant try
+        # instead of letting the exception escape the `with` block.
         try:
             con.execute("PRAGMA optimize")
         except Exception as opt_exc:
             log("  [warn] PRAGMA optimize failed (non-fatal, build is still valid): %s" % opt_exc)
-        con.close()
-    except BaseException:
-        try: con.close()
-        except Exception: pass
-        try: safeguard.remove_retry(tmp_path)
-        except OSError: pass
-        raise
 
-    safeguard.atomic_replace(tmp_path, db_path)   # only now does the new build become "publog.db"
     dt = time.time() - t0
     log("DONE in %.1fs -> %s (%.1f MB)" % (dt, db_path, os.path.getsize(db_path) / 1e6))
     return db_path

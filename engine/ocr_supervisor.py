@@ -48,6 +48,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import ocr_watchdog  # noqa: E402  -- reuse its exact heartbeat-path logic, not a reimplementation
+import proctree  # noqa: E402  -- shared process-tree kill/flags logic (also used by tools/run_timeout.py)
 
 
 def _heartbeat_mtime(db_path):
@@ -62,20 +63,9 @@ def _heartbeat_mtime(db_path):
 def _kill_tree(proc, wait_after=15):
     """Force-kill proc's whole process tree (same mechanism run_timeout.py uses), then wait up to
     `wait_after` seconds for it to actually die. Used from both the stale-heartbeat path and the
-    KeyboardInterrupt handler below -- previously each hand-rolled its own copy of this."""
-    try:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            proc.kill()
-    except Exception:
-        try: proc.kill()
-        except Exception: pass
-    try:
-        proc.wait(timeout=wait_after)
-    except Exception:
-        pass
+    KeyboardInterrupt handler below -- previously each hand-rolled its own copy of this; now both
+    this module and engine/tools/run_timeout.py delegate to the shared engine/proctree.py."""
+    proctree.kill_tree(proc, wait_after=wait_after)
 
 
 def _requeue_stuck_pages(db_path):
@@ -98,10 +88,7 @@ def _requeue_stuck_pages(db_path):
 
 
 def supervise(cmd, db_path, max_age, poll_interval):
-    flags = 0
-    if os.name == "nt":
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)  # own process group so taskkill /T can reap children
-    proc = subprocess.Popen(cmd, creationflags=flags)
+    proc = subprocess.Popen(cmd, creationflags=proctree.new_process_group_flags())
     proc_start = time.time()
     print("ocr_supervisor: watching PID %d (heartbeat max-age %ds, polling every %ds)"
           % (proc.pid, max_age, poll_interval))

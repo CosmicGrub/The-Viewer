@@ -40,13 +40,10 @@ def build(kg_db, triples, meta=None):
     in one transaction -- a crash/kill anywhere in between left kg_db on disk mid-build (e.g. nodes
     table present, edges not yet re-created), permanently, in place. neighbors() below already had
     to grow defensive cleanup for exactly that failure mode; this fix removes the failure mode
-    itself instead. Same build-to-temp-then-atomic_replace pattern as build_publog.py."""
+    itself instead. Same build-to-temp-then-atomic_replace scaffold as build_publog.py, factored
+    into safeguard.atomic_sqlite_build() -- see that docstring for the exact crash-safety contract."""
     import safeguard
-    tmp_path = kg_db + ".building-%d" % os.getpid()
-    safeguard.remove_retry(tmp_path)   # stale leftover from a prior crashed run -- just scratch space
-    con = None
-    try:
-        con = sqlite3.connect(tmp_path)
+    with safeguard.atomic_sqlite_build(kg_db) as (con, tmp_path):
         con.executescript(SCHEMA)   # CREATE TABLE IF NOT EXISTS -- no DROP needed, the temp file starts empty
         nodes = {}
         for st, sl, rel, dt, dl in triples:
@@ -61,15 +58,7 @@ def build(kg_db, triples, meta=None):
         con.commit()
         ne = con.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
         ee = con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
-        con.close()
-    except BaseException:
-        try: con.close()
-        except Exception: pass
-        try: safeguard.remove_retry(tmp_path)
-        except OSError: pass
-        raise
 
-    safeguard.atomic_replace(tmp_path, kg_db)   # only now does the new build become "kg.db"
     return {"nodes": ne, "edges": ee}
 
 

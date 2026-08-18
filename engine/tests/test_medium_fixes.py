@@ -3,9 +3,14 @@
 Python code: xref.py's NSN truncation bug, dedup.py's process-randomized hash(), the OCR DPI/
 megapixel ceiling, kg.py's coverage-meta + indexed lookup, masterfile.py's streaming rewrite
 (verified for exact output-equivalence against the original list-materializing algorithm on
-randomized data, including null-value edge cases), and make_cad.py's error-detail capture.
+randomized data, including null-value edge cases), cad_render.py/dimscad.py's deduped _box() mesh
+builder (now shared via cad_mesh.box_mesh(), checked for outward-facing winding on every face), and
+make_cad.py's error-detail capture. #33-#34 add coverage a follow-up xhigh code review of that same
+_box()-dedup/atomic-build-extraction diff found missing: the OCR_LOCK_TIMEOUT_SECONDS/
+OCR_PAGE_TIMEOUT_SECONDS cross-clamp, and proctree.py's kill_tree()/new_process_group_flags() (which
+previously had only indirect coverage via ocr_supervisor.py's _kill_tree wrapper).
 Self-contained; no real corpus. Run:  python tests/test_medium_fixes.py"""
-import os, sys, sqlite3, tempfile, random
+import os, sys, sqlite3, subprocess, tempfile, random
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -297,6 +302,102 @@ except Exception as e:
 
 
 # =====================================================================================================
+# #29 -- cad_render.py's and dimscad.py's duplicate _box() mesh builders are deduped onto one shared
+# cad_mesh.box_mesh() (0-based V/F, cad_render.py's existing internal convention). The concrete,
+# code-computable regression guard for the winding/normal-flip risk the original audit finding raised:
+# every face of BOTH flavors used through the shared function (cad_render's centered box, dimscad's
+# corner-anchored box with its l->x / h->y / w->z axis-mapping gotcha) must wind with its outward
+# right-hand-rule normal pointing away from the box centroid.
+# =====================================================================================================
+try:
+    import cad_mesh, cad_render, dimscad
+
+    def _face_normal(V, f):
+        # Deliberately re-derives the same cross-product formula cad_render.to_stl() already implements
+        # for its own STL facet-normal output -- NOT shared with it on purpose. A winding/normal-flip bug
+        # here should be caught independently of whatever cad_render.py itself does; sharing one helper
+        # between the code under test and the test verifying it would make this check circular (review
+        # finding: flag the duplication as deliberate so a future "simplify" pass doesn't merge them).
+        a, b, c = V[f[0]], V[f[1]], V[f[2]]
+        ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+        return (uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
+
+    def _all_faces_outward(V, F):
+        cx = sum(v[0] for v in V) / len(V); cy = sum(v[1] for v in V) / len(V); cz = sum(v[2] for v in V) / len(V)
+        for f in F:
+            nx, ny, nz = _face_normal(V, f)
+            fcx = sum(V[i][0] for i in f) / len(f); fcy = sum(V[i][1] for i in f) / len(f); fcz = sum(V[i][2] for i in f) / len(f)
+            if nx * (fcx - cx) + ny * (fcy - cy) + nz * (fcz - cz) <= 0:
+                return False
+        return True
+
+    dims_cases = [(2, 3, 4), (1, 1, 1), (0.3, 9.4, 2.0), (5.0, 0.1, 5.0)]
+    for i, (a, b, c) in enumerate(dims_cases):
+        ok("cad_mesh_box_center_outward_%d" % i, _all_faces_outward(*cad_mesh.box_mesh(a, b, c, origin="center")))
+        ok("cad_mesh_box_corner_outward_%d" % i, _all_faces_outward(*cad_mesh.box_mesh(a, b, c, origin="corner")))
+
+    # cad_render._box() is the SAME code, just relocated: byte-identical (V, F, and to_obj() text) for any
+    # (w,h,d), proving this half of the dedup is a pure, zero-behavior-change refactor.
+    def _old_cad_box(w, h, d):
+        x, y, z = w / 2, h / 2, d / 2
+        V = [[-x, -y, -z], [x, -y, -z], [x, y, -z], [-x, y, -z], [-x, -y, z], [x, -y, z], [x, y, z], [-x, y, z]]
+        F = [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [1, 2, 6, 5], [0, 4, 7, 3]]
+        return V, F
+    for i, args in enumerate([(2, 3, 4), (1, 1, 1), (0.5, 7.25, 0.001)]):
+        Vn, Fn = cad_render._box(*args); Vo, Fo = _old_cad_box(*args)
+        ok("cad_render_box_byte_identical_%d" % i, Vn == Vo and Fn == Fo)
+        ok("cad_render_box_to_obj_byte_identical_%d" % i, cad_render.to_obj(Vn, Fn) == cad_render.to_obj(Vo, Fo))
+        ok("cad_render_box_outward_%d" % i, _all_faces_outward(Vn, Fn))
+
+    # dimscad._box() is geometrically identical to the original hand-rolled version: same 8 corners (as a
+    # set) at the same l/w/h extents (its axis-mapping gotcha -- the 2nd positional arg 'w' controls the
+    # mesh's z-extent, NOT y -- preserved exactly), same face count, outward-consistent winding. (Literal
+    # vertex ENUMERATION order legitimately changes -- it was never part of any external contract: no
+    # consumer of dimscad's OBJ parses vertex order, only that it is a well-formed box.)
+    def _old_dims_box(l, w, h):
+        l = max(l, 0.05); w = max(w, 0.05); h = max(h, 0.05)
+        V = [(0, 0, 0), (l, 0, 0), (l, 0, w), (0, 0, w), (0, h, 0), (l, h, 0), (l, h, w), (0, h, w)]
+        F = [(1, 2, 3, 4), (5, 8, 7, 6), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 8, 4), (4, 8, 5, 1)]
+        return V, F
+    for i, args in enumerate([(2, 1, 0.5), (4.0, 2.0, 0.25), (0.01, 0.01, 0.01)]):
+        Vn, Fn = dimscad._box(*args); Vo, Fo = _old_dims_box(*args)
+        l, w, h = args; l = max(l, 0.05); w = max(w, 0.05); h = max(h, 0.05)
+        same_corners = (sorted(tuple(round(x, 6) for x in v) for v in Vn) ==
+                         sorted(tuple(round(x, 6) for x in v) for v in Vo))
+        extents_ok = (min(v[0] for v in Vn) == 0 and max(v[0] for v in Vn) == l and
+                      min(v[1] for v in Vn) == 0 and max(v[1] for v in Vn) == h and
+                      min(v[2] for v in Vn) == 0 and max(v[2] for v in Vn) == w)
+        ok("dimscad_box_same_corner_set_%d" % i, same_corners)
+        ok("dimscad_box_axis_mapping_preserved_%d" % i, extents_ok)
+        ok("dimscad_box_outward_and_facecount_%d" % i, _all_faces_outward(Vn, Fn) and len(Fn) == 6 == len(Fo))
+
+    # dimscad.build_obj()'s box path moved from literal-1-based F tuples to computed 0-based-plus-1 emission
+    # at write time (matching cad_render.to_obj()'s pattern) -- confirm the emitted OBJ is well-formed
+    # (every face index inside [1, vertex_count]), i.e. the +1 conversion actually happened.
+    obj = dimscad.build_obj("box", {"length": 4.0, "width": 2.0, "height": 0.25})
+    vcount = obj.count("\nv ")
+    idxs = [int(tok) for ln in obj.splitlines() if ln.startswith("f ") for tok in ln.split()[1:]]
+    ok("dimscad_build_obj_box_indices_1_based_in_range", vcount == 8 and idxs and min(idxs) == 1 and max(idxs) == 8)
+    # non-box primitives (cylinder/washer/hex) still hand-roll literal 1-based F and must be untouched --
+    # asserted the same way as the box check above (indices in [1, vcount]), not just "the OBJ is non-empty":
+    # that weaker check would still pass even if the zero_based bookkeeping this diff replaced (or its
+    # per-call-site replacement) ever leaked a 0-based conversion onto a non-box primitive.
+    cyl_obj = dimscad.build_obj("cylinder", {"diameter": 0.5, "length": 2.0})
+    cyl_vcount = cyl_obj.count("\nv ")
+    cyl_idxs = [int(tok) for ln in cyl_obj.splitlines() if ln.startswith("f ") for tok in ln.split()[1:]]
+    ok("dimscad_build_obj_cylinder_unaffected",
+       cyl_vcount > 0 and bool(cyl_idxs) and min(cyl_idxs) == 1 and max(cyl_idxs) == cyl_vcount)
+
+    # both files delegate to cad_mesh; neither imports the other (no new circular-import surface)
+    ok("cad_render_delegates_to_cad_mesh", cad_render.cad_mesh is cad_mesh)
+    ok("dimscad_delegates_to_cad_mesh", dimscad.cad_mesh is cad_mesh)
+    ok("cad_mesh_has_no_reverse_dependency", not hasattr(cad_mesh, "cad_render") and not hasattr(cad_mesh, "dimscad"))
+except Exception as e:
+    failed.append("box_mesh_dedup(%s)" % e)
+
+
+# =====================================================================================================
 # #32 -- make_cad.py captures the actual error reason instead of a bare ('fail', nsn)
 # =====================================================================================================
 try:
@@ -318,9 +419,92 @@ except Exception as e:
     failed.append("make_cad_error_capture(%s)" % e)
 
 
+# =====================================================================================================
+# #33 -- viewer_ingest.py's OCR_LOCK_TIMEOUT_SECONDS is clamped to never exceed OCR_PAGE_TIMEOUT_SECONDS.
+# Review finding: the two are independently operator-configurable via env vars with no cross-check: if
+# VIEWER_OCR_PAGE_TIMEOUT is set below OCR_LOCK_TIMEOUT_SECONDS's 20s default, a single lock-acquire
+# could outlast the whole page's outer deadline, defeating the split's "fail fast on a busy lock" intent.
+# Module-level constants are computed at import time, so the only faithful way to test an env-var
+# override is a fresh subprocess -- re-importing an already-imported module in this process wouldn't
+# re-run the top-level os.environ.get() calls.
+# =====================================================================================================
+try:
+    default_check = subprocess.run(
+        [sys.executable, "-c", "import sys; sys.path.insert(0, %r); import viewer_ingest as V; "
+         "print(V.OCR_LOCK_TIMEOUT_SECONDS, V.OCR_PAGE_TIMEOUT_SECONDS)" % ENGINE],
+        capture_output=True, text=True, timeout=30)
+    lock_default, page_default = (int(x) for x in default_check.stdout.split())
+    ok("ocr_lock_timeout_default_under_page_timeout", lock_default == 20 and page_default == 120 and lock_default < page_default)
+
+    clamp_env = dict(os.environ); clamp_env["VIEWER_OCR_PAGE_TIMEOUT"] = "5"; clamp_env.pop("VIEWER_OCR_LOCK_TIMEOUT", None)
+    clamp_check = subprocess.run(
+        [sys.executable, "-c", "import sys; sys.path.insert(0, %r); import viewer_ingest as V; "
+         "print(V.OCR_LOCK_TIMEOUT_SECONDS, V.OCR_PAGE_TIMEOUT_SECONDS)" % ENGINE],
+        capture_output=True, text=True, timeout=30, env=clamp_env)
+    lock_clamped, page_tight = (int(x) for x in clamp_check.stdout.split())
+    # Without the clamp this would print "20 5" -- the exact misconfiguration the review flagged, where
+    # a lock-acquire wait (20s) can outlast the outer per-page deadline (5s) it's supposed to live inside.
+    ok("ocr_lock_timeout_clamped_to_tighter_page_timeout", page_tight == 5 and lock_clamped == 5)
+
+    unclamped_env = dict(os.environ); unclamped_env["VIEWER_OCR_PAGE_TIMEOUT"] = "300"; unclamped_env.pop("VIEWER_OCR_LOCK_TIMEOUT", None)
+    unclamped_check = subprocess.run(
+        [sys.executable, "-c", "import sys; sys.path.insert(0, %r); import viewer_ingest as V; "
+         "print(V.OCR_LOCK_TIMEOUT_SECONDS, V.OCR_PAGE_TIMEOUT_SECONDS)" % ENGINE],
+        capture_output=True, text=True, timeout=30, env=unclamped_env)
+    lock_unclamped, page_loose = (int(x) for x in unclamped_check.stdout.split())
+    # A page timeout well above the lock-timeout default must NOT be clamped down -- the fix is a min(),
+    # not a hardcoded override; the lock timeout should stay at its own 20s default here.
+    ok("ocr_lock_timeout_not_clamped_when_page_timeout_generous", page_loose == 300 and lock_unclamped == 20)
+except Exception as e:
+    failed.append("ocr_lock_timeout_clamp(%s)" % e)
+
+
+# =====================================================================================================
+# #34 -- proctree.py (extracted from ocr_supervisor.py's _kill_tree + run_timeout.py's inline kill logic)
+# gets direct unit coverage. Previously only exercised indirectly through ocr_supervisor.py's own
+# _kill_tree wrapper (test_ocr_supervisor.py) -- run_timeout.py's half of the delegation, and
+# new_process_group_flags(), had zero coverage of their own (xhigh review finding).
+# =====================================================================================================
+try:
+    import proctree, subprocess as _sp, time as _time
+
+    flags = proctree.new_process_group_flags()
+    if os.name == "nt":
+        ok("proctree_flags_windows_process_group", flags == getattr(_sp, "CREATE_NEW_PROCESS_GROUP", 0) and flags != 0)
+    else:
+        ok("proctree_flags_posix_noop", flags == 0)
+
+    # A live, real child process (and, on Windows, a grandchild it spawns) actually dies, not just its
+    # immediate pid -- kill_tree()'s whole reason to exist over a bare proc.kill().
+    if os.name == "nt":
+        parent = _sp.Popen(["cmd", "/c", "start", "/min", "cmd", "/c", "ping -n 30 127.0.0.1 >nul"],
+                            creationflags=proctree.new_process_group_flags())
+    else:
+        parent = _sp.Popen(["sh", "-c", "sleep 30"])
+    _time.sleep(0.6)
+    proctree.kill_tree(parent, wait_after=10)
+    try:
+        rc = parent.wait(timeout=5)
+        ok("proctree_kill_tree_parent_terminates", rc is not None)
+    except _sp.TimeoutExpired:
+        ok("proctree_kill_tree_parent_terminates", False)
+
+    # kill_tree() must not raise even against an already-dead process (both internal try/excepts covering it).
+    already_dead = _sp.Popen([sys.executable, "-c", "pass"])
+    already_dead.wait(timeout=5)
+    raised = False
+    try:
+        proctree.kill_tree(already_dead, wait_after=2)
+    except Exception:
+        raised = True
+    ok("proctree_kill_tree_tolerates_already_dead_process", not raised)
+except Exception as e:
+    failed.append("proctree_direct_coverage(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
-print("\n%d passed, %d failed (of %d checks for Medium-tier audit fixes #21-#32)" %
+print("\n%d passed, %d failed (of %d checks for Medium-tier audit fixes #21-#34)" %
       (len(passed), len(failed), len(passed) + len(failed)))
 sys.exit(1 if failed else 0)
 

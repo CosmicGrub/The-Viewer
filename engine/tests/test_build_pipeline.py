@@ -86,6 +86,49 @@ except Exception as e:
 
 
 # =====================================================================================================
+# safeguard.atomic_sqlite_build() -- direct coverage of the crash-safety contract kg.py/build_publog.py/
+# build_rpstl.py all now share. The atomicity checks above (and build_publog's below) only ever inject a
+# plain RuntimeError; xhigh review finding: nothing proved a BaseException subclass that ISN'T an
+# Exception (KeyboardInterrupt, SystemExit) still propagates unchanged rather than being narrowed or
+# swallowed by the generator's `except BaseException: ... raise`. Tested directly against safeguard, not
+# through a caller, since this is a safeguard.py-level contract, not a kg.py/build_publog.py-specific one.
+# =====================================================================================================
+try:
+    import safeguard
+
+    sg_dir = tempfile.mkdtemp(prefix="safeguard_")
+    sg_dst = os.path.join(sg_dir, "guarded.db")
+    open(sg_dst, "wb").write(b"PREVIOUS-GOOD-BUILD-DO-NOT-TOUCH")
+    sg_original = open(sg_dst, "rb").read()
+
+    caught = None
+    try:
+        with safeguard.atomic_sqlite_build(sg_dst) as (con, tmp_path):
+            con.execute("CREATE TABLE t(x)")
+            con.execute("INSERT INTO t VALUES(1)")
+            con.commit()
+            raise KeyboardInterrupt()
+    except KeyboardInterrupt as e:
+        caught = e
+    except BaseException as e:
+        caught = e  # wrong type would land here instead -- still recorded, so the type check below fails loudly
+    ok("safeguard_atomic_build_keyboardinterrupt_propagates_unchanged", isinstance(caught, KeyboardInterrupt))
+    ok("safeguard_atomic_build_keyboardinterrupt_leaves_original_untouched", open(sg_dst, "rb").read() == sg_original)
+    sg_tmp = sg_dst + ".building-%d" % os.getpid()
+    ok("safeguard_atomic_build_keyboardinterrupt_cleans_up_temp", not os.path.exists(sg_tmp))
+
+    # And the success path: dst_path is genuinely untouched until the `with` block exits cleanly.
+    with safeguard.atomic_sqlite_build(sg_dst) as (con, tmp_path):
+        con.execute("CREATE TABLE t2(y)")
+        con.execute("INSERT INTO t2 VALUES(42)")
+        con.commit()
+        ok("safeguard_atomic_build_dst_untouched_mid_build", open(sg_dst, "rb").read() == sg_original)
+    ok("safeguard_atomic_build_dst_swapped_in_on_clean_exit", sqlite3.connect(sg_dst).execute("SELECT y FROM t2").fetchone()[0] == 42)
+except Exception as e:
+    failed.append("safeguard.atomic_sqlite_build(%s)" % e)
+
+
+# =====================================================================================================
 # masterfile.py -- consolidates measures.db (authoritative) + enrich.db (supplemental gap-fill)
 # =====================================================================================================
 try:

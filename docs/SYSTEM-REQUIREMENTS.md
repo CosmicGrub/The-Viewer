@@ -139,6 +139,12 @@ you deliberately expose the server on a LAN.
   thread (not `SIGALRM`, which can't preempt an opaque native call). Default `120`. A page that hangs
   past the timeout is abandoned (its thread is leaked, not killed) rather than stalling an entire
   multi-hour `ocrall()` batch.
+- **`VIEWER_OCR_LOCK_TIMEOUT`** — separate, smaller timeout (seconds) for acquiring the process-wide
+  PyMuPDF render lock specifically, distinct from `VIEWER_OCR_PAGE_TIMEOUT` above. Default `20`. Under
+  heavy `--workers` contention a worker can otherwise burn most of its page budget just queued for the
+  lock and then get killed by the outer per-page deadline right as it starts real work; this fixed,
+  much-smaller floor lets a busy-but-healthy lock fail fast (reported as lock contention) instead of
+  being indistinguishable from a genuine render/OCR hang.
 - **`VIEWER_OCR_V5`** — set to `0` to skip the RapidOCR PP-OCRv5 engine and go straight to the
   PP-OCRv4 fallback. Default on (`"1"`/unset tries v5 first, self-tests it, and falls back to v4
   automatically if it's unavailable or fails the self-test).

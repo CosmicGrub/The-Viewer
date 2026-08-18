@@ -53,8 +53,17 @@ _DEDUP_LOCK = threading.Lock()
 _DEDUP_STATS = {"hits": 0}
 def _page_density(path, page_number):
     """Fraction of dark pixels at 50 DPI gray — a cheap blank/complexity probe (one render reused for both
-    the blank-skip and the optional adaptive DPI). Returns None if PyMuPDF/numpy aren't available."""
+    the blank-skip and the optional adaptive DPI). Returns None if PyMuPDF/numpy aren't available.
+    Review finding: this calls fitz directly and used to run OUTSIDE _FITZ_LOCK even after the
+    render-lock hardening below — PyMuPDF's C state isn't thread-safe, so with --workers>1 this
+    probe (called at the top of every ocr_one()) could still race concurrently against another
+    thread's render, exactly the class of wedge/crash _FITZ_LOCK exists to prevent. Bounded (not
+    unbounded) for the same reason _render_png's acquire is bounded: a busy lock degrades this
+    best-effort probe to "skip it" (default DPI, no blank-skip) instead of blocking a worker thread
+    indefinitely."""
     if fitz is None or _np is None: return None
+    if not _FITZ_LOCK.acquire(timeout=OCR_PAGE_TIMEOUT_SECONDS):
+        return None
     try:
         doc = fitz.open(path); pix = doc[page_number-1].get_pixmap(dpi=50, colorspace=fitz.csGRAY)
         arr = _np.frombuffer(pix.samples, dtype=_np.uint8); doc.close()
@@ -62,6 +71,8 @@ def _page_density(path, page_number):
         return float((arr < 110).mean())
     except Exception:
         return None
+    finally:
+        _FITZ_LOCK.release()
 def _have_rapid():
     try:
         import rapidocr  # modern unified package (PP-OCRv5, higher accuracy)  # noqa
@@ -208,7 +219,17 @@ def migrate(con, migrations_dir, db_path=None):
         import safeguard
         log(f"migrate: {len(pending)} pending migration(s) -- backing up {db_path} before applying...")
         try:
-            backup_path = safeguard.backupdb(db_path)
+            # Only the CANONICAL index (safeguard.DB_DEFAULT) backs up into the shared, rotated
+            # <repo>/backups/db/ vault every other backup path in this codebase already writes to.
+            # Any OTHER db_path (a test's tempdir DB, a staging/alternate corpus passed via --db)
+            # gets its own sibling backups/db/ folder instead -- review finding: migrating a
+            # throwaway/alternate DB must never write into (and keep=2-rotate stale copies out
+            # of) the real production backup vault. Confirmed live: running the test suite used
+            # to write into and rotate the actual repo's backups/db/ on every run.
+            dest_dir = None
+            if os.path.abspath(db_path) != os.path.abspath(safeguard.DB_DEFAULT):
+                dest_dir = os.path.join(os.path.dirname(os.path.abspath(db_path)), "backups", "db")
+            backup_path = safeguard.backupdb(db_path, dest_dir=dest_dir)
             log(f"migrate: backup OK -> {backup_path}")
         except Exception as e:
             log(f"MIGRATION ABORTED: pre-migration backup failed, refusing to apply DDL with no "
@@ -406,9 +427,20 @@ def _ocr_preprocessed_input(img_path, for_tesseract):
             import cv2
             proc, _meta = ocrprep.preprocess(arr)
             out_path = img_path + ".prep.png"
-            cv2.imwrite(out_path, proc)
+            # cv2.imwrite() can fail (bad path, bad array) by returning False, not by raising --
+            # review finding: the old unconditional `return out_path` broke the docstring's own
+            # "falls back to the raw image on any failure" promise on exactly that failure mode.
+            if not cv2.imwrite(out_path, proc):
+                return img_path
             return out_path
         proc, _meta = ocrprep.preprocess_light(arr)
+        # Review finding: preprocess_light() always collapses to a 2-D grayscale array (ocrprep.
+        # _gray() is unconditional inside deskew()/denoise()); RapidOCR is only ever self-tested
+        # against a 3-channel array elsewhere in this codebase, so restore 3 channels here rather
+        # than ship an unverified grayscale-array shape on this default-on path.
+        if getattr(proc, "ndim", 3) == 2:
+            import cv2
+            proc = cv2.cvtColor(proc, cv2.COLOR_GRAY2RGB)
         return proc
     except Exception:
         return img_path
@@ -551,9 +583,13 @@ def ocr(con, limit, workers=1):
 def cleanup(con):
     # Remove leftover sandbox/Unix-path documents (start with '/') whose files don't exist
     # on this machine, and requeue any pages stuck in 'failed'/'running'. Clear non-cascading
-    # references (request_items, figures) first so the document delete doesn't trip a FK.
+    # references (request_items, figures, parts -- none of these cascade-delete, see prune()'s
+    # docstring below for why) first so the document delete doesn't trip a FK.
     con.execute("UPDATE request_items SET source_document_id=NULL WHERE source_document_id IN (SELECT id FROM documents WHERE path LIKE '/%')")
     con.execute("DELETE FROM figures WHERE document_id IN (SELECT id FROM documents WHERE path LIKE '/%')")
+    # Review finding: this used to omit `parts`, unlike prune()'s otherwise-identical delete
+    # sequence below -- orphaning parts rows for every orphan document this removed.
+    con.execute("DELETE FROM parts WHERE document_id IN (SELECT id FROM documents WHERE path LIKE '/%')")
     n = con.execute("DELETE FROM documents WHERE path LIKE '/%'").rowcount
     con.commit()
     r = con.execute("UPDATE pages SET ocr_status='pending' WHERE ocr_status IN ('failed','running')").rowcount
@@ -584,7 +620,10 @@ def _prune_sidecars(index_dir, doc_ids, log=log):
                 mc.close()
         except Exception as e:
             log(f"prune: measures.db cleanup skipped ({e})")
-    # tables.db: same doc-keyed shape, same treatment (schema is the tables.py sidecar's own -- best-effort).
+    # tables.db: same doc-keyed shape, same treatment (schema is build_tables.py's own: tables
+    # `tbl`/`tbl_done`, both doc-keyed -- confirmed against build_tables.py's SCHEMA, NOT
+    # guessed; a review finding caught an earlier version of this using wrong table names,
+    # which made the DELETE a silent permanent no-op).
     tab_db = os.path.join(index_dir, "tables.db")
     if os.path.exists(tab_db):
         try:
@@ -592,7 +631,7 @@ def _prune_sidecars(index_dir, doc_ids, log=log):
             try:
                 qs = ",".join("?" * len(ids))
                 names = {r[0] for r in tc.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-                for tbl, col in (("tables_raw", "doc"), ("tables_done", "doc")):
+                for tbl, col in (("tbl", "doc"), ("tbl_done", "doc")):
                     if tbl in names:
                         tc.execute("DELETE FROM %s WHERE %s IN (%s)" % (tbl, col, qs), ids)
                 tc.commit()
@@ -600,12 +639,23 @@ def _prune_sidecars(index_dir, doc_ids, log=log):
                 tc.close()
         except Exception as e:
             log(f"prune: tables.db cleanup skipped ({e})")
-    # cache directories keyed "<doc_id>_..." (figcache/schemcache/veccache): glob-delete by doc_id prefix.
-    for sub in ("figcache", "schemcache", "veccache"):
+    # Cache directories keyed by doc_id, one prefix pattern per directory's OWN naming convention
+    # (confirmed against each cache's cache_path()/cache_key(), not assumed uniform -- a review
+    # finding caught an earlier version of this missing pagecache/ entirely, since rps.py's
+    # pagecache uses a HYPHEN ("<doc>-<page>-d<dpi>.png"), not the underscore the other three
+    # caches use, plus figcache's callout_crop() output ("callout_<doc>_<page>_<item>_<dpi>.png")
+    # doesn't start with the doc_id at all).
+    _CACHE_DIR_PREFIXES = {
+        "figcache":   ("%d_", "callout_%d_"),
+        "schemcache": ("%d_",),
+        "veccache":   ("%d_",),
+        "pagecache":  ("%d-",),
+    }
+    for sub, templates in _CACHE_DIR_PREFIXES.items():
         d = os.path.join(index_dir, sub)
         if not os.path.isdir(d):
             continue
-        prefixes = tuple("%d_" % i for i in ids)
+        prefixes = tuple(t % i for i in ids for t in templates)
         try:
             for fn in os.listdir(d):
                 if fn.startswith(prefixes):
@@ -642,7 +692,7 @@ def prune(con, root="", confirm=False, missing_threshold=0.5, index_dir=None):
     request_items: SET NULL, keeping the session's own history instead of erasing it) so the
     documents DELETE itself doesn't trip a foreign-key error -- pages/jobs DO cascade (schema-level
     ON DELETE CASCADE) and need no manual handling. Then best-effort-prunes the optional per-document
-    sidecars (measures.db/tables.db/figcache/schemcache/veccache) for the same doc_ids.
+    sidecars (measures.db/tables.db/figcache/schemcache/veccache/pagecache) for the same doc_ids.
 
     Returns a summary dict; never raises for an ordinary abort (aborted reasons are returned, not
     thrown) so callers/tests can assert on the outcome instead of parsing log output."""
@@ -755,6 +805,12 @@ def extract_parts(con):
     NSN->part#/nomenclature row alignment is OCR-noisy, so it is intentionally NOT asserted here;
     every record carries its source page for citation/verification."""
     log("extracting structured parts from RPSTL pages...")
+    dbdir = _db_dir(con)
+    # Review finding: ocrall's heartbeat only covered the OCR batch loop, not this phase that runs
+    # after it -- ocr_supervisor.py could mistake a long extract_parts() pass for a stale hang and
+    # kill it, discarding the work (and run_ocr_auto.bat would still declare "OCR COMPLETE" since
+    # OCR itself had already reached 0 pending by then).
+    _heartbeat(dbdir, 0, 0, "extract_parts")
     con.execute("DELETE FROM parts WHERE confidence IS NOT NULL"); con.commit()
     try:
         rows = con.execute(
@@ -765,22 +821,32 @@ def extract_parts(con):
         log(f"parts: FTS query failed ({e}); run migrate/crawl first"); return 0
     batch = []; seen = set(); npages = 0
     for r in rows:
+        # Bug found + fixed during review verification (pre-existing, predates this diff): this
+        # loop used dict-style row access (r["document_id"], ...) against a connection that
+        # returns plain tuples -- connect() sets no row_factory anywhere in this file. Reproduced
+        # directly: extract_parts() raised "tuple indices must be integers or slices, not str" on
+        # the first RPSTL-style page matching the FTS phrase below, which real parts-list text
+        # commonly does. Switched to positional unpacking, matching every other query in this file.
+        document_id, page_number, body_text, vehicle = r
         npages += 1
-        bt = r["body_text"] or ""
+        bt = body_text or ""
         figs = [(m.start(), m.group(1), re.sub(r'\s+', ' ', m.group(2)).strip()) for m in _PARTS_FIG_RE.finditer(bt)]
         for m in _PARTS_NSN_RE.finditer(bt):
             nsn = m.group(1); pos = m.start(); fno = ftit = None
             for fp, fn, ft in figs:
                 if fp <= pos: fno, ftit = fn, ft
                 else: break
-            key = (r["document_id"], r["page_number"], nsn)
+            key = (document_id, page_number, nsn)
             if key in seen: continue
             seen.add(key)
-            batch.append((nsn, ftit, ftit, r["document_id"], r["page_number"], r["vehicle"], fno, ftit, "page"))
+            batch.append((nsn, ftit, ftit, document_id, page_number, vehicle, fno, ftit, "page"))
+        if npages % 200 == 0:
+            _heartbeat(dbdir, npages, 0, "extract_parts")
     con.executemany(
         "INSERT INTO parts(nsn, name, nomenclature, document_id, page, vehicle, fig_no, fig_title, confidence, created_at) "
         "VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))", batch)
     con.commit()
+    _heartbeat(dbdir, npages, 0, 0)
     log(f"parts: {npages} RPSTL pages -> {len(batch)} NSN records ({len(set(b[0] for b in batch))} distinct NSNs)")
     return len(batch)
 

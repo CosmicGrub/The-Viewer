@@ -620,6 +620,17 @@ def main():
             print("[EXPOSURE] above (audit/ops/status/command_status/ingest_status/provenance/integrity),")
             print("[EXPOSURE] will be REJECTED (401). Other GETs remain open.")
             print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes + those reads over the network.")
+        if args.host in ("0.0.0.0", "::") and not _ALLOWED_HOSTS:
+            # Review finding: safe_public_base() (used by /api/qr) refuses any Host it can't
+            # verify and falls back to 127.0.0.1 -- correct for a wildcard bind, where the bind
+            # address itself names no single reachable host, but that means QR codes silently
+            # encode a URL that's meaningless on the SCANNING device (127.0.0.1 resolves to
+            # itself, not this server) unless the operator sets VIEWER_ALLOWED_HOSTS to the
+            # LAN IP/hostname clients actually use -- exactly the deployment this binding is for.
+            print("[EXPOSURE] Bound to %s (a wildcard address) -- QR codes / deep links (/api/qr) will" % args.host)
+            print("[EXPOSURE] encode 127.0.0.1 (useless on a scanning phone) until you set")
+            print("[EXPOSURE] VIEWER_ALLOWED_HOSTS to the LAN IP/hostname clients actually connect to")
+            print("[EXPOSURE] (comma-separated, e.g. VIEWER_ALLOWED_HOSTS=192.168.1.50:%d)." % args.port)
         print("=" * 72)
     srv = _BoundedThreadingHTTPServer((args.host, args.port), Handler)
     print(f"THE VIEWER v{VERSION} running at http://{args.host}:{args.port}  (index: {DB_PATH})"); print("Press Ctrl+C to stop.")

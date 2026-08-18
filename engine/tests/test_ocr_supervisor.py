@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""THE VIEWER -- regression coverage for ocr_supervisor.py's crash-mid-hang-detection logic
+(audit finding #15), specifically the bugs a code review surfaced against the first version of this
+file and that were fixed in response:
+  1. A stale LEFTOVER heartbeat (from a prior session/crash) used to make supervise() kill a
+     brand-new, perfectly healthy child on its very first poll -- exactly the scenario every restart
+     hits, since a restart only happens after a prior crash or kill.
+  2. A hang before the FIRST-EVER heartbeat write (fresh install, or a batch under 5 pages) used to
+     be invisible forever (_heartbeat_age() returned None, the kill guard never fired).
+  3. A killed batch used to leave its in-flight pages stuck at ocr_status='running' permanently.
+These tests spawn real (tiny, sleep-based) child processes and drive supervise() against them with
+real timing -- not mocks -- so the fix is proven against the actual polling/kill mechanism, not a
+paraphrase of it. Self-contained; no OCR engine, no real corpus. Run: python tests/test_ocr_supervisor.py"""
+import os, sys, sqlite3, tempfile, time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ENGINE = os.path.dirname(HERE)
+MIGDIR = os.path.join(ENGINE, "migrations")
+sys.path.insert(0, ENGINE); sys.path.insert(0, HERE)
+import ocr_supervisor as SUP
+import ocr_watchdog
+import viewer_ingest as VI
+
+passed, failed = [], []
+def ok(name, cond):
+    (passed if cond else failed).append(name)
+
+
+def _new_db_dir():
+    d = tempfile.mkdtemp(prefix="ocrsup_")
+    open(os.path.join(d, "viewer.db"), "wb").close()   # supervise() only needs a path for _hb_path()
+    return d, os.path.join(d, "viewer.db")
+
+
+def _sleep_cmd(seconds):
+    return [sys.executable, "-c", "import time; time.sleep(%r)" % seconds]
+
+
+try:
+    # --- 1. a stale LEFTOVER heartbeat must not kill a brand-new, healthy process ---
+    d1, db1 = _new_db_dir()
+    hb1 = ocr_watchdog._hb_path(db1)
+    with open(hb1, "w") as f:
+        f.write("leftover from a previous session")
+    stale_time = time.time() - 3600   # an hour old -- would be well past any max_age
+    os.utime(hb1, (stale_time, stale_time))
+    t0 = time.time()
+    rc1 = SUP.supervise(_sleep_cmd(3), db1, max_age=5, poll_interval=1)
+    dt1 = time.time() - t0
+    ok("stale_leftover_heartbeat_does_not_kill_fresh_process", rc1 == 0)
+    ok("stale_leftover_heartbeat_process_ran_to_completion", dt1 >= 2.5)   # actually slept ~3s, wasn't killed early
+
+    # --- 2. a hang BEFORE any heartbeat has ever been written must still be detected ---
+    d2, db2 = _new_db_dir()
+    ok("setup_no_heartbeat_file_yet", not os.path.exists(ocr_watchdog._hb_path(db2)))
+    t0 = time.time()
+    rc2 = SUP.supervise(_sleep_cmd(15), db2, max_age=2, poll_interval=1)
+    dt2 = time.time() - t0
+    ok("hang_before_first_heartbeat_is_killed", rc2 == 124)
+    ok("hang_before_first_heartbeat_killed_promptly", dt2 < 10)   # killed well before the 15s sleep would finish
+
+    # --- 3. a FRESH heartbeat (this child's own) must NOT be treated as stale ---
+    d3, db3 = _new_db_dir()
+    hb3 = ocr_watchdog._hb_path(db3)
+    with open(hb3, "w") as f:
+        f.write("freshly written")   # simulates the child having just written its own heartbeat
+    t0 = time.time()
+    rc3 = SUP.supervise(_sleep_cmd(2), db3, max_age=5, poll_interval=1)
+    dt3 = time.time() - t0
+    ok("fresh_heartbeat_process_completes_normally", rc3 == 0 and dt3 >= 1.5)
+
+    # --- 4. a killed batch's stuck 'running' pages get requeued to 'pending' ---
+    d4, db4 = _new_db_dir()
+    con = VI.connect(db4)
+    VI.migrate(con, MIGDIR, db_path=db4)
+    con.execute("INSERT INTO documents(id,path) VALUES(1,?)", (os.path.join(d4, "a.pdf"),))
+    con.execute("INSERT INTO pages(document_id,page_number,body_text,ocr_status) VALUES(1,1,'',?)", ("running",))
+    con.execute("INSERT INTO pages(document_id,page_number,body_text,ocr_status) VALUES(1,2,'',?)", ("done",))
+    con.commit(); con.close()
+    rc4 = SUP.supervise(_sleep_cmd(15), db4, max_age=1, poll_interval=1)
+    ok("killed_batch_returns_124", rc4 == 124)
+    con = sqlite3.connect(db4)
+    statuses = dict(con.execute("SELECT page_number, ocr_status FROM pages WHERE document_id=1").fetchall())
+    con.close()
+    ok("killed_batch_requeues_running_page", statuses.get(1) == "pending")
+    ok("killed_batch_leaves_done_page_alone", statuses.get(2) == "done")
+
+    # --- 5. _kill_tree is reused (not re-copy-pasted) between the stale-heartbeat and Ctrl+C paths ---
+    import inspect
+    src = inspect.getsource(SUP)
+    ok("kill_tree_helper_exists_once", src.count("def _kill_tree(") == 1)
+    ok("kill_tree_called_from_supervise_loop_and_interrupt_handler", src.count("_kill_tree(proc)") == 2)
+except Exception as e:
+    failed.append("ocr_supervisor(%s)" % e)
+
+
+for n in passed: print("PASS", n)
+for n in failed: print("FAIL", n)
+print("\n%d passed, %d failed (of %d checks for ocr_supervisor.py)" %
+      (len(passed), len(failed), len(passed) + len(failed)))
+sys.exit(1 if failed else 0)
+
+# END OF FILE

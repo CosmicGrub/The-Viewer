@@ -137,6 +137,26 @@ try:
     figcache = os.path.join(dB, "figcache"); os.makedirs(figcache)
     survivor = os.path.join(figcache, "11_1_150.png"); doomed = os.path.join(figcache, "10_1_150.png")
     _write(survivor, "x"); _write(doomed, "x")
+    # callout_crop() output doesn't start with the doc_id (review finding) -- the doomed one must
+    # still be swept, and a same-doc-prefix-but-different-item survivor must not be over-matched.
+    callout_doomed = os.path.join(figcache, "callout_10_1_A_150.png")
+    callout_survivor = os.path.join(figcache, "callout_11_1_A_150.png")
+    _write(callout_doomed, "x"); _write(callout_survivor, "x")
+    # tables.db (build_tables.py's real schema: tbl/tbl_done -- a review finding caught an earlier
+    # version of this code targeting nonexistent table names, a permanent silent no-op)
+    tab_db = os.path.join(dB, "tables.db")
+    tb = sqlite3.connect(tab_db)
+    tb.execute("CREATE TABLE tbl(id INTEGER PRIMARY KEY, doc INT, page INT, kind TEXT)")
+    tb.execute("CREATE TABLE tbl_done(doc INTEGER PRIMARY KEY, ts REAL)")
+    tb.executemany("INSERT INTO tbl(doc,page,kind) VALUES(?,?,?)", [(10, 1, "grid"), (11, 1, "grid")])
+    tb.execute("INSERT INTO tbl_done(doc,ts) VALUES(10,0.0)")
+    tb.commit(); tb.close()
+    # pagecache (rps.py): HYPHEN-separated naming ("<doc>-<page>-d<dpi>.png"), unlike the other
+    # three caches' underscore naming -- a review finding caught an earlier version of this code
+    # omitting pagecache entirely.
+    pagecache = os.path.join(dB, "pagecache"); os.makedirs(pagecache)
+    pc_survivor = os.path.join(pagecache, "11-1-d150.png"); pc_doomed = os.path.join(pagecache, "10-1-d150.png")
+    _write(pc_survivor, "x"); _write(pc_doomed, "x")
 
     r_confirm = VI.prune(conB, confirm=True, index_dir=dB)
     ok("prune_confirm_ok", r_confirm["ok"] is True and set(r_confirm["removed_ids"]) == {10, 12})
@@ -157,6 +177,15 @@ try:
     mc.close()
     ok("prune_sidecar_measures_pruned", left_meas == {11} and left_done == set())
     ok("prune_sidecar_figcache_pruned", not os.path.exists(doomed) and os.path.exists(survivor))
+    ok("prune_sidecar_figcache_callout_pruned",
+       not os.path.exists(callout_doomed) and os.path.exists(callout_survivor))
+
+    tb = sqlite3.connect(tab_db)
+    left_tbl = {r[0] for r in tb.execute("SELECT doc FROM tbl")}
+    left_tbl_done = {r[0] for r in tb.execute("SELECT doc FROM tbl_done")}
+    tb.close()
+    ok("prune_sidecar_tables_db_pruned", left_tbl == {11} and left_tbl_done == set())
+    ok("prune_sidecar_pagecache_pruned", not os.path.exists(pc_doomed) and os.path.exists(pc_survivor))
 
     # idempotent: running again finds nothing left to prune
     r_again = VI.prune(conB, confirm=True, index_dir=dB)
@@ -165,6 +194,50 @@ try:
     conB.close()
 except Exception as e:
     failed.append("prune_scenario_B(%s)" % e)
+
+
+# =====================================================================================================
+# migrate()'s pre-migration backup must never write into (or rotate) the REAL repo's backups/db/
+# vault for a throwaway/alternate --db path -- only the canonical safeguard.DB_DEFAULT does that.
+# A review finding caught the original version of this doing exactly that: reproduced live,
+# running this very test suite was silently rotating real backups out of the checked-out repo.
+# =====================================================================================================
+try:
+    import safeguard
+    real_vault_before = set(os.listdir(safeguard.DB_BACKUP_DIR)) if os.path.isdir(safeguard.DB_BACKUP_DIR) else None
+
+    dD, conD = _new_db("prune_migrate_dest_")   # a throwaway tempdir db -- NOT safeguard.DB_DEFAULT
+    conD.close()
+
+    real_vault_after = set(os.listdir(safeguard.DB_BACKUP_DIR)) if os.path.isdir(safeguard.DB_BACKUP_DIR) else None
+    ok("migrate_backup_does_not_touch_real_vault", real_vault_after == real_vault_before)
+
+    own_backup_dir = os.path.join(dD, "backups", "db")
+    ok("migrate_backup_lands_next_to_its_own_db", os.path.isdir(own_backup_dir)
+       and len(os.listdir(own_backup_dir)) >= 1)
+except Exception as e:
+    failed.append("prune_migrate_backup_dest(%s)" % e)
+
+
+# =====================================================================================================
+# extract_parts(): a pre-existing bug (predates this diff, found + fixed during review verification)
+# -- dict-style row access against a connection that returns plain tuples raised a TypeError on the
+# very first RPSTL-shaped page. Reproduced live before the fix; this proves it stays fixed.
+# =====================================================================================================
+try:
+    dE, conE = _new_db("prune_extract_parts_")
+    conE.execute("INSERT INTO documents(id,path,vehicle) VALUES(1,?,?)", (os.path.join(dE, "a.pdf"), "V1"))
+    conE.execute(
+        "INSERT INTO pages(document_id,page_number,body_text) VALUES(1,1,?)",
+        ("PART NUMBER USABLE ON CODE A FIG 3: BRACKET NSN 5305-01-674-1467",))
+    conE.commit()
+    n = VI.extract_parts(conE)
+    ok("extract_parts_no_longer_raises", n == 1)
+    row = conE.execute("SELECT nsn, document_id, page, vehicle, fig_no FROM parts").fetchone()
+    ok("extract_parts_row_correct", row == ("5305-01-674-1467", 1, 1, "V1", "3"))
+    conE.close()
+except Exception as e:
+    failed.append("prune_extract_parts_regression(%s)" % e)
 
 
 # =====================================================================================================

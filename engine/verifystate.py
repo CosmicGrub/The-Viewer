@@ -12,7 +12,7 @@ import os, re, time
 SELFTEST_MODULES = [
     "measures", "tables", "enrich", "masterfile", "units", "leadingspecs", "specparse", "pdfmeta", "barcodes",
     "cautions", "textquality", "acronyms", "pagetrim", "tables_plus", "ietm", "kg", "dimscan", "ocrprep",
-    "layout", "dedup", "crossval", "callouts", "symbols", "vlm", "specsheet", "qrgen", "publog", "hybrid",
+    "layout", "dedup", "callouts", "symbols", "vlm", "specsheet", "qrgen", "publog", "hybrid",
     "publogdiff", "dimscad", "conflicts", "faulttree", "ask", "jobpack",
     "validate", "trust", "integrity", "signoff", "tmrev",
 ]

@@ -98,7 +98,7 @@ append-only sidecars (R1/R6).
 |7.2| NIIN-drift correlation + confirmed-interchangeable alias map | ✅ | `correlations.db` | — |
 |7.3| Semantic / embedding index | ✅ | `embed.py` | — |
 |7.4| **Knowledge graph** (part↔figure↔procedure↔spec↔NSN) | ✅ | `kg.py` + `build_kg.py` → `index/kg.db` + `/api/kg` | — |
-|7.5| **Multi-method cross-validation** — same value from ≥2 methods ⇒ higher confidence | ✅ | `crossval.py` (agreement → confidence; conflict flag) | — |
+|7.5| **Multi-method cross-validation** — same value from ≥2 methods ⇒ higher confidence | ✅ | `crossmethod.py` (agreement → confidence; conflict flag; wired to `/api/crossmethod`) | — |
 
 ## 8. External enrichment (fill blanks — corpus authoritative, R11)
 

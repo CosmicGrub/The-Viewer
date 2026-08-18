@@ -10,8 +10,18 @@ file and that were fixed in response:
   3. A killed batch used to leave its in-flight pages stuck at ocr_status='running' permanently.
 These tests spawn real (tiny, sleep-based) child processes and drive supervise() against them with
 real timing -- not mocks -- so the fix is proven against the actual polling/kill mechanism, not a
-paraphrase of it. Self-contained; no OCR engine, no real corpus. Run: python tests/test_ocr_supervisor.py"""
-import os, sys, sqlite3, tempfile, time
+paraphrase of it. Self-contained; no OCR engine, no real corpus.
+
+v1.14.0 (Drift Report Tier 4): checks 1/2/4 above already exercise _kill_tree() indirectly via
+supervise(), but only ever assert supervise()'s RETURN CODE -- which supervise() sets to 124
+unconditionally right after calling _kill_tree(), regardless of whether the kill actually worked.
+None of the existing checks (including the #5 "kill_tree is reused, not re-copy-pasted" one, which
+is a source-text count) ever confirmed a killed process, or its children, were actually terminated.
+Check #6 below calls _kill_tree() directly against a real parent+grandchild process pair (matching
+supervise()'s own CREATE_NEW_PROCESS_GROUP usage) and asserts both are gone afterward -- the first
+functional proof that `taskkill /F /T` on Windows (and proc.kill() on POSIX) really kills the whole
+tree, not just the top-level PID. Run: python tests/test_ocr_supervisor.py"""
+import os, sys, sqlite3, subprocess, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.dirname(HERE)
@@ -90,6 +100,45 @@ try:
     src = inspect.getsource(SUP)
     ok("kill_tree_helper_exists_once", src.count("def _kill_tree(") == 1)
     ok("kill_tree_called_from_supervise_loop_and_interrupt_handler", src.count("_kill_tree(proc)") == 2)
+
+    # --- 6. _kill_tree() actually terminates the whole process tree, not just the top-level PID ---
+    # (checks 1/2/4 above only ever assert supervise()'s return code, which is set to 124
+    # unconditionally after calling _kill_tree() -- they'd pass even if the kill silently no-op'd.
+    # This calls the real function against a real parent+grandchild pair and checks both are dead.)
+    def _pid_alive(pid):
+        if os.name == "nt":
+            out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid],
+                                 capture_output=True, text=True).stdout
+            return str(pid) in out
+        try:
+            os.kill(pid, 0); return True
+        except OSError:
+            return False
+
+    d6, db6 = _new_db_dir()
+    child_pid_file = os.path.join(d6, "child_pid.txt")
+    # a parent that spawns its own child (the "grandchild" from this test's perspective), writes the
+    # grandchild's pid out so we can probe it, then both sleep -- CREATE_NEW_PROCESS_GROUP matches
+    # supervise()'s own flag so taskkill /T has a real group to reap, exactly as in production.
+    parent_script = (
+        "import subprocess, sys, time; "
+        "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
+        "open(%r, 'w').write(str(p.pid)); "
+        "time.sleep(30)"
+    ) % child_pid_file
+    flags6 = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+    proc6 = subprocess.Popen([sys.executable, "-c", parent_script], creationflags=flags6)
+    for _ in range(50):
+        if os.path.exists(child_pid_file) and os.path.getsize(child_pid_file) > 0:
+            break
+        time.sleep(0.1)
+    ok("setup_grandchild_pid_written", os.path.exists(child_pid_file))
+    grandchild_pid = int(open(child_pid_file).read().strip())
+    ok("setup_grandchild_alive_before_kill", _pid_alive(grandchild_pid))
+    SUP._kill_tree(proc6, wait_after=10)
+    ok("kill_tree_terminates_parent_process", proc6.poll() is not None)
+    time.sleep(0.5)   # let the OS finish reaping
+    ok("kill_tree_terminates_grandchild_too", not _pid_alive(grandchild_pid))
 except Exception as e:
     failed.append("ocr_supervisor(%s)" % e)
 

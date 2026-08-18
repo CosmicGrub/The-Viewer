@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Branched dual-track changelog timeline (R7): Modern + Legacy (Retroactive Post-Support).
 Data-driven — to extend, add to MODERN / LEGACY / BACKPORTS and re-run. Dark (R3) + PDF (R5).
-Outputs docs/diagrams/CHANGELOG-DUALTRACK.{svg,pdf,_preview.png}."""
+Outputs docs/diagrams/CHANGELOG-DUALTRACK.{svg,pdf}."""
 import cairosvg, html, os
 
 # (version, short label) — key modern milestones around/after the branch point
@@ -78,5 +78,5 @@ svg="\n".join(P)
 base="/sessions/beautiful-admiring-dirac/mnt/THE VIEWER/docs/diagrams/CHANGELOG-DUALTRACK"
 open(base+".svg","w",encoding="utf-8").write(svg)
 cairosvg.svg2pdf(bytestring=svg.encode("utf-8"), write_to=base+".pdf")
-cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=base+"_preview.png", output_width=1180)
+# (PNG preview removed 2026-08-18: redundant with the .svg above; see docs/diagrams/_common.py render() note)
 print("wrote", os.path.getsize(base+".pdf"), "bytes ->", base+".pdf")

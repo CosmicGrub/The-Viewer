@@ -194,7 +194,7 @@ Each future graphics feature ships with its own data-flow diagram per the standi
 
 ## 9. Diagrams (this delivery)
 
-Version-controlled diagram sources live in `docs/diagrams/` as Mermaid text (`.mmd`) — text so they diff cleanly and render anywhere, forever (backwards-compatible by design). An offline viewer, `docs/diagrams/viewer.html`, renders all of them with no internet.
+Version-controlled diagram sources live in `docs/diagrams/` as Mermaid text (`.mmd`) — text so they diff cleanly and render anywhere, forever (backwards-compatible by design). They also ship pre-rendered as static SVG/PDF (`00-architecture-darkset.svg`/`.pdf`, consolidating all four below — see `docs/DECISIONS.md`), which displays natively in any browser or on GitHub with no viewer, no internet, and no JS required. (The `docs/diagrams/viewer.html` + bundled `mermaid.min.js` convenience pair that used to live-render these was removed 2026-08-18 as redundant repo bloat — the static SVGs already cover the same ground.)
 
 | File | Shows |
 |---|---|
@@ -282,4 +282,9 @@ files (~1,200 lines combined) were also never run here, for the identical reason
 nothing else to remember, and nothing here to go stale again.
 
 Pushes and PRs to `main` now also run `tests/verify_all.py --snapshot` automatically, via GitHub
-Actions (`.github/workflows/ci.yml`) — the project's first CI of any kind.
+Actions (`.github/workflows/ci.yml`) — the project's first CI of any kind. Two jobs: `test-ubuntu`
+(a 3.12/3.13/3.14 matrix) and `test-windows` (a single leg on the actual OS this project targets —
+see `docs/SYSTEM-REQUIREMENTS.md` — added specifically to exercise `ocr_supervisor.py`'s `taskkill
+/F /T` branch, which a Linux-only runner can never reach; `test_ocr_supervisor.py` now spawns a
+real parent+grandchild process pair and asserts `_kill_tree()` actually terminates both, not just
+that `supervise()` returns the expected code).

@@ -248,7 +248,7 @@ Performance · Retroactive Post-Support) showing resolved mode + reason, hardwar
 `rps.mode_for_setting()` maps the choice to a concrete mode; `sysprobe.py` surfaces `recommended_run_mode`.
 Precedence (R1): `VIEWER_MODE` env (back-compat) > `VIEWER_RUN_MODE` env > saved setting > `auto`. Verified: 5
 changed files compile, 22 isolation tests + 13 live-wiring tests green, audit 0 FAIL/0 WARN (150 unique route
-decorators). Diagram: `docs/diagrams/53-rps-run-mode-setting.{svg,pdf,_preview.png}`. **R10 screenshot still
+decorators). Diagram: `docs/diagrams/53-rps-run-mode-setting.{svg,pdf}`. **R10 screenshot still
 pending host-side** (`/status` Run-mode card).
 
 ## v1.13.1 (2026-07-18) — AI-generated 3-D models: illustrative tier (Meshy import lane)

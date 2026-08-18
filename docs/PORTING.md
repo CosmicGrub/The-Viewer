@@ -17,7 +17,11 @@ see reconciliation note below), post-"THE RESTRUCTURE" + the v1.13.0 "HOLISTIC H
 > `pre-v0.97-batch/`, `pre-v0.98-nav/`, and **`pre-v1.13/`** (current rollback point). After moving, run root
 > **`VERIFY.bat`** — the single authoritative gate since v1.13.0 (`VERIFY-099.bat` forwards to it; the older,
 > pre-1.13 `VERIFY-V098.bat` was removed -- low finding #50 -- since it was superseded, unreferenced by any
-> other launcher, and still carried the exact `&&`-chaining bug VERIFY.bat's own header documents fixing).
+> other launcher, and had no exit-code truth at all: each test ran `... && echo [X PASS]` on its own
+> independent line (so one failing test did NOT block later tests, unlike the true `&&`-chaining bug
+> VERIFY.bat's header warns about), but the script never checked `errorlevel` or propagated a failure exit
+> code -- it always printed "Done." and relied on a human eyeballing the log for missing `[X PASS]` markers,
+> the exact "eyeball the log" anti-pattern VERIFY.bat's rewrite was built to replace).
 
 ---
 

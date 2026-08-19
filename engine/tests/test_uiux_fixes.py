@@ -104,8 +104,11 @@ try:
         ok("index_html_has_%s" % re.sub(r"\W+", "_", needle), needle in html)
 
     # every nav link the fallback offers must be a real, currently-registered route (avoid a dead-link
-    # regression if a route is ever renamed) -- cross-checked against features/routes.py's own _PAGES map.
-    routes_py = open(os.path.join(ENGINE, "features", "routes.py"), encoding="utf-8").read()
+    # regression if a route is ever renamed) -- cross-checked against every file in features/routes/
+    # (the v1.14 split package; was one routes.py, now these route declarations are spread across it).
+    routes_dir = os.path.join(ENGINE, "features", "routes")
+    routes_py = "\n".join(open(os.path.join(routes_dir, fn), encoding="utf-8").read()
+                          for fn in sorted(os.listdir(routes_dir)) if fn.endswith(".py"))
     fallback_links = re.findall(r'href="(/[a-z]+)"', html.split("id=\"legacyHome\"")[1].split("</div>\n<script>")[0])
     ok("index_html_fallback_has_nav_links", len(fallback_links) >= 5)
     all_registered = all(('"%s"' % link) in routes_py or ("(\"%s\"" % link) in routes_py for link in fallback_links)
@@ -434,7 +437,7 @@ except Exception as e:
 # to crash after this change via a live restart + curl).
 # =====================================================================================================
 try:
-    routes_src = open(os.path.join(ENGINE, "features", "routes.py"), encoding="utf-8").read()
+    routes_src = open(os.path.join(ENGINE, "features", "routes", "doc_extractors.py"), encoding="utf-8").read()  # v1.14: r_qr lives in doc_extractors.py now (routes/ split)
     r_qr_body = routes_src.split("def r_qr(h, qs):")[1].split("\n\n\n")[0]
     ok("r_qr_computes_local_only_flag", "local_only = base.lower().startswith" in r_qr_body)
     ok("r_qr_sends_x_qr_local_only_header", '"X-QR-Local-Only": "1" if local_only else "0"' in r_qr_body)
@@ -593,7 +596,7 @@ except Exception as e:
 # --- routes.py: X-QR-Local-Only must also catch unbracketed "::1:PORT" (safe_public_base()'s real
 #     output for HOST=="::1", not the bracketed "[::1]:PORT" form).
 try:
-    routes_src = open(os.path.join(ENGINE, "features", "routes.py"), encoding="utf-8").read()
+    routes_src = open(os.path.join(ENGINE, "features", "routes", "doc_extractors.py"), encoding="utf-8").read()  # v1.14: r_qr lives in doc_extractors.py now (routes/ split)
     local_only_line = [l for l in routes_src.splitlines() if "local_only = base.lower().startswith" in l][0]
     ok("routes_qr_local_only_covers_unbracketed_ipv6", '"http://::1:"' in local_only_line)
 

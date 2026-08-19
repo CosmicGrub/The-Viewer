@@ -58,7 +58,12 @@ def main():
     #        {path:handler} registry, leaving one handler dead. The runtime dict hides it, so scan the source.
     emit("[0] duplicate route paths (a dup silently drops one handler)")
     import re as _re
-    _src = read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "features", "routes.py"))
+    # v1.14: routes.py split into features/routes/ (per-domain submodules) -- scan every .py file
+    # in the package, not one single-file source, or a dup introduced across two submodules (the
+    # exact new failure mode the split adds) would go undetected.
+    _routes_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "features", "routes")
+    _src = "\n".join(read(os.path.join(_routes_dir, _f))
+                      for _f in sorted(os.listdir(_routes_dir)) if _f.endswith(".py"))
     _decos = _re.findall(r'@(get|post)\("([^"]+)"\)', _src)   # (method, path) -- GET+POST on one path is legit
     _counts = {}
     for _m, _p in _decos:
@@ -170,9 +175,15 @@ def main():
     _bad = 0
     for _mod in _serving:
         _pth = os.path.join(HERE, _mod.replace("/", os.sep) + ".py")
-        if not os.path.exists(_pth):
+        # v1.14: features/routes.py split into the features/routes/ package -- fall back to
+        # scanning every submodule .py file when the single-file path no longer exists.
+        if os.path.isdir(os.path.join(HERE, _mod.replace("/", os.sep))):
+            _dir = os.path.join(HERE, _mod.replace("/", os.sep))
+            _txt = "\n".join(read(os.path.join(_dir, _f)) for _f in sorted(os.listdir(_dir)) if _f.endswith(".py"))
+        elif os.path.exists(_pth):
+            _txt = read(_pth)
+        else:
             continue
-        _txt = read(_pth)
         # a raw os.replace( that is NOT part of safeguard's own implementation is a durability risk
         if _re.search(r"\bos\.replace\(", _txt):
             line("WARN", "%s.py has a raw os.replace() -- route it through safeguard.atomic_write" % _mod); _bad += 1

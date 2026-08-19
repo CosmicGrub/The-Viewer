@@ -20,7 +20,25 @@ a = Analysis(
         "jobcard", "figureparts", "partlocate", "figuresheet", "coverage", "doctor", "pmcs",
         "xref", "analytics", "partspdf", "vectorize", "phash", "embed", "schemreview", "localmodel",
     ],
-    hookspath=[], runtime_hooks=[], excludes=[],
+    # Roadmap "Installer size" item: viewer_app.py's route handlers never import these, so PyInstaller's
+    # static import-follower has no business bundling them just because they happen to be installed on
+    # the build host (e.g. for OCR ingest tooling / dev experimentation).
+    #   - sentence_transformers/torch/torchvision/torchaudio: engine/embed.py's _load_model() imports
+    #     sentence_transformers inside a try/except and is the ONLY place in the served app that ever
+    #     imports it (confirmed by tracing every reachable import from this Analysis entry point --
+    #     features/routes.py's /api/semantic and /api/search_hybrid routes both funnel through
+    #     embed.search()/embed.embed_text(), which already falls back to a pure-numpy hash vector when
+    #     sentence_transformers is absent). Excluding it is a strict no-op for the shipped server.
+    #   - onnxruntime/onnxruntime-gpu deliberately NOT excluded: engine/sysprobe.py's gpu_info() (reached
+    #     from viewer_app.main() -> rps_init() -> sysprobe.load_or_build() -> build_profile(), i.e. real
+    #     server-boot code, not just the separate OCR-ingest subprocess tooling in viewer_ingest.py) does
+    #     `import onnxruntime as ort` to detect CUDA availability. That result feeds `tier`, which
+    #     `rps.mode_for()` uses to pick modern/lite/legacy at boot -- so on a shop PC with a modest CPU but
+    #     a capable GPU, excluding onnxruntime would silently downgrade it from "modern" to "lite" mode
+    #     (the import is wrapped in try/except so it wouldn't crash, but it would misdetect real hardware
+    #     and pick a worse runtime mode for the request-serving app itself). Left in until that RPS
+    #     coupling is decoupled from onnxruntime, or the profile is rebuilt outside the frozen exe.
+    excludes=["sentence_transformers", "torch", "torchvision", "torchaudio"],
     win_no_prefer_redirects=False, win_private_assemblies=False, cipher=block_cipher, noarchive=False,
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)

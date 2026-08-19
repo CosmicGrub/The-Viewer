@@ -73,6 +73,53 @@ try:
 except Exception as e:
     failed.append("localmodel(%s)" % e)
 
+# --- embed.py: search() caches the loaded (embeddings.npy, embeddings_ids.tsv) pair keyed by
+# index_dir + both files' mtimes, instead of _np.load()-ing fresh off disk on EVERY call (unlike the
+# keyword-search path's TTL'd LRU -- features/routes.py's _SEARCH_LRU, ~line 134). Confirms (a) a
+# second search() against an unchanged index_dir does NOT trigger another real np.load, and (b)
+# rebuilding embeddings.npy (BUILD-EMBEDDINGS.bat reran) DOES invalidate the cache and trigger
+# exactly one more load, so a rebuilt index is picked up rather than silently served stale.
+try:
+    import embed as EMB, numpy as ENP, unittest.mock as mock, json as _json, time as _time
+
+    if not EMB._OK:
+        failed.append("embed_cache(numpy unavailable)")
+    else:
+        ed = tempfile.mkdtemp(prefix="embed_cache_")
+        npy_p = os.path.join(ed, "embeddings.npy")
+        tsv_p = os.path.join(ed, "embeddings_ids.tsv")
+        ENP.save(npy_p, ENP.zeros((2, EMB.DIM), dtype=ENP.float32))
+        with open(tsv_p, "w", encoding="utf-8") as f:
+            f.write("docA\t1\ndocB\t2\n")
+        # Meta stamped as "sentence-transformers" so _index_is_stale() short-circuits to False
+        # regardless of which backend is actually active in this environment (the hash-bucket
+        # version check only applies to hash-fallback indexes) -- irrelevant to what's under test here.
+        with open(EMB._meta_path(ed), "w", encoding="utf-8") as f:
+            _json.dump({"backend": "sentence-transformers", "hash_algo_version": None}, f)
+
+        EMB._ARR_CACHE.clear()
+        with mock.patch.object(EMB._np, "load", wraps=ENP.load) as m_load:
+            r1 = EMB.search("hello", ed, top=5)
+            r2 = EMB.search("world", ed, top=5)
+            ok("embed_cache_hit_no_reload",
+               m_load.call_count == 1 and r1.get("ready") is True and r2.get("ready") is True)
+
+            # Rebuild: 3 rows instead of 2, mtime bumped forward explicitly (os.utime, not a sleep+
+            # rewrite) so this can't flake on a filesystem whose mtime resolution could otherwise
+            # make a fast rewrite look "unchanged" to the cache.
+            ENP.save(npy_p, ENP.ones((3, EMB.DIM), dtype=ENP.float32))
+            with open(tsv_p, "w", encoding="utf-8") as f:
+                f.write("docA\t1\ndocB\t2\ndocC\t3\n")
+            future = _time.time() + 5
+            os.utime(npy_p, (future, future)); os.utime(tsv_p, (future, future))
+
+            r3 = EMB.search("hello", ed, top=5)
+            ok("embed_cache_invalidates_on_rebuild",
+               m_load.call_count == 2 and r3.get("ready") is True)
+        EMB._ARR_CACHE.clear()
+except Exception as e:
+    failed.append("embed_cache(%s)" % e)
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d integration checks)" % (len(passed), len(failed), len(passed) + len(failed)))

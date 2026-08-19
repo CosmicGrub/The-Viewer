@@ -8,6 +8,7 @@ OCR parallelism uses THREADS (shared engine; PyMuPDF render under a lock) -- rel
 """
 import argparse, hashlib, os, re, sqlite3, subprocess, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from patterns import norm_nsn   # canonical NSN normalization (A6: single source of truth)
 try:
     import pymupdf as fitz  # PyMuPDF
 except Exception:
@@ -27,6 +28,19 @@ except Exception:
 # easy to turn off if it turns out to hurt more than it helps. See _ocr_preprocessed_input() below
 # for why RapidOCR and Tesseract get different pipelines (preprocess_light vs. preprocess).
 OCR_PREPROCESS = os.environ.get("VIEWER_OCR_PREPROCESS", "1") != "0"
+try:
+    import barcodes
+except Exception:
+    barcodes = None
+# Barcode/QR read on the same page render OCR already produced (catalog §4.9): barcodes.py has had a
+# fully-built, self-tested, dual-backend (pyzbar/OpenCV) detect() since it was written, but it had no
+# caller anywhere in the codebase -- only its own self-test and the import-check in verifystate.py.
+# Some TMs print NSNs/part numbers as barcodes; a machine-decoded value has no character-recognition
+# ambiguity, so it is higher-trust provenance than OCR text (migration 0010). Operator-toggleable
+# (VIEWER_BARCODE_SCAN=0 to disable) for the same reason OCR_PREPROCESS is: real-corpus benefit is
+# unmeasured. Cheap regardless of the toggle -- barcodes.available() already no-ops instantly when
+# neither backend is installed, so this is a no-op add-on to the existing render, never a new pass.
+BARCODE_SCAN = os.environ.get("VIEWER_BARCODE_SCAN", "1") != "0"
 
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
@@ -484,7 +498,7 @@ def _page_is_blank(path, page_number):
     except Exception:
         return False
 
-def _ocr_preprocessed_input(img_path, for_tesseract):
+def _ocr_preprocessed_input(img_path, for_tesseract, _pil_img=None):
     """Best-effort OCR preprocessing (finding #14). Returns what to actually feed to the OCR
     engine: for RapidOCR (for_tesseract=False), a preprocessed numpy array via
     ocrprep.preprocess_light() -- deskew + denoise, NOT binarize, since a hard Otsu threshold is a
@@ -494,13 +508,22 @@ def _ocr_preprocessed_input(img_path, for_tesseract):
     binarization), a NEW temp PNG file path via the full ocrprep.preprocess() (deskew + denoise +
     binarize). Falls back to the raw, unmodified image on any failure or when OpenCV/numpy aren't
     available -- this is a quality improvement, never a hard requirement; a preprocessing bug must
-    never be the reason a page fails to OCR at all."""
+    never be the reason a page fails to OCR at all.
+
+    `_pil_img`, if given, is an already-open/RGB-converted PIL Image of img_path's bytes -- reused
+    from ocr_one()'s single shared decode (review finding: this and _scan_barcode() were each
+    independently opening + RGB-converting the SAME rendered PNG from disk, a second full PIL decode
+    of identical bytes on every OCR'd page). Purely an optimization: omit it (default None) and this
+    opens img_path itself exactly as before -- callers outside ocr_one() are unaffected."""
     if not (OCR_PREPROCESS and ocrprep is not None and ocrprep.available() and _np is not None):
         return img_path
     try:
-        from PIL import Image
-        with Image.open(img_path) as im:
-            arr = _np.array(im.convert("RGB"))
+        if _pil_img is not None:
+            arr = _np.array(_pil_img)
+        else:
+            from PIL import Image
+            with Image.open(img_path) as im:
+                arr = _np.array(im.convert("RGB"))
         if for_tesseract:
             import cv2
             proc, _meta = ocrprep.preprocess(arr)
@@ -524,14 +547,72 @@ def _ocr_preprocessed_input(img_path, for_tesseract):
         return img_path
 
 
+def _scan_barcode(img_path, _pil_img=None):
+    """Best-effort barcode/QR/Data-Matrix read off the SAME rendered page PNG _render_png() already
+    produced for OCR (img_path) -- never a second render of the page. Some TMs print NSNs/part
+    numbers as barcodes; a machine-decoded value has no character-recognition ambiguity, so it is
+    higher-trust provenance than OCR text (barcodes.py catalog §4.9 -- had zero callers before this).
+
+    Opt-in + cheap: returns None immediately if VIEWER_BARCODE_SCAN=0, the module failed to import,
+    or barcodes.available() is False (neither pyzbar nor OpenCV installed) -- mirrors barcodes.py's
+    own graceful-degradation contract, so this is a true no-op on an environment without the optional
+    backends, not a feature that silently requires them. Also swallows any decode failure (a barcode-
+    read bug must never break OCR itself -- R1); on success returns the FIRST decoded record as
+    {'type','data','nsn'} (nsn omitted/None if the payload has no recognizable NSN), preferring a
+    record that DID decode an NSN over one that didn't when a page carries more than one barcode.
+
+    `_pil_img`, if given, is an already-open/RGB-converted PIL Image of img_path's bytes -- reused
+    from ocr_one()'s single shared decode (review finding: this and _ocr_preprocessed_input() were
+    each independently opening + RGB-converting the SAME rendered PNG from disk, a second full PIL
+    decode of identical bytes on every OCR'd page). Purely an optimization: omit it (default None)
+    and this opens img_path itself exactly as before -- direct callers (incl. tests) are unaffected."""
+    if not BARCODE_SCAN or barcodes is None or not barcodes.available():
+        return None
+    try:
+        if _pil_img is not None:
+            recs = barcodes.detect(_pil_img)
+        else:
+            from PIL import Image
+            with Image.open(img_path) as im:
+                recs = barcodes.detect(im.convert("RGB"))
+    except Exception:
+        return None
+    if not recs:
+        return None
+    rec = next((r for r in recs if r.get("nsn")), recs[0])
+    return {"type": rec.get("type"), "data": (rec.get("data") or "")[:500], "nsn": rec.get("nsn")}
+
+
 def ocr_one(path, page_number):
-    """Returns (text, confidence). confidence is RapidOCR's page-level average of its per-line detection
-    scores (0.0-1.0), rounded to 4dp -- None on the blank-skip path, the Tesseract fallback (no per-line
-    scores exposed the same way), or if RapidOCR returned no scored lines. v1.13.5: this score was always
-    being computed (see _RapidAdapter, r[2]) but silently discarded here -- captured now as the first real,
-    corpus-wide OCR-quality signal (previously the only signal was 'OCR ran' vs 'OCR did not run')."""
+    """Returns (text, confidence, barcode). confidence is RapidOCR's page-level average of its per-line
+    detection scores (0.0-1.0), rounded to 4dp -- None on the blank-skip path, the Tesseract fallback (no
+    per-line scores exposed the same way), or if RapidOCR returned no scored lines. v1.13.5: this score was
+    always being computed (see _RapidAdapter, r[2]) but silently discarded here -- captured now as the first
+    real, corpus-wide OCR-quality signal (previously the only signal was 'OCR ran' vs 'OCR did not run').
+    barcode is _scan_barcode()'s result -- None, or {'type','data','nsn'} -- read off the SAME render used
+    for OCR when the page gets a full OCR pass, or off a dedicated render on the blank-skip path (see
+    below); None whenever BARCODE_SCAN/barcodes.py can't run (opt-in + cheap, see _scan_barcode())."""
     dens = _page_density(path, page_number)
-    if dens is not None and dens < 0.004: return "", None   # skip-the-junk: no OCR on blanks (same threshold)
+    if dens is not None and dens < 0.004:
+        # skip-the-junk: no full OCR on blanks (same threshold) -- but a TM divider/parts-label/cover
+        # page is routinely near-empty EXCEPT for a small barcode/QR stamp, i.e. exactly the page most
+        # likely to fall under this OCR-tuned density threshold and most likely to carry a machine-
+        # readable NSN. Render + scan for a barcode before giving up on the page entirely, gated the
+        # same way _scan_barcode() itself is gated so a render is never paid for here when barcode
+        # scanning is off or unavailable.
+        barcode = None
+        if BARCODE_SCAN and barcodes is not None and barcodes.available():
+            bimg = None
+            try:
+                bimg = _render_png(path, page_number, OCR_DPI)
+                barcode = _scan_barcode(bimg)
+            except Exception:
+                barcode = None
+            finally:
+                if bimg and os.path.exists(bimg):
+                    try: os.unlink(bimg)
+                    except OSError: pass
+        return "", None, barcode
     dpi = OCR_DPI
     if ADAPTIVE_DPI and dens is not None and dens < 0.02:   # opt-in: sparse pages render lower (never below 160)
         dpi = max(160, OCR_DPI - 50)
@@ -549,20 +630,38 @@ def ocr_one(path, page_number):
                 _DEDUP_STATS["hits"] += 1; return cached
         # Dedup hash above is deliberately over the RAW render, before preprocessing -- identical
         # source pages still produce an identical raw render, so the dedup key is unaffected by
-        # whether preprocessing itself is on/off or changes over time.
+        # whether preprocessing itself is on/off or changes over time. Barcode scan runs against
+        # that same raw render too (before it goes into the cache), so an identical repeated page
+        # (boilerplate covers, dividers) reuses the barcode read exactly like it reuses OCR text.
+        #
+        # Review finding: _scan_barcode() and _ocr_preprocessed_input() each independently opened +
+        # RGB-converted this SAME PNG from disk -- a second full PIL decode of identical bytes on
+        # every OCR'd page (never a second RENDER, which the docstrings above correctly guard against,
+        # but still real, avoidable per-page decode work across a whole corpus). Decode once here and
+        # hand the shared image to both; best-effort only -- if PIL isn't importable or this decode
+        # fails, shared_rgb stays None and each callee falls back to its own independent open(),
+        # exactly as before.
+        shared_rgb = None
+        try:
+            from PIL import Image
+            with Image.open(img) as im:
+                shared_rgb = im.convert("RGB")
+        except Exception:
+            shared_rgb = None
+        barcode = _scan_barcode(img, _pil_img=shared_rgb)
         if _have_rapid():
-            ocr_input = _ocr_preprocessed_input(img, for_tesseract=False)
+            ocr_input = _ocr_preprocessed_input(img, for_tesseract=False, _pil_img=shared_rgb)
             res, _ = _get_rapid()(ocr_input)
             text = "\n".join(r[1] for r in res).strip() if res else ""
             scores = [r[2] for r in res if len(r) > 2 and isinstance(r[2], (int, float))] if res else []
             conf = round(sum(scores) / len(scores), 4) if scores else None
         else:
-            tess_img = _ocr_preprocessed_input(img, for_tesseract=True)
+            tess_img = _ocr_preprocessed_input(img, for_tesseract=True, _pil_img=shared_rgb)
             out = subprocess.run(["tesseract", tess_img, "-", "-l", "eng", "--psm", "1"],
                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
             text = out.stdout.decode("utf-8","ignore").strip()
             conf = None   # tesseract fallback: no per-line confidence captured (yet)
-        result = (text, conf)
+        result = (text, conf, barcode)
         if h is not None:
             with _DEDUP_LOCK:
                 if len(_DEDUP) < 200000: _DEDUP[h] = result
@@ -581,23 +680,23 @@ def _ocr_task(args):
     signal.alarm or a bare subprocess. Called both from ocr()'s single-threaded loop (workers<=1)
     and from inside its ThreadPoolExecutor (workers>1) -- wrapping it here (rather than in ocr()
     itself) means the timeout applies uniformly in both cases with one implementation. Times out ->
-    same (pid, None, None, err) shape as any other failure, so handle() needs no changes: the page
-    is marked 'failed' and the batch moves on to the next one instead of hanging on it forever."""
+    same (pid, None, None, None, err) shape as any other failure, so handle() needs no changes: the
+    page is marked 'failed' and the batch moves on to the next one instead of hanging on it forever."""
     pid, pno, path = args
     box = {}
     def run():
         try:
-            box["text"], box["conf"] = ocr_one(path, pno)
+            box["text"], box["conf"], box["barcode"] = ocr_one(path, pno)
         except Exception as e:
             box["err"] = str(e)[:300]
     t = threading.Thread(target=run, daemon=True)
     t.start()
     t.join(OCR_PAGE_TIMEOUT_SECONDS)
     if t.is_alive():
-        return pid, None, None, "timeout after %ds" % OCR_PAGE_TIMEOUT_SECONDS
+        return pid, None, None, None, "timeout after %ds" % OCR_PAGE_TIMEOUT_SECONDS
     if "err" in box:
-        return pid, None, None, box["err"]
-    return pid, box.get("text"), box.get("conf"), None
+        return pid, None, None, None, box["err"]
+    return pid, box.get("text"), box.get("conf"), box.get("barcode"), None
 
 def _db_dir(con):
     try:
@@ -638,10 +737,13 @@ def ocr(con, limit, workers=1):
         _heartbeat(dbdir, 0, 0, 0); return 0
     con.executemany("UPDATE pages SET ocr_status='running' WHERE id=?", [(r[0],) for r in rows]); con.commit()
     if _have_rapid(): _get_rapid()            # build the shared engine once, up front
-    def handle(pid, text, conf, err):
+    def handle(pid, text, conf, barcode, err):
         nonlocal done, fail
         if err is None:
-            con.execute("UPDATE pages SET body_text=?, char_count=?, source='ocr', ocr_status='done', ocr_confidence=? WHERE id=?", (text, len(text), conf, pid)); done += 1
+            bc = barcode or {}
+            con.execute("UPDATE pages SET body_text=?, char_count=?, source='ocr', ocr_status='done', ocr_confidence=?, "
+                        "barcode_type=?, barcode_data=?, barcode_nsn=? WHERE id=?",
+                        (text, len(text), conf, bc.get("type"), bc.get("data"), bc.get("nsn"), pid)); done += 1
         else:
             con.execute("UPDATE pages SET ocr_status='failed' WHERE id=?", (pid,))
             con.execute("INSERT INTO jobs(page_id,stage,state,attempts,last_error) VALUES(?,?, 'failed', 1, ?)", (pid,"ocr",err)); fail += 1
@@ -920,12 +1022,56 @@ def extract_parts(con):
             batch.append((nsn, ftit, ftit, document_id, page_number, vehicle, fno, ftit, "page"))
         if npages % 200 == 0:
             _heartbeat(dbdir, npages, 0, "extract_parts")
+    # Barcode-decoded NSNs (migration 0010 / viewer_ingest.ocr_one()'s _scan_barcode()): a machine
+    # read has no character-recognition ambiguity, so these get their own confidence tag ('barcode')
+    # instead of 'page' -- distinguishable, higher-trust provenance, picked up for free by every
+    # existing confidence-IS-NOT-NULL consumer (features/parts_feature.py's part_lookup() etc.)
+    # without those callers needing to change. Full-rebuild-safe: this scans EVERY page with a
+    # captured barcode_nsn each time extract_parts() runs (same idempotent-rebuild contract as the
+    # regex pass above), so a barcode row survives the DELETE at the top of this function exactly
+    # like a regex-extracted 'page' row does -- it just gets regenerated from pages.barcode_nsn
+    # instead of re-parsed from body_text.
+    nbar = 0
+    seen_barcode = set()
+    try:
+        brows = con.execute(
+            "SELECT p.document_id, p.page_number, p.barcode_nsn, p.barcode_data, d.vehicle "
+            "FROM pages p JOIN documents d ON d.id=p.document_id "
+            "WHERE p.barcode_nsn IS NOT NULL AND p.barcode_nsn <> ''").fetchall()
+    except sqlite3.OperationalError:
+        brows = []   # pre-migration-0010 schema (barcode_nsn column doesn't exist yet)
+    for document_id, page_number, bnsn, bdata, vehicle in brows:
+        # Review finding: normalize through patterns.norm_nsn(), the SAME canonical-NSN helper every
+        # other NSN producer in this codebase uses. barcodes.py's own NSN regex (barcodes._NSN)
+        # tolerates a dashless 13-digit payload (a common Code39/128 DoD barcode convention);
+        # storing that verbatim would defeat every downstream lookup that normalizes its query before
+        # matching `WHERE nsn=?` (e.g. features/parts_feature.py's part_differences()), and would
+        # never collide -- via the dedup key below -- with a same-part regex-extracted row that
+        # already normalized to the canonical dashed form. norm_nsn() always succeeds here since
+        # barcodes._NSN's match shape is a subset of patterns.NSN_RE's; `or bnsn` is a pure defensive
+        # fallback, never expected to be exercised.
+        nsn = norm_nsn(bnsn) or bnsn
+        # Review finding: this used to share the regex pass's `seen` set (keyed on (document_id,
+        # page_number, nsn)) -- when a page's RPSTL text and its barcode both encode the same NSN,
+        # the higher-trust barcode row this feature exists to surface was silently dropped in favor
+        # of the lower-trust 'page' row that happened to run first, exactly defeating the feature on
+        # its own corroborating case. A barcode-derived row is never a duplicate of a regex-derived
+        # one, so it gets its own dedup key scoped to this loop (defensive only: brows already
+        # carries at most one row per (document_id, page_number), since barcode_nsn is a single
+        # column on pages, so this can't actually fire today).
+        key = (document_id, page_number, nsn)
+        if key in seen_barcode: continue
+        seen_barcode.add(key)
+        label = (bdata or "").strip() or None
+        batch.append((nsn, label, label, document_id, page_number, vehicle, None, None, "barcode"))
+        nbar += 1
     con.executemany(
         "INSERT INTO parts(nsn, name, nomenclature, document_id, page, vehicle, fig_no, fig_title, confidence, created_at) "
         "VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))", batch)
     con.commit()
     _heartbeat(dbdir, npages, 0, 0)
-    log(f"parts: {npages} RPSTL pages -> {len(batch)} NSN records ({len(set(b[0] for b in batch))} distinct NSNs)")
+    log(f"parts: {npages} RPSTL pages -> {len(batch)} NSN records ({len(set(b[0] for b in batch))} distinct NSNs)"
+        f"{f', {nbar} from decoded barcodes' if nbar else ''}")
     return len(batch)
 
 _HW_SEED = [

@@ -3,7 +3,7 @@
 sentence-transformers model when installed (true semantic); otherwise falls back to a deterministic hashing bag-of-words
 vector (keyword-ish) so the pipeline still works offline with zero downloads. Build the index host-side
 (BUILD-EMBEDDINGS.bat -> index/embeddings.npy + index/embeddings_ids.tsv); /api/semantic queries it. Read-only."""
-import os, re, math, zlib
+import os, re, math, zlib, threading as _threading
 
 try:
     import numpy as _np
@@ -13,6 +13,17 @@ except Exception:
 
 _MODEL = None
 DIM = 384  # sentence-transformers all-MiniLM dim; the fallback also uses this width
+
+# search() used to _np.load(npy) fresh from disk on EVERY call -- unlike the keyword-search path's
+# TTL'd LRU (features/routes.py's _SEARCH_LRU, ~line 134), the embeddings array (which can be tens of
+# MB) was re-read off disk on every single /api/semantic request. Cached here instead, keyed by
+# index_dir + both files' mtimes so a rebuild (BUILD-EMBEDDINGS.bat reran) is picked up immediately
+# rather than silently serving a stale in-memory array forever. viewer_app.py runs a
+# ThreadingHTTPServer, so the load-if-missing-or-stale path is guarded by a lock -- this app's real
+# concurrency is low, so a single plain lock (mirroring _SEARCH_LRU_LOCK) is enough; no per-key
+# locking or double-checked-locking complexity needed.
+_ARR_CACHE = {}   # index_dir -> (npy_mtime, tsv_mtime, arr, ids)
+_ARR_CACHE_LOCK = _threading.Lock()
 
 # Bump this whenever _hash_vec()'s bucket-assignment algorithm changes. Lets search() tell a
 # hash-fallback index built under an OLD, incompatible mapping (e.g. the pre-fix, process-random
@@ -154,6 +165,21 @@ def _index_is_stale(index_dir):
     return meta.get("hash_algo_version") != HASH_ALGO_VERSION
 
 
+def _load_arrays(index_dir, npy, tsv):
+    """Return (arr, ids) for this index_dir, loading from disk only when there's no cached copy yet
+    or either file's mtime has moved on (i.e. a rebuild happened). See _ARR_CACHE above."""
+    npy_mtime = os.path.getmtime(npy)
+    tsv_mtime = os.path.getmtime(tsv)
+    with _ARR_CACHE_LOCK:
+        ent = _ARR_CACHE.get(index_dir)
+        if ent is not None and ent[0] == npy_mtime and ent[1] == tsv_mtime:
+            return ent[2], ent[3]
+        arr = _np.load(npy)
+        ids = [ln.rstrip("\n").split("\t") for ln in open(tsv, encoding="utf-8")]
+        _ARR_CACHE[index_dir] = (npy_mtime, tsv_mtime, arr, ids)
+        return arr, ids
+
+
 def search(query, index_dir, top=15):
     npy = os.path.join(index_dir, "embeddings.npy"); tsv = os.path.join(index_dir, "embeddings_ids.tsv")
     if not _OK or not os.path.exists(npy) or not os.path.exists(tsv):
@@ -162,8 +188,7 @@ def search(query, index_dir, top=15):
         return {"ready": False, "backend": backend(), "results": [], "stale": True,
                 "error": "embeddings index was built under an old/incompatible hash algorithm -- "
                          "rebuild it via BUILD-EMBEDDINGS.bat"}
-    arr = _np.load(npy)
-    ids = [ln.rstrip("\n").split("\t") for ln in open(tsv, encoding="utf-8")]
+    arr, ids = _load_arrays(index_dir, npy, tsv)
     q = embed_text(query)
     if q is None:
         return {"ready": True, "backend": backend(), "results": []}

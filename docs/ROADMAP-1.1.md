@@ -92,8 +92,17 @@ speed/resource win, **[DEBT]** = cleanup that pays down risk. Effort: **S** ≤ 
 20. **[DEBT] ASCII-safe console output.** The audit/verify logs render `·`/`—`/`⚠` as `?`/`�` in the Windows cp437
     console. Swap to ASCII in the printed lines (keep unicode in the HTML/PDF). Cosmetic but tidies the logs. **[S]**
 
-21. **[EFFICIENCY] Installer size.** The PyInstaller bundle pulls numpy/reportlab/fitz/onnxruntime; add `excludes` for
-    unused submodules and UPX so the shop-floor package is lean. **[S]**
+21. **[EFFICIENCY] Installer size.** ~~The PyInstaller bundle pulls numpy/reportlab/fitz/onnxruntime; add `excludes` for
+    unused submodules and UPX so the shop-floor package is lean.~~ **[S]** — **PARTIALLY ADDRESSED** (`viewer.spec`
+    now sets `excludes=["sentence_transformers", "torch", "torchvision", "torchaudio"]` — the only route into any of
+    those is `engine/embed.py`'s already-optional `sentence_transformers` import, so this is a no-op for the shipped
+    server; UPX was already `True` on both `EXE`/`COLLECT`, not actually missing. `onnxruntime`/`onnxruntime-gpu` were
+    investigated and deliberately left bundled: `engine/sysprobe.py`'s `gpu_info()` is reached from real server-boot
+    code (`viewer_app.main() -> rps_init() -> sysprobe.load_or_build()`), not just OCR-ingest tooling, and feeds the
+    RPS modern/lite/legacy mode pick — excluding it would misdetect GPU hardware on boot, not just shrink the build.
+    numpy/reportlab/fitz are genuine request-serving dependencies and were left alone. Not build-verified in this pass
+    — no PyInstaller run/bundle-size measurement was done, only static import-graph tracing; see `viewer.spec` for the
+    full reasoning.)
 
 ---
 

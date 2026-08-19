@@ -12,6 +12,157 @@ every change going forward.
 
 ---
 
+## [1.14.1] — 2026-08-18 — Barcode/QR wired into the OCR pass (catalog §4.9) + routes/ package split, embed cache, camelot pilot, KG page, fingerprint consolidation
+`barcodes.py` had been a fully-built, self-tested, dual-backend (pyzbar/OpenCV) barcode/QR/Data-Matrix
+`detect()` since it was written — its own docstring states the intent (some TMs print NSNs/part numbers
+as barcodes; a machine-decoded value is higher-trust than OCR text) — but it had **zero callers**
+anywhere in the codebase, only its own `__main__` self-test and the module import-check in
+`verifystate.py`. Wired in. This release also bundles five smaller, independent changes landed in the
+same working tree (R4): a `features/routes.py` → `features/routes/` package split, an `embed.py` search
+cache, an opt-in camelot-py table-extraction pilot, a new `/kg` browsing page, and a hardening pass on
+`ingestpipe.quick_hash()`'s content-only-vs-`viewer_ingest.fingerprint()` distinction — each documented
+in its own bullets below rather than only getting scattered mentions in `ROADMAP-1.1.md` /
+`feature_audit.txt`.
+
+### Added
+- **`viewer_ingest.ocr_one()` now reads barcodes off the same rendered page PNG `_render_png()` already
+  produces for OCR** — never a second render of the page. New `_scan_barcode()` helper is opt-in
+  (`VIEWER_BARCODE_SCAN=0` to disable, default on, mirroring `VIEWER_OCR_PREPROCESS`'s toggle pattern)
+  and cheap: it no-ops instantly whenever `barcodes.available()` is `False` (neither pyzbar nor OpenCV
+  installed), the exact same graceful-degradation contract `barcodes.py` already has. Reuses the
+  existing identical-page dedup cache, so a repeated boilerplate page (covers, dividers) reuses the
+  barcode read exactly like it already reuses OCR text.
+- `ocr_one()`'s return type grew from `(text, confidence)` to `(text, confidence, barcode)`, where
+  `barcode` is `None` or `{'type','data','nsn'}` — the first decoded record, preferring one that
+  actually carries a recognizable NSN over one that doesn't when a page has more than one barcode.
+  Three new nullable columns on `pages` (migration `0010_barcode_capture.sql`, additive/R1, same shape
+  as [1.13.5]'s `ocr_confidence` column): `barcode_type`, `barcode_data` (truncated to 500 chars),
+  `barcode_nsn`.
+- **`extract_parts()` now also mines `pages.barcode_nsn`** on every full rebuild and inserts those rows
+  into `parts` tagged `confidence='barcode'` — distinguishable, higher-trust provenance next to the
+  existing regex-extracted `'page'`/`'aligned'` rows, picked up for free by every existing
+  `confidence IS NOT NULL` consumer (`features/parts_feature.py`'s `part_lookup()` / `part_differences()`)
+  with no changes needed to those callers. Full-rebuild-safe: `extract_parts()`'s own
+  `DELETE FROM parts WHERE confidence IS NOT NULL` at the top of the function removes barcode rows too,
+  but they're deterministically regenerated from `pages.barcode_nsn` every run, exactly like the regex
+  rows are regenerated from `body_text` — confirmed idempotent by the new test.
+- **`engine/features/routes.py` split into a `features/routes/` package** (`_shared.py` plus 13
+  per-domain submodules: `browse`, `diagnostics`, `doc_extractors`, `field_tools`, `ingest`, `jobcards`,
+  `ops_status`, `page_render`, `parts_media`, `parts_refs`, `schematics`, `search`, `static`) — the
+  monolith had grown to 2,198 lines. Every route/handler moved verbatim (behavior unchanged);
+  `viewer_app.py` now DI-wires `core` onto each submodule in `_froutes.SUBMODULES`, not just the
+  package `__init__.py`, since each submodule's handler bodies reference their own module-level `core`
+  global. `audit_features.py`'s duplicate-route-path scan and the route-registration cross-checks in
+  `test_uiux_fixes.py` were updated to scan every `.py` file under the directory instead of one file.
+- **`engine/embed.py`'s `search()` now caches the loaded `embeddings.npy`/`embeddings_ids.tsv` pair**
+  in-process (`_ARR_CACHE`, keyed by `index_dir` + both files' mtimes, guarded by `_ARR_CACHE_LOCK`)
+  instead of `_np.load()`-ing fresh off disk on every `/api/semantic` call — mirrors the keyword-search
+  path's existing TTL'd `_SEARCH_LRU` pattern in `features/routes.py`. A rebuild (`BUILD-EMBEDDINGS.bat`
+  reran) is still picked up immediately because the mtime check invalidates the stale cache entry.
+- **`engine/tables_plus.py` gained an opt-in `camelot_tables()` pilot** — a THIRD, independent
+  table-extraction engine (camelot-py 2.0, documented as an optional extra in `requirements.txt`, not a
+  hard dependency) for cross-validating `tables.py` (PyMuPDF `find_tables`, ruled) and this module's own
+  `borderless_tables()` (pdfplumber) against the same page. `_camelot_backend()` picks camelot's PDF→image
+  backend from the same legacy/modern tier signal `sysprobe.py` already uses for page rendering (forces
+  `poppler` on the legacy tier, otherwise leaves camelot's bundled `pdfium` default alone) and fails open
+  to `pdfium` if the tier probe can't run. `camelot_available()` exposes the optional-import guard the
+  same way `available()` already does for pdfplumber. **Not wired into the served app** — same "built,
+  tested, zero callers" posture `barcodes.py` was in before this release's own barcode-wiring work above:
+  `/api/tables_plus` (`features/routes/doc_extractors.py`) still calls only `borderless_tables()`, and no
+  ingest step calls `camelot_tables()` either; its only callers today are `tests/test_camelot_tables.py`
+  (new file — the pilot's self-test lives there, not in `tables_plus.py`'s own `__main__`).
+- **New `/kg` page (`engine/ui/kg.html`)** — a browsing front-end for the knowledge graph `build_kg.py`
+  already builds and `/api/kg` already served with no UI before this; linked from the nav in
+  `engine/ui/index.html`. Alongside it, `build_kg.py`'s figureparts sample is now CLI-overridable
+  (`--sample-docs` / `--parts-cap`, same `--flag N`/`--flag=N` style as `build_publog.py`'s `--sample`)
+  and its defaults were raised 10x (400→4,000 docs, 5,000→50,000 parts cap) since the old sample covered
+  roughly 1% of the corpus; `BUILD-KG.bat` now forwards its own CLI args through.
+- **`ingestpipe.quick_hash()`'s docstring and self-test now say explicitly why it stays
+  content-only** (size + SHA1 of the first 1 MB, mtime never consulted) instead of delegating to
+  `viewer_ingest.fingerprint()` (`size:mtime:MD5(first 64KB)`), even though both are conceptually
+  "cheap file fingerprint" helpers: `viewer_ingest.fingerprint()` is built for per-path change
+  detection (has *this* file changed since it was last ingested — mtime-sensitivity is correct there),
+  while `quick_hash()`'s job is spotting byte-identical duplicate manuals arriving from mixed sources
+  (re-downloads, archive extractions, USB copies) whose mtimes don't reliably track "same content".
+  The self-test now forces a duplicate file's mtime to differ from the original's and asserts
+  `quick_hash()` still matches, so a future edit that makes it mtime-sensitive again would fail loudly
+  instead of silently missing duplicates.
+
+### Verified
+- `python tests/test_barcode_wiring.py` (new, 49 checks) — built a REAL, machine-decodable QR (OpenCV's
+  `QRCodeEncoder`, the encoder actually available in this environment; `pyzbar`/`segno`/`qrcode` are not
+  installed here, decode backend is OpenCV-QR) encoding an NSN, embedded it into a synthetic PDF page via
+  PyMuPDF, and ran it through the real `crawl`→`index_pdf`→`ocr`→`extract_parts` pipeline against the
+  actual migrated schema: the barcode round-trips through `pages.barcode_*` and lands in `parts` with
+  `confidence='barcode'`, survives a second `extract_parts()` rebuild unchanged, and surfaces through
+  `features/parts_feature.py.part_lookup()`. Also covers the opt-out toggle, simulated
+  `barcodes.available()==False` degradation, a real non-barcode page (decodes to `None`, no crash), a
+  real barcode with no NSN in its payload (type/data captured, `nsn` stays `None`, no `parts` row), and
+  the NSN-preferring selection/truncation logic. Skips cleanly (exit 0, reason printed) instead of
+  faking a pass on an environment that can't actually decode or generate a barcode.
+- `python barcodes.py` / `python qrgen.py` self-tests — unchanged, still pass (backend=opencv-qr here).
+- `python engine/tests/test_features_integration.py` — new `embed_cache_hit_no_reload` /
+  `embed_cache_invalidates_on_rebuild` checks confirm `embed.search()` loads the embeddings array once
+  across two calls against an unchanged `index_dir`, then reloads exactly once after a real,
+  `os.utime`-forced mtime bump simulating a rebuild.
+- `python engine/tests/test_camelot_tables.py` (new, 19 checks) — camelot-py 2.0 happens to be installed
+  in this environment, so every check ran for real (not skipped): builds a real ruled-table PDF via
+  reportlab, round-trips it through `camelot_tables()` and recovers the actual NSN/item-name cell data,
+  covers empty-cell/no-table/missing-file/out-of-range-page degradation, the `_camelot_backend()`
+  legacy/modern tier-gating (incl. a simulated probe-glitch fail-open), a forced-backend override, the
+  `camelot_available()==False` degradation path, and a direct cross-validation against `tables.py`'s
+  PyMuPDF extraction on the same synthetic page (row/column counts and recovered figures agree). Skips
+  cleanly (exit 0) instead where camelot-py isn't installed, same posture as `tables_plus.py`'s own
+  pdfplumber self-test.
+- `python engine/tables_plus.py` — unchanged borderless/stitch self-test still passes; the camelot pilot
+  regression itself was moved out of this file's `__main__` and now lives entirely in
+  `test_camelot_tables.py` (strictly more coverage than duplicating a subset here would give).
+- `python engine/audit_features.py` and `python engine/tests/test_uiux_fixes.py` — both updated to read
+  every file under `features/routes/` instead of the old single `routes.py`; `[0] duplicate route paths`
+  and the nav-link / QR-header route-registration checks all still pass against the split package.
+- `python engine/verify_ui.py` and `python engine/tests/rps_lint.py` — `ui/kg.html` added to both pages
+  lists; passes the syntax check and is classified alongside `related.html`/`semantic.html` as a
+  discovery tool (not a core ES5-required mechanic) in `MODERN_BY_DESIGN`.
+- `python engine/ingestpipe.py` — self-test extended so the duplicate fixture file's mtime is forced
+  to differ from the original's (`os.utime`, +10000s) and asserts `quick_hash()` still returns the same
+  value for both, proving the content-only behavior the docstring now documents.
+- Full suite: `python tests/verify_all.py` — 26/26 suites pass (the new file auto-discovered via the
+  existing glob, [1.14.0] finding #41's own fix). The one non-suite check in that gate,
+  `safeguard verify`, reports pre-existing drift against a stale snapshot from unrelated, already
+  in-progress work in this tree at the time of this change — not caused by this change (`viewer_ingest.py`
+  is the only one of its 14 flagged files this change touched, and it's flagged only because it grew, as
+  expected).
+
+### Compatibility (R1)
+- `pages.barcode_type/barcode_data/barcode_nsn` are additive, nullable columns — no existing query,
+  index, or FTS trigger references them; NULL for every page OCR'd before this migration (not
+  backfilled — same posture [1.13.5] took for `ocr_confidence`).
+- `ocr_one()`'s return type changed again (`(text, conf)` → `(text, conf, barcode)`) — grepped the whole
+  tree; `_ocr_task()` was the only caller, updated in the same change, same as the [1.13.5] precedent.
+- Rollback = don't run future OCR/`extract_parts()` passes; the columns and any `confidence='barcode'`
+  rows stay, but nothing new writes to them.
+- `features/routes.py` no longer exists as a file — `import features.routes` still works unchanged
+  (the package `__init__.py` re-exports every name the monolith exposed), but anything reading
+  `features/routes.py` as a single file path breaks; grepped the whole tree, found and fixed the only
+  two such callers (`audit_features.py`, `test_uiux_fixes.py`).
+- `quick_hash()`'s actual output format (`sha1(size + first 1MB)[:16]`, content-only) is unchanged —
+  only its docstring and self-test coverage grew — so nothing that reads its return value is affected.
+
+### Known, deliberately deferred
+- The existing corpus is not backfilled — barcode capture only grows as pages are naturally re-OCR'd.
+- `pyzbar` (1-D barcode + Data-Matrix, beyond OpenCV's QR-only detector) remains an optional install
+  (see `requirements.txt`) — not installed in this environment, so this change's own regression test
+  ran against the OpenCV-QR backend only.
+- `search()`'s free-text NSN routing (`features/search_feature.py`) was deliberately left untouched —
+  barcode-sourced NSNs are consumed via the `parts` table / `part_lookup()`, the integration point
+  named for this work; wiring them into full-text search too would need a separate design (there's no
+  page body text for a barcode-only value).
+- `camelot_tables()` itself is deliberately NOT wired into `/api/tables_plus` or any ingest step yet —
+  it's a cross-validation pilot, not a replacement for `borderless_tables()`; deciding how (or whether)
+  to surface a three-way extraction disagreement to a route/consumer is separate follow-on work.
+
+---
+
 ## [1.14.0] — 2026-08-18 — 50-finding 4-tier audit + UX pass + CI + doc reconciliation
 The largest single effort in this project's history by commit count (12 commits, 2026-08-17 to
 2026-08-18): a full 4-tier code audit (Critical/High/Medium/Low, 50 findings from the original

@@ -1,6 +1,6 @@
 THE VIEWER — feature audit
 ============================================================
-registry: 244 GET · 21 POST · 45 page-routes · 16 served scripts
+registry: 246 GET · 21 POST · 46 page-routes · 16 served scripts
 
 [0] duplicate route paths (a dup silently drops one handler)
 PASS no duplicate route paths (150 decorators, all unique per method)
@@ -51,22 +51,23 @@ PASS page /verify                -> ui/verify.html
 PASS page /review                -> ui/review.html
 PASS page /learn                 -> ui/learn.html
 PASS page /readiness             -> ui/readiness.html
+PASS page /kg                    -> ui/kg.html
 
 [2] served scripts are actually referenced (dead-feature guard)
 PASS tagger.js            referenced by 2 pages
 PASS partgeo.js           referenced by 2 pages, 1 asset
 PASS partview.js          referenced by 1 page
-PASS cadview.js           referenced by 1 page
+PASS cadview.js           referenced by 1 page, 3 assets
 PASS loupe.js             referenced by 2 pages
-PASS schemhl.js           referenced by 1 page
+PASS schemhl.js           referenced by 2 pages
 PASS schemflow.js         referenced by 1 page
 PASS gl3d.js              referenced by 3 pages, 2 assets
 PASS circuitsim.js        referenced by 1 page, 1 asset
 PASS circuitsim-worker.js referenced by 1 page
 PASS rps.js               referenced by 15 pages, 1 asset
-PASS palette.js           referenced by 43 pages, 3 assets
-PASS shared.js            referenced by 42 pages
-PASS deepzoom.js          referenced by 1 page
+PASS palette.js           referenced by 44 pages, 5 assets
+PASS shared.js            referenced by 43 pages, 3 assets
+PASS deepzoom.js          referenced by 3 pages, 3 assets
 PASS scanner.js           referenced by 3 pages, 1 asset
 PASS readaloud.js         referenced by 0 pages, 1 asset
 

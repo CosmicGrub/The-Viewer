@@ -22,4 +22,15 @@ segno>=1.5             # offline QR codes on the job packet / part pages (pure-p
 # sentence-transformers   # TRUE offline semantic search (otherwise a keyword-hash fallback is used)
 # pyzbar                  # 1-D barcodes + Data-Matrix (OpenCV already does QR without this)
 # lxml                    # faster IETM/S1000D XML parsing (stdlib xml.etree is used by default)
-# camelot-py[cv]          # alternative advanced table extraction
+# camelot-py              # pilot 3rd table-extraction engine, cross-validated against tables.py/tables_plus.py
+#                          # (engine/tables_plus.py camelot_tables()). Camelot 2.0's Ghostscript requirement is
+#                          # now OPTIONAL: the default backend is 'pdfium' (bundled pypdfium2, pure pip install,
+#                          # no external binary); real 2.0 extras are plot/ml/ocr/ghostscript/dev -- there is no
+#                          # 'cv' extra, so bare `pip install camelot-py` is already the correct minimal install.
+#                          # CAUTION verified 2026-08-18: camelot hard-requires opencv-python-headless, which
+#                          # installs into the SAME cv2/ path as opencv-python above -- pip lets both co-exist,
+#                          # but whichever installs/upgrades LAST silently overwrites the other's cv2.pyd on
+#                          # disk. Harmless only while both resolve to the same opencv release (confirmed
+#                          # byte-identical here); a future version skew between the two specs is NOT caught by
+#                          # `pip check` and could break cv2 for the rest of the app (vectorize/symbols/
+#                          # barcodes) -- if you install this, pin opencv-python-headless to match opencv-python.

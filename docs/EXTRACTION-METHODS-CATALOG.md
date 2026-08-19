@@ -64,7 +64,7 @@ append-only sidecars (R1/R6).
 |4.6| **Dimension-line / GD&T extraction from drawings** (arrows + numbers, rotation-aware) | ◐ | `dimscan.py` detects rotated dimension-line geometry (cv2) + `/api/dimscan`; number-OCR is the host-side step (needs OCR engine) | — |
 |4.7| **Exploded-view association** — every callout → its RPSTL row | ○ | combine 4.5 + RPSTL; completes the parts picture | M |
 |4.8| **Symbol / component detection on schematics** | ✅ | `symbols.py` (OpenCV template match + NMS) | — |
-|4.9| **Barcode / QR / Data-Matrix** on pages | ◐ | `barcodes.py` (OpenCV QR now; add `pyzbar` for 1-D/DataMatrix) | S |
+|4.9| **Barcode / QR / Data-Matrix** on pages | ✅ | `barcodes.py`, wired into `viewer_ingest.ocr_one()`'s render pass (migration 0010) — decoded NSNs feed the parts index with `confidence='barcode'` provenance, distinguishable from OCR-derived rows. OpenCV QR out of the box; add `pyzbar` for 1-D/Data-Matrix too | — |
 |4.10| Figure / photo vs diagram classification | ◐ | region + classifier; routes to the right handler | M |
 |4.11| **Icon / warning-symbol detection** (⚠, ☢, electrical) | ✅ | `symbols.py` (same template-match engine) | — |
 

@@ -33,7 +33,7 @@ try:
 except Exception:
     fitz = None
 
-VERSION = "1.14.0"
+VERSION = "1.14.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -309,6 +309,12 @@ import features.routes as _froutes                                # noqa: E402
 from features import registry as _registry                        # noqa: E402
 
 for _m in (_fsearch, _fparts, _fbrowse, _fproc, _frender, _fingest, _fsess, _fcorpus, _froutes):
+    _m.core = sys.modules[__name__]
+# v1.14: routes.py split into features/routes/ (per-domain submodules) -- each submodule (+ the
+# shared-helper module _shared) needs the same `core` DI the package itself gets above; setting
+# `_froutes.core` alone only reaches features/routes/__init__.py's own namespace, not the
+# submodules' individual `core` globals their handler bodies actually call through.
+for _m in _froutes.SUBMODULES:
     _m.core = sys.modules[__name__]
 
 # Re-export every name the monolith exposed (tests, scripts, and the DI feature modules call

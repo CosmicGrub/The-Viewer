@@ -6,7 +6,7 @@ PAGES = ["ui/threed.html", "ui/schematics.html", "ui/circuitlab.html", "ui/deepz
          "ui/coverage.html", "ui/locate.html", "ui/jobcard.html", "ui/torque.html",
          "ui/bench.html", "ui/fastener.html", "ui/pmcs.html",
          "ui/semantic.html", "ui/related.html", "ui/visual.html",
-         "ui/decode.html"]
+         "ui/decode.html", "ui/kg.html"]
 # external scripts to syntax-check directly (host-authoritative; sandbox mount truncates grown files)
 SCRIPTS = ["ui/palette.js", "ui/deepzoom.js"]
 rc = 0

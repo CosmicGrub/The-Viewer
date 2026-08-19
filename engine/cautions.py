@@ -70,7 +70,9 @@ def find_for_query(db_path, q, limit=40):
             c["doc"] = r["doc_id"]; c["vehicle"] = r["vehicle"]; c["tm"] = r["tm_number"]
             c["page_url"] = "/deepzoom?doc=%s&page=%s" % (r["doc_id"], r["page_number"])
             if _tq:
-                _tq.annotate(c, context_key="text")  # flag callouts pulled from poor-OCR pages
+                # real per-page RapidOCR confidence (may be None -- Tesseract-fallback/native-text
+                # pages), blended conservatively alongside the text heuristic; see textquality.annotate().
+                _tq.annotate(c, context_key="text", real_confidence=r.get("ocr_confidence"))
             counts[c["severity"]] = counts.get(c["severity"], 0) + 1
             out.append(c)
     out.sort(key=lambda r: -r["rank"])

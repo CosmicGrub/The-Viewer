@@ -198,7 +198,7 @@ try:
     vdb = os.path.join(d, "viewer.db"); sdb = os.path.join(d, "measures.db")
     v = sqlite3.connect(vdb)
     v.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, vehicle TEXT)")
-    v.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT)")
+    v.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, ocr_confidence REAL)")
     v.execute("INSERT INTO documents VALUES(1,'HMMWV')")
     v.execute("INSERT INTO pages(document_id,page_number,body_text) VALUES(1,1,?)",
               ("Torque the nut to 25 ft-lb. Overall length is 180 in.",))

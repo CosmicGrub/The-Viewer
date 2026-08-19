@@ -730,11 +730,15 @@ try:
     import textquality as _real_tq
     calls = [0]
     orig_annotate = _real_tq.annotate
-    def _flaky_annotate(record, context_key="context"):
+    # signature must match the real annotate()'s current shape (real_confidence= added this session
+    # to thread pages.ocr_confidence through) -- _parse_procedure() always calls with that keyword now,
+    # so a stand-in missing it would TypeError on every call (not just the one simulated failure below),
+    # defeating this test's actual point (isolating ONE bad caution, not silently failing all of them).
+    def _flaky_annotate(record, context_key="context", real_confidence=None):
         calls[0] += 1
         if calls[0] == 2:
             raise RuntimeError("simulated failure")
-        return orig_annotate(record, context_key)
+        return orig_annotate(record, context_key, real_confidence=real_confidence)
     _real_tq.annotate = _flaky_annotate
     text = ("REMOVAL\nWARNING: First clean text.\nCAUTION: Second text.\nDANGER: Third clean text.\n"
             "1. Disconnect the cable.\n")

@@ -38,7 +38,7 @@ def _synth_db():
               "size_bytes INTEGER, mtime REAL, status TEXT DEFAULT 'discovered', "
               "created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))")
     c.execute("CREATE TABLE parts(id INTEGER PRIMARY KEY, document_id INT, page INT, nsn TEXT, part_number TEXT, name TEXT, nomenclature TEXT, cagec TEXT, smr TEXT, uoc TEXT, fig_no TEXT, fig_title TEXT)")
-    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT)")
+    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT, ocr_confidence REAL)")
     c.execute("INSERT INTO documents(id,path,type,tm_number,nsn,title,vehicle,page_count,status) "
               "VALUES(1,'/x/a.pdf','pdf_text','TM 9-2320-280-24P','5305-01-111-1111','Maint','HMMWV M998',12,'indexed')")
     c.execute("INSERT INTO parts(document_id,page,nsn,name,fig_no,fig_title) VALUES(1,12,'5305-01-111-1111','BOLT','FIG 5','ELEC')")

@@ -26,11 +26,14 @@ def _proc_kind(line):
     return None
 
 
-def _parse_procedure(text):
+def _parse_procedure(text, ocr_confidence=None):
     """Heuristically pull structure out of a TM work-package page: kind, numbered steps, a
     tools-required list, materials/consumables, referenced manuals, and WARNING/CAUTION/NOTE
     callouts. Best-effort extraction — the cited page image is always the source of truth (the UI
-    links to it and says 'verify on the sheet'). `materials`/`references` added v0.99.10 (additive)."""
+    links to it and says 'verify on the sheet'). `materials`/`references` added v0.99.10 (additive).
+    `ocr_confidence`: optional real, engine-reported per-page OCR confidence (pages.ocr_confidence),
+    passed through to each caution's textquality.annotate() call -- see that function's docstring for
+    the conservative blend rule (can only lower a caution's confidence flag, never raise it)."""
     if not text: return None
     lines = [l.rstrip() for l in re.split(r"[\r\n]+", text)]
     kind = None; title = None; steps = []; tools = []; cautions = []; materials = []
@@ -78,7 +81,7 @@ def _parse_procedure(text):
     if _tq:
         for c in cautions:
             try:
-                scored = _tq.annotate({"text": c["text"]}, context_key="text")
+                scored = _tq.annotate({"text": c["text"]}, context_key="text", real_confidence=ocr_confidence)
                 c["confidence"] = scored["confidence"]; c["quality"] = scored["quality"]
             except Exception:
                 pass
@@ -105,7 +108,8 @@ def procedure_for(query, limit=6):
         match = phrase + ' AND (removal OR installation OR remove OR install OR disassembly OR assembly OR replace OR adjustment OR service)'
         try:
             rows = con.execute(
-                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, d.title, p.page_number, p.body_text, p.source "
+                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, d.title, p.page_number, p.body_text, "
+                "p.source, p.ocr_confidence "
                 "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid JOIN documents d ON d.id=p.document_id "
                 "WHERE pages_fts MATCH ? ORDER BY rank LIMIT ?", (match, limit*3)).fetchall()
         except sqlite3.OperationalError:
@@ -118,7 +122,7 @@ def procedure_for(query, limit=6):
     # result slot with an identical procedure instead of surfacing distinct ones.
     out = []; seen = {}
     for r in rows:
-        pr = _parse_procedure(r["body_text"])
+        pr = _parse_procedure(r["body_text"], ocr_confidence=r["ocr_confidence"])
         if not pr: continue
         kk = (r["tm_number"] or "", r["page_number"])
         if kk in seen:

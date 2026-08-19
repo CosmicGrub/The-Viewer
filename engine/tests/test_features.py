@@ -14,7 +14,7 @@ def _build_db():
     c = sqlite3.connect(DBP)
     c.executescript("""
       CREATE TABLE documents(id INTEGER PRIMARY KEY, path TEXT, vehicle TEXT, tm_number TEXT, title TEXT, page_count INT);
-      CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, source TEXT);
+      CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, source TEXT, ocr_confidence REAL);
       CREATE VIRTUAL TABLE pages_fts USING fts5(body_text, content='pages', content_rowid='id');
       CREATE TABLE request_items(id INTEGER PRIMARY KEY, item_name TEXT, nsn TEXT, session_id INT, created_at TEXT);
       CREATE TABLE parts(id INTEGER PRIMARY KEY, name TEXT, part_number TEXT, nsn TEXT, document_id INT, page INT,
@@ -61,6 +61,48 @@ ok("parse_group_title_not_kind", (pr2 is None) or pr2["kind"] != "Assembly")
 pf = V.procedure_for("alternator")
 ok("procedure_for_found", pf["found"] and pf["n"] >= 1)
 ok("procedure_for_cites_page", bool(pf["procedures"]) and pf["procedures"][0]["page"] == 12)
+
+# --- real OCR-engine confidence wired into the quality-flag consumers (pages.ocr_confidence,
+# migration 0009, previously computed but siloed -- see textquality.annotate()'s real_confidence,
+# features/corpus.py's fts_pages(), and _parse_procedure()'s ocr_confidence parameter) ---
+import textquality as TQ
+CLEAN_TXT = "Torque the mounting bolts to 30 to 35 foot-pounds, then verify seating."
+GARBLED_TXT = "Tqrq7e th3 m0un+1ng b0l+s |o 3O f7-|b. Bxk zzz tttt vwxq mnbb kkkk ~~|| ^^^^"
+heuristic_clean_q = TQ.score(CLEAN_TXT)
+heuristic_garbled_q = TQ.score(GARBLED_TXT)
+
+# a low real confidence can PULL DOWN a heuristically-clean score...
+r1 = TQ.annotate({"text": CLEAN_TXT}, context_key="text", real_confidence=0.2)
+ok("annotate_low_real_confidence_downgrades_clean_text", r1["quality"] <= 0.2 and r1["confidence"] in ("suspect", "poor"))
+# ...but a high real confidence must NEVER pull UP a heuristically-garbled score (a confidently-wrong
+# OCR read is exactly the failure mode this exists to catch)
+r2 = TQ.annotate({"text": GARBLED_TXT}, context_key="text", real_confidence=0.99)
+ok("annotate_high_real_confidence_never_upgrades_garbled_text", r2["quality"] == heuristic_garbled_q and r2["confidence"] == TQ.flag(GARBLED_TXT))
+# None (the overwhelming majority of pages: Tesseract fallback, native text, pre-migration rows) is
+# a complete no-op -- byte-identical to calling annotate() without the parameter at all
+r3 = TQ.annotate({"text": CLEAN_TXT}, context_key="text", real_confidence=None)
+ok("annotate_none_real_confidence_is_noop", r3["quality"] == heuristic_clean_q)
+# an unparsable/out-of-range value degrades safely to "ignore it", never a crash
+r4 = TQ.annotate({"text": CLEAN_TXT}, context_key="text", real_confidence="not-a-number")
+r5 = TQ.annotate({"text": CLEAN_TXT}, context_key="text", real_confidence=5.0)
+ok("annotate_unparsable_real_confidence_ignored", r4["quality"] == heuristic_clean_q)
+ok("annotate_out_of_range_real_confidence_ignored", r5["quality"] == heuristic_clean_q)
+
+# _parse_procedure() threads ocr_confidence through to every caution's confidence flag
+proc_with_warning = "ALTERNATOR\n\nREMOVAL\n\nWARNING\nDisconnect the battery first, verify no charge remains.\n\n1. Disconnect the negative battery cable.\n2. Remove the drive belt.\n"
+pr_no_conf = V._parse_procedure(proc_with_warning)
+pr_low_conf = V._parse_procedure(proc_with_warning, ocr_confidence=0.15)
+ok("parse_procedure_default_ocr_confidence_is_none_noop", bool(pr_no_conf) and bool(pr_no_conf["cautions"]))
+ok("parse_procedure_low_ocr_confidence_downgrades_caution",
+   bool(pr_low_conf) and bool(pr_low_conf["cautions"]) and pr_low_conf["cautions"][0]["confidence"] in ("suspect", "poor")
+   and pr_low_conf["cautions"][0]["quality"] < pr_no_conf["cautions"][0]["quality"])
+
+# features/corpus.py's fts_pages() carries ocr_confidence through for every consumer (cautions.py,
+# procedures_feature.py) to actually use -- the plumbing this whole fix depends on
+from features import corpus as _corpus_mod
+corpus_rows = _corpus_mod.fts_pages("alternator", limit=5, with_body=True, db_path=DBP)
+ok("fts_pages_carries_ocr_confidence_key", bool(corpus_rows) and "ocr_confidence" in corpus_rows[0])
+ok("fts_pages_ocr_confidence_none_for_synthetic_page", corpus_rows[0]["ocr_confidence"] is None)  # not set in this fixture -> real NULL, handled gracefully
 
 # --- suggest ---
 sg = V.suggest("alt")

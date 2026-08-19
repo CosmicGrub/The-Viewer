@@ -990,6 +990,90 @@ def main():
             check("e2e flags: flags.disabled_stage_names() no longer includes 'pagetrim' once restored",
                   "pagetrim" not in _flags.disabled_stage_names())
 
+            # --- pagetrim on the OCR path: _run_pagetrim_ocr_stage(), a real post-pass over a real
+            # SCANNED (image-only) multi-page document once OCR has actually finished for it. Needs
+            # a real font (PIL's default bitmap font is too thin to clear the blank-page density
+            # skip -- same lesson from the e2e4 format checks), so self-contained-imports + skips
+            # cleanly if PIL isn't installed, same convention as that section. ---
+            try:
+                from PIL import Image as _PTImage, ImageDraw as _PTImageDraw, ImageFont as _PTImageFont
+                _have_pt_pil = True
+            except Exception:
+                _have_pt_pil = False
+            if not _have_pt_pil:
+                print("SKIP pagetrim OCR-path e2e checks (PIL not installed)")
+            else:
+                e2e5c_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_pagetrim_ocr_")
+                e2e5c_db = os.path.join(e2e5c_dir, "viewer.db")
+                e2e5c_con = _VI.connect(e2e5c_db)
+                _VI.migrate(e2e5c_con, os.path.join(ENGINE, "migrations"), db_path=e2e5c_db)
+                corpus5c_dir = os.path.join(e2e5c_dir, "corpus"); os.makedirs(corpus5c_dir)
+                try:
+                    pt_ocr_font = _PTImageFont.truetype("arial.ttf", 22)
+                except Exception:
+                    pt_ocr_font = _PTImageFont.load_default()
+                pt_ocr_header = "TM 9-7777-333-14"
+                pt_ocr_words = ["alternator", "bracket", "coolant", "differential", "engine",
+                                "flywheel", "gasket", "harness", "injector", "manifold"]
+                doc14 = _fitz2.open()
+                for i in range(6):
+                    img = _PTImage.new("RGB", (900, 700), "white")
+                    dr = _PTImageDraw.Draw(img)
+                    dr.text((30, 20), pt_ocr_header, fill="black", font=pt_ocr_font)
+                    y = 70
+                    for j in range(6):
+                        w1 = pt_ocr_words[(i + j) % len(pt_ocr_words)]; w2 = pt_ocr_words[(i + j + 3) % len(pt_ocr_words)]
+                        dr.text((30, y), "Install the %s and torque the %s fitting to %d ft-lb." % (w1, w2, 40 + j),
+                                fill="black", font=pt_ocr_font)
+                        y += 30
+                    dr.text((30, 650), "Change 2   Page %d" % (12 + i), fill="black", font=pt_ocr_font)
+                    tmp_png = os.path.join(e2e5c_dir, "pg%d.png" % i)
+                    img.save(tmp_png)
+                    pg = doc14.new_page(width=612, height=475)
+                    pg.insert_image(pg.rect, filename=tmp_png)
+                pt_ocr_pdf = os.path.join(corpus5c_dir, "SCAN-TM-9-7777-333-14.pdf")
+                doc14.save(pt_ocr_pdf); doc14.close()
+
+                _VI._tally_reset()
+                _VI.crawl(e2e5c_con, corpus5c_dir)
+                e2e5c_con.commit()
+                pt_ocr_doc_id = e2e5c_con.execute(
+                    "SELECT id FROM documents WHERE path LIKE ?", ("%SCAN-TM-9-7777-333-14.pdf",)).fetchone()[0]
+                remaining_pt = _VI.ocr(e2e5c_con, 10, workers=1)
+                e2e5c_con.commit()
+                check("e2e pagetrim OCR-path: all 6 scanned pages actually got OCR'd", remaining_pt == 0)
+
+                pt_ocr_body_before = e2e5c_con.execute(
+                    "SELECT body_text FROM pages WHERE document_id=? AND page_number=1",
+                    (pt_ocr_doc_id,)).fetchone()[0]
+                check("e2e pagetrim OCR-path: BEFORE the post-pass, the OCR'd header is still present "
+                      "(index_pdf()'s inline cleaning never runs for a scanned page -- proves this "
+                      "genuinely needs the separate stage, not a redundant check)",
+                      pt_ocr_header in pt_ocr_body_before)
+
+                _VI._run_pagetrim_ocr_stage(e2e5c_con)
+                e2e5c_con.commit()
+                pt_ocr_body_after = e2e5c_con.execute(
+                    "SELECT body_text FROM pages WHERE document_id=? AND page_number=1",
+                    (pt_ocr_doc_id,)).fetchone()[0]
+                check("e2e pagetrim OCR-path: AFTER the post-pass, the recurring OCR'd header is stripped",
+                      pt_ocr_header not in pt_ocr_body_after)
+                check("e2e pagetrim OCR-path: the recurring OCR'd footer is stripped too",
+                      "Change 2" not in pt_ocr_body_after)
+                check("e2e pagetrim OCR-path: real OCR'd body content survives",
+                      "Install the" in pt_ocr_body_after and "ft-lb" in pt_ocr_body_after)
+
+                # the FTS trigger (pages_au, migrations/0001_init.sql) must keep pages_fts in sync
+                # with the UPDATE this stage issues -- real content still findable, stripped header not.
+                fts_content_hits = e2e5c_con.execute(
+                    "SELECT COUNT(*) FROM pages_fts WHERE pages_fts MATCH ?", ('"torque"',)).fetchone()[0]
+                check("e2e pagetrim OCR-path: FTS index still finds real content after the UPDATE", fts_content_hits >= 5)
+                fts_header_hits = e2e5c_con.execute(
+                    "SELECT COUNT(*) FROM pages_fts WHERE pages_fts MATCH ?", ('"7777"',)).fetchone()[0]
+                check("e2e pagetrim OCR-path: FTS index no longer matches the stripped header", fts_header_hits == 0)
+
+                e2e5c_con.close()
+
             # `python viewer_ingest.py flags` -- the CLI introspection entry point, exercised as a
             # real subprocess (same as every other CLI-surface check in this file).
             flags_proc = subprocess.run(

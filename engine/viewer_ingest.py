@@ -87,17 +87,18 @@ RPSTL_SCAN = flags.scan_toggle("VIEWER_RPSTL_SCAN", "rpstl",
     "RPSTL parts-list row extraction (rpstl_feature.parse_page()). Cheap: no PDF re-open, pure regex "
     "over text already in the `pages` table.",
     attr="RPSTL_SCAN", ns=globals())
-# Header/footer/running-title stripping (pagetrim.py's statistical boilerplate detector) on a
-# document's text-layer pages before they're stored/indexed/measured -- a fully built, self-tested,
-# cataloged module (docs/EXTRACTION-METHODS-CATALOG.md Sec2.6) that had zero live callers anywhere:
-# its own docstring says it's meant to run "before measures/specs/leadingspecs run", but nothing
-# ever called it. Pure regex/Counter over text already in memory (pdf_pages_text()'s own return
-# value) -- negligible cost, same tier as MEASURES_SCAN. Text-layer PDFs only for now (index_pdf());
-# OCR'd pages arrive one at a time in ocr(), which doesn't have the whole-document page list
-# clean_pages() needs, so that path is a separate, deferred piece of work.
+# Header/footer/running-title stripping (pagetrim.py's statistical boilerplate detector) -- a
+# fully built, self-tested, cataloged module (docs/EXTRACTION-METHODS-CATALOG.md Sec2.6) that had
+# zero live callers anywhere: its own docstring says it's meant to run "before measures/specs/
+# leadingspecs run", but nothing ever called it. Two call sites cover both page-text sources:
+# index_pdf() cleans text-layer pages inline (pure regex/Counter over text already in memory --
+# negligible cost, same tier as MEASURES_SCAN); _run_pagetrim_ocr_stage() (below) is a post-pass
+# over each touched document's OCR'd pages once OCR has actually finished for it -- OCR'd pages
+# arrive ONE AT A TIME in ocr(), which never has the whole-document page list clean_pages() needs,
+# so that path can only run as a separate stage after the fact, not inline per-page.
 PAGETRIM_SCAN = flags.scan_toggle("VIEWER_PAGETRIM_SCAN", "pagetrim",
-    "Header/footer/running-title stripping (pagetrim.py) on text-layer pages before they're stored. "
-    "Text-layer PDFs only -- OCR'd pages are not covered yet.",
+    "Header/footer/running-title stripping (pagetrim.py): inline on text-layer pages (index_pdf()) "
+    "and as a post-pass over OCR'd pages once OCR finishes (_run_pagetrim_ocr_stage()).",
     attr="PAGETRIM_SCAN", ns=globals())
 # keywords.json refresh (build_keywords.py's colloquial-name merge) right after enrich_flis()
 # populates the "Also called: X" data it reads -- another fully built module (real live consumer:
@@ -1837,6 +1838,60 @@ def _run_rpstl_stage(con):
                         extracted=dict(_EXTRACT_TALLY))
 
 
+def _run_pagetrim_ocr_stage(con):
+    """Post-pass: strip header/footer boilerplate (pagetrim.py) from a touched document's OCR'd
+    pages, once OCR has actually finished for that document -- the piece PAGETRIM_SCAN's inline
+    wiring in index_pdf() couldn't cover (see that toggle's own comment): OCR'd pages arrive ONE AT
+    A TIME in ocr(), which never has the whole-document page list clean_pages() needs to detect
+    what recurs. Runs LAST (after extract_parts()/schematics/tables/rpstl, right before the final
+    "done" stage) so it can never change what any OTHER stage saw as input this run -- purely a
+    search-index text-quality improvement, not a dependency for anything upstream.
+
+    Re-cleans EVERY page of each touched document, not just the newly-OCR'd ones -- a document
+    mixing text-layer and scanned pages benefits from boilerplate detection across the WHOLE page
+    set, and re-cleaning an already-clean text-layer page (index_pdf() already stripped it) is a
+    harmless no-op: clean_pages() recomputes from whatever text is CURRENTLY stored each time, so a
+    previously-stripped page simply has nothing left to strip, not a double-strip.
+
+    Deliberately does NOT re-run dimensional extraction on the newly-cleaned text: the header/
+    footer banners this strips (TM number, page count, "Change N") are not where a real measurement
+    would ever appear, so the set of dimensions found is expected to be identical either way --
+    re-running would need a DELETE+re-INSERT per page against measures.db (meas has no natural key
+    to UPSERT against) for a benefit that's essentially zero, for real risk (a scoping bug there
+    could silently drop legitimately-found measurements). Not gated by _EXTRACT_TALLY -- this
+    changes stored body_text, not a new countable data type the breakdown panel tracks."""
+    if not PAGETRIM_SCAN or not _TOUCHED_DOC_IDS:
+        return
+    try:
+        import pagetrim
+    except Exception:
+        return
+    dbdir = _db_dir(con)
+    doc_ids = sorted(_TOUCHED_DOC_IDS)
+    total = len(doc_ids)
+    _write_progress(dbdir, stage="pagetrim_ocr", current=None, done=0, total=total, extracted=dict(_EXTRACT_TALLY))
+    for i, doc_id in enumerate(doc_ids, 1):
+        try:
+            rows = con.execute(
+                "SELECT id, body_text FROM pages WHERE document_id=? ORDER BY page_number", (doc_id,)).fetchall()
+            if len(rows) >= 5:   # clean_pages()/detect_boilerplate() no-ops below this anyway; skip the call
+                texts = [r[1] or "" for r in rows]
+                cleaned, boilerplate = pagetrim.clean_pages(texts)
+                if boilerplate:
+                    changed = False
+                    for (pid, orig), new_text in zip(rows, cleaned):
+                        if new_text != orig:
+                            con.execute("UPDATE pages SET body_text=?, char_count=? WHERE id=?",
+                                        (new_text, len(new_text), pid))
+                            changed = True
+                    if changed:
+                        con.commit()
+        except Exception:
+            pass
+        _write_progress(dbdir, stage="pagetrim_ocr", current={"doc": doc_id}, done=i, total=total,
+                        extracted=dict(_EXTRACT_TALLY))
+
+
 _HW_SEED = [
     # (size, series, major_in, major_mm, tpi_or_pitch, tap_drill, torque_ref_lbft)  -- public-domain facts
     ("1/4-20 UNC","UNC",0.250,None,"20","#7 (.201)","8"),
@@ -2214,20 +2269,22 @@ def main():
         _run_schematic_stage(con)   # 4th stage: schematic detection on whatever got OCR'd this run
         _run_tables_stage(con)      # 5th stage: table extraction, same scoping
         _run_rpstl_stage(con)       # 6th stage: RPSTL parts-list row extraction, same scoping
+        _run_pagetrim_ocr_stage(con)  # 7th stage: boilerplate stripping, now that OCR has finished
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "run":
         # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
         # launches exactly this subcommand -- crawl/ocr()/extract_parts()/_run_schematic_stage()/
-        # _run_tables_stage()/_run_rpstl_stage() each stamp their own stage into ingest_progress.json
-        # as they go (see _write_progress() calls inside each), so the only thing left to mark here
-        # is the final "done" once every stage has actually finished, for the polling UI to stop
-        # showing a stage and show a completion state instead.
+        # _run_tables_stage()/_run_rpstl_stage()/_run_pagetrim_ocr_stage() each stamp their own
+        # stage into ingest_progress.json as they go (see _write_progress() calls inside each), so
+        # the only thing left to mark here is the final "done" once every stage has actually
+        # finished, for the polling UI to stop showing a stage and show a completion state instead.
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
         _run_schematic_stage(con)   # 4th stage: schematic detection, scoped to just this run's documents
         _run_tables_stage(con)      # 5th stage: table extraction, same scoping
         _run_rpstl_stage(con)       # 6th stage: RPSTL parts-list row extraction, same scoping
+        _run_pagetrim_ocr_stage(con)  # 7th stage: boilerplate stripping, now that OCR has finished
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)

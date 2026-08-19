@@ -54,7 +54,14 @@ def r_search(h, qs):
     if ops:
         resp["operators"] = ops
     if not results and (q or "").strip():
-        dym = core.did_you_mean(q_free or q)       # v0.97.0 (C20): offline zero-result suggestions
+        # v1.14 fix: NEVER fall back to the raw, un-parsed `q` here -- it still contains operator
+        # syntax (e.g. "vehicle:brakee"), and did_you_mean() naively tokenizes on [A-Za-z0-9]+, so
+        # the operator keyword itself ("vehicle") would ride along into the suggestion alongside a
+        # fuzzy match of the operator's VALUE against unrelated corpus vocabulary (e.g. producing
+        # "vehicle brake" for an operator-only, zero-result query). q_free is already the fully
+        # operator-stripped text; if it's empty there is no free text left to suggest, so skip --
+        # did_you_mean("") is a no-op anyway (empty token list), this just documents the intent.
+        dym = core.did_you_mean(q_free)             # v0.97.0 (C20): offline zero-result suggestions
         if dym: resp["did_you_mean"] = dym
     # v1.13 (#19): zero-result GAP LOG -- remember what the corpus could NOT answer (append-only
     # sidecar via analytics.jsonl; kind='gap'). Best-effort: never lets logging break search.

@@ -64,9 +64,13 @@ def currency(db_path, tm_number):
     con = None
     try:
         con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True); con.row_factory = sqlite3.Row
-        like = base[:12] + "%"
-        rows = con.execute("SELECT id, tm_number, title FROM documents WHERE REPLACE(UPPER(tm_number),' ','') LIKE ? "
-                           "OR REPLACE(UPPER(title),' ','') LIKE ? LIMIT 50", (like, "%" + base + "%")).fetchall()
+        # v1.13.5: exact match on the full normalized TM number, not a 12-char prefix. For standard Army TM
+        # numbering (e.g. "TM 9-2320-280-24P" vs "TM 9-2320-280-20") a short prefix is exactly the shared
+        # weapon-system/model segment, so it used to match every manual TYPE for that platform (operator,
+        # unit maintenance, parts, direct-support, ...) instead of just other copies/revisions of THIS one
+        # manual. The title LIKE stays a substring fallback for docs whose tm_number field is missing/dirty.
+        rows = con.execute("SELECT id, tm_number, title FROM documents WHERE REPLACE(UPPER(tm_number),' ','') = ? "
+                           "OR REPLACE(UPPER(title),' ','') LIKE ? LIMIT 50", (base, "%" + base + "%")).fetchall()
     except Exception as e:
         return {"tm": tm_number, "current": None, "superseded": [], "n": 0, "error": str(e)}
     finally:
@@ -104,6 +108,29 @@ if __name__ == "__main__":
     x = parse_revision("TM 1  1 JANUARY 2020"); y = parse_revision("TM 1  1 JANUARY 2018")
     assert compare_revisions(x, y) > 0, "later date newer"
     print("date tie-break OK")
+
+    # regression: currency() must match only OTHER COPIES of the same TM, not sibling manual types that
+    # share a weapon-system/model prefix (e.g. -24P parts manual vs -20 unit-maintenance manual for the
+    # same platform). A prefix-based match used to conflate them and wrongly label one "superseded".
+    import os, tempfile
+    _d = tempfile.mkdtemp(prefix="tmrev_")
+    _db = os.path.join(_d, "v.db")
+    _con = sqlite3.connect(_db)
+    _con.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, tm_number TEXT, title TEXT)")
+    _con.executemany("INSERT INTO documents(id, tm_number, title) VALUES (?,?,?)", [
+        (1, "TM 9-2320-280-24P", "Parts Manual"),
+        (2, "TM 9-2320-280-20", "Unit Maintenance Manual"),                       # different manual, same platform
+        (3, "TM 9-2320-280-24P", "Parts Manual CHANGE 1  1 JUNE 2015"),           # a newer copy of doc 1
+    ])
+    _con.commit(); _con.close()
+
+    res = currency(_db, "TM 9-2320-280-24P")
+    assert res["n"] == 2, "expected only the two -24P copies, got n=%r (%r)" % (res["n"], res)
+    _ids = {res["current"]["doc"]} | {s["doc"] for s in res["superseded"]}
+    assert _ids == {1, 3}, "wrong doc set matched -> %r" % (_ids,)
+    assert 2 not in _ids, "must not treat the sibling -20 manual as a copy/revision of the -24P manual"
+    assert res["current"]["doc"] == 3, "the CHANGE 1 copy must rank current over the base copy"
+    print("currency OK -> matched only same-TM copies, excluded sibling manual type ->", res["tm"])
     assert parse_revision("no tm here")["tm_number"] is None
     print("tmrev self-test PASS")
 

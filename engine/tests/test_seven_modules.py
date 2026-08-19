@@ -230,6 +230,11 @@ try:
     ok("classify_single_doc_honors_override", cl["mechanic"] is True and cl["confidence"] == "override")
 
     ok("save_override_rejects_bad_side", SF.save_override(1, "banana")["ok"] is False)
+
+    # doc_id arrives straight from the POST JSON payload (unlike GET routes' registry.qint()-guarded
+    # params) -- missing/malformed doc_id must return a clean ok:False, not raise ValueError/TypeError.
+    ok("save_override_rejects_missing_doc_id", SF.save_override(None, "mechanic")["ok"] is False)
+    ok("save_override_rejects_nonnumeric_doc_id", SF.save_override("not-a-doc", "mechanic")["ok"] is False)
 except Exception as e:
     failed.append("sides_feature(%s)" % e)
 
@@ -308,8 +313,8 @@ try:
         okx, detail = FF.extract(pdf_path, 1, 100, out_path)
         ok("extract_blank_page_top_fallback", okx is True and os.path.exists(out_path) and os.path.getsize(out_path) > 0)
 
-        okx2, detail2 = FF.extract(pdf_path, 999, 100, out_path)  # out-of-range page clamps, doesn't crash
-        ok("extract_out_of_range_page_clamped", okx2 is True)
+        okx2, detail2 = FF.extract(pdf_path, 999, 100, out_path)  # out-of-range page fails, doesn't clamp/crash
+        ok("extract_out_of_range_page_fails", okx2 is False and "out of range" in detail2)
 
         okx3, detail3 = FF.extract("/no/such/file.pdf", 1, 100, out_path)
         ok("extract_missing_pdf", okx3 is False and "not found" in detail3)

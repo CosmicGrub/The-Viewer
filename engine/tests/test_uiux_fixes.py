@@ -320,6 +320,38 @@ try:
 except Exception as e:
     failed.append("jobpack_confidence_qualifier(%s)" % e)
 
+# --- jobpack.py: build(pkg) must not silently drop pkg["cautions"] (standalone safety callouts gathered
+# by jobcards.py's _jobpack_data() via cautions.find_for_query(), which shapes items as {severity,text,page}
+# -- not attached to any procedure). Regression guard: a DANGER-severity caution with no parts/dims/torque/
+# procedures used to fall into the "No structured procedure/parts data available yet" branch and vanish
+# from the printed PDF even though /api/partsummary (built from the very same pkg) surfaces it.
+try:
+    import jobpack as _jobpack2
+    if _jobpack2.available():
+        marker = "alternator belt can cause severe entanglement injury"
+        pkg_cautions_only = {"title": "ALTERNATOR", "cautions": [
+            {"severity": "DANGER", "text": marker, "page": "4-9", "rank": 4}]}
+        pdf = _jobpack2.build(pkg_cautions_only)
+        ok("jobpack_cautions_only_pkg_builds_pdf", pdf[:5] == b"%PDF-")
+        try:
+            import pymupdf as _fitz2
+            _d2 = _fitz2.open(stream=pdf, filetype="pdf")
+            _text2 = "".join(p.get_text() for p in _d2); _d2.close()
+            ok("jobpack_severity_shaped_caution_reaches_pdf_text", marker in _text2)
+            ok("jobpack_severity_shaped_caution_shows_severity_label", "DANGER" in _text2)
+            ok("jobpack_cautions_only_pkg_not_treated_as_empty",
+               "No structured procedure/parts data available" not in _text2)
+        except Exception:
+            ok("jobpack_cautions_pdf_text_check_skipped_no_fitz", True)
+
+        # docstring/self-test's older {kind,text} caution shape must still render (backward compatible)
+        pdf2 = _jobpack2.build({"title": "X", "cautions": [{"kind": "WARNING", "text": "Old shape caution."}]})
+        ok("jobpack_kind_shaped_caution_still_builds_pdf", pdf2[:5] == b"%PDF-")
+    else:
+        ok("jobpack_cautions_dropped_fix_skipped_no_reportlab", True)
+except Exception as e:
+    failed.append("jobpack_cautions_dropped_fix(%s)" % e)
+
 try:
     for fname, needle in [("dossier.html", "OCR quality: '+esc(c.confidence)"),
                            ("packet.html", "OCR quality: '+esc(c.confidence)"),

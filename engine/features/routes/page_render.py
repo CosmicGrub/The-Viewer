@@ -26,9 +26,20 @@ def r_page(h, qs):
         if cv:
             parts = [p for p in cv.split(",") if p != ""]
             if len(parts) == 4: clip = parts
-        # Cap dpi: full page modest (fast); HD raises the full-page ceiling; clip crops high.
+        # Cap dpi: full page modest (fast); HD raises the full-page ceiling; a genuinely small
+        # clip (magnifier/loupe crop) may go higher. `clip` is only ever clamped into [0,1] with
+        # a floor on minimum size (render_feature._clip_rect_for) -- never a ceiling -- so a
+        # request can pass clip=0,0,1,1 (the whole page) and must NOT get the raised ceiling; it
+        # is capped the same as a plain full-page request.
         req_dpi = int(qstr(qs, "dpi", "130") or 130)
-        req_dpi = min(req_dpi, 700 if clip else 400)
+        small_clip = False
+        if clip:
+            try:
+                xs = [max(0.0, min(1.0, float(v))) for v in clip]
+                small_clip = len(xs) == 4 and (xs[2] - xs[0]) <= 0.35 and (xs[3] - xs[1]) <= 0.35
+            except Exception:
+                small_clip = False
+        req_dpi = min(req_dpi, 700 if small_clip else 400)
         doc_i = qint(qs, "doc", 0); pg_s = qstr(qs, "page", "1")
         hl = (qs.get("hl") or [None])[0]; cln = qflag(qs, "clean")
         ctr = int(qstr(qs, "contrast", "0") or 0); binz = qflag(qs, "binarize")

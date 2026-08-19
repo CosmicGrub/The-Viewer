@@ -55,6 +55,25 @@ def test_measures_bare_temperature():
     check("no designator/C-rate false positives (exactly 3 real readings)", len(temps) == 3)
 
 
+def test_measures_unbroken_digit_run_not_truncated():
+    # v1.13.6: _NUM used to cap a comma-less digit run at \d{1,6}. For a longer unbroken run (garbled OCR /
+    # an impossible value, e.g. a 9-digit torque figure), the cap didn't reject the number -- finditer just
+    # backtracked to a start position mid-run and silently matched that run's OWN trailing 6 digits
+    # ("350000000" -> "000000"), so the extracted value looked like a plausible near-zero reading instead of
+    # the impossible one that was actually in the source text. The full, untruncated digit string must now
+    # reach downstream validation (validate.py already quarantines it correctly -- see test_validate.py-style
+    # coverage in validate.py's own self-test).
+    rows = measures.extract("Torque the nut to 350000000 ft-lb.")
+    check("9-digit unbroken torque value not truncated to a 6-digit suffix",
+          any(r["type"] == "torque" and r["value"] == "350000000" for r in rows))
+    check("9-digit unbroken torque value is NOT the truncated '000000'",
+          not any(r["value"] == "000000" for r in rows))
+    # legitimate <=6-digit unbroken numbers and comma-grouped large numbers must still work unchanged
+    rows2 = measures.extract("Torque the nut to 123456 ft-lb. Curb weight 1,234,567 lb.")
+    check("legit 6-digit unbroken value still extracted", any(r["value"] == "123456" for r in rows2))
+    check("comma-grouped large value still extracted whole", any(r["value"] == "1,234,567" for r in rows2))
+
+
 def test_enrich():
     def fake(url, timeout=20):
         if "wayback/available" in url:
@@ -146,7 +165,8 @@ def test_tables():
 
 if __name__ == "__main__":
     print("== extraction/enrichment/masterfile regression ==")
-    test_measures(); test_measures_bare_temperature(); test_enrich(); test_masterfile(); test_tables()
+    test_measures(); test_measures_bare_temperature(); test_measures_unbroken_digit_run_not_truncated()
+    test_enrich(); test_masterfile(); test_tables()
     print(("FAILED: " + ", ".join(FAILS)) if FAILS else "ALL EXTRACTION TESTS PASS")
     sys.exit(1 if FAILS else 0)
 # END OF FILE

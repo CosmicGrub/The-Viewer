@@ -89,6 +89,21 @@ def build(pkg: dict) -> bytes:
         for w in warns:
             E.append(Paragraph("&#9888; " + w, ss["Warn"]))
 
+    # standalone safety cautions -- callouts gathered independently of any matched procedure (e.g. general
+    # safety warnings cautions.find_for_query() found on cited pages for this query). Procedure-specific
+    # cautions are rendered per-step under "Procedure" below; without this section a DANGER/WARNING callout
+    # that isn't attached to a matched procedure was silently dropped from the printed job package even
+    # though /api/partsummary (built from the same pkg) surfaced it.
+    cautions = pkg.get("cautions") or []
+    if cautions:
+        E.append(Paragraph("Safety cautions (cited)", ss["H"]))
+        for c in cautions[:10]:
+            sev = _esc(c.get("kind") or c.get("severity") or "CAUTION")
+            conf = c.get("confidence")
+            qual = "  <font size=7 color='#a05a00'>(OCR quality: %s &mdash; verify on page)</font>" % _esc(conf) if conf and conf != "clean" else ""
+            cite = "  <font size=7 color='#666'>(p.%s)</font>" % _esc(c["page"]) if c.get("page") else ""
+            E.append(Paragraph("&#9888; <b>%s</b> &mdash; %s%s%s" % (sev, _esc(c.get("text")), cite, qual), ss["Warn"]))
+
     # parts to order
     parts = pkg.get("parts") or []
     if parts:
@@ -145,7 +160,7 @@ def build(pkg: dict) -> bytes:
             if steps:
                 E.append(ListFlowable([ListItem(Paragraph(_esc(s), ss["Body"]), leftIndent=12) for s in steps[:40]],
                                       bulletType="1", start="1"))
-    if not (parts or dims or tq or procs):
+    if not (parts or dims or tq or procs or cautions):
         E.append(Paragraph("No structured procedure/parts data available yet (coverage grows as OCR completes). "
                            "Open the cited catalog page on the device.", ss["Body"]))
 

@@ -2,7 +2,7 @@
 """THE VIEWER -- offline Q&A / designation decoders / cross-manual diagnostics routes (v1.14
 routes/ split). Moved verbatim out of the former monolithic engine/features/routes.py. DI via
 `core`."""
-from features.registry import get, post, qstr, qint, qflag, safe_header_token
+from features.registry import get, post, qstr, qint, qfloat, qflag, safe_header_token
 from features.routes._shared import _pages_for
 
 core = None          # injected by viewer_app at startup
@@ -142,9 +142,22 @@ def r_crossmethod(h, qs):
             rec = publog.lookup(q)
             for c in (rec.get("characteristics") or []) if rec else []:
                 import validate
-                if validate.to_float(c.get("reply")) is not None:
-                    obs.append({"method": "publog", "type": (c.get("requirement") or "").lower()[:20],
-                                "value": c.get("reply"), "unit": "", "source": "PUBLOG"})
+                reply = c.get("reply")
+                if validate.to_float(reply) is not None:
+                    # v1.15: normalize through measures.py's own unit classifier instead of hardcoding
+                    # unit="" with the raw PUBLOG requirement string as `type`. crossmethod.reconcile()
+                    # groups strictly on the (type, unit) pair, and measures.py's canonical units (e.g.
+                    # "ft-lb", "psi") are never "" -- so the PUBLOG observation could never land in the
+                    # same group as a measures-sourced one, and PUBLOG could never actually corroborate
+                    # (status="confirmed") anything. PUBLOG replies carry their unit inline (e.g. "35 FT
+                    # LB", "3.00 IN" -- same free-text shape dimscad.py already parses), so run them
+                    # through the same extractor measures.py uses on manual text. A reply with no
+                    # recognizable unit (e.g. a bare "35") can't be normalized to a comparable dimension,
+                    # so it's skipped rather than added as an observation that can never match anything.
+                    mm = measures.extract(str(reply), cap=1)
+                    if mm:
+                        obs.append({"method": "publog", "type": mm[0]["type"], "value": reply,
+                                    "unit": mm[0]["unit"], "source": "PUBLOG"})
     except Exception:
         pass
     rec = crossmethod.reconcile(obs)
@@ -169,10 +182,11 @@ def r_conflicts(h, qs):
     q = qstr(qs, "q", "").strip()
     if len(q) < 2:
         h._send(400, {"error": "q required"}); return
-    try:
-        tol = float(qstr(qs, "tol", "0.05")) or 0.05
-    except Exception:
-        tol = 0.05
+    # v1.15: clamped like every other numeric param in this file (was bare float() with an `or 0.05`
+    # fallback -- a negative tol inverted detect()'s `spread <= rel_tol` gate into a permanent conflict,
+    # and an explicit tol=0 was silently discarded back to the default). 0..1: a relative spread can't
+    # go negative, and >=1 (>=100%) already disables conflict detection in every practical case.
+    tol = qfloat(qs, "tol", 0.05, 0.0, 1.0)
     h._send(200, conflicts.check_query(core.DB_PATH, q, limit=qint(qs, "limit", 120, 10, 400), rel_tol=tol))
 
 

@@ -34,7 +34,11 @@ def r_schempaths(h, qs):
 
 @get("/api/schemgraph")
 def r_schemgraph(h, qs):
-    doc_i = qint(qs, "doc", 0); pg = qint(qs, "page", 1, 1)
+    # hi=100000 mirrors doc_extractors.py's page-param bound: the real page count is clamped later,
+    # deep in schem_overlay, but schemgraph.cache_path/ensure mints a permanent on-disk cache file
+    # keyed on this raw value -- an unbounded page= would let a script grow index/schemcache/ without
+    # limit by requesting distinct huge/bogus page numbers that all resolve to the same clamped content.
+    doc_i = qint(qs, "doc", 0); pg = qint(qs, "page", 1, 1, hi=100000)
     fresh = qstr(qs, "fresh", "0") in ("1", "true", "yes")
     con = core.db(); r = con.execute("SELECT path FROM documents WHERE id=?", (doc_i,)).fetchone(); con.close()
     pdf_path = (r["path"] if r else "") or ""
@@ -62,6 +66,9 @@ def r_schemgraph(h, qs):
             for lb in ov.get("labels", []):
                 comps.append({"ref": lb["ref"], "x": lb["x"], "y": lb["y"], "kind": "part", "source": "review"})
             g["comps"] = comps
+            # keep counts.components in sync with comps -- callers (e.g. Circuit Lab's loadInferred())
+            # read counts.components as the summary stat and never recount the comps array themselves.
+            counts = dict(g.get("counts") or {}); counts["components"] = len(comps); g["counts"] = counts
             g["review"] = {"verdict": ov.get("verdict"), "by": ov.get("by"), "ts": ov.get("ts")}
             if ov.get("verdict") == "good":
                 g["confidence"] = max(g.get("confidence", 0), 0.9)

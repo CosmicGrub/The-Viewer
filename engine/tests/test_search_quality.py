@@ -9,14 +9,22 @@
        zero-hit queries fall back to the strongest single token.
   C23  /api/search LRU: an identical repeat query within the TTL is served from the cache
        (observable via features.routes._SEARCH_LRU) and matches byte-for-byte.
+  v1.14 an operator-only zero-result query (e.g. "vehicle:brakee") never falls back to the raw,
+       un-parsed q for did_you_mean (would otherwise leak the operator keyword into the suggestion).
+  v1.14 /api/analytics_log -> /api/analytics_top round trip (schema agreement between analytics.log
+       and analytics.summary/top, previously exercised on neither side).
+  v1.14 /api/visualmatch: real base64 image decode + phash.match ranking against a built phash.tsv,
+       plus the malformed-data-URI-without-a-comma edge case (clean 400, not a crash).
 
-Pure stdlib. RUN ON WINDOWS / a coherent env (imports viewer_app)."""
+Pure stdlib (PIL/numpy used only for the optional visualmatch block, guarded by phash.available()).
+RUN ON WINDOWS / a coherent env (imports viewer_app)."""
 import json
 import os
 import sys
 import tempfile
 import threading
 import time
+import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +46,17 @@ def ok(name, cond):
 def _get(path):
     with urllib.request.urlopen("http://127.0.0.1:%d%s" % (PORT, path), timeout=10) as r:
         return r.status, r.read()
+
+
+def _post(path, data):
+    req = urllib.request.Request("http://127.0.0.1:%d%s" % (PORT, path),
+                                 data=json.dumps(data).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
 
 
 def main():
@@ -122,11 +141,86 @@ def main():
     ok("zero-result carries did_you_mean key shape", c3 == 200 and "results" in body)
     # v1.13 (#11/#15): operators live end-to-end through the route
     import urllib.parse as _up
+    # v1.14 fix: an operator-only zero-result query ("vehicle:brakee" -- no such vehicle) must NOT
+    # fall back to the RAW un-parsed q for did_you_mean. "brakee" is one edit from the well-attested
+    # corpus term "brake" (3 pages), so the old code (did_you_mean(q_free or q)) tokenized the raw
+    # string and returned did_you_mean=["vehicle brake"] -- a nonsensical mash of the operator
+    # keyword "vehicle" and a fuzzy match of the operator's VALUE. Fixed: q_free is "" here (the
+    # whole query was operator syntax), so did_you_mean("") is a no-op and the key is absent.
+    c3b, b3b = _get("/api/search?q=" + _up.quote("vehicle:brakee"))
+    j3b = json.loads(b3b)
+    ok("operator-only zero-result query returns no results",
+       c3b == 200 and j3b.get("results") == [])
+    ok("operator-only zero-result: did_you_mean does not leak the operator keyword",
+       "did_you_mean" not in j3b)
     c4, b4 = _get("/api/search?q=" + _up.quote("vehicle:Forklift bolt"))
     j4 = json.loads(b4)
     ok("route applies vehicle: operator",
        c4 == 200 and (j4.get("operators") or {}).get("vehicle") == "Forklift"
        and j4.get("results") and all(r["doc_id"] == 3 for r in j4["results"]))
+
+    # ---- v1.14: /api/analytics_log -> /api/analytics_top round trip -------------------------
+    # Neither side was ever exercised together: a schema drift between what analytics.log() writes
+    # and what analytics.summary()/top() read back would go unnoticed. V.INDEX_DIR is the isolated
+    # fixture tmp dir (set above), so this never touches the real repo's index/analytics.jsonl.
+    import analytics as _an
+    _an_path = os.path.join(V.INDEX_DIR, _an.FNAME)
+    if os.path.exists(_an_path):
+        os.remove(_an_path)              # isolate from any earlier run against this same INDEX_DIR
+    c5, b5 = _post("/api/analytics_log", {"kind": "search", "key": "torque wrench"})
+    c6, b6 = _post("/api/analytics_log", {"kind": "part", "key": "5305-01-674-1467", "doc": 2, "page": 13})
+    ok("analytics_log 200 + ok:true (search)", c5 == 200 and json.loads(b5).get("ok") is True)
+    ok("analytics_log 200 + ok:true (part)", c6 == 200 and json.loads(b6).get("ok") is True)
+    c7, b7 = _get("/api/analytics_top")
+    top = json.loads(b7)
+    ok("analytics_top reflects both logged events", c7 == 200 and top.get("events", 0) >= 2)
+    ok("analytics_top by_kind carries what was just logged",
+       top.get("by_kind", {}).get("search", 0) >= 1 and top.get("by_kind", {}).get("part", 0) >= 1)
+    ok("analytics_top top_searches round-trips the logged key",
+       any(t.get("key") == "torque wrench" for t in top.get("top_searches") or []))
+    ok("analytics_top top_parts round-trips the logged key",
+       any(t.get("key") == "5305-01-674-1467" for t in top.get("top_parts") or []))
+
+    # ---- v1.14: /api/visualmatch -- real image decode + phash.match ranking -----------------
+    # Previously neither phash nor this route had ANY coverage; only the "no image at all" 400
+    # branch was incidentally hit by test_routes.py's blanket empty-body POST sweep. This exercises
+    # the actual decode + Hamming-distance ranking against a real phash.tsv, plus the malformed
+    # data-URI-without-a-comma edge case that would previously fail decode indistinguishably from
+    # "no image at all".
+    import phash as _ph
+    if _ph.available():
+        from PIL import Image as _PILImage, ImageDraw as _PILDraw
+        import base64 as _b64, io as _io
+        figcache = os.path.join(tmp, "figcache"); os.makedirs(figcache, exist_ok=True)
+
+        def _mk_crop(name, fill):
+            im = _PILImage.new("RGB", (64, 64), "white")
+            _PILDraw.Draw(im).rectangle([8, 8, 56, 56], fill=fill)
+            im.save(os.path.join(figcache, name))
+            return im
+
+        near_im = _mk_crop("nearcrop.png", "black")
+        _mk_crop("farcrop.png", "white")           # plain white square -- visually far from a black one
+        n_indexed = _ph.build_index(figcache, os.path.join(V.INDEX_DIR, _ph.HASH_TSV))
+        ok("phash index built for both crops", n_indexed == 2)
+
+        buf = _io.BytesIO(); near_im.resize((50, 50)).save(buf, format="PNG")   # resized copy of "near"
+        b64 = _b64.b64encode(buf.getvalue()).decode()
+        c8, b8 = _post("/api/visualmatch", {"image": "data:image/png;base64," + b64})
+        vm = json.loads(b8)
+        ok("visualmatch 200 + ready", c8 == 200 and vm.get("ready") is True)
+        ok("visualmatch finds real results", bool(vm.get("results")))
+        if vm.get("results"):
+            ok("visualmatch ranks the near-identical crop first",
+               vm["results"][0]["name"] == "nearcrop.png")
+
+        c9, b9 = _post("/api/visualmatch", {"image": "data:image/png;base64garbage-no-comma-here"})
+        ok("visualmatch: malformed data URI (no comma) -> clean 400, not a crash",
+           c9 == 400 and "error" in json.loads(b9))
+        os.remove(os.path.join(V.INDEX_DIR, _ph.HASH_TSV))
+    else:
+        ok("visualmatch block skipped (PIL/numpy unavailable in this env)", True)
+
     srv.shutdown()
 
     print("\n%d passed, %d failed" % (PASS, FAIL))

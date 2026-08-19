@@ -2,7 +2,7 @@
 """Regression tests for the v0.42-0.50 features (procedure parser, suggest, look-alike, ingest preview,
 RPS mode). Self-contained: spins up a tiny synthetic index and monkeypatches viewer_app.db so it never
 touches the real corpus. Run:  python test_features.py   (exit 0 = all pass)."""
-import os, sys, tempfile, sqlite3
+import os, sys, tempfile, sqlite3, threading, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 import viewer_app as V
@@ -114,6 +114,53 @@ try:
     ok("ingest_alias_recognized_not_new", ip2["new_pdfs"] == 0)
 except Exception as e:
     failed.append("ingest_alias_setup(%s)" % e)
+
+# --- ingest_start: concurrent POST /api/ingest must not race. ingest_start()'s "already running?"
+# check and the write that records the new subprocess are serialized under a module lock (see
+# features/ingest_feature.py's _INGEST_LOCK) -- without it, two threads can both observe no run in
+# progress and both launch a crawl. Mock subprocess.Popen with an artificial delay to widen the
+# window between the check and the write (mirroring the real cost of spawning a subprocess), so a
+# regression that narrows/removes the lock shows up as MULTIPLE "started" winners here, not a flake.
+from features import ingest_feature as _ingest_mod
+_real_popen = __import__("subprocess").Popen
+_real_sg_mod = sys.modules.get("safeguard")
+_popen_calls = []
+_popen_lock = threading.Lock()
+
+class _FakeProc:
+    def poll(self): return None      # "still running" for the lifetime of this test
+
+class _FakeSafeguard:
+    def snapshot(self, *a, **kw): return ("SNAP_test", {})
+
+def _fake_popen(cmd, **kw):
+    with _popen_lock: _popen_calls.append(cmd)
+    time.sleep(0.05)                 # simulate real subprocess-launch cost -> widens any unlocked race window
+    return _FakeProc()
+
+try:
+    import subprocess as _subprocess_mod
+    _subprocess_mod.Popen = _fake_popen
+    sys.modules["safeguard"] = _FakeSafeguard()
+    N = 8
+    barrier = threading.Barrier(N)
+    results = [None] * N
+    def _race_worker(i):
+        barrier.wait()
+        results[i] = V.ingest_start(TMP)
+    threads = [threading.Thread(target=_race_worker, args=(i,)) for i in range(N)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    started = [r for r in results if r and r.get("ok") and r.get("started")]
+    blocked = [r for r in results if r and not r.get("ok") and "already in progress" in (r.get("error") or "")]
+    ok("ingest_start_race_single_winner", len(started) == 1)
+    ok("ingest_start_race_rest_blocked", len(blocked) == N - 1)
+    ok("ingest_start_race_single_subprocess_launch", len(_popen_calls) == 1)
+finally:
+    _subprocess_mod.Popen = _real_popen
+    if _real_sg_mod is not None: sys.modules["safeguard"] = _real_sg_mod
+    else: sys.modules.pop("safeguard", None)
+    _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0}   # reset for any later use in-process
 
 # --- RPS mode (via the rps module) ---
 try:

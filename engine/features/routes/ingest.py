@@ -78,9 +78,13 @@ def r_ingest_scan(h, qs, payload):
                       "note": "no supported files found (or folder not accessible from the server)"}); return
     known_names = []
     try:
-        import sqlite3
         con = core.db()          # v1.13: pooled (close() is a harmless no-op) -> no leak on error paths
-        known_names = [r[0] for r in con.execute("SELECT DISTINCT filename FROM documents").fetchall() if r[0]]
+        # documents has no `filename` column -- only `path`/`rel_path`. `filename` is a value
+        # derived at read time elsewhere (e.g. browse_feature.py: os.path.basename(path)), never a
+        # stored column. Querying it raised sqlite3.OperationalError on every call, which the bare
+        # `except Exception` below silently swallowed, so known_names was always [] and the
+        # by-name half of plan()'s "hash OR name" duplicate detection never actually ran.
+        known_names = [os.path.basename(r[0]) for r in con.execute("SELECT DISTINCT path FROM documents").fetchall() if r[0]]
         con.close()
     except Exception:
         known_names = []
@@ -136,6 +140,9 @@ def p_ingest(h, qs, payload):
 
 @get("/api/ingest_preview")
 def r_ingest_preview(h, qs):
+    # Leaks the same class of info (real host paths + filenames) as /api/ingest_status and the
+    # rest of the _exposed_read_guard()-gated routes -- must be gated identically in exposed mode.
+    if not _exposed_read_guard(h): return
     h._send(200, core.ingest_preview(qstr(qs, "path")))
 
 

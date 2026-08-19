@@ -8,12 +8,19 @@ folders under those roots may be indexed. Unset = any local folder (the original
 for backwards compatibility). DI via `core`."""
 import os
 import sys
+import threading
 import time
 
 core = None          # injected by viewer_app at startup
 ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _INGEST = {"proc": None, "path": "", "started": 0.0}
+# Guards the ingest_start() check-then-act: without this, two concurrent POST /api/ingest
+# requests can both read _INGEST["proc"] as not-running before either has recorded the new
+# subprocess, so both pass the "already in progress" guard and both Popen() a crawl against
+# the same DB (live-reproduced: two 'crawl' rows in `runs` starting/finishing in the same
+# second). The whole read-check-write section below is serialized under this lock.
+_INGEST_LOCK = threading.Lock()
 
 
 def canon_ingest_path(path):
@@ -78,20 +85,24 @@ def ingest_start(path):
     ok, real = _canon_ingest_path(path)
     if not ok: return {"ok": False, "error": real}
     path = real
-    if _INGEST.get("proc") and _INGEST["proc"].poll() is None:
-        return {"ok": False, "error": "An indexing run is already in progress."}
-    try:
-        import safeguard as _sg; _sg.snapshot("pre-ingest")     # R1: snapshot before any write
-    except Exception: pass
-    import subprocess
-    py = sys.executable or "python"
-    cmd = [py, os.path.join(ENGINE_DIR, "viewer_ingest.py"), "crawl", "--root", path, "--db", core.DB_PATH]
-    try:
-        p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        _INGEST = {"proc": p, "path": path, "started": time.time()}
-        return {"ok": True, "started": True, "path": path}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    # Hold the lock across the "already running?" check AND the write that records the new
+    # subprocess, so two concurrent callers can't both observe no run in progress and both
+    # Popen() a crawl (see _INGEST_LOCK comment above).
+    with _INGEST_LOCK:
+        if _INGEST.get("proc") and _INGEST["proc"].poll() is None:
+            return {"ok": False, "error": "An indexing run is already in progress."}
+        try:
+            import safeguard as _sg; _sg.snapshot("pre-ingest")     # R1: snapshot before any write
+        except Exception: pass
+        import subprocess
+        py = sys.executable or "python"
+        cmd = [py, os.path.join(ENGINE_DIR, "viewer_ingest.py"), "crawl", "--root", path, "--db", core.DB_PATH]
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            _INGEST = {"proc": p, "path": path, "started": time.time()}
+            return {"ok": True, "started": True, "path": path}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
 
 def ingest_status():

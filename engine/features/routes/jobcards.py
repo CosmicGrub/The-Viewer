@@ -68,13 +68,18 @@ def _jobpack_data(qs):
     # referencing the cited+validated measures path, so /part honours its "every value cites the manual"
     # promise. Where no cited match is found, the dim is flagged consolidated-only (never a fake cite).
     try:
-        import masterfile
+        import masterfile, jobcard
         mp = os.path.join(os.path.dirname(core.DB_PATH), "masterfile.db")
-        m = masterfile.for_subject(mp, q)
+        # v1.15 FIX: for_subject()/find_for_query() only match when q is (nearly) the whole subject label,
+        # so a free-text task like "remove the alternator" matched nothing even though the Masterfile has
+        # data for "alternator". Extract the noun-phrase focus the same way jobcard.py already does for the
+        # Work Order builder, so a full-sentence q degrades to the part name instead of losing this section.
+        focus = jobcard._task_intent(q).get("focus") or q
+        m = masterfile.for_subject(mp, focus)
         dims = [dict(d) for d in (m.get("filtered") or [])[:14]]
         try:
             import measures, re as _re
-            cited = measures.find_for_query(core.DB_PATH, q, 120).get("results") or []
+            cited = measures.find_for_query(core.DB_PATH, focus, 120).get("results") or []
             def _canon(v):
                 return _re.sub(r"[^0-9a-z.]", "", str(v or "").lower())
             cite_by = {}

@@ -107,7 +107,7 @@
       // missed. c.confidence is already in the response; just render it, matching dossier.html.
       +s.cautions.slice(0,8).map(function(c){var cite=c.page?(' <span class="muted">· p.'+esc(c.page)+(c.doc?(' <a href="/deepzoom?doc='+esc(c.doc)+'&page='+esc(c.page)+'" target="_blank" style="color:#4f9dff">open ↗</a>'):'')+'</span>'):'';
         var qual=(c.confidence&&c.confidence!=="clean")?(' <span style="color:var(--amb)" title="OCR text quality: '+esc(c.confidence)+'">⚠ verify on page — OCR quality: '+esc(c.confidence)+'</span>'):"";
-        return '<div class="caut"><b>'+esc(c.kind||'NOTE')+'</b> — '+esc(c.text||'')+qual+cite+'</div>';}).join(''); }
+        return '<div class="caut"><b>'+esc(c.severity||'NOTE')+'</b> — '+esc(c.text||'')+qual+cite+'</div>';}).join(''); }
     // procedures
     if(s.procedures&&s.procedures.length){ h+='<h2>Procedure</h2><div class="card">'
       +s.procedures.map(function(p){return '<div class="proc"><span class="kind">'+esc(p.kind||'')+'</span>'+esc(p.vehicle||'')+(p.page?(' · p.'+esc(p.page)):'')+' <span class="muted">— '+(p.n_steps||0)+' steps · '+(p.n_tools||0)+' tools</span> <a href="/procedure?q='+enc+'" target="_blank" style="color:#4f9dff">open ↗</a></div>';}).join('')+'</div>'; }

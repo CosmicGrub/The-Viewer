@@ -198,7 +198,11 @@ def extract(pdf_path, page_number, dpi, out_path):
         return False, "pdf not found"
     try:
         doc = fitz.open(pdf_path)
-        idx = max(0, min(int(page_number) - 1, doc.page_count - 1))
+        idx = int(page_number) - 1
+        total = doc.page_count
+        if idx < 0 or idx >= total:
+            doc.close()
+            return False, "page %s out of range (doc has %d pages)" % (page_number, total)
         page = doc[idx]
         clip = _figure_clip(page)
         mat = fitz.Matrix(dpi / 72.0, dpi / 72.0)
@@ -247,7 +251,12 @@ def callout_crop(doc_id, page, item, dpi=150):
     if not path or not os.path.exists(path):
         return None
     try:
-        doc = fitz.open(path); idx = max(0, min(page - 1, doc.page_count - 1)); pg = doc[idx]
+        doc = fitz.open(path)
+        idx = page - 1
+        if idx < 0 or idx >= doc.page_count:
+            doc.close()
+            return None
+        pg = doc[idx]
         fig = _figure_clip(pg)                       # restrict the balloon search to the illustration
         zoom = dpi / 72.0
         pix = pg.get_pixmap(matrix=fitz.Matrix(zoom, zoom), clip=fig, alpha=False)

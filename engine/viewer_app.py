@@ -374,6 +374,12 @@ def _same_origin(origin, host):
         return False
 
 
+# _dispatch()'s "no POST payload was supplied" sentinel -- distinct from Python None, which a POST
+# body can legitimately produce (json.loads(b"null") == None). See _dispatch() for the failure this
+# collision used to cause.
+_NO_PAYLOAD = object()
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"            # keep-alive: reuse the TCP connection across requests (RPS latency win)
     timeout = 60                              # B13: a stalled/dead client can't pin a thread forever
@@ -417,14 +423,22 @@ class Handler(BaseHTTPRequestHandler):
         except Exception: pass
 
     # ---- ONE error boundary (B9): registry dispatch; nothing below it can drop the socket ------
-    def _dispatch(self, table, u, qs, payload=None):
+    def _dispatch(self, table, u, qs, payload=_NO_PAYLOAD):
         self._sent = False                                # reset per request (Handler is reused on keep-alive)
         fn = table.get(u.path)
         if fn is None:
             self._send(404, {"error": "not found"}); return
         self._route_path = u.path
         try:
-            if payload is None: fn(self, qs)
+            # v1.x fix: bare `None` used to double as BOTH the "no payload -- this is a GET" sentinel
+            # AND a value a POST body can legitimately carry (json.loads(b"null") == None). That
+            # collision meant a client POSTing a literal JSON `null` body dispatched through the GET
+            # arity (fn(self, qs), missing the required `payload` arg) -> TypeError -> a bare 500,
+            # instead of reaching the route to answer its own clean 400 for a malformed body.
+            # _NO_PAYLOAD (a private sentinel object, never producible by json.loads) now marks "no
+            # payload was supplied" unambiguously, so an explicit POST payload of None reaches the
+            # route function like any other POST payload.
+            if payload is _NO_PAYLOAD: fn(self, qs)
             else: fn(self, qs, payload)
         except _registry.ParamError as e:                 # malformed client input -> 400 (B11)
             self._send(400, {"error": str(e)})
@@ -437,12 +451,12 @@ class Handler(BaseHTTPRequestHandler):
                                  "error": "this feature's data is not built yet",
                                  "detail": m})
             else:
-                ref = log_exception("%s %s" % ("POST" if payload is not None else "GET", u.path))
+                ref = log_exception("%s %s" % ("POST" if payload is not _NO_PAYLOAD else "GET", u.path))
                 if not self._sent:                        # never double-send onto a keep-alive stream
                     try: self._send(500, {"error": "internal server error", "ref": ref})
                     except Exception: pass
         except Exception:                                 # anything else: log it, generic 500 (B10/J69)
-            ref = log_exception("%s %s" % ("POST" if payload is not None else "GET", u.path))
+            ref = log_exception("%s %s" % ("POST" if payload is not _NO_PAYLOAD else "GET", u.path))
             if not self._sent:
                 try: self._send(500, {"error": "internal server error", "ref": ref})
                 except Exception: pass

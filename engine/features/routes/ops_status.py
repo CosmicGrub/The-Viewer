@@ -7,10 +7,25 @@ import os
 import time
 import threading as _threading
 
-from features.registry import get, post, qstr, qint, qflag, safe_header_token
+from features.registry import get, post, qstr, qint, qflag, safe_header_token, ParamError
 from features.routes._shared import _exposed_read_guard, _signoff_db
 
 core = None          # injected by viewer_app at startup
+
+
+def _pstr(payload, name, default=""):
+    """Like qstr() but for a parsed-JSON POST body: unlike a query string (always str), payload[name]
+    can legally be ANY JSON type -- a client sending {"kind": 123} (an int/list/dict where a string was
+    expected) is malformed input, not a server bug. Blindly calling .strip() on it crashes with an
+    uncaught AttributeError -> 500, violating this codebase's own invariant (registry.py's ParamError
+    docstring: 'malformed client input -> ParamError -> 400, never a 500'). Reject non-string values
+    here, once, the same way qstr/qint do for query params."""
+    v = payload.get(name)
+    if v is None:
+        return default
+    if not isinstance(v, str):
+        raise ParamError("parameter '%s' must be a string (got %s)" % (name, type(v).__name__))
+    return v
 
 
 @get("/api/status")
@@ -58,8 +73,25 @@ def r_coverage(h, qs):
     # otherwise the mission-control overview (the /coverage page and /ops page).
     v = qstr(qs, "vehicle")
     if v:
-        cov = core.coverage(v)
-        h._send(200, {"vehicle": v, "coverage": cov.get(v) if isinstance(cov, dict) else cov})
+        vn = v.strip()
+        result = None
+        if vn:                          # a whitespace-only v strips to "" -- core.coverage("") would run
+            cov = core.coverage(vn)     # the FULL all-vehicles aggregate (falsy vehicle -> no WHERE filter),
+            result = cov.get(vn) if isinstance(cov, dict) else cov  # so never call it with an empty string
+            if result is None:
+                # v1.14: core.coverage() does an EXACT SQL '=' match against documents.vehicle -- a value
+                # that differs only in case or surrounding whitespace from the stored value (e.g. a manual
+                # API caller sending "hmmwv m998" for stored "HMMWV M998") silently got {"coverage": null}
+                # here instead of the real data. Resolve case/whitespace-insensitively against the known
+                # vehicle list (already computed elsewhere -- core.list_vehicles()) before giving up.
+                low = vn.lower()
+                for row in core.list_vehicles():
+                    rv = row.get("vehicle") or ""
+                    if rv.strip().lower() == low:
+                        cov = core.coverage(rv)
+                        result = cov.get(rv) if isinstance(cov, dict) else cov
+                        break
+        h._send(200, {"vehicle": v, "coverage": result})
         return
     h._send(200, _coverage_overview_cached())
 
@@ -174,9 +206,9 @@ def r_signoff(h, qs):
 def r_signoff_post(h, qs, payload):
     # submit a value for review, or record an SME decision (approve/reject/override). Append-only audit.
     import signoff
-    kind = (payload.get("kind") or "").strip(); key = (payload.get("key") or "").strip()
-    action = (payload.get("action") or "").strip()
-    by = (payload.get("by") or "").strip() or "anonymous"
+    kind = _pstr(payload, "kind").strip(); key = _pstr(payload, "key").strip()
+    action = _pstr(payload, "action").strip()
+    by = _pstr(payload, "by").strip() or "anonymous"
     if not kind or not key:
         h._send(400, {"error": "kind and key required"}); return
     try:
@@ -238,7 +270,7 @@ def p_rps_mode(h, qs, payload):
     (also accepts "mode" as an alias). Fail-loud: reports saved=False if the choice could not be written."""
     if not core._rps or not hasattr(core, "set_run_mode"):
         h._send(503, {"ok": False, "error": "run-mode switching unavailable in this build"}); return
-    setting = (payload.get("setting") or payload.get("mode") or "").strip()
+    setting = (_pstr(payload, "setting") or _pstr(payload, "mode")).strip()
     if not setting:
         h._send(400, {"ok": False, "error": "missing 'setting' (auto|performance|retro)"}); return
     r = core.set_run_mode(setting)

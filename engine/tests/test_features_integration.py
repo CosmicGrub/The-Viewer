@@ -29,6 +29,18 @@ try:
     m = C.material_for("BRACKET, MOUNTING", "COLOR OLIVE DRAB", "5340-00-100-0010")
     ok("material_for_shape", isinstance(m, dict) and m.get("color", "").startswith("#")
        and "klass_id" in m and isinstance(m.get("gl"), list) and len(m["gl"]) == 3)
+    # a dark PLATED/OXIDE finish must NOT fall into the "dark colour => painted" heuristic: a BLACK part
+    # FINISHed ZINC PLATED stays metal/shiny (klass_id 1, gl metallic 1.0), matching material_feature.py's
+    # /api/part_material verdict for the same characteristics instead of contradicting it.
+    m2 = C.material_for("BOLT, MACHINE",
+                        "MATERIAL: STEEL, ALLOY; COLOR: BLACK; FINISH: ZINC PLATED; OVERALL LENGTH: 2.0 IN",
+                        "5305-01-111-1111")
+    ok("material_for_plated_finish_stays_metal",
+       m2["klass"] == "metal" and m2["klass_id"] == 1 and m2["gl"][2] == 1.0)
+    # a genuine paint/CARC finish still classifies as painted (non-metallic), regardless of colour brightness
+    m3 = C.material_for("BRACKET, MOUNTING", "MATERIAL: STEEL; COLOR: OLIVE DRAB; FINISH: CARC PAINT",
+                        "5340-01-222-2222")
+    ok("material_for_paint_finish_is_painted", m3["klass"] == "painted" and m3["gl"][2] == 0.0)
     if C.Image is not None:
         sheet, frames = C.render_spin("BEARING, BALL",
                                       "OUTSIDE DIAMETER 52 MM; INSIDE DIAMETER 25 MM; WIDTH 15 MM",
@@ -37,6 +49,33 @@ try:
         # colour+texture apply on EVERY tier now (v1 no longer forced grey)
         im1 = C.render("GASKET", "OUTSIDE DIAMETER 3 IN; RUBBER", "5330-00-100-0004", w=120, h=100, style="v1")
         ok("v1_renders", im1 is not None and im1.size == (120, 100))
+        # ensure()/ensure_spin() write their PNG cache through safeguard.atomic_write (temp file + fsync +
+        # os.replace), not a bare im.save(out, "PNG")/sheet.save(out, "PNG") straight onto the final cache
+        # path -- the same fix schemgraph.py's and vectorize.py's own cache writes already use, so a crash
+        # mid-write (or two ThreadingHTTPServer threads racing the same not-yet-cached NSN) can never leave
+        # a truncated file at the exact path the size>0 staleness check would then serve forever.
+        import tempfile, shutil, unittest.mock as mock
+        import safeguard as _SG
+        tdir = tempfile.mkdtemp(prefix="cadcache_")
+        try:
+            nsn_t, nm_t, ch_t = "5305-01-999-9999", "BOLT,MACHINE", "OVERALL LENGTH: 1.0 IN"
+            out1 = C.ensure(nsn_t, nm_t, ch_t, tdir, style="v3")
+            ok("ensure_writes_valid_png", out1 is not None and os.path.getsize(out1) > 100)
+            im = C.Image.open(out1); im.load()
+            ok("ensure_output_is_real_png", im.format == "PNG")
+            os.remove(out1)
+            with mock.patch.object(_SG, "atomic_write", side_effect=RuntimeError("simulated crash mid-write")):
+                out2 = C.ensure(nsn_t, nm_t, ch_t, tdir, style="v3")
+            ok("ensure_no_partial_file_on_write_failure", out2 is None and not os.path.exists(out1))
+
+            out3, frames3 = C.ensure_spin(nsn_t, nm_t, ch_t, tdir, n=4, style="v3")
+            ok("ensure_spin_writes_valid_png", out3 is not None and frames3 == 4 and os.path.getsize(out3) > 100)
+            os.remove(out3)
+            with mock.patch.object(_SG, "atomic_write", side_effect=RuntimeError("simulated crash mid-write")):
+                out4, frames4 = C.ensure_spin(nsn_t, nm_t, ch_t, tdir, n=4, style="v3")
+            ok("ensure_spin_no_partial_file_on_write_failure", out4 is None and frames4 == 0 and not os.path.exists(out3))
+        finally:
+            shutil.rmtree(tdir, ignore_errors=True)
     else:
         failed.append("PIL_unavailable")
 except Exception as e:

@@ -81,15 +81,20 @@ def p_tags(h, qs, payload):
 
 @post("/api/request")
 def p_request(h, qs, payload):
-    if not ((payload.get("session", {}).get("tech_status") or "").strip()):
+    # v1.15: `session` must be a dict to safely call .get() on it below -- a client sending it as a
+    # string/number/list/null (stale client, malformed JSON) previously slipped past the `{}` default
+    # (which only covers a MISSING key) and raised AttributeError -> 500. Normalize once, up front.
+    session = payload.get("session")
+    if not isinstance(session, dict): session = {}
+    if not ((session.get("tech_status") or "").strip()):
         h._send(400, {"error": "Tech status is required before generating the sheet."}); return
     core.save_request(payload)
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf: out = tf.name
     try:                                       # v1.13: never orphan the temp PDF if build/read raises
-        core.build_request_pdf(out, payload.get("session", {}), payload.get("items", []))
+        core.build_request_pdf(out, session, payload.get("items", []))
         data = open(out, "rb").read()
     finally:
         try: os.unlink(out)
         except Exception: pass
-    bumper = safe_header_token(payload.get("session", {}).get("bumper")) or "request"
+    bumper = safe_header_token(session.get("bumper")) or "request"
     h._send(200, data, "application/pdf", {"Content-Disposition": 'attachment; filename="104th_parts_request_%s.pdf"' % bumper})

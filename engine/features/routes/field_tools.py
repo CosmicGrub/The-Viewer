@@ -4,6 +4,7 @@ torque-sequence / one-time-use / kit-BOM / pinouts / quiz / field-notes routes (
 v1.14 routes/ split). Moved verbatim out of the former monolithic engine/features/routes.py. DI
 via `core`."""
 import os
+import re
 
 from features.registry import get, post, qstr, qint, qflag, safe_header_token
 from features.routes._shared import _pages_for, _signoff_db
@@ -77,19 +78,34 @@ def r_rpstl(h, qs):
     # structured RPSTL rows (figure/item/SMR/CAGEC/part#/NSN/qty/nomenclature) parsed from a doc/page or query
     import rpstl, sqlite3
     doc = qint(qs, "doc", 0); page = qint(qs, "page", 0); q = qstr(qs, "q", "")
-    text = ""
+    text = ""; page_bodies = None
     try:
         con = core.db()          # v1.13: pooled (close() is a harmless no-op) -> no leak on error paths
         if doc and page:
             r = con.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=? LIMIT 1", (doc, page)).fetchone()
             text = (r[0] if r else "") or ""
         elif q:
-            for pg in _pages_for(q, 8):
-                text += "\n" + (pg.get("body") or "")
+            page_bodies = [(pg.get("body") or "") for pg in _pages_for(q, 8)]
         con.close()
     except Exception:
-        text = ""
-    h._send(200, {"ok": True, **rpstl.parse(text)})
+        text = ""; page_bodies = None
+    if page_bodies is not None:
+        # v1.x fix: rpstl.parse() is a stateful, whole-document parser -- its 'current figure carries
+        # forward across rows' design assumes one contiguous document. Joining up to 8 independently
+        # FTS-ranked pages with a bare '\n' before parsing let a 'FIGURE N' heading on one page leak
+        # onto a differently-ranked, unrelated page's items that carry no heading of their own (normal
+        # for TM continuation pages). Parse each page on its own -- so no figure carries in from a
+        # different page -- then merge the structured results.
+        result = {"figures": {}, "rows": [], "count": 0}
+        for body in page_bodies:
+            p = rpstl.parse(body)
+            result["rows"].extend(p["rows"])
+            for fig, rows in p["figures"].items():
+                result["figures"].setdefault(fig, []).extend(rows)
+        result["count"] = len(result["rows"])
+    else:
+        result = rpstl.parse(text)
+    h._send(200, {"ok": True, **result})
 
 
 @get("/api/serviceability")
@@ -109,7 +125,16 @@ def r_serviceability(h, qs):
     out = {"ok": True, "query": q, "limits": lims[:40]}
     measured = qstr(qs, "measured", "")
     if measured:
-        out["assessment"] = serviceability.assess(measured, lims, unit=qstr(qs, "unit", "") or None)
+        # v1.x fix: a TM page routinely states several DIFFERENT components' wear/serviceable limits
+        # together (extremely common formatting) -- feeding EVERY limit found across up to 12 matched
+        # pages into assess() undifferentiated let an unrelated component's limit (esp. a
+        # direction-unknown 'limit'-kind bound, which assess() treats as at least 'marginal' on its own)
+        # contaminate the go/no-go call for the component the mechanic actually asked about. Only assess
+        # against limits whose own extracted context text actually mentions a query term, so the verdict
+        # reflects the queried component rather than whatever else shares the page.
+        terms = [t.lower() for t in re.findall(r"[A-Za-z0-9]+", q) if len(t) > 1]
+        relevant = [l for l in lims if any(t in (l.get("context") or "").lower() for t in terms)] if terms else lims
+        out["assessment"] = serviceability.assess(measured, relevant, unit=qstr(qs, "unit", "") or None)
     h._send(200, out)
 
 
@@ -203,6 +228,34 @@ def r_pinouts(h, qs):
     h._send(200, {"ok": True, "connectors": conns[:30]})
 
 
+def _quiz_subject(m, max_len=60):
+    """Build the quiz 'subject' noun-phrase for a measures.find_for_query() row without leaking the
+    answer into the question. measures.extract()'s 'context' field is a window CENTERED ON the very
+    value+unit match (by design), so using it raw quotes the correct answer inside the question text
+    training.build_quiz() generates ('What is the <type> for <subject>?'). Keep only the text BEFORE
+    the matched value/unit, drop a likely mid-word-truncated leading fragment (the context window's
+    own start is a raw character offset, not a word boundary) and a trailing connector word."""
+    ctx = m.get("context") or ""
+    raw = re.sub(r"\s+", " ", (m.get("raw") or "")).strip()
+    if not ctx or not raw:
+        return None
+    idx = ctx.lower().find(raw.lower())
+    if idx <= 0:
+        return None                      # can't safely isolate lead-in text -> don't risk leaking it
+    lead = ctx[:idx]
+    parts = re.split(r"\s+", lead.strip())
+    if len(parts) > 1:
+        parts = parts[1:]
+    lead = " ".join(parts).strip(" .,;:-")
+    lead = re.sub(r"\b(?:is|are|of|to|at|was|were)$", "", lead, flags=re.I).strip(" .,;:-")
+    if len(lead) > max_len:
+        lead = lead[-max_len:]
+        sp = lead.find(" ")
+        if sp > 0:
+            lead = lead[sp + 1:]
+    return lead if len(lead) >= 3 else None
+
+
 @get("/api/quiz")
 def r_quiz(h, qs):
     # a cited multiple-choice quiz generated from the corpus (learn mode)
@@ -212,9 +265,13 @@ def r_quiz(h, qs):
     try:
         res = measures.find_for_query(core.DB_PATH, q, limit=60)
         for m in res.get("results", []):
-            if m.get("value"):
-                facts.append({"subject": (m.get("context") or q)[:60], "type": m.get("type"),
-                              "value": m.get("value"), "unit": m.get("unit"), "doc": m.get("doc"), "page": m.get("page")})
+            if not m.get("value"):
+                continue
+            subj = _quiz_subject(m)
+            if not subj:
+                continue
+            facts.append({"subject": subj, "type": m.get("type"),
+                          "value": m.get("value"), "unit": m.get("unit"), "doc": m.get("doc"), "page": m.get("page")})
     except Exception:
         pass
     h._send(200, {"ok": True, "query": q, "quiz": training.build_quiz(facts, n=qint(qs, "n", 10, 1, 25),
@@ -238,6 +295,12 @@ def r_notes(h, qs):
 @post("/api/notes")
 def r_notes_post(h, qs, payload):
     import fieldnotes
+    # v1.x fix: json.loads() (and do_POST's pass-through) accepts any valid JSON value, not just
+    # objects -- a body of '[]'/'null'/a bare string/a bare number parses fine but isn't a dict, and
+    # payload.get(...) below would raise an uncaught AttributeError (-> 500) instead of the clean 400
+    # this route already gives for other malformed input.
+    if not isinstance(payload, dict):
+        h._send(400, {"error": "invalid JSON body (expected an object)"}); return
     action = (payload.get("action") or "add").strip()
     by = (payload.get("by") or "anonymous").strip() or "anonymous"
     try:
@@ -247,7 +310,13 @@ def r_notes_post(h, qs, payload):
                                  cite_doc=payload.get("cite_doc"), cite_page=payload.get("cite_page"))
             h._send(200, {"ok": True, "id": nid})
         elif action in ("endorse", "retract"):
-            fieldnotes.endorse(_notes_db(), int(payload.get("id")), by=by, retract=(action == "retract"))
+            # v1.x fix: fieldnotes.endorse() runs an INSERT...SELECT...WHERE id=? -- if note_id doesn't
+            # exist, zero rows are inserted and it returns a falsy lastrowid (0/None on the fresh
+            # per-call connection fieldnotes._con() always opens). This route used to ignore that and
+            # report {"ok": true} even when nothing was written.
+            rid = fieldnotes.endorse(_notes_db(), int(payload.get("id")), by=by, retract=(action == "retract"))
+            if not rid:
+                h._send(404, {"error": "note not found"}); return
             h._send(200, {"ok": True})
         else:
             h._send(400, {"error": "action must be add/endorse/retract"})

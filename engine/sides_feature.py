@@ -59,6 +59,14 @@ def save_override(doc_id, side, by=""):
     """Pin a document to a side. Append-only: merges into overrides + appends a log entry (audit trail)."""
     if side not in ("operator", "mechanic", "both"):
         return {"ok": False, "error": "side must be operator|mechanic|both"}
+    # doc_id arrives straight from the POST JSON payload (p_side_override), unlike GET routes' integer
+    # params which are funneled through registry.qint() -- guard the conversion here the same way, so a
+    # missing/malformed doc_id (e.g. omitted entirely) returns a clean ok:False/400 instead of an
+    # unhandled ValueError/TypeError that the dispatch boundary turns into a generic 500.
+    try:
+        doc_id = int(doc_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "doc_id must be an integer"}
     p = _override_path()
     blob = {"overrides": {}, "log": []}
     if os.path.exists(p):
@@ -67,7 +75,7 @@ def save_override(doc_id, side, by=""):
         except Exception:
             blob = {"overrides": {}, "log": []}
     blob.setdefault("overrides", {}); blob.setdefault("log", [])
-    key = str(int(doc_id))
+    key = str(doc_id)
     prev = blob["overrides"].get(key)
     blob["overrides"][key] = {"side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     # v1.13.4: only log a REAL change (new doc_id, or the side actually flipped) -- previously every call
@@ -76,12 +84,12 @@ def save_override(doc_id, side, by=""):
     # fixed earlier today. "log" is read back nowhere in the codebase (grepped) -- it exists purely as an
     # audit trail, so only recording actual changes keeps that promise meaningful instead of just noisy.
     if prev is None or prev.get("side") != side:
-        blob["log"].append({"doc_id": int(doc_id), "side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
+        blob["log"].append({"doc_id": doc_id, "side": side, "by": by or "", "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
     import safeguard          # v1.13: fsync + _replace_retry (absorbs the transient Windows WinError5 lock)
     safeguard.atomic_write(p, json.dumps(blob, indent=2))
     _OVR_CACHE["mtime"] = None                      # force reload
     _CACHE["sig"] = None                            # force side-map rebuild (override changes the map)
-    return {"ok": True, "doc_id": int(doc_id), "side": side}
+    return {"ok": True, "doc_id": doc_id, "side": side}
 
 
 def _docs_sig(con):

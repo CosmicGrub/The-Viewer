@@ -16,7 +16,9 @@ def _page_gray(path, page, dpi=150):
     import pymupdf as fitz, numpy as np, os
     if not path or not os.path.exists(path):
         return None
-    d = fitz.open(path); pix = d[page - 1].get_pixmap(dpi=dpi)
+    d = fitz.open(path)
+    page = max(1, min(int(page), d.page_count))    # clamp: a raw doc[page-1] lets page<=0 wrap to the wrong page (finding: correctness)
+    pix = d[page - 1].get_pixmap(dpi=dpi)
     arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
     d.close()
     return arr[:, :, :3] if arr.shape[2] >= 3 else arr
@@ -92,7 +94,9 @@ def r_dimscan(h, qs):
     try:
         import pymupdf as fitz, numpy as np, os
         if os.path.exists(path):
-            d = fitz.open(path); pix = d[page - 1].get_pixmap(dpi=150)
+            d = fitz.open(path)
+            page = max(1, min(int(page), d.page_count))    # clamp: a raw doc[page-1] lets page<=0 wrap to the wrong page (finding: correctness)
+            pix = d[page - 1].get_pixmap(dpi=150)
             arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
             if arr.shape[2] >= 3:
                 arr = arr[:, :, :3]

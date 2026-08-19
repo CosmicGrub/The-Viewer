@@ -311,13 +311,27 @@ _COLORS = {"BLACK":(42,42,46),"GRAY":(135,140,148),"GREY":(135,140,148),"WHITE":
 _MULTI = [("OLIVE DRAB",(70,72,44)),("FOREST GREEN",(48,76,48)),("CARC GREEN",(86,96,52)),("GLOSS BLACK",(34,34,36)),
   ("FLAT BLACK",(40,40,42)),("DESERT SAND",(200,182,142)),("DESERT TAN",(196,170,122)),("FIELD DRAB",(110,96,66)),
   ("OD GREEN",(70,72,44)),("CARC TAN",(196,170,122))]
+# surface FINISH (plating/oxide/anodizing/paint) -> (texture-class override, metalness override or None).
+# Mirrors material_feature.py's FINISHES list (the sibling module backing /api/part_material, which already
+# distinguishes these) — without this, a dark PLATED/OXIDE finish (e.g. "COLOR: BLACK; FINISH: ZINC PLATED")
+# fell through to the "dark colour => painted" heuristic below and rendered as flat non-metallic paint instead
+# of a shiny plated metal, contradicting the Material panel for the same part.
+_FINISHES = [(r"CHROM", "metal", 0.95), (r"ZINC|GALVANIZ", "metal", 0.8), (r"CADMIUM", "metal", 0.75),
+             (r"NICKEL", "metal", 0.85), (r"PHOSPHAT|PARKERIZ|MANGANESE", "metal", 0.35),
+             (r"BLACK OXIDE|\bOXIDE\b|BLACKEN", "metal", 0.4), (r"ANODIZ", "metal", None),
+             (r"\bPAINT\b|ENAMEL|PRIMER|\bCARC\b|POWDER COAT", "painted", 0.0)]
 def material_props(ch, nm, use_color=True):
     """Return (base_rgb, metalness, texture_class). When use_color, a FLIS-stated colour overrides the base tint
-    (keeping metalness + texture) — an OLIVE DRAB steel bracket is green AND painted-textured."""
+    (keeping metalness + texture) — an OLIVE DRAB steel bracket is green AND painted-textured. A FLIS FINISH
+    (plating/anodizing/black-oxide/paint) overrides the dark-colour heuristic below: a BLACK part FINISHed
+    ZINC PLATED stays metal/shiny, not flat painted; an actual PAINT/ENAMEL/CARC finish forces painted."""
     blob = ((ch or "")+" "+(nm or "")).upper()
     rgb, metal, klass = (150, 157, 166), 0.55, "metal"
     for pat, r, me, k in _MATS:
         if re.search(pat, blob): rgb, metal, klass = r, me, k; break
+    fin_klass, fin_metal = None, None
+    for pat, k, me in _FINISHES:
+        if re.search(pat, blob): fin_klass, fin_metal = k, me; break
     if use_color:
         col = None
         for name, c in _MULTI:
@@ -331,7 +345,9 @@ def material_props(ch, nm, use_color=True):
                     if re.search(r"\b"+name+r"\b", blob): col = _COLORS[name]; break
         if col:
             rgb = col
-            if klass == "metal" and (col[0]+col[1]+col[2]) < 360: klass = "painted"
+            if fin_klass is not None: klass = fin_klass
+            elif klass == "metal" and (col[0]+col[1]+col[2]) < 360: klass = "painted"
+        if fin_metal is not None: metal = fin_metal
     return rgb, metal, klass
 
 # ---- procedural surface texture (screen-space, masked to the part) ----
@@ -609,8 +625,21 @@ def ensure(nsn, name, chars, cache_dir, style="v3"):
         try: im = _fallback_card(name, nsn)
         except Exception: im = None
     if im is None: return None
-    try: im.save(out, "PNG"); return out
-    except Exception: return None
+    try:
+        # safeguard.atomic_write (temp file + fsync + os.replace), not a bare im.save(out, "PNG") straight
+        # onto the final cache path: a crash mid-write (OOM, forced shutdown, full disk) — or two
+        # ThreadingHTTPServer worker threads racing the same not-yet-cached NSN+style (viewer_app.py serves
+        # /cadimg on a thread per connection) — used to be able to leave a truncated/corrupt PNG at `out`
+        # that the size>0 check above would then treat as "already cached" forever, serving the broken
+        # image to every future request. This is the identical fix schemgraph.py's and vectorize.py's own
+        # cache writes already use for the same failure mode (see their ensure()).
+        import io, safeguard
+        buf = io.BytesIO()
+        im.save(buf, "PNG")
+        safeguard.atomic_write(out, buf.getvalue())
+        return out
+    except Exception:
+        return None
 
 # ---------------- interactive turntable (rotating/scalable CAD) ----------------
 SPIN_FRAMES = {"v1": 12, "v2": 16, "v3": 24}   # tier-aware default frame counts (legacy/lite/modern)
@@ -646,7 +675,12 @@ def ensure_spin(nsn, name, chars, cache_dir, n=24, style="v3"):
     if os.path.exists(out) and os.path.getsize(out) > 0: return out, n
     try:
         sheet, frames = render_spin(name, chars, nsn, n=n, style=st)
-        sheet.save(out, "PNG"); return out, frames
+        # atomic write -- see ensure()'s comment above for why a bare sheet.save(out, "PNG") is unsafe here.
+        import io, safeguard
+        buf = io.BytesIO()
+        sheet.save(buf, "PNG")
+        safeguard.atomic_write(out, buf.getvalue())
+        return out, frames
     except Exception:
         return None, 0
 

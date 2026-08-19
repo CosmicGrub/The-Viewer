@@ -7,6 +7,15 @@ only catches RULED tables; many TM spec/RPSTL tables have no grid lines, and lon
 Read-only; degrades to [] if pdfplumber is absent. Feeds the tables sidecar / Masterfile spec detection. Corpus
 authoritative.
 
+NOT WIRED IN YET: stitch() (the §2.3 merge logic itself) has no caller in the served app either -- /api/tables_plus
+(features/routes/doc_extractors.py) resolves and returns exactly one page's tables via borderless_tables() and
+never builds the ordered (page, table) list stitch() expects, and no ingest-pipeline step calls it. Its only
+caller today is its own __main__ self-test below. A spec/RPSTL table that legitimately continues onto a
+following page is therefore always returned to callers of /api/tables_plus as separate, unmerged per-page
+fragments -- the merge logic itself is implemented and passes its own unit test, but nothing in the served app
+invokes it yet, until a route or pipeline step is deliberately added to assemble that page list and call
+stitch() on it.
+
 PILOT (optional, off by default -- see requirements.txt): camelot_tables() is a THIRD, independent extraction
 engine (camelot-py 2.0) for cross-validating tables.py (PyMuPDF, ruled) and this module's own borderless_tables()
 (pdfplumber) against the same page. camelot-py 2.0 dropped the hard Ghostscript requirement -- its default

@@ -225,7 +225,7 @@ def _locate_box(words, token):
         if not wt: continue
         if tokd and len(tokd) >= 6 and tokd in _digits(wt):
             return [w["x0"], w["y0"], w["x1"], w["y1"]]
-        if len(tok) >= 4 and (tok in wt or wt in tok):
+        if len(tok) >= 3 and (tok in wt or wt in tok):
             return [w["x0"], w["y0"], w["x1"], w["y1"]]
     return None
 

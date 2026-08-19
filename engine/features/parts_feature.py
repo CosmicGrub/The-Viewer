@@ -75,7 +75,7 @@ def _reviews_con():
 
 
 def record_niin_decision(niin, decision, canonical_nsn="", note="", by=""):
-    niin = re.sub(r"\D", "", niin or "")
+    niin = re.sub(r"\D", "", str(niin) if niin is not None else "")
     decision = (decision or "").strip().lower()
     if len(niin) < 9 or decision not in VALID_NIIN_DECISIONS:
         return {"ok": False, "error": "need a 9-digit NIIN and a decision in %s" % sorted(VALID_NIIN_DECISIONS)}
@@ -314,6 +314,7 @@ def part_lookup(nsn):
     Grounded and verifiable — every ref points at a real page. Does not assert an exact part#."""
     nsn = (nsn or "").strip()
     if not nsn: return {"nsn": "", "found": False, "refs": []}
+    nsn = norm_nsn(nsn) or nsn   # canonical dashed form -- parts.nsn is always stored dashed (A6)
     con = core.db()
     try:
         refs = [dict(r) for r in con.execute(
@@ -420,6 +421,7 @@ def reference_for(nsn=None, size=None):
     con = core.db(); out = {}
     if nsn:
         nsn = nsn.strip()
+        nsn = norm_nsn(nsn) or nsn   # canonical dashed form -- ref_nsn.nsn is always stored dashed (A6)
         try:
             try:
                 r = con.execute("SELECT nsn,item_name,description,gsa_price,part_no,cagec,characteristics,aac,substitutes,data_date,superseded,alt_parts,source,source_url,fetched_at FROM ref_nsn WHERE nsn=?", (nsn,)).fetchone()

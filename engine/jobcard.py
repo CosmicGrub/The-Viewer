@@ -315,7 +315,7 @@ def preview(db_path, q, procedures, torque, lookalike=None, max_figs=8):
     """Structured summary of what a Work Order for `q` would contain — powers /api/jobcard_preview and the builder page."""
     intent = _task_intent(q)
     procedures = _order_procs(procedures or [], intent["kind"])
-    label, nsn, count, ndocs, parts, aps = _gather(db_path, q, max_figs)
+    label, nsn, count, ndocs, parts, aps = _gather(db_path, intent["focus"], max_figs)
     dims = _master_dims(db_path, label or q)
     parts = _flag_lookalikes(parts, lookalike)
     warn = _lookalike_warning(lookalike)
@@ -341,7 +341,7 @@ def jobcard(db_path, q, procedures, torque, lookalike=None, dpi=150, max_figs=8)
     """procedures/torque/lookalike are gathered by the route from the live features. Returns PDF bytes or None."""
     intent = _task_intent(q)
     procedures = _order_procs(procedures or [], intent["kind"])
-    label, nsn, count, ndocs, parts, aps = _gather(db_path, q, max_figs)
+    label, nsn, count, ndocs, parts, aps = _gather(db_path, intent["focus"], max_figs)
     parts = _flag_lookalikes(parts, lookalike)
     warn = _lookalike_warning(lookalike)
     dims = _master_dims(db_path, label or q)

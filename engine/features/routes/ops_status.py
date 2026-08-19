@@ -246,13 +246,15 @@ def r_rps(h, qs):
         try:
             import sysprobe; prof = sysprobe.load_or_build()
         except Exception: prof = {}
+        premium = False
         if ov:                                    # explicit preview (?mode=) -> concrete mode, no persistence
             m, why = core._rps.mode_for(prof, ov)
         elif core.RPS_OVERRIDE in core._rps.VALID_MODES:
             m, why = core._rps.mode_for(prof, core.RPS_OVERRIDE)
-        else:                                     # reflect the persisted Settings choice (auto/perf/retro)
+        else:                                     # reflect the persisted Settings choice (auto/perf/retro/premium)
             m, why = core._rps.mode_for_setting(prof, core.RPS_SETTING)
-        out = core._rps.profile_summary(prof, m, why)
+            premium = core._rps.premium_active(prof, core.RPS_SETTING)
+        out = core._rps.profile_summary(prof, m, why, premium)
         out["page_cache_stats"] = core._rps.cache_stats(core.INDEX_DIR)
         out["setting"] = core.RPS_SETTING                                    # the saved Settings-panel choice
         out["setting_labels"] = core._rps.RUN_MODE_LABELS                    # {auto|performance|retro: label}

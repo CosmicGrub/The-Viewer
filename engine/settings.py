@@ -82,6 +82,10 @@ def normalize_run_mode(value):
         "retro": "retro", "rps": "retro", "retroactive": "retro", "compat": "retro",
         "compatibility": "retro", "lite": "retro", "legacy": "retro",
         "auto": "auto", "": "auto", "default": "auto",
+        # premium: an opt-in, non-default visual-effects tier layered on top of "performance" -- never
+        # auto-selected by hardware probing (unlike auto/performance/retro, which the probe can pick on
+        # its own), only reachable by explicit Settings-panel choice. See rps.py's mode_for_setting().
+        "premium": "premium", "premiumui": "premium", "premium_ui": "premium", "hifi": "premium",
     }
     return aliases.get(s, "auto")
 

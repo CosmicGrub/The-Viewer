@@ -36,12 +36,19 @@
   }
 
   // ---- 2. mode bootstrap ----
-  var RPS={mode:"modern",flags:{},dpi:150};
+  var RPS={mode:"modern",flags:{},dpi:150,premium:false};
   window.RPS=RPS;
   function applyMode(m,flags){
     RPS.mode=m||"modern"; RPS.flags=flags||{}; RPS.dpi=(flags&&flags.default_dpi)||150;
+    // premium: an ADDITIVE, opt-in visual-effects layer (base.css's .rps-premium rules) -- distinct from
+    // the mode classes above, which are mutually exclusive tiers. Only ever true when flags.premium_ui
+    // is true, which the server only ever sets when mode is already "modern" (rps.py's feature_flags()/
+    // premium_active()) -- so this can never end up applied alongside rps-lite/rps-legacy.
+    RPS.premium=!!(flags&&flags.premium_ui);
     var b=document.body||document.getElementsByTagName("body")[0]; if(!b)return;
-    b.className=(b.className||"").replace(/\brps-(modern|lite|legacy)\b/g,"").replace(/\s+$/,"")+" rps-"+RPS.mode;
+    var cls=(b.className||"").replace(/\brps-(modern|lite|legacy|premium)\b/g,"").replace(/\s+$/,"")+" rps-"+RPS.mode;
+    if(RPS.premium) cls+=" rps-premium";
+    b.className=cls;
     if(RPS.mode!=="modern"){
       var st=document.getElementById("rps-lite-style");
       if(!st){st=document.createElement("style");st.id="rps-lite-style";
@@ -51,7 +58,7 @@
     }
     if(typeof window.onRpsMode==="function"){try{window.onRpsMode(RPS);}catch(e){}}
   }
-  RPS.MODES=["auto","modern","lite","legacy"];
+  RPS.MODES=["auto","modern","lite","legacy","premium"];
   function savedOverride(){                       // ?mode= wins for the request; else the user's saved choice
     var qp=null; try{qp=new URLSearchParams(window.location.search).get("mode");}catch(e){}
     if(qp) return qp;

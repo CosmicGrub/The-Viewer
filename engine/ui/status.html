@@ -35,7 +35,9 @@ button:hover{background:var(--p2)}input{background:var(--p2);color:var(--txt);bo
   <h2>Run mode <span class="pill" id="rpsnow">…</span></h2>
   <div class="muted" style="margin-bottom:8px">How hard the program leans on this PC. <b>Auto</b> follows the hardware probe —
     <b>Performance</b> on Windows 10/11 with a strong GPU, <b>Retroactive Post-Support</b> (lighter effects, lower DPI,
-    local loupe, ES5/polyfilled UI, small-footprint SQLite) on Windows 7/Vista or low-RAM/HDD machines. Your choice is saved and survives restarts.</div>
+    local loupe, ES5/polyfilled UI, small-footprint SQLite) on Windows 7/Vista or low-RAM/HDD machines. <b>Premium</b> adds
+    refined depth, motion and typography on top of Performance — only on hardware the probe already calls capable; on
+    weaker machines it falls back the same way Performance does, and tells you why below. Your choice is saved and survives restarts.</div>
   <div id="rpsbtns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
   <div class="muted" id="rpsreason" style="margin-top:8px"></div>
   <div class="muted" id="rpsnote" style="margin-top:4px"></div>
@@ -136,8 +138,8 @@ function loadFault(){
 }
 
 /* ---- Run mode (Retroactive Post-Support) -------------------------------------------------------- */
-var RPS_ORDER=["auto","performance","retro"];
-var RPS_FALLBACK={auto:"Auto (recommended)",performance:"Performance",retro:"Retroactive Post-Support"};
+var RPS_ORDER=["auto","performance","retro","premium"];
+var RPS_FALLBACK={auto:"Auto (recommended)",performance:"Performance",retro:"Retroactive Post-Support",premium:"Premium (visual effects)"};
 function loadRps(){
   getJSON("/api/rps", function(j){
     var cur=(j.setting||"auto"), labels=j.setting_labels||RPS_FALLBACK;

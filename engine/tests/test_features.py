@@ -171,6 +171,49 @@ try:
 except Exception as e:
     failed.append("rps_import(%s)" % e)
 
+# --- RPS "premium" tier: opt-in, hardware-gated, additive, never auto-selected ---
+try:
+    import rps, settings as _settings_mod
+
+    _capable = {"python_ok": True, "modern_os": True, "render_backend": "pymupdf", "ram_gb": 16, "tier": "GPU laptop"}
+    _weak = {"modern_os": False, "render_backend": "poppler", "ram_gb": 4, "tier": "Legacy / low-power"}
+
+    ok("rps_premium_label_present", rps.RUN_MODE_LABELS.get("premium") == "Premium (visual effects)")
+    ok("settings_normalize_premium", _settings_mod.normalize_run_mode("premium") == "premium")
+    ok("settings_normalize_premium_case_insensitive", _settings_mod.normalize_run_mode("PREMIUM") == "premium")
+    ok("settings_normalize_unknown_still_auto", _settings_mod.normalize_run_mode("nonsense") == "auto")
+
+    m_cap, why_cap = rps.mode_for_setting(_capable, "premium")
+    ok("rps_premium_capable_resolves_modern", m_cap == "modern")
+    ok("rps_premium_active_on_capable_hw", rps.premium_active(_capable, "premium") is True)
+    flags_cap = rps.feature_flags(m_cap, rps.premium_active(_capable, "premium"))
+    ok("rps_premium_flag_set_on_capable_hw", flags_cap["premium_ui"] is True)
+    # premium must never change backend behavior vs. plain modern -- purely a UI-facing marker
+    ok("rps_premium_backend_flags_match_plain_modern",
+       {k: v for k, v in flags_cap.items() if k != "premium_ui"} ==
+       {k: v for k, v in rps.feature_flags("modern").items() if k != "premium_ui"})
+
+    m_weak, why_weak = rps.mode_for_setting(_weak, "premium")
+    ok("rps_premium_weak_hw_falls_back_not_forced", m_weak == "legacy")
+    ok("rps_premium_weak_hw_reason_explains_fallback", "falling back" in why_weak.lower())
+    ok("rps_premium_inactive_on_weak_hw", rps.premium_active(_weak, "premium") is False)
+    ok("rps_premium_flag_unset_on_weak_hw",
+       rps.feature_flags(m_weak, rps.premium_active(_weak, "premium"))["premium_ui"] is False)
+
+    # VALID_MODES (the concrete engine tier set) must stay exactly 3 values -- premium is a Settings-panel
+    # intent layered on top, never a 4th concrete mode, so every existing modern/lite/legacy-only consumer
+    # keeps working unchanged.
+    ok("rps_valid_modes_unchanged_by_premium", rps.VALID_MODES == ("modern", "lite", "legacy"))
+
+    # feature_flags()/profile_summary() stay fully backward-compatible for every caller not passing premium
+    ok("rps_feature_flags_default_premium_false", rps.feature_flags("modern")["premium_ui"] is False)
+    ps = rps.profile_summary(_capable, "modern", "test")
+    ok("rps_profile_summary_default_premium_false", ps["flags"]["premium_ui"] is False)
+    ps2 = rps.profile_summary(_capable, "modern", "test", premium=True)
+    ok("rps_profile_summary_premium_arg_threads_through", ps2["flags"]["premium_ui"] is True)
+except Exception as e:
+    failed.append("rps_premium(%s)" % e)
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d feature tests)" % (len(passed), len(failed), len(passed) + len(failed)))

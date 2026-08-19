@@ -102,9 +102,10 @@ def rps_init():
     try:
         if RPS_OVERRIDE in _rps.VALID_MODES:                 # concrete env/CLI force (back-compat) wins
             RPS_MODE, RPS_REASON = _rps.mode_for(prof, RPS_OVERRIDE)
+            RPS_FLAGS = _rps.feature_flags(RPS_MODE)
         else:                                                # otherwise honour the persisted Settings choice
             RPS_MODE, RPS_REASON = _rps.mode_for_setting(prof, RPS_SETTING)
-        RPS_FLAGS = _rps.feature_flags(RPS_MODE)
+            RPS_FLAGS = _rps.feature_flags(RPS_MODE, premium=_rps.premium_active(prof, RPS_SETTING))
     except Exception: pass
 
 

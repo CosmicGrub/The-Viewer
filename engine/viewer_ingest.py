@@ -63,6 +63,29 @@ SCHEMATIC_SCAN = os.environ.get("VIEWER_SCHEMATIC_SCAN", "1") != "0"
 # cost profile as SCHEMATIC_SCAN (find_tables() needs its own PyMuPDF page handle), same opt-out
 # shape for the same reason.
 TABLES_SCAN = os.environ.get("VIEWER_TABLES_SCAN", "1") != "0"
+# RPSTL parts-list row extraction (rpstl_feature.py's parse_page(), the same per-page regex parser
+# build_rpstl.py's batch tool already uses) -- same "built, has a real live consumer, never actually
+# invoked outside a manual .bat" gap as measures/schemgraph/tables before those were wired in. Unlike
+# the other three, this one is cheap even by measures.py's standard: it parses already-stored page
+# body_text (no PDF re-open at all -- rpstl_feature.parse_page() is pure regex over text already in
+# the `pages` table), so there's no per-page PyMuPDF cost to opt out of. Still offered as its own
+# toggle for consistency and because it writes a sidecar DB, same as the others.
+RPSTL_SCAN = os.environ.get("VIEWER_RPSTL_SCAN", "1") != "0"
+# Header/footer/running-title stripping (pagetrim.py's statistical boilerplate detector) on a
+# document's text-layer pages before they're stored/indexed/measured -- a fully built, self-tested,
+# cataloged module (docs/EXTRACTION-METHODS-CATALOG.md Sec2.6) that had zero live callers anywhere:
+# its own docstring says it's meant to run "before measures/specs/leadingspecs run", but nothing
+# ever called it. Pure regex/Counter over text already in memory (pdf_pages_text()'s own return
+# value) -- negligible cost, same tier as MEASURES_SCAN. Text-layer PDFs only for now (index_pdf());
+# OCR'd pages arrive one at a time in ocr(), which doesn't have the whole-document page list
+# clean_pages() needs, so that path is a separate, deferred piece of work.
+PAGETRIM_SCAN = os.environ.get("VIEWER_PAGETRIM_SCAN", "1") != "0"
+# keywords.json refresh (build_keywords.py's colloquial-name merge) right after enrich_flis()
+# populates the "Also called: X" data it reads -- another fully built module (real live consumer:
+# features/search_feature.py's _load_synonyms(), which expands shop slang to catalog nomenclature
+# on every search) with no automatic caller anywhere; previously a manual, easy-to-forget second
+# step after running ENRICH-PUBLOG.bat. A small JSON merge over ref_nsn, negligible cost.
+KEYWORDS_SCAN = os.environ.get("VIEWER_KEYWORDS_SCAN", "1") != "0"
 
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
@@ -412,12 +435,23 @@ def index_pdf(con, doc_id, path):
     pages = pdf_pages_text(path)
     if pages is None:
         con.execute("UPDATE documents SET status='failed' WHERE id=?", (doc_id,)); return 0, 0
-    indexed = queued = 0; meta_text = ""
+    # tm_number/nsn/title detection (below) MUST read the RAW first-3-pages text, before any
+    # boilerplate stripping -- the running header pagetrim strips (TM number, document title, page
+    # banner) is exactly the text this scan relies on to identify the document. Computed up front
+    # from `pages`, never from the cleaned copy.
+    meta_text = "".join(" " + (txt or "").strip() for txt in pages[:3])
+    body_pages = pages
+    if PAGETRIM_SCAN and len(pages) >= 5:
+        try:
+            import pagetrim
+            body_pages, _bp = pagetrim.clean_pages(pages)
+        except Exception:
+            body_pages = pages
+    indexed = queued = 0
     meas_con = _open_meas_db(_db_dir(con))
     try:
-        for i, txt in enumerate(pages, start=1):
-            body = txt.strip(); cc = len(body)
-            if i <= 3: meta_text += " " + body
+        for i, txt in enumerate(body_pages, start=1):
+            body = (txt or "").strip(); cc = len(body)
             if cc < OCR_CHAR_THRESHOLD:
                 con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) VALUES(?,?,?,?, 'none','pending')",(doc_id,i,"",cc)); queued += 1
             else:
@@ -933,7 +967,8 @@ def _tally_reset():
     global _EXTRACT_TALLY, _TOUCHED_DOC_IDS
     _EXTRACT_TALLY = {"documents": [], "pages_text": 0, "pages_ocr_done": 0, "pages_ocr_fail": 0,
                        "barcodes_decoded": 0, "parts_page": 0, "parts_barcode": 0, "nsn_samples": [],
-                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0, "dimensions": 0, "schematics": 0, "tables": 0}
+                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0, "dimensions": 0, "schematics": 0, "tables": 0,
+                       "rpstl": 0}
     _TOUCHED_DOC_IDS = set()
 
 
@@ -1607,6 +1642,106 @@ def _run_tables_stage(con):
                         extracted=dict(_EXTRACT_TALLY))
 
 
+_RPSTL_SCHEMA = """
+CREATE TABLE IF NOT EXISTS parts_rows(id INTEGER PRIMARY KEY, pn_norm TEXT, pn_base TEXT, part_no TEXT,
+  item INT, smr TEXT, nsn TEXT, cagec TEXT, nomenclature TEXT, nomen_flis TEXT, qty INT,
+  fig_no TEXT, doc_id INT, page INT, confidence REAL, validated INT DEFAULT 0);
+CREATE INDEX IF NOT EXISTS ix_pn ON parts_rows(pn_norm);
+CREATE INDEX IF NOT EXISTS ix_base ON parts_rows(pn_base);
+CREATE INDEX IF NOT EXISTS ix_conf ON parts_rows(confidence);
+"""   # identical to build_rpstl.py's own schema -- same rpstl.db, same table/columns/indexes, so
+      # rpstl_feature.lookup()/review() (part-number lookup, the RPSTL review queue) and
+      # xref_feature's part_record() fallback all pick up live-extracted rows with zero changes.
+
+def extract_rpstl_for_doc(con, doc_id):
+    """Per-document RPSTL parts-list row extraction -- rpstl_feature.parse_page() over every page
+    of this document, mirrored call-for-call from build_rpstl.py's own per-page loop (including its
+    FLIS-validation step against ref_nsn, when present), writing into the SAME rpstl.db parts_rows
+    schema that batch tool already defines. No `path` parameter, unlike extract_tables_for_doc()'s
+    otherwise-identical signature -- this reads page text straight out of the `pages` table (already
+    populated by index_pdf()/ocr()) rather than re-opening the PDF, since parse_page() is pure regex
+    and there is nothing to gain by reading the file again. Applies the SAME document-level
+    RPSTL_LIKE filename/title heuristic build_rpstl.py uses (imported directly from it, not
+    duplicated) so non-parts-list document types are never scanned line-by-line for parts rows.
+    Best-effort throughout: any failure for one page or the whole document must never break the
+    ingest job it's called from. Returns the count of rows written (0 on any failure, instantly
+    when RPSTL_SCAN is off, or when this document doesn't look like an RPSTL/parts manual)."""
+    if not RPSTL_SCAN:
+        return 0
+    try:
+        import build_rpstl as _br
+        import rpstl_feature as _rf
+    except Exception:
+        return 0
+    dbdir = _db_dir(con)
+    if not dbdir:
+        return 0
+    has_flis = con.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='ref_nsn'").fetchone() is not None
+    try:
+        rows = con.execute(
+            "SELECT p.page_number, p.body_text FROM pages p JOIN documents d ON d.id=p.document_id "
+            "WHERE d.id=? AND (" + _br.RPSTL_LIKE + ") AND p.body_text IS NOT NULL AND length(p.body_text)>40",
+            (doc_id,)).fetchall()
+    except Exception:
+        return 0
+    if not rows:
+        return 0
+    n = 0
+    try:
+        rdb = sqlite3.connect(os.path.join(dbdir, "rpstl.db"))
+        rdb.executescript(_RPSTL_SCHEMA)
+        rdb.execute("DELETE FROM parts_rows WHERE doc_id=?", (doc_id,))   # idempotent-rebuild, same contract extract_tables_for_doc() already uses
+        for page_number, body_text in rows:
+            try:
+                for r in _rf.parse_page(body_text or "", doc_id=doc_id, page=page_number):
+                    flis = None
+                    if has_flis and r["nsn"]:
+                        frow = con.execute(
+                            "SELECT item_name FROM ref_nsn WHERE nsn=? AND item_name IS NOT NULL AND item_name<>'' LIMIT 1",
+                            (r["nsn"],)).fetchone()
+                        flis = frow[0] if frow else None
+                    nomen = r["nomenclature"]; validated = 0
+                    if flis:
+                        nomen = flis; validated = 1   # FLIS official name wins, same rule build_rpstl.py applies
+                    rdb.execute(
+                        "INSERT INTO parts_rows(pn_norm,pn_base,part_no,item,smr,nsn,cagec,nomenclature,"
+                        "nomen_flis,qty,fig_no,doc_id,page,confidence,validated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (_rf.norm_pn(r["part_no"]), _rf.pn_base(r["part_no"]), r["part_no"], r["item"], r["smr"],
+                         r["nsn"], r["cagec"], nomen, flis, r["qty"], r["fig_no"], doc_id, page_number,
+                         r["confidence"], validated))
+                    n += 1
+            except Exception:
+                continue
+        if n:
+            rdb.commit()
+        rdb.close()
+    except Exception:
+        return 0
+    return n
+
+def _run_rpstl_stage(con):
+    """Shared stage for both 'run' and 'ocrall', alongside _run_schematic_stage()/_run_tables_stage()
+    -- same _TOUCHED_DOC_IDS scoping, same no-op-if-off/nothing-touched contract, same progress-stage
+    shape. Cheaper than the other two: no PDF re-open (no path lookup needed at all), just a regex
+    pass over text already stored in the `pages` table."""
+    if not RPSTL_SCAN or not _TOUCHED_DOC_IDS:
+        return
+    dbdir = _db_dir(con)
+    doc_ids = sorted(_TOUCHED_DOC_IDS)
+    total = len(doc_ids)
+    _write_progress(dbdir, stage="rpstl", current=None, done=0, total=total, extracted=dict(_EXTRACT_TALLY))
+    n_rpstl = 0
+    for i, doc_id in enumerate(doc_ids, 1):
+        try:
+            n_rpstl += extract_rpstl_for_doc(con, doc_id)
+        except Exception:
+            pass
+        _EXTRACT_TALLY["rpstl"] = n_rpstl
+        _write_progress(dbdir, stage="rpstl", current={"doc": doc_id}, done=i, total=total,
+                        extracted=dict(_EXTRACT_TALLY))
+
+
 _HW_SEED = [
     # (size, series, major_in, major_mm, tpi_or_pitch, tap_drill, torque_ref_lbft)  -- public-domain facts
     ("1/4-20 UNC","UNC",0.250,None,"20","#7 (.201)","8"),
@@ -1778,6 +1913,21 @@ def enrich_flis(con, folder):
         n += 1
     con.commit()
     log(f"enrich_flis: enriched {n} NSNs from the FLIS Reading Room catalog (append-only, R6)")
+    # keywords.json only knows about colloquial names once they exist in ref_nsn -- refresh it right
+    # here, right after this call is what populates them, instead of leaving it as a second manual
+    # step (build_keywords.py) an operator has to remember to run after every ENRICH-PUBLOG.bat.
+    if n and KEYWORDS_SCAN:
+        try:
+            import build_keywords
+            dbp = None
+            for _seq, _nm, _fp in con.execute("PRAGMA database_list"):
+                if _nm == "main" and _fp: dbp = _fp
+            if dbp:
+                n_groups, added, linked, _existed = build_keywords.run(db=dbp)
+                log(f"enrich_flis: keywords.json refreshed ({added} new group(s), {linked} term(s) "
+                    f"linked, {n_groups} groups total)")
+        except Exception as e:
+            log(f"enrich_flis: keywords.json refresh skipped ({e})")
     return n
 
 def enrich(con, gsa_csv=None, publog_csv=None, publog_dir=None):
@@ -1961,19 +2111,21 @@ def main():
         extract_parts(con)   # refresh the structured parts index after OCR adds pages
         _run_schematic_stage(con)   # 4th stage: schematic detection on whatever got OCR'd this run
         _run_tables_stage(con)      # 5th stage: table extraction, same scoping
+        _run_rpstl_stage(con)       # 6th stage: RPSTL parts-list row extraction, same scoping
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "run":
         # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
         # launches exactly this subcommand -- crawl/ocr()/extract_parts()/_run_schematic_stage()/
-        # _run_tables_stage() each stamp their own stage into ingest_progress.json as they go (see
-        # _write_progress() calls inside each), so the only thing left to mark here is the final
-        # "done" once every stage has actually finished, for the polling UI to stop showing a
-        # stage and show a completion state instead.
+        # _run_tables_stage()/_run_rpstl_stage() each stamp their own stage into ingest_progress.json
+        # as they go (see _write_progress() calls inside each), so the only thing left to mark here
+        # is the final "done" once every stage has actually finished, for the polling UI to stop
+        # showing a stage and show a completion state instead.
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
         _run_schematic_stage(con)   # 4th stage: schematic detection, scoped to just this run's documents
         _run_tables_stage(con)      # 5th stage: table extraction, same scoping
+        _run_rpstl_stage(con)       # 6th stage: RPSTL parts-list row extraction, same scoping
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)

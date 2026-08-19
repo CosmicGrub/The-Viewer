@@ -885,6 +885,153 @@ def main():
                 # (ingest_upload()'s own accept/reject behavior for these same formats is already
                 # covered end-to-end by the mocked-Popen section above -- .docx rejection, .txt
                 # acceptance, and bad-image-bytes rejection -- so it isn't re-tested here.)
+
+            # =================================================================================
+            # A FIFTH e2e run: the full-codebase audit's three genuine wire-ins -- RPSTL parts-list
+            # row extraction (same "built, real live consumer routes, only ever ran via a manual
+            # .bat" gap already fixed for measures/schematics/tables), header/footer boilerplate
+            # stripping (pagetrim.py) on text-layer pages before they're stored/measured, and the
+            # enrich_flis() -> build_keywords.py hookup (keywords.json refresh right after the
+            # colloquial names it depends on are populated, instead of a manual second step).
+            # =================================================================================
+            _VI._tally_reset()
+            e2e5_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_audit_")
+            e2e5_db = os.path.join(e2e5_dir, "viewer.db")
+            e2e5_con = _VI.connect(e2e5_db)
+            _VI.migrate(e2e5_con, os.path.join(ENGINE, "migrations"), db_path=e2e5_db)
+            corpus5_dir = os.path.join(e2e5_dir, "corpus"); os.makedirs(corpus5_dir)
+
+            # --- RPSTL: a real RPSTL-named doc with a real parts-list line, + a same-shaped line in
+            # a doc whose name/tm_number never matches the RPSTL_LIKE gate (imported straight from
+            # build_rpstl.py, not duplicated) -- must NOT get scanned. ---
+            doc8 = _fitz2.open(); p8 = doc8.new_page(width=612, height=792)
+            p8.insert_text((50, 50), "12  PAOZZ  5305-01-234-5678  81349  MS35206-243   SCREW,MACHINE   4")
+            doc8.save(os.path.join(corpus5_dir, "TM-9-2320-000-24P.pdf")); doc8.close()
+            doc9 = _fitz2.open(); p9 = doc9.new_page(width=612, height=792)
+            p9.insert_text((50, 50), "12  PAOZZ  5305-01-999-0000  81349  MS35206-244   SCREW,MACHINE   2")
+            doc9.save(os.path.join(corpus5_dir, "TM-9-2320-000-10.pdf")); doc9.close()   # operator manual, not RPSTL-like
+
+            # --- pagetrim: a real >=5-page doc with a genuinely recurring header/footer AND real,
+            # page-to-page-VARYING body content (pagetrim only flags text that recurs verbatim
+            # across pages -- identical body content on every page would also get flagged, so this
+            # mirrors pagetrim.py's own self-test: rotate distinct words per page). ---
+            pt_header = "TM 9-8888-777-14"
+            pt_words = ["alternator", "bracket", "coolant", "differential", "engine", "flywheel", "gasket", "harness", "injector", "manifold"]
+            doc10 = _fitz2.open()
+            for i in range(8):
+                p = doc10.new_page(width=612, height=792)
+                y = 50
+                p.insert_text((50, y), pt_header); y += 20
+                p.insert_text((50, y), "SECTION II MAINTENANCE"); y += 30
+                for j in range(10):
+                    w1 = pt_words[(i + j) % len(pt_words)]; w2 = pt_words[(i + j + 3) % len(pt_words)]
+                    p.insert_text((50, y), "Install the %s and torque the %s fitting to %d ft-lb." % (w1, w2, 40 + j))
+                    y += 18
+                p.insert_text((50, 750), "Change 2   Page %d" % (12 + i))
+            doc10.save(os.path.join(corpus5_dir, "TM-9-8888-777-14.pdf")); doc10.close()
+
+            _VI.crawl(e2e5_con, corpus5_dir)
+            e2e5_con.commit()
+            _VI.extract_parts(e2e5_con)
+            _VI._run_rpstl_stage(e2e5_con)
+
+            rpstl_rows = sqlite3.connect(os.path.join(e2e5_dir, "rpstl.db")).execute(
+                "SELECT pn_norm, nsn, smr, nomenclature FROM parts_rows").fetchall()
+            check("e2e RPSTL: exactly one row extracted (the RPSTL-named doc, not the operator manual)",
+                  len(rpstl_rows) == 1)
+            if rpstl_rows:
+                check("e2e RPSTL: the row's fields are real (NSN + SMR correctly parsed)",
+                      rpstl_rows[0][1] == "5305-01-234-5678" and rpstl_rows[0][2] == "PAOZZ")
+            check("e2e RPSTL tally: 'rpstl' count matches what actually got written",
+                  _VI._EXTRACT_TALLY.get("rpstl") == len(rpstl_rows))
+            _VI._run_rpstl_stage(e2e5_con)   # idempotent re-run must not duplicate rows
+            rpstl_n2 = sqlite3.connect(os.path.join(e2e5_dir, "rpstl.db")).execute(
+                "SELECT COUNT(*) FROM parts_rows").fetchone()[0]
+            check("e2e RPSTL: idempotent re-run does not duplicate rows", rpstl_n2 == len(rpstl_rows))
+
+            pt_doc_id = e2e5_con.execute("SELECT id FROM documents WHERE path LIKE ?", ("%TM-9-8888-777-14.pdf",)).fetchone()[0]
+            pt_body1 = e2e5_con.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=1",
+                                        (pt_doc_id,)).fetchone()[0]
+            check("e2e pagetrim: the recurring header is stripped from the stored page body", pt_header not in pt_body1)
+            check("e2e pagetrim: the recurring footer is stripped from the stored page body", "Change 2" not in pt_body1)
+            check("e2e pagetrim: real, non-recurring body content survives", "Install the" in pt_body1 and "ft-lb" in pt_body1)
+            pt_drow = e2e5_con.execute("SELECT tm_number FROM documents WHERE id=?", (pt_doc_id,)).fetchone()
+            check("e2e pagetrim: tm_number metadata is STILL correctly detected from the RAW header text "
+                  "(meta_text is computed before stripping, never from the cleaned copy)",
+                  pt_drow[0] == pt_header)
+
+            # toggle off -> the header must survive untouched (proves the stripping is real, not a no-op)
+            e2e5b_db = os.path.join(e2e5_dir, "viewer_pt_off.db")
+            e2e5b_con = _VI.connect(e2e5b_db)
+            _VI.migrate(e2e5b_con, os.path.join(ENGINE, "migrations"), db_path=e2e5b_db)
+            _VI.PAGETRIM_SCAN = False
+            try:
+                _VI._tally_reset()
+                _VI.crawl(e2e5b_con, corpus5_dir)
+                e2e5b_con.commit()
+                pt_doc_id_off = e2e5b_con.execute("SELECT id FROM documents WHERE path LIKE ?",
+                                                  ("%TM-9-8888-777-14.pdf",)).fetchone()[0]
+                pt_body1_off = e2e5b_con.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=1",
+                                                 (pt_doc_id_off,)).fetchone()[0]
+                check("e2e pagetrim: PAGETRIM_SCAN=False -> the header is NOT stripped", pt_header in pt_body1_off)
+            finally:
+                _VI.PAGETRIM_SCAN = True
+                e2e5b_con.close()
+
+            # --- keywords: enrich_flis() populating a real 'Also called:' colloquial name must
+            # trigger build_keywords.run() -- monkeypatched to a recording stub so this NEVER writes
+            # the real engine/keywords.json. ---
+            rpstl_doc_id = e2e5_con.execute("SELECT id FROM documents WHERE path LIKE ?", ("%TM-9-2320-000-24P.pdf",)).fetchone()[0]
+            e2e5_con.execute("UPDATE documents SET nsn=? WHERE id=?", ("5305-01-234-5678", rpstl_doc_id))
+            e2e5_con.commit()
+
+            flis_dir = os.path.join(e2e5_dir, "flis")
+            os.makedirs(flis_dir)
+            def _write_csv(name, rows):
+                with open(os.path.join(flis_dir, name), "w", encoding="utf-8", newline="") as f:
+                    f.write("HEADER_ROW_SKIPPED\n")
+                    for r in rows: f.write(",".join(r) + "\n")
+            _write_csv("V_FLIS_IDENTIFICATION.CSV", [("012345678", "12345")])          # NIIN,INC
+            _write_csv("P_H6_PICK.CSV", [("12345", "SCREW MACHINE")])                  # INC,item name
+            _write_csv("V_COLLOQUIAL_NAME.CSV", [("12345", "", "cap screw")])          # INC,RELATED_INC,colloquial
+
+            import build_keywords as _bk
+            _orig_bk_run = _bk.run
+            _bk_calls = []
+            _bk.run = lambda db=None, out=None: (_bk_calls.append(db), (1, 1, 0, True))[-1]
+            try:
+                n_enriched = _VI.enrich_flis(e2e5_con, flis_dir)
+                check("e2e keywords wiring: enrich_flis() actually enriched >=1 NSN (fixture is valid)", n_enriched >= 1)
+                check("e2e keywords wiring: enrich_flis() called build_keywords.run() exactly once after enriching",
+                      len(_bk_calls) == 1)
+                check("e2e keywords wiring: build_keywords.run() was called with the SAME db enrich_flis() just wrote to",
+                      bool(_bk_calls) and _bk_calls[0] and
+                      os.path.normcase(os.path.abspath(_bk_calls[0])) == os.path.normcase(os.path.abspath(e2e5_db)))
+            finally:
+                _bk.run = _orig_bk_run
+
+            _bk_calls2 = []
+            _bk.run = lambda db=None, out=None: (_bk_calls2.append(db), (0, 0, 0, True))[-1]
+            try:
+                empty_flis_dir = tempfile.mkdtemp(prefix="empty_flis_")
+                n0 = _VI.enrich_flis(e2e5_con, empty_flis_dir)
+                check("e2e keywords wiring: no NSNs enriched -> build_keywords.run() is NOT called",
+                      n0 == 0 and len(_bk_calls2) == 0)
+            finally:
+                _bk.run = _orig_bk_run
+
+            _bk_calls3 = []
+            _bk.run = lambda db=None, out=None: (_bk_calls3.append(db), (0, 0, 0, True))[-1]
+            _VI.KEYWORDS_SCAN = False
+            try:
+                n3 = _VI.enrich_flis(e2e5_con, flis_dir)
+                check("e2e keywords wiring: KEYWORDS_SCAN=False -> build_keywords.run() is NOT called "
+                      "even though NSNs WERE enriched", n3 >= 1 and len(_bk_calls3) == 0)
+            finally:
+                _VI.KEYWORDS_SCAN = True
+                _bk.run = _orig_bk_run
+
+            e2e5_con.close()
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

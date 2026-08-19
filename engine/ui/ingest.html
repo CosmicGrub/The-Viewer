@@ -198,6 +198,17 @@ function renderBreakdown(extracted, done){
       +'</span></div>';
   }
 
+  // RPSTL parts-list rows (item/SMR/NSN/CAGEC/part#/nomenclature/qty, FLIS-validated) -- a more
+  // structured, column-aware read of the same parts-list pages than the "parts extracted" row
+  // above; feeds part-number lookup + the RPSTL review queue. No single dedicated browse page
+  // exists for this one either (unlike parts/dimensions/schematics), so informational only.
+  var rpstl=extracted.rpstl||0;
+  if(rpstl){
+    h+='<div class="row"><span class="ic">🧾</span><span class="t">'
+      +'<b>'+rpstl+'</b> RPSTL parts-list row'+(rpstl===1?'':'s')+' extracted <span class="muted">(item/SMR/NSN/CAGEC/part#/nomenclature/qty)</span>'
+      +'</span></div>';
+  }
+
   bd.innerHTML=h||'<div class="muted" style="font-size:12.5px">Nothing extracted yet…</div>';
 }
 function startRun(){

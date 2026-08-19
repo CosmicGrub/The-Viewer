@@ -112,7 +112,12 @@ function progHtml(label){
    app that data feeds -- search, the parts index, the document's own library entry. 'done' (bool)
    switches from "still counting" language to "here's where it went" with clickable links, once the
    whole job has actually finished (before that, links would 404 or 200-with-nothing, mid-write). */
-function renderBreakdown(extracted, done){
+// stage label (viewer_ingest.py's flags.py registry 'stage' field) -> a short, human-readable name
+// for the "disabled" footnote below. Keep in sync with flags.py's scan_toggle() calls.
+var FLAG_STAGE_LABELS={ocr_preprocess:"OCR preprocessing",barcode:"barcode decode",dimensions:"dimensional-data extraction",
+  schematics:"schematic detection",tables:"table extraction",rpstl:"RPSTL parts-list rows",
+  pagetrim:"header/footer stripping",keywords:"keywords.json refresh"};
+function renderBreakdown(extracted, done, flagsOff){
   var bd=$("#bd"); if(!bd) return;
   if(!extracted){ bd.style.display="none"; return; }
   bd.style.display="";
@@ -209,6 +214,18 @@ function renderBreakdown(extracted, done){
       +'</span></div>';
   }
 
+  // read-only visibility for viewer_ingest.py's extraction-pipeline toggles (flags.py) -- if any
+  // are off (VIEWER_*_SCAN=0 was set before this run started), say so plainly instead of leaving
+  // an operator wondering why e.g. the schematics/RPSTL rows never showed up. Not editable from
+  // here -- these are env-var-set-before-launch, a UI toggle would need a restart to take effect
+  // anyway -- purely so the panel never silently under-reports without explaining why.
+  if(flagsOff&&flagsOff.length){
+    var labels=flagsOff.map(function(s){return FLAG_STAGE_LABELS[s]||s;});
+    h+='<div class="row" style="opacity:.8"><span class="ic">⏸</span><span class="t muted" style="font-size:12px">'
+      +'Disabled for this run: '+esc(labels.join(', '))+' <span class="muted">(env var set before launch — see docs/SYSTEM-REQUIREMENTS.md)</span>'
+      +'</span></div>';
+  }
+
   bd.innerHTML=h||'<div class="muted" style="font-size:12.5px">Nothing extracted yet…</div>';
 }
 function startRun(){
@@ -276,7 +293,7 @@ function poll(){
     st.innerHTML=msg+'  <span class="muted">('+(d.elapsed||0)+'s)</span>';
     // Live "where is my data going" breakdown -- not just a stage bar. Updates every poll while
     // running (counts climbing); switches to link-bearing "here's where it went" language once done.
-    renderBreakdown(progress?progress.extracted:null, !d.running);
+    renderBreakdown(progress?progress.extracted:null, !d.running, progress?progress.flags_off:null);
     if(d.running){ pollTimer=setTimeout(poll,1500); }
     else {
       renderStages("done"); renderCurrent(null);

@@ -21,13 +21,23 @@ try:
     import ocrprep
 except Exception:
     ocrprep = None
+import flags   # central registry for the 8 extraction-pipeline opt-out toggles below (flags.py's
+               # own module docstring explains why this exists: every one of these used to be a bare
+               # inline os.environ.get() with no shared list anywhere, which is exactly how 7 of the
+               # 8 shipped with zero mention in docs/SYSTEM-REQUIREMENTS.md). Same env var, same
+               # default, same resolved bool assigned to the same module-level name as before --
+               # scan_toggle() only adds a registry entry as a side effect, it changes nothing about
+               # how OCR_PREPROCESS/BARCODE_SCAN/etc. actually behave or how tests monkeypatch them.
+
 # OCR pre-processing (deskew/denoise/binarize) before every OCR call (finding #14): ocrprep.py
 # already had a working, self-tested preprocessing pipeline, but nothing in this file ever called
-# it -- every scanned page was OCR'd raw. Operator-toggleable (VIEWER_OCR_PREPROCESS=0 to disable)
-# because the real accuracy effect on this corpus hasn't been benchmarked yet -- default on, but
-# easy to turn off if it turns out to hurt more than it helps. See _ocr_preprocessed_input() below
-# for why RapidOCR and Tesseract get different pipelines (preprocess_light vs. preprocess).
-OCR_PREPROCESS = os.environ.get("VIEWER_OCR_PREPROCESS", "1") != "0"
+# it -- every scanned page was OCR'd raw. Operator-toggleable because the real accuracy effect on
+# this corpus hasn't been benchmarked yet -- default on, but easy to turn off if it turns out to
+# hurt more than it helps. See _ocr_preprocessed_input() below for why RapidOCR and Tesseract get
+# different pipelines (preprocess_light vs. preprocess).
+OCR_PREPROCESS = flags.scan_toggle("VIEWER_OCR_PREPROCESS", "ocr_preprocess",
+    "Deskew/denoise/binarize (ocrprep.py) before every OCR call.",
+    attr="OCR_PREPROCESS", ns=globals())
 try:
     import barcodes
 except Exception:
@@ -36,41 +46,47 @@ except Exception:
 # fully-built, self-tested, dual-backend (pyzbar/OpenCV) detect() since it was written, but it had no
 # caller anywhere in the codebase -- only its own self-test and the import-check in verifystate.py.
 # Some TMs print NSNs/part numbers as barcodes; a machine-decoded value has no character-recognition
-# ambiguity, so it is higher-trust provenance than OCR text (migration 0010). Operator-toggleable
-# (VIEWER_BARCODE_SCAN=0 to disable) for the same reason OCR_PREPROCESS is: real-corpus benefit is
-# unmeasured. Cheap regardless of the toggle -- barcodes.available() already no-ops instantly when
-# neither backend is installed, so this is a no-op add-on to the existing render, never a new pass.
-BARCODE_SCAN = os.environ.get("VIEWER_BARCODE_SCAN", "1") != "0"
+# ambiguity, so it is higher-trust provenance than OCR text (migration 0010). Cheap regardless of
+# the toggle -- barcodes.available() already no-ops instantly when neither backend is installed, so
+# this is a no-op add-on to the existing render, never a new pass.
+BARCODE_SCAN = flags.scan_toggle("VIEWER_BARCODE_SCAN", "barcode",
+    "Barcode/QR decode (barcodes.py) on the same page render OCR already produced.",
+    attr="BARCODE_SCAN", ns=globals())
 
 # Dimensional-data extraction (measures.py + specparse.py + leadingspecs.py) on every page's text,
 # live during ingest instead of the separate BUILD-MEASURES.bat batch pass -- pure regex on text
-# already in memory, negligible cost (microseconds/page). Same opt-out convention as the two
-# toggles above, offered for consistency even though this one is cheap enough that most operators
-# have no reason to ever touch it.
-MEASURES_SCAN = os.environ.get("VIEWER_MEASURES_SCAN", "1") != "0"
+# already in memory, negligible cost (microseconds/page).
+MEASURES_SCAN = flags.scan_toggle("VIEWER_MEASURES_SCAN", "dimensions",
+    "Dimensional-data extraction (measures.py/specparse.py/leadingspecs.py) on every page's text.",
+    attr="MEASURES_SCAN", ns=globals())
 # Schematic detection (schem_overlay.py + schemgraph.py's existing netlist inference, plus a new
 # keyword/caption pass for scanned pages) on every page of every newly-ingested document -- THIS
 # one has a real, non-negligible cost: the vector check re-opens the PDF via PyMuPDF once per page
 # (schem_overlay.schem_paths()'s own signature takes a path, not a shared handle -- same per-page
 # reopen cost the existing BUILD-SCHEMGRAPH.bat batch tool already pays; not new inefficiency, just
-# now running inline during the scan instead of as a separate later step). Opt-out for anyone who
-# doesn't need netlist/schematic detection and wants the scan to skip that cost entirely.
-SCHEMATIC_SCAN = os.environ.get("VIEWER_SCHEMATIC_SCAN", "1") != "0"
+# now running inline during the scan instead of as a separate later step).
+SCHEMATIC_SCAN = flags.scan_toggle("VIEWER_SCHEMATIC_SCAN", "schematics",
+    "Schematic detection (schem_overlay.py + schemgraph.py netlist inference + caption keywords). "
+    "Real per-page cost: re-opens the PDF via PyMuPDF once per page.",
+    attr="SCHEMATIC_SCAN", ns=globals())
 # Table extraction (tables.py's PyMuPDF find_tables(), same RPSTL/torque/PMCS/leading-particulars
 # tables build_tables.py already scans for) -- another real, unwired-until-now batch tool (same
 # discovery-pass finding as measures.py/schemgraph.py were): tables.db has a real schema and a real
 # sidecar builder, but nothing in the live ingest path ever called it. Same per-page PDF-reopen
-# cost profile as SCHEMATIC_SCAN (find_tables() needs its own PyMuPDF page handle), same opt-out
-# shape for the same reason.
-TABLES_SCAN = os.environ.get("VIEWER_TABLES_SCAN", "1") != "0"
+# cost profile as SCHEMATIC_SCAN (find_tables() needs its own PyMuPDF page handle).
+TABLES_SCAN = flags.scan_toggle("VIEWER_TABLES_SCAN", "tables",
+    "Table extraction (tables.py's PyMuPDF find_tables()). Real per-page cost: re-opens the PDF.",
+    attr="TABLES_SCAN", ns=globals())
 # RPSTL parts-list row extraction (rpstl_feature.py's parse_page(), the same per-page regex parser
 # build_rpstl.py's batch tool already uses) -- same "built, has a real live consumer, never actually
 # invoked outside a manual .bat" gap as measures/schemgraph/tables before those were wired in. Unlike
 # the other three, this one is cheap even by measures.py's standard: it parses already-stored page
 # body_text (no PDF re-open at all -- rpstl_feature.parse_page() is pure regex over text already in
-# the `pages` table), so there's no per-page PyMuPDF cost to opt out of. Still offered as its own
-# toggle for consistency and because it writes a sidecar DB, same as the others.
-RPSTL_SCAN = os.environ.get("VIEWER_RPSTL_SCAN", "1") != "0"
+# the `pages` table), so there's no per-page PyMuPDF cost to opt out of.
+RPSTL_SCAN = flags.scan_toggle("VIEWER_RPSTL_SCAN", "rpstl",
+    "RPSTL parts-list row extraction (rpstl_feature.parse_page()). Cheap: no PDF re-open, pure regex "
+    "over text already in the `pages` table.",
+    attr="RPSTL_SCAN", ns=globals())
 # Header/footer/running-title stripping (pagetrim.py's statistical boilerplate detector) on a
 # document's text-layer pages before they're stored/indexed/measured -- a fully built, self-tested,
 # cataloged module (docs/EXTRACTION-METHODS-CATALOG.md Sec2.6) that had zero live callers anywhere:
@@ -79,13 +95,19 @@ RPSTL_SCAN = os.environ.get("VIEWER_RPSTL_SCAN", "1") != "0"
 # value) -- negligible cost, same tier as MEASURES_SCAN. Text-layer PDFs only for now (index_pdf());
 # OCR'd pages arrive one at a time in ocr(), which doesn't have the whole-document page list
 # clean_pages() needs, so that path is a separate, deferred piece of work.
-PAGETRIM_SCAN = os.environ.get("VIEWER_PAGETRIM_SCAN", "1") != "0"
+PAGETRIM_SCAN = flags.scan_toggle("VIEWER_PAGETRIM_SCAN", "pagetrim",
+    "Header/footer/running-title stripping (pagetrim.py) on text-layer pages before they're stored. "
+    "Text-layer PDFs only -- OCR'd pages are not covered yet.",
+    attr="PAGETRIM_SCAN", ns=globals())
 # keywords.json refresh (build_keywords.py's colloquial-name merge) right after enrich_flis()
 # populates the "Also called: X" data it reads -- another fully built module (real live consumer:
 # features/search_feature.py's _load_synonyms(), which expands shop slang to catalog nomenclature
 # on every search) with no automatic caller anywhere; previously a manual, easy-to-forget second
 # step after running ENRICH-PUBLOG.bat. A small JSON merge over ref_nsn, negligible cost.
-KEYWORDS_SCAN = os.environ.get("VIEWER_KEYWORDS_SCAN", "1") != "0"
+KEYWORDS_SCAN = flags.scan_toggle("VIEWER_KEYWORDS_SCAN", "keywords",
+    "keywords.json refresh (build_keywords.py) right after enrich_flis() populates the colloquial "
+    "names it merges in. Only runs from the `enrich` subcommand, not every crawl/ocr/run.",
+    attr="KEYWORDS_SCAN", ns=globals())
 
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
@@ -935,14 +957,17 @@ def _write_progress(d, **fields):
     done), what item it's on right now (a filename, or a {'doc','page'} pair), and done/total counts
     for whichever stage is active. Atomic write (temp file + os.replace) so a concurrent reader (the
     HTTP status route, polled every ~2s from the browser) never sees a half-written file -- same
-    pattern safeguard.py's atomic builds use for the same reason."""
+    pattern safeguard.py's atomic builds use for the same reason. Also always includes `flags_off`
+    (flags.disabled_stage_names(), e.g. ["schematics","rpstl"]) so the ingest UI can show which
+    extraction stages are disabled for this run WITHOUT every one of the 18+ call sites above having
+    to remember to pass it -- baked in here once instead, so a future stage/toggle can't forget it."""
     if not d: return
     try:
         os.makedirs(d, exist_ok=True)
         path = os.path.join(d, "ingest_progress.json")
         tmp = path + ".tmp.%d" % os.getpid()
         with open(tmp, "w") as f:
-            json.dump({"updated": time.time(), **fields}, f)
+            json.dump({"updated": time.time(), "flags_off": flags.disabled_stage_names(), **fields}, f)
         os.replace(tmp, path)
     except Exception: pass
 
@@ -2031,7 +2056,7 @@ def enrich(con, gsa_csv=None, publog_csv=None, publog_dir=None):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["migrate","crawl","ocr","ocrall","prefilter","prioritize","parts","enrich","rollback","run","status","search","cleanup","prune"])
+    ap.add_argument("cmd", choices=["migrate","crawl","ocr","ocrall","prefilter","prioritize","parts","enrich","rollback","run","status","search","cleanup","prune","flags"])
     ap.add_argument("query", nargs="?", default="")
     ap.add_argument("--root", default=os.environ.get("VIEWER_ROOT",""))
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", os.path.join(here,"..","index","viewer.db")))
@@ -2062,6 +2087,13 @@ def main():
     ap.add_argument("--yes", action="store_true", help="confirm a destructive action (e.g. `rollback`, `prune`)")
     ap.add_argument("--missing-threshold", type=float, default=0.5, help="`prune` abort threshold: max fraction of indexed documents allowed to be missing before refusing (default 0.5 = 50%%)")
     args = ap.parse_args()
+    if args.cmd == "flags":
+        # pure introspection -- what's the resolved on/off state of every extraction-pipeline
+        # toggle registered above, right now, in THIS process. Deliberately short-circuits before
+        # any DB connect/migrate/sysprobe work below: "what would a scan do" shouldn't need a real
+        # index or take longer than printing a few lines.
+        print(flags.report())
+        return 0
     global OCR_DPI, USE_CUDA, ADAPTIVE_DPI
     if getattr(args, "adaptive", False): ADAPTIVE_DPI = True
 

@@ -152,6 +152,46 @@ you deliberately expose the server on a LAN.
   feeder workers and pushes DPI up (never engages on battery). Off by default. Read by
   `engine\sysprobe.py`; also set by `run_ocr_auto.bat /max`.
 
+**Extraction pipeline stages** (`viewer_ingest.py`, registered centrally in `engine\flags.py`):
+
+Every scan (`crawl`/`ocr`/`run`) runs a fixed sequence of extraction stages on top of the base
+text/OCR pass — barcode decode, dimensional-data extraction, schematic detection, table extraction,
+RPSTL parts-list rows, header/footer boilerplate stripping, and (from `enrich`) a keywords.json
+refresh. Each has its own opt-out toggle, all following the same convention as `VIEWER_OCR_PREPROCESS`
+above (unset or anything but `"0"` → the stage runs; `"0"` → it's skipped), all default **on**:
+
+- **`VIEWER_BARCODE_SCAN`** — machine-decoded barcode/QR read (`barcodes.py`) on the same page
+  render OCR already produced. Cheap regardless — a no-op add-on when neither backend (pyzbar/
+  OpenCV) is installed.
+- **`VIEWER_MEASURES_SCAN`** — dimensional-data extraction (`measures.py`/`specparse.py`/
+  `leadingspecs.py`) on every page's text. Negligible cost (pure regex, microseconds/page).
+- **`VIEWER_SCHEMATIC_SCAN`** — schematic detection (`schem_overlay.py`/`schemgraph.py` netlist
+  inference + a caption-keyword pass for scanned pages). Real per-page cost: the vector check
+  re-opens the PDF via PyMuPDF once per page.
+- **`VIEWER_TABLES_SCAN`** — table extraction (`tables.py`'s PyMuPDF `find_tables()`). Same real
+  per-page PDF-reopen cost as schematic detection.
+- **`VIEWER_RPSTL_SCAN`** — RPSTL parts-list row extraction (`rpstl_feature.py`'s `parse_page()`).
+  Cheap even by `MEASURES_SCAN`'s standard: no PDF re-open at all, pure regex over page text already
+  stored in the database.
+- **`VIEWER_PAGETRIM_SCAN`** — header/footer/running-title stripping (`pagetrim.py`'s statistical
+  boilerplate detector) on text-layer pages before they're stored/measured. Text-layer PDFs only
+  today (`index_pdf()`) — OCR'd pages arrive one at a time in `ocr()` and don't have the
+  whole-document page list this needs, so that path isn't covered yet.
+- **`VIEWER_KEYWORDS_SCAN`** — refreshes `keywords.json` (`build_keywords.py`'s colloquial-name
+  merge) right after the `enrich` subcommand's `enrich_flis()` populates the "Also called: X" data
+  it depends on. Only runs from `enrich`, not every `crawl`/`ocr`/`run`.
+
+Check what's actually active right now (env vars resolved in the current process, no DB needed):
+
+```
+python engine\viewer_ingest.py flags
+```
+
+The in-app "Add documents" scan UI's live breakdown panel also shows a "Disabled for this run: …"
+note whenever one of these was turned off before the server/scan launched — read-only (these are
+env-var-set-before-launch; a UI toggle would need a restart to take effect anyway), just so a
+disabled stage's missing counts never look unexplained.
+
 **Preflight health gate** (`preflight.py`):
 
 - **`VIEWER_MIN_FREE_MB`** — minimum free disk space (MB) on the index drive before `disk_ok()`

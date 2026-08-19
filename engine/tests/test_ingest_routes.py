@@ -30,6 +30,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import threading
@@ -974,9 +975,34 @@ def main():
                 pt_body1_off = e2e5b_con.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=1",
                                                  (pt_doc_id_off,)).fetchone()[0]
                 check("e2e pagetrim: PAGETRIM_SCAN=False -> the header is NOT stripped", pt_header in pt_body1_off)
+                # flags.py's registry (added alongside this same audit) must reflect this live --
+                # _write_progress() bakes flags_off into EVERY progress write automatically.
+                prog_off = json.load(open(os.path.join(e2e5_dir, "ingest_progress.json")))
+                check("e2e flags: ingest_progress.json's flags_off includes 'pagetrim' while it's toggled off",
+                      "pagetrim" in (prog_off.get("flags_off") or []))
             finally:
                 _VI.PAGETRIM_SCAN = True
                 e2e5b_con.close()
+            prog_back_on = json.load(open(os.path.join(e2e5_dir, "ingest_progress.json")))
+            # (the file itself is a stale snapshot from the toggled-off run above -- re-derive fresh
+            # from the registry directly, which is the actual live-vs-snapshot guarantee under test)
+            import flags as _flags
+            check("e2e flags: flags.disabled_stage_names() no longer includes 'pagetrim' once restored",
+                  "pagetrim" not in _flags.disabled_stage_names())
+
+            # `python viewer_ingest.py flags` -- the CLI introspection entry point, exercised as a
+            # real subprocess (same as every other CLI-surface check in this file).
+            flags_proc = subprocess.run(
+                [sys.executable, os.path.join(ENGINE, "viewer_ingest.py"), "flags"],
+                capture_output=True, text=True, timeout=30)
+            check("`viewer_ingest.py flags` exits 0", flags_proc.returncode == 0)
+            check("`viewer_ingest.py flags` lists all 8 real toggles by env var name", all(
+                e in flags_proc.stdout for e in (
+                    "VIEWER_OCR_PREPROCESS", "VIEWER_BARCODE_SCAN", "VIEWER_MEASURES_SCAN",
+                    "VIEWER_SCHEMATIC_SCAN", "VIEWER_TABLES_SCAN", "VIEWER_RPSTL_SCAN",
+                    "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN")))
+            check("`viewer_ingest.py flags` reports all 8 active by default (no env override)",
+                  "8 of 8 toggles active" in flags_proc.stdout)
 
             # --- keywords: enrich_flis() populating a real 'Also called:' colloquial name must
             # trigger build_keywords.run() -- monkeypatched to a recording stub so this NEVER writes

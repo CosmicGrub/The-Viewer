@@ -218,9 +218,24 @@ _SCHEM_WHERE = ("type LIKE 'pdf%' AND (upper(COALESCE(path,'')) LIKE '%SCHEMATIC
 
 def schematics_list(q="", limit=60, offset=0):
     """The schematics collection: documents classified as schematic / wiring diagrams. Searchable +
-    paginated; each opens in a page viewer. (Exploded-view RPSTL figures live in the vehicle hub.)"""
+    paginated; each opens in a page viewer. (Exploded-view RPSTL figures live in the vehicle hub.)
+
+    Two ways a document qualifies: the original filename/title/TM-number LIKE match (_SCHEM_WHERE
+    above -- catches a manual that's ENTIRELY a schematic volume, e.g. a dedicated wiring-diagram
+    book), OR (added alongside viewer_ingest.py's page-level schematic detection, migration 0011)
+    having at least one row in the `schematics` table -- catches a manual that merely CONTAINS one
+    or more schematic pages among otherwise-unrelated content, which the old filter could never see
+    since it only ever looked at document metadata, never page content. Checked for existence first
+    (not just wrapped in the existing except) so a pre-migration-0011 DB -- or a test fixture that
+    hasn't added the table -- degrades cleanly to the original document-level-only behavior instead
+    of failing the whole query."""
     con = core.db(); args = []
     where = _SCHEM_WHERE
+    try:
+        if con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='schematics'").fetchone():
+            where = "(" + where + " OR id IN (SELECT DISTINCT document_id FROM schematics))"
+    except Exception:
+        pass
     q = (q or "").strip()
     if q:
         where += (" AND (upper(COALESCE(vehicle,'')) LIKE ? OR upper(COALESCE(title,'')) LIKE ? OR "

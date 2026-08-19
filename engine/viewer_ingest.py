@@ -42,6 +42,21 @@ except Exception:
 # neither backend is installed, so this is a no-op add-on to the existing render, never a new pass.
 BARCODE_SCAN = os.environ.get("VIEWER_BARCODE_SCAN", "1") != "0"
 
+# Dimensional-data extraction (measures.py + specparse.py + leadingspecs.py) on every page's text,
+# live during ingest instead of the separate BUILD-MEASURES.bat batch pass -- pure regex on text
+# already in memory, negligible cost (microseconds/page). Same opt-out convention as the two
+# toggles above, offered for consistency even though this one is cheap enough that most operators
+# have no reason to ever touch it.
+MEASURES_SCAN = os.environ.get("VIEWER_MEASURES_SCAN", "1") != "0"
+# Schematic detection (schem_overlay.py + schemgraph.py's existing netlist inference, plus a new
+# keyword/caption pass for scanned pages) on every page of every newly-ingested document -- THIS
+# one has a real, non-negligible cost: the vector check re-opens the PDF via PyMuPDF once per page
+# (schem_overlay.schem_paths()'s own signature takes a path, not a shared handle -- same per-page
+# reopen cost the existing BUILD-SCHEMGRAPH.bat batch tool already pays; not new inefficiency, just
+# now running inline during the scan instead of as a separate later step). Opt-out for anyone who
+# doesn't need netlist/schematic detection and wants the scan to skip that cost entirely.
+SCHEMATIC_SCAN = os.environ.get("VIEWER_SCHEMATIC_SCAN", "1") != "0"
+
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
 TM_RE  = re.compile(r"\bTM\s*[0-9][0-9A-Za-z\-]+")
@@ -391,13 +406,20 @@ def index_pdf(con, doc_id, path):
     if pages is None:
         con.execute("UPDATE documents SET status='failed' WHERE id=?", (doc_id,)); return 0, 0
     indexed = queued = 0; meta_text = ""
-    for i, txt in enumerate(pages, start=1):
-        body = txt.strip(); cc = len(body)
-        if i <= 3: meta_text += " " + body
-        if cc < OCR_CHAR_THRESHOLD:
-            con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) VALUES(?,?,?,?, 'none','pending')",(doc_id,i,"",cc)); queued += 1
-        else:
-            con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) VALUES(?,?,?,?, 'text','none')",(doc_id,i,body,cc)); indexed += 1
+    meas_con = _open_meas_db(_db_dir(con))
+    try:
+        for i, txt in enumerate(pages, start=1):
+            body = txt.strip(); cc = len(body)
+            if i <= 3: meta_text += " " + body
+            if cc < OCR_CHAR_THRESHOLD:
+                con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) VALUES(?,?,?,?, 'none','pending')",(doc_id,i,"",cc)); queued += 1
+            else:
+                con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) VALUES(?,?,?,?, 'text','none')",(doc_id,i,body,cc)); indexed += 1
+                if _EXTRACT_TALLY: _EXTRACT_TALLY["dimensions"] += _extract_measures_for_page(meas_con, doc_id, i, body)
+    finally:
+        if meas_con:
+            try: meas_con.close()
+            except Exception: pass
     nsn = NSN_RE.search(meta_text); tm = TM_RE.search(meta_text)
     title = next((l.strip() for l in meta_text.splitlines() if len(l.strip()) > 6), "")[:200]
     dtype = "pdf_text" if indexed >= queued else "pdf_scanned"
@@ -442,6 +464,7 @@ def crawl(con, root, max_files=0, max_seconds=0):
                                 "id": doc_id, "tm_number": drow[0], "nsn": drow[1], "title": drow[2],
                                 "vehicle": drow[3], "page_count": drow[4], "type": drow[5]})
                     except Exception: pass
+                    _TOUCHED_DOC_IDS.add(doc_id)   # so the schematics stage (after extract_parts()) scans this document
                     _EXTRACT_TALLY["pages_text"] += a
                     _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new, extracted=dict(_EXTRACT_TALLY))
                 else:
@@ -748,8 +771,11 @@ def _ocr_task(args):
     and from inside its ThreadPoolExecutor (workers>1) -- wrapping it here (rather than in ocr()
     itself) means the timeout applies uniformly in both cases with one implementation. Times out ->
     same (pid, None, None, None, err) shape as any other failure, so handle() needs no changes: the
-    page is marked 'failed' and the batch moves on to the next one instead of hanging on it forever."""
-    pid, pno, path = args
+    page is marked 'failed' and the batch moves on to the next one instead of hanging on it forever.
+    args[:3] (not a bare 3-way unpack): ocr()'s `rows` query gained a 4th column (p.document_id,
+    for the measures.db/schematics-stage document tracking added alongside it) that this function
+    itself has no use for -- only handle()/_labels do."""
+    pid, pno, path = args[:3]
     box = {}
     def run():
         try:
@@ -815,11 +841,90 @@ def _write_progress(d, **fields):
 # every _write_progress() call, so the browser always sees the full picture regardless of which
 # stage is currently active, not just that one function's local counters.
 _EXTRACT_TALLY = {}
+# Which document ids this process has actually touched (crawl discovered, or ocr() OCR'd a page of)
+# this run -- deliberately NOT part of _EXTRACT_TALLY itself (a plain set isn't JSON-serializable,
+# and _write_progress() dumps a shallow copy of the tally on every call; this is internal bookkeeping
+# for the schematics stage below, not UI-facing data). Reset alongside the tally.
+_TOUCHED_DOC_IDS = set()
 def _tally_reset():
-    global _EXTRACT_TALLY
+    global _EXTRACT_TALLY, _TOUCHED_DOC_IDS
     _EXTRACT_TALLY = {"documents": [], "pages_text": 0, "pages_ocr_done": 0, "pages_ocr_fail": 0,
                        "barcodes_decoded": 0, "parts_page": 0, "parts_barcode": 0, "nsn_samples": [],
-                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0}
+                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0, "dimensions": 0, "schematics": 0}
+    _TOUCHED_DOC_IDS = set()
+
+
+# ---- dimensional data, live: measures.py + specparse.py + leadingspecs.py, called inline per page
+# instead of the separate BUILD-MEASURES.bat batch pass. Deliberately writes ONLY the per-(doc,page)
+# layer (measures.db's `meas` table -- the exact schema build_measures.py already defines) and never
+# touches masterfile.db's cross-document aggregation (masterfile.build() groups by vehicle label and
+# discards the page citation entirely -- explicitly out of scope here; that stays a separate, human-
+# triggered step via BUILD-MASTERFILE.bat, unchanged). Every row this writes is traceable to the
+# exact document + page it came from, matching the "no cross-referencing, only what's correlative to
+# the part's own document" requirement this exists to satisfy.
+_MEAS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS meas(
+  id INTEGER PRIMARY KEY, doc INTEGER, page INTEGER, type TEXT, unit TEXT,
+  value TEXT, value2 TEXT, tolerance TEXT, raw TEXT, context TEXT);
+CREATE INDEX IF NOT EXISTS ix_meas_doc  ON meas(doc);
+CREATE INDEX IF NOT EXISTS ix_meas_type ON meas(type);
+"""
+
+def _open_meas_db(dbdir):
+    """Best-effort measures.db connection, same schema/location build_measures.py already uses
+    (index/measures.db, next to viewer.db) -- so the existing /api/measures, /master, /mastercov
+    routes and BUILD-MASTERFILE.bat all pick up live-extracted rows with zero changes of their own.
+    Returns None (never raises) on any failure, OR instantly when MEASURES_SCAN is off -- dimensional
+    extraction is enrichment, not core ingest, and must never be the reason a scan job fails or slows
+    down for an operator who's opted out."""
+    if not dbdir or not MEASURES_SCAN: return None
+    try:
+        os.makedirs(dbdir, exist_ok=True)
+        mcon = sqlite3.connect(os.path.join(dbdir, "measures.db"))
+        mcon.executescript(_MEAS_SCHEMA)
+        return mcon
+    except Exception:
+        return None
+
+def _extract_measures_for_page(meas_con, doc_id, page_number, body_text):
+    """Runs measures.py (generic dimensions) + leadingspecs.py (labelled 'Length: 180 in' specs) +
+    specparse.py (thread/fit-class/diameter-tolerance/MIL-STD/fluid) over ONE page's text and writes
+    every match into meas_con, tied to (doc_id, page_number). Mirrors build_measures.py's per-page
+    inner loop (lines 46-60) exactly, just invoked live per page instead of in a separate whole-
+    corpus pass. Returns the count written (0 on any failure or empty input) -- fed into
+    _EXTRACT_TALLY['dimensions'] by the caller, same "where did my data go" breakdown the scan UI
+    already shows for pages/parts/barcodes."""
+    if not meas_con or not body_text:
+        return 0
+    try:
+        import measures as _measures
+        rows = _measures.extract(body_text, page=page_number, cap=120)
+        try:
+            import leadingspecs as _leadingspecs
+            rows = rows + _leadingspecs.as_measurements(body_text, page=page_number)
+        except Exception:
+            pass
+        try:
+            import specparse as _specparse
+            # specparse's shape ({kind,value,context,[tolerance],[page]}) differs slightly from
+            # measures.py's ({type,unit,value,...}) -- kind->type, no natural unit (a thread callout
+            # or MIL-STD number isn't a magnitude+unit pair the way a length is), raw=value (the
+            # match text itself, same convention measures.py's own 'raw' field follows).
+            for r in _specparse.extract(body_text, page=page_number, cap=80):
+                rows.append({"type": r["kind"], "unit": None, "value": r["value"], "value2": None,
+                             "tolerance": r.get("tolerance"), "raw": r["value"], "context": r.get("context")})
+        except Exception:
+            pass
+        if not rows:
+            return 0
+        meas_con.executemany(
+            "INSERT INTO meas(doc,page,type,unit,value,value2,tolerance,raw,context) VALUES(?,?,?,?,?,?,?,?,?)",
+            [(doc_id, page_number, m["type"], m.get("unit"), m["value"], m.get("value2"),
+              m.get("tolerance"), m.get("raw"), m.get("context")) for m in rows])
+        meas_con.commit()
+        return len(rows)
+    except Exception:
+        return 0
 
 def ocr(con, limit, workers=1):
     rid = con.execute("INSERT INTO runs(kind) VALUES('ocr')").lastrowid
@@ -837,7 +942,7 @@ def ocr(con, limit, workers=1):
                 return con.execute("SELECT COUNT(*) FROM pages WHERE ocr_status='pending'").fetchone()[0]
         except Exception:
             pass
-    rows = con.execute("SELECT p.id, p.page_number, d.path FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.ocr_status='pending' ORDER BY p.ocr_priority, p.id LIMIT ?", (limit,)).fetchall()
+    rows = con.execute("SELECT p.id, p.page_number, d.path, p.document_id FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.ocr_status='pending' ORDER BY p.ocr_priority, p.id LIMIT ?", (limit,)).fetchall()
     log(f"ocr: {len(rows)} pages to process this batch (threads={workers}, engine={'RapidOCR' if _have_rapid() else 'tesseract'})")
     if not rows:
         con.execute("UPDATE runs SET finished_at=datetime('now') WHERE id=?", (rid,)); con.commit()
@@ -845,11 +950,14 @@ def ocr(con, limit, workers=1):
     con.executemany("UPDATE pages SET ocr_status='running' WHERE id=?", [(r[0],) for r in rows]); con.commit()
     if _have_rapid(): _get_rapid(workers)      # build the shared engine once, up front
     total = len(rows)
-    # pid -> (page_number, doc basename), so handle() (which only gets a bare pid back from
-    # _ocr_task()) can still report a human-readable "currently processing" line for the in-app
-    # scan UI -- ingest_status() (features/ingest_feature.py) surfaces this via _write_progress().
-    _labels = {r[0]: (r[1], os.path.basename(r[2] or "")) for r in rows}
+    # pid -> (page_number, doc basename, document_id), so handle() (which only gets a bare pid back
+    # from _ocr_task()) can still report a human-readable "currently processing" line for the in-app
+    # scan UI (ingest_status() surfaces this via _write_progress()) AND tie a page's OCR'd text back
+    # to its document for measures.db (dimensional data is meaningless without knowing which
+    # document/page it came from).
+    _labels = {r[0]: (r[1], os.path.basename(r[2] or ""), r[3]) for r in rows}
     if not _EXTRACT_TALLY: _tally_reset()   # same lazy-default as crawl(): ocrall doesn't call crawl() first
+    meas_con = _open_meas_db(dbdir)
     _write_progress(dbdir, stage="ocr", current=None, done=0, fail=0, total=total, extracted=dict(_EXTRACT_TALLY))
     def handle(pid, text, conf, barcode, err):
         nonlocal done, fail
@@ -861,6 +969,10 @@ def ocr(con, limit, workers=1):
             _EXTRACT_TALLY["pages_ocr_done"] += 1
             if conf is not None:
                 _EXTRACT_TALLY["ocr_conf_sum"] += conf; _EXTRACT_TALLY["ocr_conf_n"] += 1
+            _lbl_pno, _lbl_dname, _lbl_doc_id = _labels.get(pid, (None, "", None))
+            if _lbl_doc_id is not None:
+                _EXTRACT_TALLY["dimensions"] += _extract_measures_for_page(meas_con, _lbl_doc_id, _lbl_pno, text)
+                _TOUCHED_DOC_IDS.add(_lbl_doc_id)   # so the schematics stage (after extract_parts()) scans this document
         else:
             # The page's OCR text pass genuinely failed (still marked 'failed' + queued for retry,
             # same as always) -- but a barcode reached this far only if it decoded successfully BEFORE
@@ -874,15 +986,20 @@ def ocr(con, limit, workers=1):
             _EXTRACT_TALLY["pages_ocr_fail"] += 1
         if bc.get("type"):
             _EXTRACT_TALLY["barcodes_decoded"] += 1   # promoted to a 'barcode'-confidence part later IFF it has an nsn (extract_parts() tallies that half)
-        pno, dname = _labels.get(pid, (None, ""))
+        pno, dname, _ = _labels.get(pid, (None, "", None))
         _write_progress(dbdir, stage="ocr", current={"doc": dname, "page": pno}, done=done, fail=fail, total=total,
                         extracted=dict(_EXTRACT_TALLY))
         if (done+fail) % 5 == 0: con.commit(); _heartbeat(dbdir, done, fail, None); log(f"ocr: done={done} failed={fail} (last page {len(text) if text else 0} chars)")
-    if workers <= 1:
-        for r in rows: handle(*_ocr_task(r))
-    else:
-        with ThreadPoolExecutor(max_workers=workers) as ex:
-            for fut in as_completed([ex.submit(_ocr_task, r) for r in rows]): handle(*fut.result())
+    try:
+        if workers <= 1:
+            for r in rows: handle(*_ocr_task(r))
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                for fut in as_completed([ex.submit(_ocr_task, r) for r in rows]): handle(*fut.result())
+    finally:
+        if meas_con:
+            try: meas_con.close()
+            except Exception: pass
     con.execute("UPDATE documents SET status='indexed' WHERE status='partial' AND id NOT IN (SELECT document_id FROM pages WHERE ocr_status IN ('pending','running','failed'))")
     con.execute("UPDATE runs SET finished_at=datetime('now'), ocr_done=?, failed=? WHERE id=?", (done,fail,rid)); con.commit()
     remaining = con.execute("SELECT COUNT(*) FROM pages WHERE ocr_status='pending'").fetchone()[0]
@@ -1215,6 +1332,119 @@ def extract_parts(con):
     log(f"parts: {npages} RPSTL pages -> {len(batch)} NSN records ({len(set(b[0] for b in batch))} distinct NSNs)"
         f"{f', {nbar} from decoded barcodes' if nbar else ''}")
     return len(batch)
+
+
+# ---- schematics: page-level detection, live -----------------------------------------------------
+# Two independent signals, mirroring build_schemgraph.py's own per-doc scan loop (schem_overlay.
+# schem_paths() -> schemgraph.graph_from_paths(), same >=12-path has_vector gate and >=8-edge
+# min-edges floor) but scoped to just the documents THIS run touched, not the whole corpus, and
+# additionally catching scanned/raster schematic pages the vector path can never see at all.
+_SCHEM_KEYWORDS_RE = re.compile(
+    r'\b(?:SCHEMATIC|WIRING\s+DIAGRAM|CIRCUIT\s+DIAGRAM|ELECTRICAL\s+DIAGRAM|'
+    r'HYDRAULIC\s+DIAGRAM|PNEUMATIC\s+DIAGRAM)\b', re.I)
+_SCHEM_MIN_EDGES = 8   # same floor build_schemgraph.py uses (--min-edges default) -- filters out
+                       # pages with a little incidental vector content (a ruled table, a border)
+                       # that aren't actually wiring diagrams.
+
+def detect_schematics(con, doc_id, path):
+    """Per-document schematic detection -- run once a document's pages all have real text (direct
+    or OCR'd), so the keyword signal has something to search. Best-effort throughout: any failure
+    for one page or the whole document must never break the ingest job it's called from.
+    Returns the count of (doc,page) schematic rows written (0 on any failure, or instantly when
+    SCHEMATIC_SCAN is off -- this is the one extraction toggle with a real per-page PDF-reopen
+    cost; see its module-level comment)."""
+    if not SCHEMATIC_SCAN:
+        return 0
+    dbdir = _db_dir(con)
+    try:
+        import schem_overlay, schemgraph
+    except Exception:
+        schem_overlay = schemgraph = None
+    rows = con.execute("SELECT page_number, body_text FROM pages WHERE document_id=? ORDER BY page_number",
+                       (doc_id,)).fetchall()
+    if not rows:
+        return 0
+    vrow = con.execute("SELECT vehicle FROM documents WHERE id=?", (doc_id,)).fetchone()
+    vehicle = vrow[0] if vrow else None
+    is_pdf = bool(path) and str(path).lower().endswith(".pdf") and os.path.exists(path)
+    n = 0
+    for page_number, body_text in rows:
+        detected_via = None; has_netlist = 0; net_count = comp_count = confidence = None; caption = None
+        if is_pdf and schem_overlay is not None and schemgraph is not None:
+            try:
+                raw = schem_overlay.schem_paths(path, page_number)
+                if raw.get("has_vector"):
+                    g = schemgraph.graph_from_paths(raw)
+                    edges = (g.get("counts") or {}).get("edges", 0)
+                    if edges >= _SCHEM_MIN_EDGES:
+                        detected_via = "vector"
+                        c = g.get("counts") or {}
+                        net_count = c.get("nets"); comp_count = c.get("components"); confidence = g.get("confidence")
+                        if dbdir:
+                            try:
+                                import safeguard
+                                cache_dir = os.path.join(dbdir, "schemcache")
+                                os.makedirs(cache_dir, exist_ok=True)
+                                g["page"] = page_number
+                                # same location + filename build_schemgraph.py already writes
+                                # (schemgraph.cache_path()) -- /schemflow.js and Circuit Lab's
+                                # reference panel pick this up with no changes of their own.
+                                safeguard.atomic_write(schemgraph.cache_path(cache_dir, doc_id, page_number),
+                                                       json.dumps(g))
+                                has_netlist = 1
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+        if detected_via is None and body_text:
+            m = _SCHEM_KEYWORDS_RE.search(body_text)
+            if m:
+                detected_via = "keyword"
+                caption = re.sub(r'\s+', ' ', body_text[max(0, m.start() - 40):m.end() + 40]).strip()
+        if detected_via:
+            try:
+                con.execute(
+                    "INSERT INTO schematics(document_id,page_number,vehicle,detected_via,has_netlist,"
+                    "net_count,component_count,confidence,caption) VALUES(?,?,?,?,?,?,?,?,?) "
+                    "ON CONFLICT(document_id,page_number) DO UPDATE SET vehicle=excluded.vehicle, "
+                    "detected_via=excluded.detected_via, has_netlist=excluded.has_netlist, "
+                    "net_count=excluded.net_count, component_count=excluded.component_count, "
+                    "confidence=excluded.confidence, caption=excluded.caption",
+                    (doc_id, page_number, vehicle, detected_via, has_netlist, net_count, comp_count,
+                     confidence, caption))
+                n += 1
+            except sqlite3.OperationalError:
+                pass   # pre-migration-0011 schema (schematics table doesn't exist yet) -- skip, never crash ingest
+    if n:
+        con.commit()
+    return n
+
+
+def _run_schematic_stage(con):
+    """Shared 4th stage for both 'run' and 'ocrall': after extract_parts() has finished, detect
+    schematics ONLY on the documents this process actually touched this run (_TOUCHED_DOC_IDS --
+    populated by crawl()'s discoveries and ocr()'s completions above), not the whole corpus every
+    time. No-op instantly if SCHEMATIC_SCAN is off or nothing was touched. Updates
+    _EXTRACT_TALLY['schematics'] and stamps its own 'schematics' progress stage, same shape every
+    other stage already uses."""
+    if not SCHEMATIC_SCAN or not _TOUCHED_DOC_IDS:
+        return
+    dbdir = _db_dir(con)
+    doc_ids = sorted(_TOUCHED_DOC_IDS)
+    total = len(doc_ids)
+    _write_progress(dbdir, stage="schematics", current=None, done=0, total=total, extracted=dict(_EXTRACT_TALLY))
+    n_schem = 0
+    for i, doc_id in enumerate(doc_ids, 1):
+        try:
+            prow = con.execute("SELECT path FROM documents WHERE id=?", (doc_id,)).fetchone()
+            if prow and prow[0]:
+                n_schem += detect_schematics(con, doc_id, prow[0])
+        except Exception:
+            pass
+        _EXTRACT_TALLY["schematics"] = n_schem
+        _write_progress(dbdir, stage="schematics", current={"doc": doc_id}, done=i, total=total,
+                        extracted=dict(_EXTRACT_TALLY))
+
 
 _HW_SEED = [
     # (size, series, major_in, major_mm, tpi_or_pitch, tap_drill, torque_ref_lbft)  -- public-domain facts
@@ -1568,16 +1798,19 @@ def main():
         prioritize(con)
         while ocr(con, args.limit, args.workers) > 0: pass
         extract_parts(con)   # refresh the structured parts index after OCR adds pages
+        _run_schematic_stage(con)   # 4th stage: schematic detection on whatever got OCR'd this run
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "run":
         # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
-        # launches exactly this subcommand -- crawl/ocr()/extract_parts() each stamp their own
-        # stage into ingest_progress.json as they go (see _write_progress() calls inside each),
-        # so the only thing left to mark here is the final "done" once every stage has actually
-        # finished, for the polling UI to stop showing a stage and show a completion state instead.
+        # launches exactly this subcommand -- crawl/ocr()/extract_parts()/_run_schematic_stage()
+        # each stamp their own stage into ingest_progress.json as they go (see _write_progress()
+        # calls inside each), so the only thing left to mark here is the final "done" once every
+        # stage has actually finished, for the polling UI to stop showing a stage and show a
+        # completion state instead.
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
+        _run_schematic_stage(con)   # 4th stage: schematic detection, scoped to just this run's documents
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)

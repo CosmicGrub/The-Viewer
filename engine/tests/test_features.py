@@ -121,6 +121,44 @@ ok("partdiff_uoc_disc", "UOC" in fields)
 ok("partdiff_fsc_disc", "FSC" in fields)
 rels = {v["relation"] for v in pd["variants"]}
 ok("partdiff_diff_class", "different item class" in rels)   # the 5340 FSC item
+# document_id/page are NULL on every ALTERNATOR fixture row above (this file's own hand-rolled
+# `parts` INSERT never sets them) -- part_differences()'s new dimensional-comparison step must
+# degrade cleanly to "no dimensions" rather than raise, exactly the shape a real corpus's
+# barcode-only or metadata-only parts rows can also have.
+ok("partdiff_no_page_ref_means_no_dimensions_not_a_crash", all(v["dimensions"] == [] for v in pd["variants"]))
+
+# --- part_differences: dimensional-difference discriminator (a SEPARATE nomenclature+fixture,
+# with real document_id/page refs and real dimensional text on each variant's own cited page --
+# proves the new "different measured dimensions" discriminator/tell actually fires when it should,
+# not just that it stays silent when there's nothing to compare). ---
+try:
+    _dc = sqlite3.connect(DBP)
+    _dc.executescript("""
+      INSERT INTO documents(id,path,vehicle,tm_number,title,page_count) VALUES
+        (901,'/x/GASKET-A.pdf','M915','TM 9-9001','Gasket doc A',5),
+        (902,'/x/GASKET-B.pdf','Forklift','TM 9-9002','Gasket doc B',5);
+    """)
+    _dc.execute("INSERT INTO pages(id,document_id,page_number,body_text,source) VALUES(901,901,3,?,'text')",
+               ("Gasket length 2.0 in, diameter .500 in.",))
+    _dc.execute("INSERT INTO pages(id,document_id,page_number,body_text,source) VALUES(902,902,4,?,'text')",
+               ("Gasket length 3.5 in, diameter .625 in.",))
+    _dc.executemany("INSERT INTO parts(name,nomenclature,nsn,document_id,page,vehicle,confidence) VALUES(?,?,?,?,?,?,?)", [
+        ("GASKET SET", "GASKET SET", "5330-01-777-1111", 901, 3, "M915", "page"),
+        ("GASKET SET", "GASKET SET", "5330-01-777-2222", 902, 4, "Forklift", "page"),
+    ])
+    _dc.commit(); _dc.close()
+    pd_dim = V.part_differences("5330-01-777-1111")
+    ok("partdiff_dims_found", pd_dim["found"] and pd_dim["n_variants"] == 2)
+    dim_fields = [d["field"] for d in pd_dim["discriminators"]]
+    ok("partdiff_dims_discriminator_fires", "dimensions" in dim_fields)
+    ref_v = next(v for v in pd_dim["variants"] if v["relation"] == "reference")
+    other_v = next(v for v in pd_dim["variants"] if v["relation"] != "reference")
+    ok("partdiff_dims_reference_has_own_page_dimensions", any("2.0" in d for d in ref_v["dimensions"]))
+    ok("partdiff_dims_other_variant_has_its_own_different_dimensions", any("3.5" in d for d in other_v["dimensions"]))
+    ok("partdiff_dims_tell_cites_the_actual_values",
+       any("3.5" in t and "2.0" in t for t in other_v["how_to_tell_apart"]))
+except Exception as e:
+    failed.append("partdiff_dimensions(%s)" % e)
 
 # --- ingest_preview ---
 for f in ("old.pdf", "new1.pdf", "new2.pdf"): open(os.path.join(TMP, f), "w").write("x")

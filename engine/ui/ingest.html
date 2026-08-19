@@ -120,6 +120,7 @@ function renderBreakdown(extracted, done){
   var pagesText=extracted.pages_text||0, ocrDone=extracted.pages_ocr_done||0, ocrFail=extracted.pages_ocr_fail||0;
   var partsPage=extracted.parts_page||0, partsBar=extracted.parts_barcode||0, parts=partsPage+partsBar;
   var barcodes=extracted.barcodes_decoded||0;
+  var dims=extracted.dimensions||0;
   var avgConf=extracted.ocr_conf_n?Math.round(100*extracted.ocr_conf_sum/extracted.ocr_conf_n):null;
   var h="";
 
@@ -163,6 +164,28 @@ function renderBreakdown(extracted, done){
     h+='<div class="row"><span class="ic">📟</span><span class="t">'
       +'<b>'+barcodes+'</b> barcode'+(barcodes===1?'':'s')+' decoded'
       +'</span></div>';
+  }
+
+  // dimensional data -- length/diameter/thread/torque/tolerance/MIL-STD specs, each tied to the
+  // exact page it came from (measures.db's meas table -- never cross-document-aggregated; that's
+  // Masterfile's separate, deliberately-untouched job). Links by TM number/vehicle since /measures
+  // is an FTS-driven lookup, not a per-doc-id route.
+  if(dims){
+    var dimQ=docs.length?(docs[0].tm_number||docs[0].vehicle||""):"";
+    var dimLink=dimQ?'<a class="go" href="/measures?q='+encodeURIComponent(dimQ)+'">View dimensions →</a>':"";
+    h+='<div class="row"><span class="ic">📐</span><span class="t">'
+      +'<b>'+dims+'</b> dimensional value'+(dims===1?'':'s')+' extracted <span class="muted">(length, diameter, thread, torque, tolerance…)</span>'
+      +'</span>'+(done?dimLink:'')+'</div>';
+  }
+
+  // schematics -- page-level detection (vector netlist OR raster/keyword caption). No per-page
+  // deep link exists in the Schematics Library UI today, so this points at the library itself
+  // (schematics_list() now includes documents this detection found, not just filename matches).
+  var schematics=extracted.schematics||0;
+  if(schematics){
+    h+='<div class="row"><span class="ic">🔌</span><span class="t">'
+      +'<b>'+schematics+'</b> schematic page'+(schematics===1?'':'s')+' detected'
+      +'</span>'+(done?'<a class="go" href="/schematics">View →</a>':'')+'</div>';
   }
 
   bd.innerHTML=h||'<div class="muted" style="font-size:12.5px">Nothing extracted yet…</div>';

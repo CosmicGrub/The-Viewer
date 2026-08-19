@@ -683,6 +683,93 @@ def main():
             check("e2e parts tally: nsn_samples contains the actual extracted NSN (what the UI links to)",
                   extr2.get("nsn_samples") == ["5330-01-654-9999"])
             e2e2_con.close()
+
+            # =================================================================================
+            # A THIRD e2e run: dimensional-data (measures.db) + schematic detection (both the
+            # vector-native and raster/keyword paths), through the REAL 'run' subcommand's exact
+            # stage sequence (crawl -> ocr -> extract_parts -> _run_schematic_stage), not just the
+            # individual functions called in isolation like the sections above.
+            # =================================================================================
+            _VI._tally_reset()   # main() does this once per subprocess invocation; do the same here
+                                 # since this whole test file shares one process across many e2e runs
+            e2e3_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_dims_schem_")
+            e2e3_db = os.path.join(e2e3_dir, "viewer.db")
+            e2e3_con = _VI.connect(e2e3_db)
+            _VI.migrate(e2e3_con, os.path.join(ENGINE, "migrations"), db_path=e2e3_db)
+            corpus3_dir = os.path.join(e2e3_dir, "corpus"); os.makedirs(corpus3_dir)
+            prog3_path = os.path.join(e2e3_dir, "ingest_progress.json")
+
+            # a real-dimensioned text-layer page
+            doc4 = _fitz2.open(); p4 = doc4.new_page(width=612, height=792)
+            p4.insert_text((72, 72), "Bushing length 2.5 in, diameter .500 +/- .002 in. Thread 1/2-13 UNC-2A.")
+            doc4.save(os.path.join(corpus3_dir, "DIMS-DOC.pdf")); doc4.close()
+
+            # a vector-native schematic page: enough drawn lines to clear both has_vector (>=12
+            # paths) and the >=8-edge min-edges floor _run_schematic_stage() applies.
+            doc5 = _fitz2.open(); p5 = doc5.new_page(width=612, height=792)
+            for i in range(8):
+                y = 60 + i * 20
+                p5.draw_line((60, y), (500, y)); p5.draw_line((60 + i * 10, 40), (60 + i * 10, 700))
+            doc5.save(os.path.join(corpus3_dir, "VECTOR-SCHEM.pdf")); doc5.close()
+
+            # a scanned/raster schematic page -- no vector content, caption-only detection.
+            doc6 = _fitz2.open(); p6 = doc6.new_page(width=612, height=792)
+            p6.draw_rect(_fitz2.Rect(40, 40, 570, 750), color=(0, 0, 0), fill=(0.9, 0.9, 0.9))
+            p6.insert_text((80, 80), "FIG 14 WIRING DIAGRAM - MAIN HARNESS", fontsize=14)
+            doc6.save(os.path.join(corpus3_dir, "RASTER-SCHEM.pdf")); doc6.close()
+
+            _VI.crawl(e2e3_con, corpus3_dir)
+            e2e3_con.commit()
+            _VI.ocr(e2e3_con, 10, workers=1)
+            _VI.extract_parts(e2e3_con)
+            _VI._run_schematic_stage(e2e3_con)
+            with open(prog3_path) as f:
+                prog3 = json.load(f)
+            extr3 = prog3.get("extracted") or {}
+
+            meas_rows = sqlite3.connect(os.path.join(e2e3_dir, "measures.db")).execute(
+                "SELECT type, value FROM meas").fetchall()
+            check("e2e dimensions: real values landed in measures.db (not just an empty file)",
+                  len(meas_rows) > 0 and any(v == "2.5" for _, v in meas_rows))
+            check("e2e dimensions tally: 'dimensions' count matches what actually got written",
+                  extr3.get("dimensions") == len(meas_rows))
+
+            schem_rows = e2e3_con.execute(
+                "SELECT document_id, detected_via, has_netlist, caption FROM schematics ORDER BY detected_via").fetchall()
+            check("e2e schematics: exactly the two real schematic pages were detected (not the plain dims page)",
+                  len(schem_rows) == 2)
+            by_via = {r[1]: r for r in schem_rows}
+            check("e2e schematics: the vector-native page got a real cached netlist", "vector" in by_via
+                  and by_via["vector"][2] == 1)
+            check("e2e schematics: the scanned page was caught by the keyword/caption path (no vector data to read)",
+                  "keyword" in by_via and by_via["keyword"][3] and "WIRING DIAGRAM" in by_via["keyword"][3])
+            check("e2e schematics tally: 'schematics' count matches what actually got written",
+                  extr3.get("schematics") == len(schem_rows))
+            schemcache_dir = os.path.join(e2e3_dir, "schemcache")
+            check("e2e schematics: the netlist JSON sidecar exists at the SAME location BUILD-SCHEMGRAPH.bat "
+                  "already uses (so /schemflow.js and Circuit Lab pick it up with no changes of their own)",
+                  os.path.isdir(schemcache_dir) and len(os.listdir(schemcache_dir)) >= 1)
+
+            # schematics_list() (features/browse_feature.py) must now surface a document purely
+            # because it HAS a page-level schematics row -- even though neither VECTOR-SCHEM.pdf nor
+            # RASTER-SCHEM.pdf's filename/title matches the old LIKE pattern at all.
+            import features.browse_feature as _bf
+            _orig_core = _bf.core
+            class _FakeCoreForSchemList:
+                DB_PATH = e2e3_db
+                @staticmethod
+                def db():
+                    c = sqlite3.connect(_FakeCoreForSchemList.DB_PATH); c.row_factory = sqlite3.Row; return c
+            _bf.core = _FakeCoreForSchemList
+            try:
+                slist = _bf.schematics_list()
+                names = {it["filename"] for it in slist["items"]}
+                check("schematics_list() now includes a document found ONLY via page-level detection "
+                      "(filename never matched the old LIKE pattern)", "VECTOR-SCHEM.pdf" in names)
+            finally:
+                _bf.core = _orig_core
+
+            e2e3_con.close()
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

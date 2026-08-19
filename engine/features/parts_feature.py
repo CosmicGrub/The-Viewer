@@ -10,6 +10,9 @@ import sqlite3
 import time
 
 from patterns import norm_nsn, NSN_RE  # noqa: F401  (canonical patterns, A6)
+import measures   # dimensional-value comparison for part_differences() -- pure stdlib regex, no
+                   # sidecar dependency (same "live, on-demand, no prebuilt index required"
+                   # philosophy /api/measures itself already uses -- see measures.find_for_query()).
 
 core = None          # injected by viewer_app at startup
 
@@ -372,6 +375,37 @@ def part_differences(query, limit=80):
         if len(v["refs"]) < 6:
             v["refs"].append({"vehicle": r["vehicle"], "fig_no": r["fig_no"], "fig_title": r["fig_title"],
                               "page": r["page"], "document_id": r["document_id"]})
+    # Dimensional data per variant -- length/diameter/thread/torque/etc., read LIVE off each
+    # variant's own cited page(s) (measures.extract() over pages.body_text -- same on-demand, no-
+    # sidecar-required approach /api/measures itself already uses), never merged/averaged across
+    # variants (each variant's dimensions come only from ITS OWN cited document+page -- matching
+    # the "no cross-referencing" constraint this whole recognizer already follows for NSN/UOC/CAGEC).
+    # One batched query for every (document_id, page) any variant cites, not one query per variant.
+    _dim_pairs = {(v2["refs"][0]["document_id"], v2["refs"][0]["page"])
+                  for v2 in variants.values() if v2["refs"] and v2["refs"][0]["document_id"] and v2["refs"][0]["page"]}
+    _dim_text = {}
+    if _dim_pairs:
+        try:
+            con2 = core.db()
+            for doc_id, page in _dim_pairs:
+                pr = con2.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=?",
+                                  (doc_id, page)).fetchone()
+                _dim_text[(doc_id, page)] = (pr["body_text"] if pr else "") or ""
+            con2.close()
+        except Exception:
+            _dim_text = {}
+    for v2 in variants.values():
+        dims = []
+        if v2["refs"]:
+            r0 = v2["refs"][0]
+            body = _dim_text.get((r0["document_id"], r0["page"]), "")
+            if body:
+                try:
+                    for m in measures.extract(body, page=r0["page"], cap=20):
+                        dims.append("%s %s%s" % (m["type"], m["value"], (" " + m["unit"]) if m.get("unit") else ""))
+                except Exception:
+                    pass
+        v2["dimensions"] = dims
     if not variants:
         empty["nomenclature"] = nom; return empty
     distinct = list(variants.values())
@@ -386,6 +420,8 @@ def part_differences(query, limit=80):
     if len(union("cagec")) > 1: disc.append(("CAGEC", "different manufacturer source code"))
     if len(union("smr")) > 1: disc.append(("SMR", "different source / maintenance / recoverability handling"))
     if len(union("part_numbers")) > 1: disc.append(("part #", "different manufacturer part numbers"))
+    if len({tuple(sorted(v["dimensions"])) for v in distinct if v["dimensions"]}) > 1:
+        disc.append(("dimensions", "different measured dimensions on the cited page -- may be a physically different size/variant, not just a catalog-format difference"))
     ref = variants.get(ref_nsn) or distinct[0]; ref_niin = ref["niin"]
     for v in distinct:
         tells = []
@@ -403,6 +439,9 @@ def part_differences(query, limit=80):
                 tells.append("Different manufacturer (CAGEC %s vs %s)." % (", ".join(sorted(v["cagec"])), ", ".join(sorted(ref["cagec"]))))
             if v["part_numbers"] and ref["part_numbers"] and v["part_numbers"] != ref["part_numbers"]:
                 tells.append("Different manufacturer part number.")
+            if v["dimensions"] and ref["dimensions"] and set(v["dimensions"]) != set(ref["dimensions"]):
+                tells.append("Different measured dimensions: [%s] vs reference [%s] -- check size/fit before ordering."
+                             % (", ".join(v["dimensions"][:4]), ", ".join(ref["dimensions"][:4])))
         corr = correlations_for(v["nsn"]) or {}
         if corr.get("interchangeable"):
             v["interchangeable_across"] = corr["interchangeable"].get("vehicles", [])

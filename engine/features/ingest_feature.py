@@ -153,11 +153,19 @@ def ingest_upload(filename, data_b64):
     data_b64 may be a bare base64 string or a full data: URI (`data:application/pdf;base64,...`) --
     same shape features/routes/search.py's r_visualmatch() already accepts for an image upload;
     mirrored here rather than inventing a second convention."""
+    # Discovery Engine phase 1: viewer_ingest.py's index_other() now genuinely extracts images/
+    # .txt/.html (queued for OCR, read directly, and tag-stripped respectively -- see its own
+    # docstring); upload accepts the same set for consistency -- there's no reason drag-and-drop
+    # should support less than a folder-path scan already does. Genuine Office formats (.docx/.xlsx/
+    # etc.) stay unsupported here too, matching that same scope decision.
+    _IMAGE_UPLOAD_EXTS = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif")
+    _TEXT_UPLOAD_EXTS = (".txt", ".htm", ".html")
     name = os.path.basename((filename or "").strip().replace("\\", "/"))
     if not name:
         return {"ok": False, "error": "filename required"}
-    if not name.lower().endswith(".pdf"):
-        return {"ok": False, "error": "only PDF files are supported for upload"}
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in (".pdf",) + _IMAGE_UPLOAD_EXTS + _TEXT_UPLOAD_EXTS:
+        return {"ok": False, "error": "unsupported file type -- PDF, image (jpg/png/tif/bmp/gif), .txt, or .html only"}
     data_b64 = data_b64 or ""
     if "," in data_b64:
         data_b64 = data_b64.split(",", 1)[1]           # strip a data:...;base64, prefix, if present
@@ -170,8 +178,20 @@ def ingest_upload(filename, data_b64):
     if len(raw) > UPLOAD_MAX_BYTES:
         return {"ok": False, "error": "file too large (%d MB, limit %d MB)" %
                 (len(raw) // (1024 * 1024), UPLOAD_MAX_BYTES // (1024 * 1024))}
-    if raw[:5] != b"%PDF-":
-        return {"ok": False, "error": "not a valid PDF (missing the %PDF header)"}
+    if ext == ".pdf":
+        if raw[:5] != b"%PDF-":
+            return {"ok": False, "error": "not a valid PDF (missing the %PDF header)"}
+    elif ext in _IMAGE_UPLOAD_EXTS:
+        # real content validation, same rigor the PDF header check gets -- matches r_visualmatch()'s
+        # own PIL-decode check for an uploaded image (features/routes/search.py), not reinvented.
+        try:
+            import io
+            from PIL import Image
+            Image.open(io.BytesIO(raw)).verify()
+        except Exception:
+            return {"ok": False, "error": "not a valid image file"}
+    # .txt/.html: no meaningful magic-byte signature exists for plain text -- accepted as-is,
+    # matching index_other()'s own tolerant errors="ignore" read.
     updir = _uploads_dir()
     dest = os.path.join(updir, name)
     if os.path.exists(dest):

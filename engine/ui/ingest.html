@@ -68,9 +68,9 @@
       <input id="path" placeholder="Folder path on this PC, e.g.  E:\ALL MILITARY TMS\New" spellcheck="false">
       <button class="b" id="prev" onclick="preview()">Preview</button>
       <button class="b" id="browseBtn" onclick="document.getElementById('fileInput').click()">Browse…</button>
-      <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.bmp,.gif,.txt,.htm,.html" style="display:none">
     </div>
-    <div class="dz" id="dz">…or drag a single PDF here to upload &amp; scan it directly — or drag a whole folder to detect its path (paste the full path to confirm — browsers can't read absolute folder paths for security)</div>
+    <div class="dz" id="dz">…or drag a single PDF, image, .txt, or .html file here to upload &amp; scan it directly — or drag a whole folder to detect its path (paste the full path to confirm — browsers can't read absolute folder paths for security)</div>
   </div>
   <div id="recent" class="chips"></div>
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
@@ -186,6 +186,16 @@ function renderBreakdown(extracted, done){
     h+='<div class="row"><span class="ic">🔌</span><span class="t">'
       +'<b>'+schematics+'</b> schematic page'+(schematics===1?'':'s')+' detected'
       +'</span>'+(done?'<a class="go" href="/schematics">View →</a>':'')+'</div>';
+  }
+
+  // tables (RPSTL/torque/PMCS/leading-particulars grids) -- informational only, no dedicated
+  // browse page exists yet for this one (unlike parts/dimensions/schematics); /api/tables is the
+  // only current consumer.
+  var tbls=extracted.tables||0;
+  if(tbls){
+    h+='<div class="row"><span class="ic">🗃</span><span class="t">'
+      +'<b>'+tbls+'</b> table'+(tbls===1?'':'s')+' extracted'
+      +'</span></div>';
   }
 
   bd.innerHTML=h||'<div class="muted" style="font-size:12.5px">Nothing extracted yet…</div>';
@@ -321,10 +331,15 @@ function renderRecent(){
    straight to /api/ingest_upload, which saves it server-side and runs the same scan+OCR job as a
    folder scan. One file at a time by design (multi-file batch upload is a different, bigger
    feature -- not this one). ---- */
+/* Discovery Engine phase 1: viewer_ingest.py's index_other() now genuinely extracts images
+   (OCR'd)/.txt/.html (read directly) alongside PDFs -- matches ingest_upload()'s own accepted-
+   extension list (features/ingest_feature.py) so drag-and-drop never supports less than a folder
+   scan already does. */
+var UPLOAD_EXT_RE=/\.(pdf|jpg|jpeg|png|tif|tiff|bmp|gif|txt|htm|html)$/i;
 function uploadFile(file){
   if(!file) return;
-  if(!/\.pdf$/i.test(file.name)){
-    $("#dz").innerHTML='<span class="err">Only PDF files can be uploaded directly — drop a folder instead for other formats.</span>';
+  if(!UPLOAD_EXT_RE.test(file.name)){
+    $("#dz").innerHTML='<span class="err">Unsupported file type — PDF, image (jpg/png/tif/bmp/gif), .txt, or .html only. Drop a folder instead for other formats.</span>';
     return;
   }
   $("#dz").textContent="Reading "+file.name+"…";
@@ -336,7 +351,7 @@ function uploadFile(file){
       body:JSON.stringify({filename:file.name,data:reader.result})})
       .then(function(r){return r.json();}).then(function(d){
         if(!d.ok){ $("#dz").innerHTML='<span class="err">'+esc(d.error||"Upload failed.")+'</span>'; return; }
-        $("#dz").innerHTML="…or drag a single PDF here to upload &amp; scan it directly — or drag a whole folder to detect its path";
+        $("#dz").innerHTML="…or drag a single PDF, image, .txt, or .html file here to upload &amp; scan it directly — or drag a whole folder to detect its path";
         $("#out").innerHTML=progHtml("Scanning &amp; OCR'ing the uploaded <b>"+esc(d.filename||file.name)+"</b>…");
         $("#backlogCard").innerHTML="";
         poll();

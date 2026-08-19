@@ -56,6 +56,13 @@ MEASURES_SCAN = os.environ.get("VIEWER_MEASURES_SCAN", "1") != "0"
 # now running inline during the scan instead of as a separate later step). Opt-out for anyone who
 # doesn't need netlist/schematic detection and wants the scan to skip that cost entirely.
 SCHEMATIC_SCAN = os.environ.get("VIEWER_SCHEMATIC_SCAN", "1") != "0"
+# Table extraction (tables.py's PyMuPDF find_tables(), same RPSTL/torque/PMCS/leading-particulars
+# tables build_tables.py already scans for) -- another real, unwired-until-now batch tool (same
+# discovery-pass finding as measures.py/schemgraph.py were): tables.db has a real schema and a real
+# sidecar builder, but nothing in the live ingest path ever called it. Same per-page PDF-reopen
+# cost profile as SCHEMATIC_SCAN (find_tables() needs its own PyMuPDF page handle), same opt-out
+# shape for the same reason.
+TABLES_SCAN = os.environ.get("VIEWER_TABLES_SCAN", "1") != "0"
 
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
@@ -427,6 +434,92 @@ def index_pdf(con, doc_id, path):
                 (len(pages), tm.group(0) if tm else None, nsn.group(0) if nsn else None, title, dtype, 'indexed' if queued==0 else 'partial', doc_id))
     return indexed, queued
 
+# Discovery Engine, phase 1 -- non-PDF content extraction. Before this, classify_ext() already
+# recognized 'image' and 'office' documents (crawl() has always been ABLE to tell a .jpg from a
+# .docx), but crawl()'s dispatch did nothing with either: any non-PDF document was just marked
+# status='indexed' with zero pages, discovered but never actually read -- confirmed by grep, there
+# was no code path at all. This closes that gap for the formats reachable without adding new
+# dependencies (images, plain text, HTML); genuine Office-format parsing (.doc/.docx/.ppt/.pptx/
+# .xls/.xlsx/.rtf) needs new libraries (python-docx/openpyxl/python-pptx) this pass deliberately
+# doesn't add -- those documents are still discovered exactly as before, just still zero pages.
+_IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif")
+# .svg/.svgz deliberately excluded: vector MARKUP, not a raster photo -- PyMuPDF can't page-render
+# arbitrary SVG the way it can a raster image or PDF, and "parse SVG content" is a different problem
+# (structured markup, not pixels to OCR) than every other format handled here.
+_TEXT_EXTS = (".txt",)
+_HTML_EXTS = (".htm", ".html")
+_HTML_TAG_RE = re.compile(r"<script\b.*?</script>|<style\b.*?</style>|<[^>]+>", re.I | re.S)
+_HTML_ENTITY_RE = re.compile(r"&(amp|lt|gt|quot|#39|nbsp);")
+_HTML_ENTITY_MAP = {"amp": "&", "lt": "<", "gt": ">", "quot": '"', "#39": "'", "nbsp": " "}
+
+def _strip_html(raw):
+    """Dependency-free HTML->text: strip <script>/<style> blocks and every tag, then unescape the
+    handful of entities plain-text manual exports actually use. Not a real HTML parser (no
+    lxml/beautifulsoup4 in this pass's scope -- see the module comment above) -- good enough for a
+    structured export/report, not meant to survive adversarial/malformed markup."""
+    text = _HTML_TAG_RE.sub(" ", raw or "")
+    text = _HTML_ENTITY_RE.sub(lambda m: _HTML_ENTITY_MAP.get(m.group(1), m.group(0)), text)
+    return re.sub(r"[ \t]+", " ", text).strip()
+
+def index_other(con, doc_id, path):
+    """Non-PDF content extraction for the formats reachable without new dependencies:
+      image (.jpg/.png/.tif/...) -- queued for OCR exactly like a scanned PDF page. PyMuPDF opens a
+        raw image file as a 1-page document (verified: fitz.open('photo.png').page_count == 1,
+        get_pixmap() renders it identically to a real page) -- so _render_png()/ocr_one() need ZERO
+        changes to handle it: the ENTIRE existing pipeline (blank-page skip, OCR engine, barcode
+        scan, dimensional extraction) runs on a standalone image for free, the moment its `pages`
+        row exists with ocr_status='pending'.
+      .txt -- read directly as the page's body_text, no OCR needed.
+      .htm/.html -- stdlib-only tag-stripped to plain text (_strip_html() above), no OCR needed.
+      anything else 'office'-classified (.doc/.docx/.ppt/.pptx/.xls/.xlsx/.rtf) -- discovered, not
+        extracted (see module comment above).
+    Returns (indexed, queued), same contract index_pdf() already has, so crawl()'s pi/q tallies and
+    every caller that unpacks that pair stay correct for these document types too."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in _IMAGE_EXTS:
+        con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) "
+                    "VALUES(?,1,'',0,'none','pending')", (doc_id,))
+        con.execute("UPDATE documents SET page_count=1, type='image', status='partial' WHERE id=?", (doc_id,))
+        return 0, 1
+    if ext in _TEXT_EXTS or ext in _HTML_EXTS:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                raw = f.read(5_000_000 if ext in _HTML_EXTS else 2_000_000)
+            body = _strip_html(raw) if ext in _HTML_EXTS else raw.strip()
+        except Exception:
+            body = ""
+        con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) "
+                    "VALUES(?,1,?,?, 'text','none')", (doc_id, body, len(body)))
+        con.execute("UPDATE documents SET page_count=1, type=?, status='indexed' WHERE id=?",
+                    ("html" if ext in _HTML_EXTS else "text", doc_id))
+        if body and _EXTRACT_TALLY:
+            meas_con = _open_meas_db(_db_dir(con))
+            if meas_con:
+                try:
+                    _EXTRACT_TALLY["dimensions"] += _extract_measures_for_page(meas_con, doc_id, 1, body)
+                finally:
+                    meas_con.close()
+        return (1, 0) if body else (0, 0)
+    con.execute("UPDATE documents SET status='indexed' WHERE id=?", (doc_id,))   # unsupported -- unchanged from before this function existed
+    return 0, 0
+
+def _track_crawled_doc(con, doc_id):
+    """Document metadata + touched-doc-id tracking, shared by crawl()'s PDF and image/text/html
+    branches -- WHERE this document's own identity will surface (the home page's 'Browse by
+    vehicle' grouping, search result headers, the in-app scan UI's breakdown panel) once its
+    indexer has actually determined it, not just 'N files scanned'. Best-effort: a failure here
+    must never break ingest."""
+    try:
+        drow = con.execute(
+            "SELECT tm_number, nsn, title, vehicle, page_count, type FROM documents WHERE id=?",
+            (doc_id,)).fetchone()
+        if drow:
+            _EXTRACT_TALLY["documents"].append({
+                "id": doc_id, "tm_number": drow[0], "nsn": drow[1], "title": drow[2],
+                "vehicle": drow[3], "page_count": drow[4], "type": drow[5]})
+    except Exception: pass
+    _TOUCHED_DOC_IDS.add(doc_id)   # so the schematics stage (after extract_parts()) considers this document
+
 def crawl(con, root, max_files=0, max_seconds=0):
     rid = con.execute("INSERT INTO runs(kind) VALUES('crawl')").lastrowid
     dbdir = _db_dir(con)
@@ -448,24 +541,14 @@ def crawl(con, root, max_files=0, max_seconds=0):
                 doc_id, kind = res; new += 1
                 if kind == "pdf":
                     a,b = index_pdf(con, doc_id, path); pi += a; q += b
-                    # Document metadata + a running page-text tally -- WHERE this document's own
-                    # identity will surface (the home page's "Browse by vehicle" grouping, search
-                    # result headers) once crawl/index_pdf() has actually determined it, not just
-                    # "N files scanned". Read back rather than threaded through index_pdf()'s return
-                    # value on purpose -- that signature is (indexed, queued) everywhere else in this
-                    # file and every existing caller unpacks exactly that; widening it here would
-                    # touch call sites that have nothing to do with the in-app progress UI.
-                    try:
-                        drow = con.execute(
-                            "SELECT tm_number, nsn, title, vehicle, page_count, type FROM documents WHERE id=?",
-                            (doc_id,)).fetchone()
-                        if drow:
-                            _EXTRACT_TALLY["documents"].append({
-                                "id": doc_id, "tm_number": drow[0], "nsn": drow[1], "title": drow[2],
-                                "vehicle": drow[3], "page_count": drow[4], "type": drow[5]})
-                    except Exception: pass
-                    _TOUCHED_DOC_IDS.add(doc_id)   # so the schematics stage (after extract_parts()) scans this document
-                    _EXTRACT_TALLY["pages_text"] += a
+                    _track_crawled_doc(con, doc_id); _EXTRACT_TALLY["pages_text"] += a
+                    _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new, extracted=dict(_EXTRACT_TALLY))
+                elif kind in ("image", "office"):
+                    # Discovery Engine phase 1: images/.txt/.html actually get their content read
+                    # now (see index_other()'s own docstring) -- same document-metadata tracking as
+                    # the PDF branch above, so they show up correctly in the breakdown panel too.
+                    a,b = index_other(con, doc_id, path); pi += a; q += b
+                    _track_crawled_doc(con, doc_id); _EXTRACT_TALLY["pages_text"] += a
                     _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new, extracted=dict(_EXTRACT_TALLY))
                 else:
                     con.execute("UPDATE documents SET status='indexed' WHERE id=?", (doc_id,))
@@ -850,7 +933,7 @@ def _tally_reset():
     global _EXTRACT_TALLY, _TOUCHED_DOC_IDS
     _EXTRACT_TALLY = {"documents": [], "pages_text": 0, "pages_ocr_done": 0, "pages_ocr_fail": 0,
                        "barcodes_decoded": 0, "parts_page": 0, "parts_barcode": 0, "nsn_samples": [],
-                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0, "dimensions": 0, "schematics": 0}
+                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0, "dimensions": 0, "schematics": 0, "tables": 0}
     _TOUCHED_DOC_IDS = set()
 
 
@@ -1446,6 +1529,84 @@ def _run_schematic_stage(con):
                         extracted=dict(_EXTRACT_TALLY))
 
 
+_TABLES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS tbl(
+  id INTEGER PRIMARY KEY, doc INTEGER, page INTEGER, n_rows INTEGER, n_cols INTEGER,
+  spec INTEGER, units TEXT);
+CREATE INDEX IF NOT EXISTS ix_tbl_doc  ON tbl(doc);
+CREATE INDEX IF NOT EXISTS ix_tbl_spec ON tbl(spec);
+"""   # identical to build_tables.py's own SCHEMA -- same tables.db, same table name/columns, so
+      # /api/tables and anything else that already reads this sidecar picks up live-extracted rows
+      # with zero changes of their own (deliberately NOT including tbl_done -- that resumability
+      # marker is build_tables.py's own whole-corpus-scan bookkeeping; this wiring is scoped to just
+      # the documents this run touched instead, same as SCHEMATIC_SCAN's own dedicated cache file).
+
+def extract_tables_for_doc(con, doc_id, path):
+    """Per-document table extraction -- tables.extract_page() (PyMuPDF find_tables()) over every
+    page, mirrored call-for-call from build_tables.py's own per-doc loop, writing into the SAME
+    tables.db `tbl` schema that batch tool already defines. Best-effort throughout: any failure for
+    one page or the whole document must never break the ingest job it's called from.
+    Returns the count of tables written (0 on any failure, or instantly when TABLES_SCAN is off)."""
+    if not TABLES_SCAN:
+        return 0
+    if not path or not str(path).lower().endswith(".pdf") or not os.path.exists(path):
+        return 0
+    try:
+        import tables as _tables
+        if not _tables.available():
+            return 0
+    except Exception:
+        return 0
+    dbdir = _db_dir(con)
+    if not dbdir:
+        return 0
+    npages = con.execute("SELECT COUNT(*) FROM pages WHERE document_id=?", (doc_id,)).fetchone()[0]
+    if not npages:
+        return 0
+    n = 0
+    try:
+        tdb = sqlite3.connect(os.path.join(dbdir, "tables.db"))
+        tdb.executescript(_TABLES_SCHEMA)
+        tdb.execute("DELETE FROM tbl WHERE doc=?", (doc_id,))   # idempotent-rebuild, same contract extract_parts() already uses
+        for pg in range(1, npages + 1):
+            try:
+                for t in _tables.extract_page(path, pg):
+                    tdb.execute("INSERT INTO tbl(doc,page,n_rows,n_cols,spec,units) VALUES(?,?,?,?,?,?)",
+                               (doc_id, pg, t["n_rows"], t["n_cols"], 1 if t["spec"] else 0, ",".join(t["units"])))
+                    n += 1
+            except Exception:
+                continue
+        if n:
+            tdb.commit()
+        tdb.close()
+    except Exception:
+        return 0
+    return n
+
+def _run_tables_stage(con):
+    """Shared stage for both 'run' and 'ocrall', alongside _run_schematic_stage() -- same
+    _TOUCHED_DOC_IDS scoping, same no-op-if-off/nothing-touched contract, same progress-stage
+    shape. Kept as its own independently-toggleable stage (not folded into the schematics one)
+    so each real per-page-PDF-reopen cost stays separately controllable."""
+    if not TABLES_SCAN or not _TOUCHED_DOC_IDS:
+        return
+    dbdir = _db_dir(con)
+    doc_ids = sorted(_TOUCHED_DOC_IDS)
+    total = len(doc_ids)
+    _write_progress(dbdir, stage="tables", current=None, done=0, total=total, extracted=dict(_EXTRACT_TALLY))
+    n_tables = 0
+    for i, doc_id in enumerate(doc_ids, 1):
+        try:
+            prow = con.execute("SELECT path FROM documents WHERE id=?", (doc_id,)).fetchone()
+            if prow and prow[0]:
+                n_tables += extract_tables_for_doc(con, doc_id, prow[0])
+        except Exception:
+            pass
+        _EXTRACT_TALLY["tables"] = n_tables
+        _write_progress(dbdir, stage="tables", current={"doc": doc_id}, done=i, total=total,
+                        extracted=dict(_EXTRACT_TALLY))
+
+
 _HW_SEED = [
     # (size, series, major_in, major_mm, tpi_or_pitch, tap_drill, torque_ref_lbft)  -- public-domain facts
     ("1/4-20 UNC","UNC",0.250,None,"20","#7 (.201)","8"),
@@ -1799,18 +1960,20 @@ def main():
         while ocr(con, args.limit, args.workers) > 0: pass
         extract_parts(con)   # refresh the structured parts index after OCR adds pages
         _run_schematic_stage(con)   # 4th stage: schematic detection on whatever got OCR'd this run
+        _run_tables_stage(con)      # 5th stage: table extraction, same scoping
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "run":
         # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
-        # launches exactly this subcommand -- crawl/ocr()/extract_parts()/_run_schematic_stage()
-        # each stamp their own stage into ingest_progress.json as they go (see _write_progress()
-        # calls inside each), so the only thing left to mark here is the final "done" once every
-        # stage has actually finished, for the polling UI to stop showing a stage and show a
-        # completion state instead.
+        # launches exactly this subcommand -- crawl/ocr()/extract_parts()/_run_schematic_stage()/
+        # _run_tables_stage() each stamp their own stage into ingest_progress.json as they go (see
+        # _write_progress() calls inside each), so the only thing left to mark here is the final
+        # "done" once every stage has actually finished, for the polling UI to stop showing a
+        # stage and show a completion state instead.
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
         _run_schematic_stage(con)   # 4th stage: schematic detection, scoped to just this run's documents
+        _run_tables_stage(con)      # 5th stage: table extraction, same scoping
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)

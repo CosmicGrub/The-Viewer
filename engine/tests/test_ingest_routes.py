@@ -265,11 +265,27 @@ def main():
             _popen_before = len(_popen_calls)
             import base64 as _b64
 
-            c, b = _req("/api/ingest_upload", {"filename": "x.txt", "data": _b64.b64encode(b"hi").decode()})
+            # Discovery Engine phase 1: ingest_upload() now accepts images/.txt/.html too, matching
+            # viewer_ingest.py's index_other() -- an unsupported extension (.docx: genuine Office-
+            # format parsing needs new dependencies, deliberately out of scope) is the real rejection
+            # case now, not .txt (which IS a supported format as of this same change).
+            c, b = _req("/api/ingest_upload", {"filename": "manual.docx", "data": _b64.b64encode(b"hi").decode()})
             r = _json(b)
-            check("ingest_upload rejects a non-PDF filename", c == 200 and r.get("ok") is False
-                  and "PDF" in (r.get("error") or ""))
-            check("ingest_upload non-PDF: no subprocess launched", len(_popen_calls) == _popen_before)
+            check("ingest_upload rejects an unsupported extension (.docx)", c == 200 and r.get("ok") is False
+                  and "unsupported" in (r.get("error") or "").lower())
+            check("ingest_upload unsupported ext: no subprocess launched", len(_popen_calls) == _popen_before)
+
+            c, b = _req("/api/ingest_upload", {"filename": "notes.txt", "data": _b64.b64encode(b"Gasket length 2.0 in.").decode()})
+            r = _json(b)
+            check("ingest_upload accepts a .txt file -> ok + started",
+                  c == 200 and r.get("ok") is True and r.get("started") is True)
+            check("ingest_upload .txt launched a subprocess", len(_popen_calls) == _popen_before + 1)
+            _popen_before = len(_popen_calls)   # rebase -- the .txt accept above is a real launch, not a rejection
+
+            c, b = _req("/api/ingest_upload", {"filename": "notreally.png", "data": _b64.b64encode(b"not real image bytes").decode()})
+            r = _json(b)
+            check("ingest_upload rejects an image extension whose bytes don't actually decode as an image",
+                  c == 200 and r.get("ok") is False)
 
             c, b = _req("/api/ingest_upload", {"filename": "", "data": _b64.b64encode(b"%PDF-1.4 x").decode()})
             r = _json(b)
@@ -770,6 +786,105 @@ def main():
                 _bf.core = _orig_core
 
             e2e3_con.close()
+
+            # =================================================================================
+            # A FOURTH e2e run: the Discovery Engine's non-PDF format support (image/txt/html/
+            # unsupported-office) plus table extraction, through the same real 'run' stage
+            # sequence. Before this, classify_ext() could already TELL a .jpg from a .docx but
+            # crawl() did nothing with either -- confirmed by grep, no code path existed at all.
+            # =================================================================================
+            try:
+                from PIL import Image, ImageDraw, ImageFont
+                _have_pil_font = True
+            except Exception:
+                _have_pil_font = False
+            if not _have_pil_font:
+                print("SKIP non-PDF format + tables e2e checks (PIL not installed)")
+            else:
+                e2e4_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_formats_")
+                e2e4_db = os.path.join(e2e4_dir, "viewer.db")
+                e2e4_con = _VI.connect(e2e4_db)
+                _VI.migrate(e2e4_con, os.path.join(ENGINE, "migrations"), db_path=e2e4_db)
+                corpus4_dir = os.path.join(e2e4_dir, "corpus"); os.makedirs(corpus4_dir)
+
+                # a real, OCR-able standalone image (needs a real font -- the default PIL bitmap
+                # font is too thin to clear the blank-page density skip, confirmed live earlier).
+                try:
+                    font = ImageFont.truetype("arial.ttf", 30)
+                except Exception:
+                    font = ImageFont.load_default()
+                img = Image.new("RGB", (800, 200), "white")
+                ImageDraw.Draw(img).text((30, 30), "BOLT LENGTH 2.0 IN NSN 5305-01-888-7777", fill="black", font=font)
+                img.save(os.path.join(corpus4_dir, "photo.png"))
+
+                with open(os.path.join(corpus4_dir, "notes.txt"), "w") as f:
+                    f.write("Gasket length 3.0 in, diameter .750 in.")
+                with open(os.path.join(corpus4_dir, "export.html"), "w") as f:
+                    f.write("<html><body><h1>Torque Table</h1><p>Bolt torque 45 ft-lb <b>required</b>.</p></body></html>")
+                with open(os.path.join(corpus4_dir, "manual.docx"), "wb") as f:
+                    f.write(b"PK\x03\x04 fake docx bytes -- unsupported, must not crash the crawl")
+
+                # a real ruled-line table (tables.py needs actual grid geometry, not just text --
+                # confirmed live: a plain textbox never triggers PyMuPDF's find_tables()).
+                doc7 = _fitz2.open(); p7 = doc7.new_page(width=612, height=792)
+                x0, y0, cw, rh = 60, 60, 150, 30
+                for r in range(4): p7.draw_line((x0, y0 + r * rh), (x0 + 3 * cw, y0 + r * rh))
+                for c in range(4): p7.draw_line((x0 + c * cw, y0), (x0 + c * cw, y0 + 3 * rh))
+                for r, row in enumerate([["NSN", "QTY", "TORQUE"], ["5305-01-111-2222", "4", "45 ft-lb"], ["5305-01-333-4444", "2", "30 ft-lb"]]):
+                    for c, val in enumerate(row):
+                        p7.insert_text((x0 + c * cw + 5, y0 + r * rh + 20), val, fontsize=10)
+                doc7.save(os.path.join(corpus4_dir, "TABLE-DOC.pdf")); doc7.close()
+
+                _VI.crawl(e2e4_con, corpus4_dir)
+                e2e4_con.commit()
+
+                doc_rows = {os.path.basename(p): (t, pc, st) for p, t, pc, st in
+                           e2e4_con.execute("SELECT path, type, page_count, status FROM documents")}
+                check("e2e formats: image classified + given exactly 1 pending page (queued for OCR)",
+                      doc_rows.get("photo.png") == ("image", 1, "partial"))
+                check("e2e formats: .txt read directly, indexed immediately (no OCR needed)",
+                      doc_rows.get("notes.txt") == ("text", 1, "indexed"))
+                check("e2e formats: .html tag-stripped + indexed immediately",
+                      doc_rows.get("export.html") == ("html", 1, "indexed"))
+                check("e2e formats: unsupported .docx discovered but not crashed, 0 pages (same as before this feature)",
+                      doc_rows.get("manual.docx") == ("office", 0, "indexed"))
+
+                txt_body = e2e4_con.execute(
+                    "SELECT body_text FROM pages p JOIN documents d ON d.id=p.document_id WHERE d.path LIKE ?",
+                    ("%notes.txt",)).fetchone()[0]
+                check("e2e formats: .txt body_text is the real file content", "Gasket length 3.0 in" in txt_body)
+                html_body = e2e4_con.execute(
+                    "SELECT body_text FROM pages p JOIN documents d ON d.id=p.document_id WHERE d.path LIKE ?",
+                    ("%export.html",)).fetchone()[0]
+                check("e2e formats: .html tags stripped, real text survives, markup does not",
+                      "Torque Table" in html_body and "<h1>" not in html_body and "<b>" not in html_body)
+
+                remaining4 = _VI.ocr(e2e4_con, 10, workers=1)
+                check("e2e formats: the standalone image actually got OCR'd (no pages left pending)", remaining4 == 0)
+                img_row = e2e4_con.execute(
+                    "SELECT body_text, ocr_status FROM pages p JOIN documents d ON d.id=p.document_id WHERE d.path LIKE ?",
+                    ("%photo.png",)).fetchone()
+                check("e2e formats: the image's OCR'd text is real (the SAME OCR pipeline a scanned PDF page uses)",
+                      img_row[1] == "done" and "BOLT LENGTH" in img_row[0])
+
+                _VI.extract_parts(e2e4_con)
+                _VI._run_schematic_stage(e2e4_con)
+                _VI._run_tables_stage(e2e4_con)
+
+                meas4 = sqlite3.connect(os.path.join(e2e4_dir, "measures.db")).execute(
+                    "SELECT value FROM meas WHERE type='length'").fetchall()
+                check("e2e formats: dimensional extraction ALSO ran on the OCR'd image and the .txt/.html pages "
+                      "(not just PDFs)", len(meas4) >= 3)   # image "2.0", txt "3.0", html has no length but torque
+
+                tbl4 = sqlite3.connect(os.path.join(e2e4_dir, "tables.db")).execute(
+                    "SELECT n_rows, n_cols, spec, units FROM tbl").fetchall()
+                check("e2e tables: the real ruled table was detected with correct shape + spec/units flags",
+                      tbl4 == [(3, 3, 1, "torque")])
+
+                e2e4_con.close()
+                # (ingest_upload()'s own accept/reject behavior for these same formats is already
+                # covered end-to-end by the mocked-Popen section above -- .docx rejection, .txt
+                # acceptance, and bad-image-bytes rejection -- so it isn't re-tested here.)
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

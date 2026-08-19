@@ -680,18 +680,32 @@ def ocr_one(path, page_number):
         except Exception:
             shared_rgb = None
         barcode = _scan_barcode(img, _pil_img=shared_rgb)
-        if _have_rapid():
-            ocr_input = _ocr_preprocessed_input(img, for_tesseract=False, _pil_img=shared_rgb)
-            res, _ = _get_rapid()(ocr_input)
-            text = "\n".join(r[1] for r in res).strip() if res else ""
-            scores = [r[2] for r in res if len(r) > 2 and isinstance(r[2], (int, float))] if res else []
-            conf = round(sum(scores) / len(scores), 4) if scores else None
-        else:
-            tess_img = _ocr_preprocessed_input(img, for_tesseract=True, _pil_img=shared_rgb)
-            out = subprocess.run(["tesseract", tess_img, "-", "-l", "eng", "--psm", "1"],
-                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
-            text = out.stdout.decode("utf-8","ignore").strip()
-            conf = None   # tesseract fallback: no per-line confidence captured (yet)
+        try:
+            if _have_rapid():
+                ocr_input = _ocr_preprocessed_input(img, for_tesseract=False, _pil_img=shared_rgb)
+                res, _ = _get_rapid()(ocr_input)
+                text = "\n".join(r[1] for r in res).strip() if res else ""
+                scores = [r[2] for r in res if len(r) > 2 and isinstance(r[2], (int, float))] if res else []
+                conf = round(sum(scores) / len(scores), 4) if scores else None
+            else:
+                tess_img = _ocr_preprocessed_input(img, for_tesseract=True, _pil_img=shared_rgb)
+                out = subprocess.run(["tesseract", tess_img, "-", "-l", "eng", "--psm", "1"],
+                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
+                text = out.stdout.decode("utf-8","ignore").strip()
+                conf = None   # tesseract fallback: no per-line confidence captured (yet)
+        except Exception as e:
+            # The OCR text engine (RapidOCR or the tesseract binary) failing is a REAL page-level
+            # failure and must still surface as one -- ocr()'s handle() marks the page 'failed' and
+            # queues a retry job on this, same as always (e.g. tesseract genuinely missing from PATH
+            # should be loud, not silently swallowed into an empty-but-'done' page). But `barcode` was
+            # already independently decoded above -- a self-contained OpenCV/pyzbar read that has
+            # nothing to do with the text engine -- so it must NOT be discarded as collateral damage
+            # of an unrelated engine failure. Re-raising a bare exception here would lose `barcode`
+            # entirely: ocr_one()'s 3-tuple return never happens, so the caller has nothing to recover
+            # it from. Attach it to the exception instead so _ocr_task() can still pull it off the
+            # failure path and hand it to handle(), which persists it alongside the 'failed' status.
+            e.barcode = barcode
+            raise
         result = (text, conf, barcode)
         if h is not None:
             with _DEDUP_LOCK:
@@ -720,13 +734,15 @@ def _ocr_task(args):
             box["text"], box["conf"], box["barcode"] = ocr_one(path, pno)
         except Exception as e:
             box["err"] = str(e)[:300]
+            box["barcode"] = getattr(e, "barcode", None)   # see ocr_one()'s except clause: a text-engine
+            # failure (e.g. tesseract missing) doesn't mean the independently-decoded barcode is gone too.
     t = threading.Thread(target=run, daemon=True)
     t.start()
     t.join(OCR_PAGE_TIMEOUT_SECONDS)
     if t.is_alive():
         return pid, None, None, None, "timeout after %ds" % OCR_PAGE_TIMEOUT_SECONDS
     if "err" in box:
-        return pid, None, None, None, box["err"]
+        return pid, None, None, box.get("barcode"), box["err"]
     return pid, box.get("text"), box.get("conf"), box.get("barcode"), None
 
 def _db_dir(con):
@@ -776,7 +792,14 @@ def ocr(con, limit, workers=1):
                         "barcode_type=?, barcode_data=?, barcode_nsn=? WHERE id=?",
                         (text, len(text), conf, bc.get("type"), bc.get("data"), bc.get("nsn"), pid)); done += 1
         else:
-            con.execute("UPDATE pages SET ocr_status='failed' WHERE id=?", (pid,))
+            # The page's OCR text pass genuinely failed (still marked 'failed' + queued for retry,
+            # same as always) -- but a barcode reached this far only if it decoded successfully BEFORE
+            # the text engine blew up (see ocr_one()'s except clause), so it's real and worth keeping;
+            # an OCR-engine outage (e.g. tesseract missing) shouldn't also erase an unrelated,
+            # already-good machine-read NSN.
+            bc = barcode or {}
+            con.execute("UPDATE pages SET ocr_status='failed', barcode_type=?, barcode_data=?, barcode_nsn=? WHERE id=?",
+                        (bc.get("type"), bc.get("data"), bc.get("nsn"), pid))
             con.execute("INSERT INTO jobs(page_id,stage,state,attempts,last_error) VALUES(?,?, 'failed', 1, ?)", (pid,"ocr",err)); fail += 1
         if (done+fail) % 5 == 0: con.commit(); _heartbeat(dbdir, done, fail, None); log(f"ocr: done={done} failed={fail} (last page {len(text) if text else 0} chars)")
     if workers <= 1:

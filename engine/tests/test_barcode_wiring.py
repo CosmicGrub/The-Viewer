@@ -126,6 +126,16 @@ CAN_DECODE = barcodes.available()
 CAN_ENCODE = _qr_png("PROBE 0000-00-000-0000", _PROBE_PNG)
 SKIP = not (CAN_DECODE and CAN_ENCODE)
 
+# Separately: is there an actual OCR TEXT engine (RapidOCR, or the tesseract binary on PATH) present?
+# This has nothing to do with barcode decode/encode (checked above) -- barcodes.py is pure OpenCV/
+# pyzbar and never touches RapidOCR or tesseract -- but section 7's pipeline_page_marked_done check
+# runs pages through the REAL VI.ocr(), whose text pass needs one of the two engines to ever reach
+# ocr_status='done'. A bare CI runner (pip install -r requirements.txt only, no OS package, no
+# tesseract binary) legitimately has neither -- same "optional native dependency, not installed here"
+# shape as CAN_DECODE/CAN_ENCODE above, so it gets the same treatment: probed for real, never assumed.
+import shutil as _shutil
+CAN_OCR_TEXT = VI._have_rapid() or _shutil.which("tesseract") is not None
+
 if SKIP:
     reason = []
     if not CAN_DECODE:
@@ -137,8 +147,9 @@ if SKIP:
     print("  NOT verified: the viewer_ingest.py wiring itself (needs a real backend to run against)")
     sys.exit(0)
 
-print("test_barcode_wiring: running for real (decode backend=%s, encode via %s)" %
-      (barcodes.backend(), "cv2.QRCodeEncoder" if os.path.exists(_PROBE_PNG) else "qrcode"))
+print("test_barcode_wiring: running for real (decode backend=%s, encode via %s, ocr text engine=%s)" %
+      (barcodes.backend(), "cv2.QRCodeEncoder" if os.path.exists(_PROBE_PNG) else "qrcode",
+       ("RapidOCR" if VI._have_rapid() else "tesseract") if CAN_OCR_TEXT else "NONE -- pages will land 'failed', by design"))
 
 
 def _new_db(prefix):
@@ -333,7 +344,12 @@ try:
     post = con7.execute(
         "SELECT ocr_status, barcode_type, barcode_data, barcode_nsn FROM pages WHERE document_id=?",
         (doc_id7,)).fetchone()
-    ok("pipeline_page_marked_done", post is not None and post[0] == "done")
+    # 'done' needs a working OCR text engine (RapidOCR or tesseract) to actually run; on a bare
+    # environment with neither (CAN_OCR_TEXT False), the text pass correctly lands the page 'failed'
+    # (viewer_ingest.py's ocr_one() still surfaces that as a real, retry-queued failure -- see its
+    # docstring) while the barcode fields below still get persisted regardless, which IS the thing
+    # this section exists to prove. Assert the status the environment can actually produce.
+    ok("pipeline_page_marked_done", post is not None and post[0] == ("done" if CAN_OCR_TEXT else "failed"))
     ok("pipeline_barcode_type_stored", post is not None and post[1] == "QRCODE")
     ok("pipeline_barcode_data_stored", post is not None and post[2] == payload7)
     ok("pipeline_barcode_nsn_stored", post is not None and post[3] == nsn7)
@@ -408,6 +424,62 @@ try:
     con8.close()
 except Exception as e:
     failed.append("section8_no_nsn_no_parts_row(%s)" % e)
+
+
+# =====================================================================================================
+# Section 9 -- OCR-text-engine failure must not discard an already-decoded barcode. Deterministic
+# regression for a real bug found via CI (every matrix leg, both OSes -- CAN_OCR_TEXT is False there:
+# no tesseract binary, no RapidOCR): ocr_one() computes `barcode` BEFORE calling into the text engine,
+# but that call raising (subprocess.run(["tesseract",...]) with no binary on PATH, same shape as any
+# RapidOCR failure) used to propagate straight out of ocr_one() as a bare exception, discarding the
+# ALREADY-SUCCESSFUL barcode read as collateral damage -- the page still correctly landed 'failed'
+# (a real text-engine outage must stay loud, not go silently 'done' with empty text) but barcode_type/
+# barcode_data/barcode_nsn were never written at all. Forces the failure here (mock, not environment-
+# dependent) so this is caught on every future run regardless of what's installed on the host, unlike
+# section 7/8 above which only happened to exercise this path by accident of a bare CI environment.
+# =====================================================================================================
+try:
+    d9, con9 = _new_db("barcode_engine_failure_")
+    vdir9 = os.path.join(d9, "M35A2"); os.makedirs(vdir9)
+    qr_png9 = os.path.join(vdir9, "_qr_src.png")
+    nsn9 = "2530-01-999-1234"
+    payload9 = "NSN %s BRAKE DRUM" % nsn9
+    ok("engine_failure_qr_build_ok", _qr_png(payload9, qr_png9))
+    pdf9 = os.path.join(vdir9, "doc.pdf")
+    _pdf_with_image(pdf9, qr_png9)
+    doc_id9, _ = VI.upsert_document(con9, pdf9, d9)
+    VI.index_pdf(con9, doc_id9, pdf9); con9.commit()
+
+    def _boom(*a, **kw):
+        raise FileNotFoundError(2, "simulated: no OCR text engine on this host")
+    orig_have_rapid, orig_run = VI._have_rapid, VI.subprocess.run
+    try:
+        VI._have_rapid = lambda: False      # force the tesseract-subprocess branch...
+        VI.subprocess.run = _boom           # ...then make that subprocess call fail, unconditionally
+        VI.ocr(con9, 10, workers=1)
+    finally:
+        VI._have_rapid, VI.subprocess.run = orig_have_rapid, orig_run
+
+    row9 = con9.execute(
+        "SELECT ocr_status, barcode_type, barcode_data, barcode_nsn FROM pages WHERE document_id=?",
+        (doc_id9,)).fetchone()
+    ok("engine_failure_page_correctly_marked_failed", row9 is not None and row9[0] == "failed")
+    ok("engine_failure_barcode_type_survives", row9 is not None and row9[1] == "QRCODE")
+    ok("engine_failure_barcode_data_survives", row9 is not None and row9[2] == payload9)
+    ok("engine_failure_barcode_nsn_survives", row9 is not None and row9[3] == nsn9)
+    ok("engine_failure_queued_a_retry_job", con9.execute(
+        "SELECT COUNT(*) FROM jobs WHERE page_id=(SELECT id FROM pages WHERE document_id=?) AND stage='ocr'",
+        (doc_id9,)).fetchone()[0] >= 1)
+
+    # the barcode-derived NSN must still promote into parts -- extract_parts()'s barcode query has no
+    # ocr_status filter (by design: a 'failed' text pass doesn't mean the machine-read NSN is wrong).
+    VI.extract_parts(con9)
+    prow9 = con9.execute("SELECT nsn, confidence FROM parts WHERE document_id=? AND confidence='barcode'",
+                         (doc_id9,)).fetchall()
+    ok("engine_failure_barcode_still_promoted_to_parts", prow9 == [(nsn9, "barcode")])
+    con9.close()
+except Exception as e:
+    failed.append("section9_ocr_engine_failure_preserves_barcode(%s)" % e)
 
 
 for n in passed: print("PASS", n)

@@ -131,6 +131,101 @@ def r_editions(h, qs):
     h._send(200, {"doc": doc, "available": os.path.exists(ddp), "editions": dedup.editions_for(ddp, doc)})
 
 
+_SYMBOL_NAME_RE = __import__("re").compile(r"^[A-Za-z0-9_\-]{1,64}$")
+
+
+@get("/api/symbols")
+def r_symbols_detect(h, qs):
+    # symbol detection on one page (catalog §4.8/§4.11): schematic components (resistor, relay,
+    # connector, ground) + safety marks (warning triangle, electrical-hazard, radiation), matched
+    # against whatever templates exist in index/symbols/ -- built via /api/symbols_template below,
+    # or hand-dropped. Degrades to an empty match list (never an error) when no templates exist
+    # yet, the common case until an operator has saved at least one.
+    import symbols, os
+    doc = qint(qs, "doc", 0); page = qint(qs, "page", 1); dpi = qint(qs, "dpi", 150, lo=72, hi=400)
+    path = core.doc_path(doc)
+    sym_dir = os.path.join(os.path.dirname(core.DB_PATH), "symbols")
+    templates = symbols.load_templates(sym_dir)
+    hits = []; iw = ih = 0
+    if path and symbols.available() and templates:
+        try:
+            arr = _page_gray(path, page, dpi=dpi)
+            if arr is not None:
+                ih, iw = int(arr.shape[0]), int(arr.shape[1])
+                hits = symbols.detect(arr, templates)
+        except Exception:
+            hits = []
+    h._send(200, {"doc": doc, "page": page, "available": symbols.available(),
+                  "templates": sorted(templates.keys()), "iw": iw, "ih": ih, "n": len(hits), "symbols": hits})
+
+
+@post("/api/symbols_template")
+def r_symbols_template(h, qs, payload):
+    # save a cropped region of a rendered page as a new symbol-detection template -- the missing
+    # half of symbols.py the audit found: detect() was always fully built and self-tested, but
+    # nothing in this app could ever get a template image INTO index/symbols/ in the first place
+    # (an operator had to hand-crop and drop a PNG there manually, outside the app entirely). This
+    # is that crop-and-save mechanism: the caller supplies a page render's pixel bounding box
+    # (same doc/page/dpi it fetched via /api/callout_numbers-style page rendering) and a name.
+    import symbols, os
+    if not symbols.available():
+        h._send(200, {"ok": False, "error": "OpenCV not installed -- symbol detection is unavailable"}); return
+    raw_name = (payload.get("name") or "").strip().replace(" ", "_")
+    if not _SYMBOL_NAME_RE.match(raw_name):
+        h._send(400, {"error": "a template name is required (letters/digits/_/- only, max 64 chars)"}); return
+    try:
+        doc = int(payload.get("doc") or 0)
+        page = int(payload.get("page") or 1)
+        dpi = int(payload.get("dpi") or 150)
+        x = int(payload.get("x")); y = int(payload.get("y"))
+        w = int(payload.get("w")); crop_h = int(payload.get("h"))
+    except (TypeError, ValueError):
+        h._send(400, {"error": "doc/page/dpi/x/y/w/h must all be integers"}); return
+    if w <= 0 or crop_h <= 0 or x < 0 or y < 0:
+        h._send(400, {"error": "the crop box must have positive width/height and non-negative x/y"}); return
+    path = core.doc_path(doc)
+    if not path:
+        h._send(404, {"error": "document not found"}); return
+    arr = _page_gray(path, page, dpi=dpi)
+    if arr is None:
+        h._send(404, {"error": "could not render that page"}); return
+    ih, iw = int(arr.shape[0]), int(arr.shape[1])
+    if x + w > iw or y + crop_h > ih:
+        h._send(400, {"error": "the crop box extends past the rendered page (%dx%d)" % (iw, ih)}); return
+    crop = arr[y:y + crop_h, x:x + w]
+    sym_dir = os.path.join(os.path.dirname(core.DB_PATH), "symbols")
+    os.makedirs(sym_dir, exist_ok=True)
+    dest = os.path.join(sym_dir, raw_name + ".png")
+    import cv2
+    cv2.imwrite(dest, cv2.cvtColor(crop, cv2.COLOR_RGB2BGR) if crop.ndim == 3 else crop)
+    h._send(200, {"ok": True, "name": raw_name, "w": w, "h": crop_h})
+
+
+@get("/api/symbols_page_image")
+def r_symbols_page_image(h, qs):
+    # a raw PNG render of one page, at EXACTLY the pixel dimensions /api/symbols and
+    # /api/symbols_template use (both go through the same _page_gray(path, page, dpi) above) --
+    # deliberately a separate route from /page (features/routes/page_render.py), which applies its
+    # own RPS-tier DPI ceiling and clip handling, so the crop-and-save UI's on-screen image and the
+    # coordinates it submits are ALWAYS in the same pixel space, with no cross-route DPI-clamping
+    # discrepancy to reason about.
+    import symbols
+    if not symbols.available():
+        h._send(404, {"error": "OpenCV not installed -- symbol detection is unavailable"}); return
+    doc = qint(qs, "doc", 0); page = qint(qs, "page", 1); dpi = qint(qs, "dpi", 150, lo=72, hi=400)
+    path = core.doc_path(doc)
+    if not path:
+        h._send(404, {"error": "document not found"}); return
+    arr = _page_gray(path, page, dpi=dpi)
+    if arr is None:
+        h._send(404, {"error": "could not render that page"}); return
+    import cv2
+    ok, buf = cv2.imencode(".png", cv2.cvtColor(arr, cv2.COLOR_RGB2BGR) if arr.ndim == 3 else arr)
+    if not ok:
+        h._send(500, {"error": "could not encode page image"}); return
+    h._send(200, buf.tobytes(), "image/png", {"Cache-Control": "no-store"})
+
+
 @get("/api/ietm")
 def r_ietm(h, qs):
     # parse a document as S1000D/IETM XML if its file is XML (catalog §6.2)

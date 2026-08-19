@@ -19,6 +19,14 @@
   #fpanel .fp:hover{background:#16202b}
   #fpanel .fp b{color:#cfe} #fpanel .fp .n{color:#8a98a8;font-size:11px}
   #fpanel .fpx{cursor:pointer;color:#8a98a8;font-size:16px;line-height:1}
+  #symmodal{display:none;position:fixed;inset:0;background:#000c;z-index:50;overflow:auto}
+  #symcard{max-width:920px;margin:30px auto;background:#0f141b;border:1px solid #223;border-radius:8px;padding:14px}
+  #symimgwrap{position:relative;display:inline-block;max-width:100%;line-height:0}
+  #symimg{display:block;max-width:100%;height:auto}
+  #symcanvas{position:absolute;left:0;top:0;cursor:crosshair}
+  .symrow{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .symrow input{flex:1;min-width:160px;background:#1b2735;color:#e6edf4;border:1px solid #2f4858;border-radius:6px;padding:6px 8px;font-size:12px}
+  .symrow button{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px}
 </style></head><body>
 <div class="wrap">
   <div class="top">
@@ -32,10 +40,26 @@
     <a class="btn" id="vec" target="_blank" title="Vectorize this page to crisp SVG line-art (offline, OpenCV)">⛭ Vectorize</a>
     <button id="fpbtn" title="List every part called out on this page (from the parts index)">🧩 Parts on page</button>
     <button id="edbtn" style="display:none" title="Other editions of this manual found in the corpus (index/dedup.db)">📚 Editions</button>
+    <button id="symbtn" title="Find/teach schematic component &amp; safety symbols on this page (OpenCV template matching)">🔣 Symbols</button>
     <span class="muted" id="cinfo"></span>
   </div>
   <div id="stage"></div>
   <div id="fpanel"><h3><span id="fptitle">Parts on this page</span><span class="fpx" id="fpclose">×</span></h3><div id="fplist"></div></div>
+  <div id="symmodal">
+    <div id="symcard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b style="color:#7fbfff">🔣 Symbol detection &amp; templates</b>
+        <span class="fpx" id="symclose">×</span>
+      </div>
+      <div class="muted" style="margin-bottom:8px">Drag a box around a symbol below, name it, and save it as a template — future scans find every occurrence of it automatically. Green boxes are matches already found with existing templates.</div>
+      <div id="symimgwrap"><img id="symimg" alt=""><canvas id="symcanvas"></canvas></div>
+      <div class="symrow">
+        <input id="symname" placeholder="template name, e.g. warning_triangle">
+        <button id="symsave">Save selection as template</button>
+        <span class="muted" id="symstatus"></span>
+      </div>
+    </div>
+  </div>
 </div>
 <script src="/deepzoom.js"></script>
 <script>
@@ -123,6 +147,81 @@
       if(j&&j.editions&&j.editions.length){ $('#edbtn').style.display=''; $('#edbtn').textContent='📚 Editions ('+j.editions.length+')'; }
     }).catch(function(){});
   }
+
+  // ---- symbol detection + crop-and-save template tool (GET/POST /api/symbols*, symbols.py) --
+  // the missing half of symbols.py the audit found: detect() was always fully built and self-
+  // tested, but nothing in the app could ever get a template image into index/symbols/ in the
+  // first place. Drag a box on a STATIC page render (its own dedicated /api/symbols_page_image,
+  // not the live DeepZoom tile viewer -- avoids reasoning about that viewer's own zoom/pan
+  // transform state; this modal is a simple, always-correct fixed-scale image instead). ----
+  var SYM_DPI=150, symScaleX=1, symScaleY=1, symSel=null, symHits=[];
+  function symResizeCanvas(){
+    var img=$('#symimg'), cv=$('#symcanvas');
+    cv.width=img.clientWidth; cv.height=img.clientHeight;
+    cv.style.width=img.clientWidth+'px'; cv.style.height=img.clientHeight+'px';
+    symScaleX=img.clientWidth/(img.naturalWidth||1);
+    symScaleY=img.clientHeight/(img.naturalHeight||1);
+    symRedraw();
+  }
+  function symRedraw(){
+    var cv=$('#symcanvas'); if(!cv||!cv.getContext) return;
+    var ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle='#3ecf8e'; ctx.lineWidth=2;
+    for(var i=0;i<symHits.length;i++){ var s=symHits[i];
+      ctx.strokeRect(s.x*symScaleX, s.y*symScaleY, s.w*symScaleX, s.h*symScaleY);
+    }
+    if(symSel){
+      ctx.strokeStyle='#7fbfff'; ctx.setLineDash([4,3]);
+      ctx.strokeRect(Math.min(symSel.x0,symSel.x1), Math.min(symSel.y0,symSel.y1),
+                     Math.abs(symSel.x1-symSel.x0), Math.abs(symSel.y1-symSel.y0));
+      ctx.setLineDash([]);
+    }
+  }
+  function symLoadDetections(){
+    if(!doc) return;
+    fetch('/api/symbols?doc='+encodeURIComponent(doc)+'&page='+page+'&dpi='+SYM_DPI).then(function(r){return r.json();}).then(function(j){
+      symHits=(j&&j.symbols)||[]; symRedraw();
+      $('#symstatus').textContent=symHits.length?(symHits.length+' match'+(symHits.length===1?'':'es')+' with existing templates.'):'';
+    }).catch(function(){});
+  }
+  function symOpenModal(){
+    if(!doc) return;
+    $('#symmodal').style.display='block';
+    $('#symstatus').textContent='Loading…'; symSel=null; symHits=[];
+    var img=$('#symimg');
+    img.onload=function(){ symResizeCanvas(); symLoadDetections(); };
+    img.onerror=function(){ $('#symstatus').textContent='Could not render this page.'; };
+    img.src='/api/symbols_page_image?doc='+encodeURIComponent(doc)+'&page='+page+'&dpi='+SYM_DPI+'&_='+Date.now();
+  }
+  $('#symbtn').onclick=symOpenModal;
+  $('#symclose').onclick=function(){ $('#symmodal').style.display='none'; };
+  (function(){
+    var cv=$('#symcanvas'), dragging=false;
+    function pos(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+    cv.addEventListener('mousedown', function(e){ var p=pos(e); dragging=true; symSel={x0:p.x,y0:p.y,x1:p.x,y1:p.y}; symRedraw(); });
+    cv.addEventListener('mousemove', function(e){ if(!dragging) return; var p=pos(e); symSel.x1=p.x; symSel.y1=p.y; symRedraw(); });
+    window.addEventListener('mouseup', function(){ dragging=false; });
+  })();
+  $('#symsave').onclick=function(){
+    if(!symSel){ $('#symstatus').textContent='Drag a box on the image first.'; return; }
+    var name=($('#symname').value||'').trim();
+    if(!name){ $('#symstatus').textContent='Name the template first.'; return; }
+    var x0=Math.min(symSel.x0,symSel.x1), y0=Math.min(symSel.y0,symSel.y1);
+    var w=Math.abs(symSel.x1-symSel.x0), hgt=Math.abs(symSel.y1-symSel.y0);
+    if(w<6||hgt<6){ $('#symstatus').textContent='That selection is too small.'; return; }
+    var nx=Math.round(x0/symScaleX), ny=Math.round(y0/symScaleY);
+    var nw=Math.round(w/symScaleX), nh=Math.round(hgt/symScaleY);
+    $('#symstatus').textContent='Saving…';
+    fetch('/api/symbols_template',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({doc:doc,page:page,dpi:SYM_DPI,x:nx,y:ny,w:nw,h:nh,name:name})})
+      .then(function(r){return r.json();}).then(function(j){
+        if(!j||j.ok!==true){ $('#symstatus').textContent=(j&&j.error)||'Save failed.'; return; }
+        $('#symstatus').textContent='Saved "'+j.name+'".';
+        $('#symname').value=''; symSel=null;
+        symLoadDetections();
+      }).catch(function(){ $('#symstatus').textContent='Save failed.'; });
+  };
 
   mount();
 })();

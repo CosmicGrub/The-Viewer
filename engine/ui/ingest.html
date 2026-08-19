@@ -43,6 +43,15 @@
   @keyframes ingest-indet{0%{margin-left:0%}50%{margin-left:66%}100%{margin-left:0%}}
   .current{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-top:8px}
   .backlog{border-color:#5a4a2d;background:rgba(240,180,80,.06)}
+  .bd{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .bd .row{display:flex;align-items:baseline;gap:9px;padding:5px 0;font-size:13px}
+  .bd .row .ic{font-size:15px;width:20px;text-align:center;flex:none}
+  .bd .row .t{flex:1;color:var(--txt)}
+  .bd .row .t b{color:var(--txt)}
+  .bd .row .go{font-size:12px;color:var(--acc);text-decoration:none;white-space:nowrap}
+  .bd .row .go:hover{text-decoration:underline}
+  .bd .doclist{margin:2px 0 2px 29px;font-size:12px;color:var(--sub)}
+  .bd .doclist div{padding:2px 0}
 </style>
 <script src="/rps.js"></script>
 </head>
@@ -58,8 +67,10 @@
     <div class="bar">
       <input id="path" placeholder="Folder path on this PC, e.g.  E:\ALL MILITARY TMS\New" spellcheck="false">
       <button class="b" id="prev" onclick="preview()">Preview</button>
+      <button class="b" id="browseBtn" onclick="document.getElementById('fileInput').click()">Browse…</button>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
     </div>
-    <div class="dz" id="dz">…or drag a folder of PDFs here to detect it (paste the full path to confirm — browsers can't read absolute paths for security)</div>
+    <div class="dz" id="dz">…or drag a single PDF here to upload &amp; scan it directly — or drag a whole folder to detect its path (paste the full path to confirm — browsers can't read absolute folder paths for security)</div>
   </div>
   <div id="recent" class="chips"></div>
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
@@ -92,7 +103,69 @@ function progHtml(label){
     +'<div class="stages" id="stages"></div>'
     +'<div class="bar2 indet" id="pbwrap"><i id="pf"></i></div>'
     +'<div id="pstat" class="muted">starting…</div>'
-    +'<div class="current" id="pcur" style="display:none"></div></div>';
+    +'<div class="current" id="pcur" style="display:none"></div>'
+    +'<div class="bd" id="bd" style="display:none"></div></div>';
+}
+/* ---- extraction breakdown: WHERE each bit of parsed data is actually going, live -- not just a
+   stage bar. Reads viewer_ingest.py's 'extracted' tally (ingest_progress.json, via /api/ingest_status)
+   and renders one row per data type this pipeline produces, each pointing at the real place in the
+   app that data feeds -- search, the parts index, the document's own library entry. 'done' (bool)
+   switches from "still counting" language to "here's where it went" with clickable links, once the
+   whole job has actually finished (before that, links would 404 or 200-with-nothing, mid-write). */
+function renderBreakdown(extracted, done){
+  var bd=$("#bd"); if(!bd) return;
+  if(!extracted){ bd.style.display="none"; return; }
+  bd.style.display="";
+  var docs=extracted.documents||[];
+  var pagesText=extracted.pages_text||0, ocrDone=extracted.pages_ocr_done||0, ocrFail=extracted.pages_ocr_fail||0;
+  var partsPage=extracted.parts_page||0, partsBar=extracted.parts_barcode||0, parts=partsPage+partsBar;
+  var barcodes=extracted.barcodes_decoded||0;
+  var avgConf=extracted.ocr_conf_n?Math.round(100*extracted.ocr_conf_sum/extracted.ocr_conf_n):null;
+  var h="";
+
+  // documents -> the home page's library / vehicle browser
+  if(docs.length){
+    h+='<div class="row"><span class="ic">📄</span><span class="t">'
+      +(done?'<b>'+docs.length+'</b> document'+(docs.length===1?'':'s')+' added to your library':'Found <b>'+docs.length+'</b> document'+(docs.length===1?'':'s')+'…')
+      +'</span>'+(done?'<a class="go" href="/">Browse →</a>':'')+'</div>';
+    h+='<div class="doclist">';
+    docs.forEach(function(d){
+      var bits=[]; if(d.tm_number) bits.push(esc(d.tm_number)); if(d.vehicle) bits.push(esc(d.vehicle));
+      if(d.page_count) bits.push(d.page_count+" pg");
+      h+='<div>'+(d.title?esc(d.title):esc(d.tm_number||"(untitled)"))+(bits.length?' — '+bits.join(' · '):'')+'</div>';
+    });
+    h+='</div>';
+  }
+
+  // search index
+  if(pagesText || ocrDone || ocrFail){
+    var totalPages=pagesText+ocrDone+ocrFail;
+    h+='<div class="row"><span class="ic">🔎</span><span class="t">'
+      +'<b>'+totalPages+'</b> page'+(totalPages===1?'':'s')+' '+(done?'searchable now':'indexed so far')
+      +(avgConf!==null?' <span class="muted">(OCR confidence avg '+avgConf+'%)</span>':'')
+      +'</span>'+(done?'<a class="go" href="/">Search →</a>':'')+'</div>';
+  }
+
+  // parts index -- links to a real, specific extracted NSN's part page (there's no general
+  // "browse all parts" route in this app; /part?q= is the actual per-part destination).
+  if(parts){
+    var srcBits=[]; if(partsPage) srcBits.push(partsPage+' from text'); if(partsBar) srcBits.push(partsBar+' from barcode');
+    var samples=extracted.nsn_samples||[];
+    var link=samples.length?'<a class="go" href="/part?q='+encodeURIComponent(samples[0])+'">View '+(samples.length>1?'first ':'')+'part →</a>':'';
+    h+='<div class="row"><span class="ic">🧩</span><span class="t">'
+      +'<b>'+parts+'</b> part'+(parts===1?'':'s')+' extracted'+(srcBits.length?' <span class="muted">('+srcBits.join(', ')+')</span>':'')
+      +'</span>'+(done?link:'')+'</div>';
+  }
+
+  // barcodes decoded (informational -- already folded into the parts row above when they carry an
+  // NSN; called out on its own too since "a barcode was read at all" is meaningful even without one)
+  if(barcodes && barcodes>partsBar){
+    h+='<div class="row"><span class="ic">📟</span><span class="t">'
+      +'<b>'+barcodes+'</b> barcode'+(barcodes===1?'':'s')+' decoded'
+      +'</span></div>';
+  }
+
+  bd.innerHTML=h||'<div class="muted" style="font-size:12.5px">Nothing extracted yet…</div>';
 }
 function startRun(){
   var p=$("#path").value.trim(); if(!p)return;
@@ -157,10 +230,13 @@ function poll(){
     if(stage==="ocr" && progress) msg="OCR: "+(progress.done||0)+" done"+(progress.fail?", "+progress.fail+" failed":"")+" of "+(progress.total||0)+" pages";
     else msg="seen "+(run.files_seen||0)+" files · added "+(run.new_docs||0)+" docs · "+(run.pages_indexed||0)+" pages of text";
     st.innerHTML=msg+'  <span class="muted">('+(d.elapsed||0)+'s)</span>';
+    // Live "where is my data going" breakdown -- not just a stage bar. Updates every poll while
+    // running (counts climbing); switches to link-bearing "here's where it went" language once done.
+    renderBreakdown(progress?progress.extracted:null, !d.running);
     if(d.running){ pollTimer=setTimeout(poll,1500); }
     else {
       renderStages("done"); renderCurrent(null);
-      st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.<ul class="steps"><li>New documents are searchable now.</li><li>Every scanned page was OCR’d in this same pass — no separate step needed.</li></ul>';
+      st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.';
       if(pf)pf.style.width="100%"; if(wrap)wrap.classList.remove("indet");
       checkBacklog();
     }
@@ -193,6 +269,13 @@ function checkBacklog(){
   }).catch(function(){});
 })();
 $("#path").addEventListener("keydown",function(e){if(e.key==="Enter")preview();});
+/* Browse… button: same uploadFile() path as a drag-and-drop, just via a native file picker --
+   the standard, expected complement to any drop zone (not everyone drags). */
+$("#fileInput").addEventListener("change",function(){
+  var f=this.files&&this.files[0];
+  this.value="";   // reset now so picking the SAME file again still fires 'change' next time
+  if(f) uploadFile(f);
+});
 
 /* ---- Recent ingest paths (localStorage) — one-click re-index of a folder you've used before ---- */
 function getRecent(){ try{ return JSON.parse(window.localStorage.getItem("viewer_ingest_recent")||"[]"); }catch(e){ return []; } }
@@ -210,17 +293,60 @@ function renderRecent(){
   };});
 }
 
-/* ---- drag-drop: detect a dropped folder's name; auto-preview if it matches a Recent path ---- */
+/* ---- single-file upload: a real dropped PDF's BYTES are readable by the browser (unlike a
+   folder, where only entry names are exposed for security) -- read it, base64-encode it, and POST
+   straight to /api/ingest_upload, which saves it server-side and runs the same scan+OCR job as a
+   folder scan. One file at a time by design (multi-file batch upload is a different, bigger
+   feature -- not this one). ---- */
+function uploadFile(file){
+  if(!file) return;
+  if(!/\.pdf$/i.test(file.name)){
+    $("#dz").innerHTML='<span class="err">Only PDF files can be uploaded directly — drop a folder instead for other formats.</span>';
+    return;
+  }
+  $("#dz").textContent="Reading "+file.name+"…";
+  var reader=new FileReader();
+  reader.onerror=function(){ $("#dz").innerHTML='<span class="err">Couldn\u2019t read that file.</span>'; };
+  reader.onload=function(){
+    $("#dz").textContent="Uploading "+file.name+" ("+Math.round(file.size/1024)+" KB)…";
+    fetch("/api/ingest_upload",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({filename:file.name,data:reader.result})})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d.ok){ $("#dz").innerHTML='<span class="err">'+esc(d.error||"Upload failed.")+'</span>'; return; }
+        $("#dz").innerHTML="…or drag a single PDF here to upload &amp; scan it directly — or drag a whole folder to detect its path";
+        $("#out").innerHTML=progHtml("Scanning &amp; OCR'ing the uploaded <b>"+esc(d.filename||file.name)+"</b>…");
+        $("#backlogCard").innerHTML="";
+        poll();
+      }).catch(function(e){ $("#dz").innerHTML='<span class="err">Upload error: '+esc(e.message)+'</span>'; });
+  };
+  reader.readAsDataURL(file);
+}
+/* ---- drag-drop: a real FILE is uploaded directly (above); a FOLDER's name is detected and the
+   user is asked to confirm its full path (browsers never expose a dropped folder's real absolute
+   path, for security) -- auto-previewing if it matches a Recent path. ---- */
 (function(){
   var dz=$("#drop"); if(!dz)return;
   function stop(e){ e.preventDefault(); e.stopPropagation(); }
   ["dragenter","dragover"].forEach(function(ev){ dz.addEventListener(ev,function(e){ stop(e); dz.classList.add("over"); }); });
   ["dragleave","drop"].forEach(function(ev){ dz.addEventListener(ev,function(e){ stop(e); dz.classList.remove("over"); }); });
   dz.addEventListener("drop",function(e){
-    var name="", items=e.dataTransfer&&e.dataTransfer.items;
-    try{
-      if(items&&items.length&&items[0].webkitGetAsEntry){ var en=items[0].webkitGetAsEntry(); if(en){ name=en.name; } }
-    }catch(_){}
+    var items=e.dataTransfer&&e.dataTransfer.items;
+    if(items&&items.length>1){
+      $("#dz").textContent="Drop one file (or one folder) at a time.";
+      return;
+    }
+    var entry=null;
+    try{ if(items&&items.length&&items[0].webkitGetAsEntry){ entry=items[0].webkitGetAsEntry(); } }catch(_){}
+    // webkitGetAsEntry() is WebKit/Chromium-only (no Firefox support) and isn't reliably populated
+    // for every real drop even where it exists -- so isFile:true is trusted when present, but its
+    // ABSENCE doesn't mean "not a file": fall back to the file's own .size, which every browser
+    // reports accurately for a real dropped file (a dropped folder never produces a File with real
+    // byte content, size 0 or missing entirely) -- this also happens to be what makes automated
+    // testing of this exact path possible at all.
+    var singleFile=e.dataTransfer.files&&e.dataTransfer.files.length===1?e.dataTransfer.files[0]:null;
+    var looksLikeFile=(entry&&entry.isFile) || (!entry && singleFile && singleFile.size>0);
+    if(looksLikeFile && singleFile){ uploadFile(singleFile); return; }
+    var name=entry?entry.name:"";
     if(!name && e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){ name=e.dataTransfer.files[0].name; }
     if(!name){ $("#dz").textContent="Couldn't read the drop — paste the full folder path instead."; return; }
     // if a Recent path ends with this folder name, use it directly

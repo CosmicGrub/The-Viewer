@@ -248,6 +248,12 @@ def _auth_ok(token):
 # ---- rotating server-error log (B10/J69): tracebacks go here, never to the client --------------
 LOG_DIR = os.path.join(HERE, "logs")
 MAX_POST_BYTES = 8 * 1024 * 1024          # B13: parts-request payloads are a few KB; 8 MB is generous
+# /api/ingest_upload is the one deliberate exception: a real dragged-and-dropped PDF, base64-encoded
+# in the JSON body, is far bigger than MAX_POST_BYTES was ever sized for (a real scanned TM chapter
+# can be tens of MB). Scoped to that ONE route by path (see do_POST below) -- every other route
+# keeps the tight 8 MB cap unchanged. features/ingest_feature.py's UPLOAD_MAX_BYTES (150 MB decoded)
+# is the second, independent check on the actual file size after base64 decoding.
+MAX_UPLOAD_POST_BYTES = 200 * 1024 * 1024
 _errlog = None
 
 
@@ -340,7 +346,7 @@ from features.render_feature import (                             # noqa: E402,F
     _clean_png, _poppler_png, _which, _get_doc, _clip_rect_for, render_page_png,
     cached_page_render, _warm_adjacent, page_words, _locate_box, _digits, page_callouts)
 from features.ingest_feature import (                             # noqa: E402,F401
-    ingest_preview, ingest_start, ingest_status, ocr_backlog_start, ocr_pending_count)
+    ingest_preview, ingest_start, ingest_status, ingest_upload, ocr_backlog_start, ocr_pending_count)
 from features.sessions_feature import recent_sessions, save_request               # noqa: E402,F401
 
 # ---- the earlier extractions (unchanged): DI exactly as before ----------------------------------
@@ -506,7 +512,12 @@ class Handler(BaseHTTPRequestHandler):
         if length < 0:
             self.close_connection = True
             self._send(400, {"error": "invalid Content-Length"}); return
-        if length > MAX_POST_BYTES:
+        # /api/ingest_upload gets a larger cap (see MAX_UPLOAD_POST_BYTES above) -- everything else
+        # keeps the original 8 MB B13 limit unchanged. u.path is already parsed above (do_GET's
+        # equivalent routes off the same urlparse result), so this is a cheap string compare, not a
+        # new parse -- and it happens BEFORE any body is read, same as the check it replaces.
+        cap = MAX_UPLOAD_POST_BYTES if u.path == "/api/ingest_upload" else MAX_POST_BYTES
+        if length > cap:
             self.close_connection = True                                         # refuse WITHOUT reading the body
             self._send(413, {"error": "request body too large"}); return        # B13
         raw = self.rfile.read(length) if length else b"{}"

@@ -409,13 +409,14 @@ def crawl(con, root, max_files=0, max_seconds=0):
     rid = con.execute("INSERT INTO runs(kind) VALUES('crawl')").lastrowid
     dbdir = _db_dir(con)
     seen=new=pi=q=fail=0; t0=time.time()
-    _write_progress(dbdir, stage="crawl", current=None, seen=0, new=0)
+    if not _EXTRACT_TALLY: _tally_reset()   # main() resets per subprocess; direct callers (tests) get a lazy default
+    _write_progress(dbdir, stage="crawl", current=None, seen=0, new=0, extracted=dict(_EXTRACT_TALLY))
     for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
         if os.sep + "." in dirpath: continue
         for fn in filenames:
             if fn.lower() in ("thumbs.db",".ds_store"): continue
             path = os.path.join(dirpath, fn); seen += 1
-            _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new)
+            _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new, extracted=dict(_EXTRACT_TALLY))
             try:
                 res = upsert_document(con, path, root)
                 if res is None:
@@ -425,6 +426,24 @@ def crawl(con, root, max_files=0, max_seconds=0):
                 doc_id, kind = res; new += 1
                 if kind == "pdf":
                     a,b = index_pdf(con, doc_id, path); pi += a; q += b
+                    # Document metadata + a running page-text tally -- WHERE this document's own
+                    # identity will surface (the home page's "Browse by vehicle" grouping, search
+                    # result headers) once crawl/index_pdf() has actually determined it, not just
+                    # "N files scanned". Read back rather than threaded through index_pdf()'s return
+                    # value on purpose -- that signature is (indexed, queued) everywhere else in this
+                    # file and every existing caller unpacks exactly that; widening it here would
+                    # touch call sites that have nothing to do with the in-app progress UI.
+                    try:
+                        drow = con.execute(
+                            "SELECT tm_number, nsn, title, vehicle, page_count, type FROM documents WHERE id=?",
+                            (doc_id,)).fetchone()
+                        if drow:
+                            _EXTRACT_TALLY["documents"].append({
+                                "id": doc_id, "tm_number": drow[0], "nsn": drow[1], "title": drow[2],
+                                "vehicle": drow[3], "page_count": drow[4], "type": drow[5]})
+                    except Exception: pass
+                    _EXTRACT_TALLY["pages_text"] += a
+                    _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new, extracted=dict(_EXTRACT_TALLY))
                 else:
                     con.execute("UPDATE documents SET status='indexed' WHERE id=?", (doc_id,))
                 if new % 10 == 0:
@@ -784,6 +803,24 @@ def _write_progress(d, **fields):
         os.replace(tmp, path)
     except Exception: pass
 
+
+# ---- extraction tally: WHERE each bit of parsed data actually goes, live -----------------------
+# A stage/done/total progress bar answers "how far along is this" but not "what did it actually
+# find, and which part of the app will it show up in" -- real, distinguishable data types (a
+# document's own metadata, searchable page text, structured NSN/part records, machine-read
+# barcodes, OCR confidence) fan out to different consumers (search, /api/part, the home page's
+# vehicle browser, quality flags elsewhere) and the UI has no way to show that breakdown without
+# this. One process-lifetime accumulator, reset once per subprocess invocation (main(), before
+# dispatch) -- crawl()/ocr()/extract_parts() each add to it and include the WHOLE running total in
+# every _write_progress() call, so the browser always sees the full picture regardless of which
+# stage is currently active, not just that one function's local counters.
+_EXTRACT_TALLY = {}
+def _tally_reset():
+    global _EXTRACT_TALLY
+    _EXTRACT_TALLY = {"documents": [], "pages_text": 0, "pages_ocr_done": 0, "pages_ocr_fail": 0,
+                       "barcodes_decoded": 0, "parts_page": 0, "parts_barcode": 0, "nsn_samples": [],
+                       "ocr_conf_sum": 0.0, "ocr_conf_n": 0}
+
 def ocr(con, limit, workers=1):
     rid = con.execute("INSERT INTO runs(kind) VALUES('ocr')").lastrowid
     done=fail=0
@@ -812,7 +849,8 @@ def ocr(con, limit, workers=1):
     # _ocr_task()) can still report a human-readable "currently processing" line for the in-app
     # scan UI -- ingest_status() (features/ingest_feature.py) surfaces this via _write_progress().
     _labels = {r[0]: (r[1], os.path.basename(r[2] or "")) for r in rows}
-    _write_progress(dbdir, stage="ocr", current=None, done=0, fail=0, total=total)
+    if not _EXTRACT_TALLY: _tally_reset()   # same lazy-default as crawl(): ocrall doesn't call crawl() first
+    _write_progress(dbdir, stage="ocr", current=None, done=0, fail=0, total=total, extracted=dict(_EXTRACT_TALLY))
     def handle(pid, text, conf, barcode, err):
         nonlocal done, fail
         if err is None:
@@ -820,6 +858,9 @@ def ocr(con, limit, workers=1):
             con.execute("UPDATE pages SET body_text=?, char_count=?, source='ocr', ocr_status='done', ocr_confidence=?, "
                         "barcode_type=?, barcode_data=?, barcode_nsn=? WHERE id=?",
                         (text, len(text), conf, bc.get("type"), bc.get("data"), bc.get("nsn"), pid)); done += 1
+            _EXTRACT_TALLY["pages_ocr_done"] += 1
+            if conf is not None:
+                _EXTRACT_TALLY["ocr_conf_sum"] += conf; _EXTRACT_TALLY["ocr_conf_n"] += 1
         else:
             # The page's OCR text pass genuinely failed (still marked 'failed' + queued for retry,
             # same as always) -- but a barcode reached this far only if it decoded successfully BEFORE
@@ -830,8 +871,12 @@ def ocr(con, limit, workers=1):
             con.execute("UPDATE pages SET ocr_status='failed', barcode_type=?, barcode_data=?, barcode_nsn=? WHERE id=?",
                         (bc.get("type"), bc.get("data"), bc.get("nsn"), pid))
             con.execute("INSERT INTO jobs(page_id,stage,state,attempts,last_error) VALUES(?,?, 'failed', 1, ?)", (pid,"ocr",err)); fail += 1
+            _EXTRACT_TALLY["pages_ocr_fail"] += 1
+        if bc.get("type"):
+            _EXTRACT_TALLY["barcodes_decoded"] += 1   # promoted to a 'barcode'-confidence part later IFF it has an nsn (extract_parts() tallies that half)
         pno, dname = _labels.get(pid, (None, ""))
-        _write_progress(dbdir, stage="ocr", current={"doc": dname, "page": pno}, done=done, fail=fail, total=total)
+        _write_progress(dbdir, stage="ocr", current={"doc": dname, "page": pno}, done=done, fail=fail, total=total,
+                        extracted=dict(_EXTRACT_TALLY))
         if (done+fail) % 5 == 0: con.commit(); _heartbeat(dbdir, done, fail, None); log(f"ocr: done={done} failed={fail} (last page {len(text) if text else 0} chars)")
     if workers <= 1:
         for r in rows: handle(*_ocr_task(r))
@@ -1076,7 +1121,8 @@ def extract_parts(con):
     # kill it, discarding the work (and run_ocr_auto.bat would still declare "OCR COMPLETE" since
     # OCR itself had already reached 0 pending by then).
     _heartbeat(dbdir, 0, 0, "extract_parts")
-    _write_progress(dbdir, stage="parts", current=None, done=0, total=None)
+    if not _EXTRACT_TALLY: _tally_reset()   # same lazy-default as crawl()/ocr(): the bare `parts` subcommand calls this alone
+    _write_progress(dbdir, stage="parts", current=None, done=0, total=None, extracted=dict(_EXTRACT_TALLY))
     con.execute("DELETE FROM parts WHERE confidence IS NOT NULL"); con.commit()
     try:
         rows = con.execute(
@@ -1156,6 +1202,16 @@ def extract_parts(con):
         "VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))", batch)
     con.commit()
     _heartbeat(dbdir, npages, 0, 0)
+    # Final, authoritative counts -- extract_parts() does a full DELETE-then-rebuild every time (see
+    # its own docstring), so these OVERWRITE rather than accumulate, matching that same contract:
+    # the true count as of right now, not a running total across repeated calls in one process.
+    _EXTRACT_TALLY["parts_page"] = len(batch) - nbar
+    _EXTRACT_TALLY["parts_barcode"] = nbar
+    # A few real, distinct NSNs -- not just a count -- so the in-app scan UI can link straight to
+    # /part?q=<nsn> ("View parts") instead of a dead-end generic page. Capped small; this is a
+    # "here's a sample of what showed up" pointer, not meant to be the parts index's own listing.
+    _EXTRACT_TALLY["nsn_samples"] = list(dict.fromkeys(b[0] for b in batch))[:5]
+    _write_progress(dbdir, stage="parts", current=None, done=npages, total=npages, extracted=dict(_EXTRACT_TALLY))
     log(f"parts: {npages} RPSTL pages -> {len(batch)} NSN records ({len(set(b[0] for b in batch))} distinct NSNs)"
         f"{f', {nbar} from decoded barcodes' if nbar else ''}")
     return len(batch)
@@ -1495,6 +1551,11 @@ def main():
     OCR_DPI = args.dpi; USE_CUDA = args.gpu
     os.makedirs(os.path.dirname(os.path.abspath(args.db)), exist_ok=True)
     con = connect(args.db); migrate(con, os.path.join(here,"migrations"), db_path=args.db)
+    # One extraction tally per subprocess invocation (see _tally_reset()'s docstring) -- every
+    # subcommand that can write progress starts from a clean slate, not whatever a PRIOR process
+    # happened to leave in the in-memory global (each CLI invocation is its own process anyway, so
+    # this mostly guards direct/repeated in-process callers, e.g. tests).
+    _tally_reset()
     if args.cmd == "migrate": pass
     elif args.cmd == "crawl": crawl(con, args.root, args.max_files, args.max_seconds)
     elif args.cmd == "ocr": ocr(con, args.limit, args.workers)
@@ -1507,7 +1568,7 @@ def main():
         prioritize(con)
         while ocr(con, args.limit, args.workers) > 0: pass
         extract_parts(con)   # refresh the structured parts index after OCR adds pages
-        _write_progress(_db_dir(con), stage="done", current=None)
+        _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "run":
         # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
         # launches exactly this subcommand -- crawl/ocr()/extract_parts() each stamp their own
@@ -1517,7 +1578,7 @@ def main():
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
-        _write_progress(_db_dir(con), stage="done", current=None)
+        _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)
     elif args.cmd == "cleanup": cleanup(con)

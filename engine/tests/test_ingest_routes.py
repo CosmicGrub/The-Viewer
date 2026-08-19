@@ -254,12 +254,186 @@ def main():
             r = _json(b)
             check("POST /api/ingest blocked while an OCR-backlog job is running (shared lock)",
                   c == 200 and r.get("ok") is False and "already in progress" in (r.get("error") or ""))
+
+            # =================================================================================
+            # POST /api/ingest_upload -- a single file's bytes straight from the browser (drag-
+            # and-drop). Validation-only here (Popen/safeguard still mocked) -- the real end-to-
+            # end upload-through-the-real-HTTP-route-to-a-real-subprocess check runs unmocked,
+            # after this whole try/finally, same split as the progress-stamping e2e section below.
+            # =================================================================================
+            _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0, "kind": None}
+            _popen_before = len(_popen_calls)
+            import base64 as _b64
+
+            c, b = _req("/api/ingest_upload", {"filename": "x.txt", "data": _b64.b64encode(b"hi").decode()})
+            r = _json(b)
+            check("ingest_upload rejects a non-PDF filename", c == 200 and r.get("ok") is False
+                  and "PDF" in (r.get("error") or ""))
+            check("ingest_upload non-PDF: no subprocess launched", len(_popen_calls) == _popen_before)
+
+            c, b = _req("/api/ingest_upload", {"filename": "", "data": _b64.b64encode(b"%PDF-1.4 x").decode()})
+            r = _json(b)
+            check("ingest_upload rejects an empty filename", c == 200 and r.get("ok") is False)
+
+            c, b = _req("/api/ingest_upload", {"filename": "bad.pdf", "data": "not-valid-base64!!!"})
+            r = _json(b)
+            check("ingest_upload rejects undecodable base64", c == 200 and r.get("ok") is False)
+
+            c, b = _req("/api/ingest_upload", {"filename": "notreally.pdf", "data": _b64.b64encode(b"NOT A PDF AT ALL").decode()})
+            r = _json(b)
+            check("ingest_upload rejects bytes without a %PDF header", c == 200 and r.get("ok") is False
+                  and "PDF" in (r.get("error") or ""))
+            check("ingest_upload bad-header: no subprocess launched", len(_popen_calls) == _popen_before)
+
+            oversized_stub = b"%PDF-1.4 " + b"\x00" * 10
+            orig_cap = _ingest_mod.UPLOAD_MAX_BYTES
+            try:
+                _ingest_mod.UPLOAD_MAX_BYTES = 5     # force the size-cap branch without a real 150MB payload
+                c, b = _req("/api/ingest_upload", {"filename": "big.pdf", "data": _b64.b64encode(oversized_stub).decode()})
+                r = _json(b)
+                check("ingest_upload rejects a file over the size cap", c == 200 and r.get("ok") is False
+                      and "large" in (r.get("error") or "").lower())
+            finally:
+                _ingest_mod.UPLOAD_MAX_BYTES = orig_cap
+
+            # a genuinely valid upload: real %PDF bytes, saved to disk, subprocess launched with the
+            # 'run' subcommand against the uploads/ folder (not the folder-scan path -- no --root
+            # value equal to a caller-supplied path; the uploads dir is server-owned).
+            good_pdf = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<</Type/Catalog>>endobj\n%%EOF"
+            c, b = _req("/api/ingest_upload", {"filename": "TM-UPLOAD-TEST.pdf",
+                                                "data": "data:application/pdf;base64," + _b64.b64encode(good_pdf).decode()})
+            r = _json(b)
+            check("ingest_upload accepts a real PDF (incl. data: URI prefix stripped) -> ok + started",
+                  c == 200 and r.get("ok") is True and r.get("started") is True)
+            check("ingest_upload echoes the saved filename back", r.get("filename") == "TM-UPLOAD-TEST.pdf")
+            check("ingest_upload launched a subprocess", len(_popen_calls) == _popen_before + 1)
+            check("ingest_upload launches the 'run' subcommand", "run" in _popen_calls[-1])
+            uploads_dir = os.path.join(os.path.dirname(db), "uploads")
+            saved_path = os.path.join(uploads_dir, "TM-UPLOAD-TEST.pdf")
+            check("ingest_upload actually wrote the file to disk", os.path.exists(saved_path))
+            if os.path.exists(saved_path):
+                with open(saved_path, "rb") as f:
+                    check("ingest_upload wrote the exact decoded bytes (no corruption)", f.read() == good_pdf)
+
+            # a second upload of the SAME filename must not silently overwrite the first (R1/R6).
+            _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0, "kind": None}
+            other_pdf = b"%PDF-1.4\n%DIFFERENT CONTENT\n%%EOF"
+            c, b = _req("/api/ingest_upload", {"filename": "TM-UPLOAD-TEST.pdf", "data": _b64.b64encode(other_pdf).decode()})
+            r = _json(b)
+            check("ingest_upload same-name re-upload -> ok, suffixed, original untouched",
+                  c == 200 and r.get("ok") is True and r.get("filename") != "TM-UPLOAD-TEST.pdf")
+            with open(saved_path, "rb") as f:
+                check("ingest_upload: the ORIGINAL file's bytes are unchanged after the re-upload", f.read() == good_pdf)
         finally:
             _subprocess_mod.Popen = _real_popen
             if _real_sg_mod is not None: sys.modules["safeguard"] = _real_sg_mod
             else: sys.modules.pop("safeguard", None)
             _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0, "kind": None}
             os.environ.pop("VIEWER_INGEST_ROOTS", None)
+
+        # =====================================================================================
+        # do_POST's route-specific body-size cap (viewer_app.py): /api/ingest_upload gets a much
+        # larger raw-body ceiling than every other POST route -- a real dragged PDF, base64-
+        # encoded, is far bigger than the 8 MB MAX_POST_BYTES was ever sized for. Prove BOTH
+        # halves with a real ~8.5 MB body over the actual socket (not mocked): the exception
+        # route accepts it (doesn't 413 -- it may still fail validation for other reasons, e.g.
+        # not a real PDF, but must get PAST the length check to do so) and every other route's
+        # original cap is unweakened.
+        # =====================================================================================
+        import http.client as _httpclient
+
+        declared = 8500000   # ~8.5 MB -- over the old 8 MB cap, comfortably under the new 200 MB one
+
+        # /api/ingest (no upload exception): do_POST rejects purely on the Content-Length HEADER,
+        # before ever calling self.rfile.read() -- so the body genuinely never needs to be sent to
+        # prove the rejection, and skipping it sidesteps a client/server framing race (the server
+        # closing the connection while a client is still mid-write of a real oversized body can
+        # surface as a raw socket error -- e.g. WinError 10053 on Windows -- rather than a clean
+        # HTTP response; that's an artifact of the test transport, not the feature under test).
+        conn = _httpclient.HTTPConnection("127.0.0.1", PORT, timeout=15)
+        try:
+            conn.putrequest("POST", "/api/ingest")
+            conn.putheader("Content-Type", "application/json")
+            conn.putheader("Content-Length", str(declared))
+            conn.endheaders()
+            r = conn.getresponse()
+            check("POST /api/ingest (a route WITHOUT the upload exception) still rejects an oversized "
+                  "Content-Length -> 413 (cap not weakened globally)", r.status == 413)
+        finally:
+            conn.close()
+
+        # /api/ingest_upload: genuinely under its 200 MB cap, so do_POST proceeds to read the full
+        # body -- send it for real (the accept path has no early-close, so no race to sidestep).
+        big_body = json.dumps({"filename": "big.pdf", "data": "A" * declared}).encode()
+        req = urllib.request.Request(BASE + "/api/ingest_upload", data=big_body, headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as x:
+                c = x.status
+        except urllib.error.HTTPError as e:
+            c = e.code
+        check("POST /api/ingest_upload accepts a body well over the OLD 8 MB cap (not 413)", c != 413)
+
+        # =====================================================================================
+        # Genuine, UNMOCKED end-to-end upload: real HTTP POST with a real tiny PDF -> real
+        # subprocess -> real crawl -> the uploaded document actually lands in the DB. Same split
+        # as the progress-stamping e2e section below (validation is mocked above; this proves the
+        # whole thing actually works for a real user, start to finish).
+        #
+        # Uses a SEPARATE, genuinely fresh + fully-migrated DB for this one check -- NOT the
+        # shared fixture `db` the rest of this file uses -- and points the live server at it only
+        # for the duration of this check (restored after). fixture.py hand-builds its tables to
+        # match the CURRENT schema shape directly, without ever stamping schema_meta/schema_version
+        # to say "every migration is already applied" -- fine for every other test here (they never
+        # call migrate() against it), but the REAL subprocess this check launches always calls
+        # viewer_ingest.py's real migrate() on startup, which would then try to re-apply migrations
+        # whose columns the fixture already has, e.g. "ALTER TABLE pages ADD COLUMN ocr_priority" ->
+        # "duplicate column name" (caught live: the subprocess exited 1, silently, since _launch()
+        # redirects its stdout/stderr to DEVNULL -- reproduced directly by running the same CLI
+        # command by hand to see the real traceback).
+        # =====================================================================================
+        try:
+            import pymupdf as _fitz3
+        except Exception:
+            _fitz3 = None
+        if _fitz3 is None:
+            print("SKIP real end-to-end upload check (PyMuPDF not installed)")
+        else:
+            import viewer_ingest as _VI_upload
+            up_dir = tempfile.mkdtemp(prefix="ingest_upload_e2e_")
+            up_db = os.path.join(up_dir, "viewer.db")
+            up_con = _VI_upload.connect(up_db)
+            _VI_upload.migrate(up_con, os.path.join(ENGINE, "migrations"), db_path=up_db)
+            up_con.close()
+
+            doc3 = _fitz3.open(); pg3 = doc3.new_page(width=612, height=792)
+            pg3.insert_text((72, 72), "REAL UPLOADED PDF FOR END-TO-END ROUTE TEST NSN 5305-01-999-8888")
+            up_bytes = doc3.write(); doc3.close()
+            import base64 as _b64e
+            up_payload = {"filename": "REAL-UPLOAD-E2E.pdf", "data": _b64e.b64encode(up_bytes).decode()}
+
+            orig_db_path = V.DB_PATH
+            try:
+                V.DB_PATH = up_db
+                c, b = _req("/api/ingest_upload", up_payload)
+                r = _json(b)
+                check("real e2e upload -> ok + started (unmocked, genuinely launches viewer_ingest.py)",
+                      c == 200 and r.get("ok") is True and r.get("started") is True)
+                deadline = time.time() + 30
+                landed = False
+                while time.time() < deadline:
+                    cs, bs = _req("/api/ingest_status")
+                    st = _json(bs)
+                    if not st.get("running"):
+                        con_check = sqlite3.connect(up_db)
+                        landed = con_check.execute(
+                            "SELECT COUNT(*) FROM documents WHERE path LIKE ?", ("%REAL-UPLOAD-E2E.pdf",)
+                        ).fetchone()[0] > 0
+                        con_check.close()
+                        break
+                    time.sleep(0.5)
+                check("real e2e upload: the uploaded document actually landed in the DB (real subprocess ran to completion)", landed)
+            finally:
+                V.DB_PATH = orig_db_path
 
         # =====================================================================================
         # GET /api/ingest_status -- richer response shape: 'progress' (live per-item detail, read
@@ -446,6 +620,15 @@ def main():
             check("e2e crawl stamped stage='crawl' in ingest_progress.json", prog_after_crawl.get("stage") == "crawl")
             check("e2e crawl stamped a real 'current' filename (not left over from init)",
                   isinstance(prog_after_crawl.get("current"), str) and prog_after_crawl["current"].endswith(".pdf"))
+            # 'extracted' -- the "where is my data going" breakdown tally the in-app scan UI reads
+            # to show more than a stage bar: which document(s) were found, and their metadata, as
+            # soon as crawl() actually determines it (not just "N files scanned").
+            extr_crawl = prog_after_crawl.get("extracted") or {}
+            crawl_docs = extr_crawl.get("documents") or []
+            check("e2e crawl tally: both documents recorded with a real db id", len(crawl_docs) == 2
+                  and all(d.get("id") for d in crawl_docs))
+            check("e2e crawl tally: pages_text reflects the ONE text-layer page (not the image-only one)",
+                  extr_crawl.get("pages_text") == 1)
 
             remaining = _VI.ocr(e2e_con, 10, workers=1)
             with open(prog_e2e_path) as f:
@@ -459,12 +642,47 @@ def main():
                   cur.get("doc") == "SCAN-DOC.pdf" and cur.get("page") == 1)
             check("e2e ocr: no pages left pending regardless of OCR success/failure (each got a terminal status)",
                   remaining == 0)
+            extr_ocr = prog_after_ocr.get("extracted") or {}
+            check("e2e ocr tally: the crawl-stage document list survives into the ocr stage (same running total, not reset)",
+                  len(extr_ocr.get("documents") or []) == 2)
+            check("e2e ocr tally: pages_ocr_done + pages_ocr_fail together cover the one queued page",
+                  (extr_ocr.get("pages_ocr_done") or 0) + (extr_ocr.get("pages_ocr_fail") or 0) == 1)
 
             _VI.extract_parts(e2e_con)
             with open(prog_e2e_path) as f:
                 prog_after_parts = json.load(f)
             check("e2e extract_parts stamped stage='parts'", prog_after_parts.get("stage") == "parts")
             e2e_con.close()
+
+            # =================================================================================
+            # A SECOND e2e run, with real RPSTL-formatted content this time, specifically to
+            # exercise the tally fields the above fixture can't (neither of its docs has any
+            # parts-list text): parts_page/parts_barcode counts and nsn_samples, which is what
+            # the breakdown panel's "View part ->" link is actually built from.
+            # =================================================================================
+            e2e2_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_parts_")
+            e2e2_db = os.path.join(e2e2_dir, "viewer.db")
+            e2e2_con = _VI.connect(e2e2_db)
+            _VI.migrate(e2e2_con, os.path.join(ENGINE, "migrations"), db_path=e2e2_db)
+            corpus2_dir = os.path.join(e2e2_dir, "corpus"); os.makedirs(corpus2_dir)
+            prog2_path = os.path.join(e2e2_dir, "ingest_progress.json")
+
+            doc3 = _fitz2.open(); p3 = doc3.new_page(width=612, height=792)
+            p3.insert_text((72, 72),
+                "FIG 4 TEST ASSEMBLY\nITEM NO PART NUMBER FSCM DESCRIPTION USABLE ON CODE QTY\n"
+                "ITEM 1 NSN 5330-01-654-9999 GASKET SET QTY 1", fontsize=10)
+            doc3.save(os.path.join(corpus2_dir, "RPSTL-DOC.pdf")); doc3.close()
+
+            _VI.crawl(e2e2_con, corpus2_dir); e2e2_con.commit()
+            _VI.extract_parts(e2e2_con)
+            with open(prog2_path) as f:
+                prog2 = json.load(f)
+            extr2 = prog2.get("extracted") or {}
+            check("e2e parts tally: parts_page counts the real extracted NSN", extr2.get("parts_page") == 1)
+            check("e2e parts tally: parts_barcode is 0 (no barcode on this page)", extr2.get("parts_barcode") == 0)
+            check("e2e parts tally: nsn_samples contains the actual extracted NSN (what the UI links to)",
+                  extr2.get("nsn_samples") == ["5330-01-654-9999"])
+            e2e2_con.close()
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

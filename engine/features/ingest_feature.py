@@ -6,12 +6,16 @@ extraction, all in-app, one job), and status (now including live per-item progre
 ingest_progress.json sidecar viewer_ingest.py's crawl()/ocr()/extract_parts() each stamp as they
 go). Also ocr_backlog_start(): the same in-app job model, but for finishing OCR on pages that were
 already queued before this feature existed (or from any earlier `crawl`-only run) -- so there is
-never a reason to leave the browser and run a .bat file for either job.
+never a reason to leave the browser and run a .bat file for either job. Also ingest_upload(): a
+single file's bytes straight from the browser (drag-and-drop, no server-side folder path needed --
+for a quick one-document test, not a bulk import), saved into a dedicated uploads/ folder next to
+the index and fed into the exact same 'run' job as ingest_start().
 
 v0.96.0 hardening (J70): the requested path is canonicalized (realpath) before use, and when the
 optional VIEWER_INGEST_ROOTS env (os.pathsep-separated) is set, only folders under those roots may
 be indexed. Unset = any local folder (the original behavior, kept for backwards compatibility).
 DI via `core`."""
+import base64
 import json
 import os
 import sys
@@ -120,6 +124,73 @@ def ingest_start(path):
     py = sys.executable or "python"
     cmd = [py, os.path.join(ENGINE_DIR, "viewer_ingest.py"), "run", "--root", path, "--db", core.DB_PATH]
     return _launch("scan", cmd, path)
+
+
+UPLOAD_MAX_BYTES = 150 * 1024 * 1024   # decoded-file cap -- generous for a real scanned TM chapter,
+# still a hard ceiling (viewer_app.py's do_POST allows a larger raw POST body only for this ONE
+# route -- see MAX_UPLOAD_POST_BYTES there -- so this is the second, independent check: even if
+# a caller stayed under that raw-body cap, the DECODED bytes are checked again here).
+
+
+def _uploads_dir():
+    """Where drag-and-dropped files land -- a folder next to the index, owned entirely by this
+    function (nothing else writes here). Deliberately NOT fenced by VIEWER_INGEST_ROOTS: that fence
+    guards arbitrary HOST paths a caller types into /api/ingest; this folder is server-controlled,
+    same trust level as core.DB_PATH itself, never an arbitrary path from the request."""
+    d = os.path.join(os.path.dirname(os.path.abspath(core.DB_PATH)), "uploads")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def ingest_upload(filename, data_b64):
+    """Accept ONE file's bytes straight from the browser (drag-and-drop -- for a quick single-
+    document test, not a bulk-corpus import; use ingest_start() with a folder path for that) and
+    run it through the exact same in-app scan+OCR job ingest_start() uses. Saved into
+    _uploads_dir(), then viewer_ingest.py's 'run' subcommand picks it up as "one new file in a
+    folder" -- zero duplicated crawl/OCR/parts logic, and the SAME ingest_progress.json /
+    ingest_status() the folder-scan flow already uses covers this too.
+
+    data_b64 may be a bare base64 string or a full data: URI (`data:application/pdf;base64,...`) --
+    same shape features/routes/search.py's r_visualmatch() already accepts for an image upload;
+    mirrored here rather than inventing a second convention."""
+    name = os.path.basename((filename or "").strip().replace("\\", "/"))
+    if not name:
+        return {"ok": False, "error": "filename required"}
+    if not name.lower().endswith(".pdf"):
+        return {"ok": False, "error": "only PDF files are supported for upload"}
+    data_b64 = data_b64 or ""
+    if "," in data_b64:
+        data_b64 = data_b64.split(",", 1)[1]           # strip a data:...;base64, prefix, if present
+    try:
+        raw = base64.b64decode(data_b64, validate=False)
+    except Exception:
+        return {"ok": False, "error": "could not decode the uploaded file"}
+    if not raw:
+        return {"ok": False, "error": "empty file"}
+    if len(raw) > UPLOAD_MAX_BYTES:
+        return {"ok": False, "error": "file too large (%d MB, limit %d MB)" %
+                (len(raw) // (1024 * 1024), UPLOAD_MAX_BYTES // (1024 * 1024))}
+    if raw[:5] != b"%PDF-":
+        return {"ok": False, "error": "not a valid PDF (missing the %PDF header)"}
+    updir = _uploads_dir()
+    dest = os.path.join(updir, name)
+    if os.path.exists(dest):
+        # never silently overwrite an earlier upload of the same name (R1/R6) -- suffix instead.
+        stem, ext = os.path.splitext(name)
+        dest = os.path.join(updir, "%s_%s%s" % (stem, time.strftime("%H%M%S"), ext))
+    try:
+        tmp = dest + ".part"
+        with open(tmp, "wb") as f:
+            f.write(raw)
+        os.replace(tmp, dest)
+    except Exception as e:
+        return {"ok": False, "error": "could not save the uploaded file: %s" % e}
+    py = sys.executable or "python"
+    cmd = [py, os.path.join(ENGINE_DIR, "viewer_ingest.py"), "run", "--root", updir, "--db", core.DB_PATH]
+    result = _launch("scan", cmd, updir)
+    if result.get("ok"):
+        result["filename"] = os.path.basename(dest)
+    return result
 
 
 def ocr_backlog_start():

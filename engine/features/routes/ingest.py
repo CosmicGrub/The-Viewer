@@ -138,6 +138,16 @@ def p_ingest(h, qs, payload):
     h._send(200, core.ingest_start(payload.get("path") or ""))
 
 
+@post("/api/ingest_upload")
+def p_ingest_upload(h, qs, payload):
+    # A single file's bytes, base64-encoded in the JSON body (same convention r_visualmatch() in
+    # features/routes/search.py already uses for an uploaded image) -- viewer_app.py's do_POST
+    # grants this ONE route a larger raw-body cap (MAX_UPLOAD_POST_BYTES) than every other POST
+    # route gets, since a real PDF is far bigger than the small JSON payloads MAX_POST_BYTES was
+    # sized for.
+    h._send(200, core.ingest_upload(payload.get("filename") or "", payload.get("data") or ""))
+
+
 @post("/api/ocr_backlog_start")
 def p_ocr_backlog_start(h, qs, payload):
     # Same in-app job model as /api/ingest, no folder path needed -- just finishes OCR on whatever

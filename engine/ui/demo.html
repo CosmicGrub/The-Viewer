@@ -112,6 +112,15 @@ table.t th{background:var(--p2);color:var(--sub)}
 .hidden{display:none!important}
 @media(max-width:680px){ #tip{width:300px} .bar .lbl{display:none} }
 </style>
+<!-- kiosk-mode sizing (base.css) + RPS mode/premium body class -- this is the app's first-run onboarding,
+     so it should feel exactly as good as the app it's introducing: same touch-target sizing on a bay
+     tablet, same premium visual polish when that's active. rps.js is self-contained (no UI of its own,
+     just a body class + window.RPS) and already degrades gracefully offline/on file:// (its own .catch
+     falls back to modern mode), so it's safe in both this page's embed (iframe) and standalone (DEMO.bat/
+     file://) modes. Deliberately NOT loading palette.js/shared.js here: their injected bottom-corner pills
+     (command palette, My Bench, read-aloud) would visually collide with this page's own full-width bottom
+     control bar. -->
+<script src="/rps.js"></script>
 </head>
 <body>
 <div class="app">
@@ -203,10 +212,10 @@ table.t th{background:var(--p2);color:var(--sub)}
     <section class="screen" id="scr-solve">
       <p class="h">Solve-it hub</p><p class="sh">Start from a symptom and get routed to the right tool.</p>
       <div class="tiles" id="v-tiles">
-        <div class="tile" id="v-tile1"><div class="ic">🧭</div><div class="ti">Symptom → fault tree</div><div class="de">Pick what you see; we walk the diagnostic.</div></div>
-        <div class="tile"><div class="ic">📦</div><div class="ti">Part → breakdown</div><div class="de">NSN/part# to the figure &amp; removal steps.</div></div>
+        <div class="tile" id="v-tile1"><div class="ic">🌳</div><div class="ti">Symptom → fault tree</div><div class="de">Pick what you see; we walk the diagnostic.</div></div>
+        <div class="tile"><div class="ic">🧩</div><div class="ti">Part → breakdown</div><div class="de">NSN/part# to the figure &amp; removal steps.</div></div>
         <div class="tile"><div class="ic">⚡</div><div class="ti">Circuit Lab</div><div class="de">Trace &amp; simulate the schematic.</div></div>
-        <div class="tile"><div class="ic">🗂️</div><div class="ti">Smart Collections</div><div class="de">Auto-grouped pages by topic.</div></div>
+        <div class="tile"><div class="ic">🏷</div><div class="ti">Smart Collections</div><div class="de">Auto-grouped pages by topic.</div></div>
       </div>
     </section>
 
@@ -308,8 +317,7 @@ table.t th{background:var(--p2);color:var(--sub)}
     {scr:'scr-search', sel:'s-sug',   side:'both', scene:'Search', t:'Predictive suggestions', x:'As you type, it predicts likely searches (like Google, but offline). Pick one to jump straight in.'},
     {scr:'scr-search', sel:'s-row1',  side:'both', scene:'Search', t:'Results know your side', x:'Every hit is tagged OPERATOR (-10) or MECHANIC (-20). Your side is shown first, so you see the right depth of detail.'},
     {scr:'scr-manual', sel:'m-page',  side:'both', scene:'Manual', t:'The exact page', x:'Open a result and land on the precise manual page — not a 600-page PDF to scroll.'},
-    {scr:'scr-manual', sel:'m-findbar',side:'both',scene:'Manual', t:'Find-in-manual', x:'Press Ctrl+F to search *inside* the open document. Every hit is highlighted and you can step through them.'},
-    {scr:'scr-manual', sel:'m-hit',   side:'both', scene:'Manual', t:'Highlighted hits', x:'The matched term is highlighted in context so you can confirm you are in the right spot.'},
+    {scr:'scr-manual', sel:'m-findbar',side:'both',scene:'Manual', t:'Find-in-manual', x:'Press Ctrl+F to search *inside* the open document — every hit highlighted in context, step through them one by one.'},
 
     {scr:'scr-proc',   sel:'p-warn',  side:'op',   scene:'Operate', t:'Operator: safety first', x:'At the -10 level you get the operating checks and the WARNINGs. Heavy or hazardous tasks route you to a mechanic.'},
     {scr:'scr-proc',   sel:'p-list',  side:'op',   scene:'Operate', t:'Operator checks', x:'Clear, ordered checks you can do from the crew compartment — battery, master switch, relay — before escalating.'},
@@ -319,8 +327,7 @@ table.t th{background:var(--p2);color:var(--sub)}
     {scr:'scr-proc',   sel:'p-torque-link', side:'mech', scene:'Procedure', t:'Linked to torque', x:'When a step needs a torque value, it links straight to the reference — no separate lookup.'},
     {scr:'scr-torque', sel:'t-row',   side:'mech', scene:'Torque', t:'Torque reference', x:'The right value, dry vs. lubricated, with the matching wrench. Cross-checked against the manual.'},
 
-    {scr:'scr-3d',     sel:'d-fig',   side:'mech', scene:'3-D parts', t:'Real manual figure', x:'The 3-D library leads with the actual cited breakdown illustration from the manual for each part.'},
-    {scr:'scr-3d',     sel:'d-param', side:'mech', scene:'3-D parts', t:'Parametric model', x:'Parts are also live parametric (procedural) 3-D shapes built from their FLIS dimensions — spin and inspect them.'},
+    {scr:'scr-3d',     sel:'d-grid',  side:'mech', scene:'3-D parts', t:'Cited figure + live 3-D', x:'Every card leads with the actual cited manual figure, and doubles as a live parametric (procedural) 3-D shape built from its FLIS dimensions — spin and inspect it.'},
     {scr:'scr-diff',   sel:'x-a',     side:'mech', scene:'Part-diff', t:'Two “identical” parts', x:'Same nomenclature, two different parts. The look-alike recognizer lines them up side by side.'},
     {scr:'scr-diff',   sel:'x-delta', side:'mech', scene:'Part-diff', t:'What actually differs', x:'It flags the real differences — thread pitch, length, source code — and how to recognize them by CAGEC and NSN.'},
 

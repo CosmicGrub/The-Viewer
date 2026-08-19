@@ -386,7 +386,15 @@ def _surface_texture(W, H, klass, seed=1):
         t += 0.05*_lowfreq(rng, H, W, 6) + 0.015*rng.standard_normal((H, W)).astype(_np.float32)
     return _np.clip(t, 0.78, 1.22)
 
+def _tex_seed(nsn, name, klass):
+    """The deterministic seed _surface_texture() uses: derived from nsn/name/klass only, never yaw/frame index —
+    which is exactly why render_spin() can compute one texture array and reuse it across all its frames.
+    Factored out so render() and render_spin() can't drift apart on the formula."""
+    return (abs(hash(nsn or name or klass)) % 100000) or 1
+
 # ---------------- render ----------------
+_SS = 4  # supersample factor shared by render() and render_spin() (max-quality: 4× — render large, downsample
+         # with LANCZOS for crisp anti-aliasing)
 def _font(sz):
     try:
         for f in ("DejaVuSans.ttf", "arial.ttf", "Arial.ttf"):
@@ -395,19 +403,28 @@ def _font(sz):
     except Exception: pass
     return ImageFont.load_default()
 
-def render(name, chars, nsn, w=620, h=480, style="v3", yaw=0.0, pitch=None, title=True, colorize=None, texturize=None):
+def render(name, chars, nsn, w=620, h=480, style="v3", yaw=0.0, pitch=None, title=True, colorize=None, texturize=None,
+           surface_texture=None):
     """Return a PIL.Image: shaded isometric CAD view + dimension callouts + title block.
-    style: 'v1' = original (head-down, flat diffuse, no colour/texture); 'v2' = + right-side-up + specular/metallic;
-    'v3' = + FLIS colour + material surface texture (current).
+    style: 'v1' = legacy (head-down orientation, flat diffuse, no specular) — still visually distinct. 'v2' and
+    'v3' render BYTE-IDENTICAL output: FLIS colour + material surface texture render on every tier as of
+    CAD_VERSION 7 (CHANGELOG 0.93.2/0.93.3), and the only style-conditionals left in this function (the y-flip
+    below and the specular term further down) both key off `style != "v1"`, so v2 and v3 take the identical
+    branch on both. 'v2' is kept only so a caller can request it explicitly (e.g. comparison tooling); no tier
+    in TIER_STYLE routes production traffic to it any more (see that dict's comment).
     yaw   = extra rotation about the vertical axis (radians) — for turntable frames (default 0 = the canonical view).
-    pitch = override the camera tilt (radians); None keeps the canonical three-quarter tilt."""
+    pitch = override the camera tilt (radians); None keeps the canonical three-quarter tilt.
+    surface_texture = a precomputed _surface_texture() array to reuse instead of computing one internally — for
+    render_spin(), whose N frames share the identical deterministic texture (seeded from nsn/name/klass only,
+    never yaw), so it computes the array once and passes it to every frame instead of paying for it N times.
+    None (the default) means "compute internally", so every other caller (ensure(), etc.) is unchanged."""
     if Image is None: raise RuntimeError("Pillow not available")
     fam = classify(name or "", chars or "", nsn or "")
     d = dims(chars or "")
     try: V, F = (BUILDERS.get(fam) or f_box)(d)
     except Exception: V, F = f_box(d)
     if not V: V, F = f_box(d)
-    SS = 4  # supersample (max-quality: 4× — render large, downsample with LANCZOS for crisp anti-aliasing)
+    SS = _SS  # supersample (max-quality: 4× — render large, downsample with LANCZOS for crisp anti-aliasing)
     W, H = w*SS, h*SS
     img = Image.new("RGB", (W, H), (244, 246, 248))
     dr = ImageDraw.Draw(img, "RGBA")
@@ -472,7 +489,10 @@ def render(name, chars, nsn, w=620, h=480, style="v3", yaw=0.0, pitch=None, titl
     # wrap the part in its material's surface texture (screen-space, masked to the silhouette)
     try:
         use_tex = True if texturize is None else bool(texturize)   # v7: material texture on EVERY tier (was v3-only)
-        tex = _surface_texture(W, H, klass, seed=(abs(hash(nsn or name or klass)) % 100000) or 1) if use_tex else None
+        if surface_texture is not None:
+            tex = surface_texture                                  # precomputed by render_spin() — reuse, don't recompute
+        else:
+            tex = _surface_texture(W, H, klass, seed=_tex_seed(nsn, name, klass)) if use_tex else None
         if tex is not None:
             arr = _np.asarray(img).astype(_np.float32); mm = _np.asarray(mask) > 0
             for c in range(3):
@@ -585,8 +605,14 @@ def to_obj(V, F):
     for f in F: out.append("f " + " ".join(str(i+1) for i in f))
     return "\n".join(out)
 
-# CAD detail level per program build / RPS tier: heavier machines get the textured v3, legacy gets the light v1.
-TIER_STYLE = {"modern": "v3", "lite": "v2", "legacy": "v1"}
+# CAD detail level per program build / RPS tier. Colour + material texture were extended from v3-only to every
+# tier in 0.93.2/0.93.3 (CAD_VERSION 5->7, see CHANGELOG); since then, render()'s only remaining style branches
+# (y-flip, specular — both keyed off `style != "v1"`) put v2 and v3 on the identical code path, so they render
+# BYTE-IDENTICAL pixels for the same part. 'lite' maps onto the same 'v3' style as 'modern' so those two tiers
+# share one render + one on-disk cache entry instead of independently rendering AND caching a visually-identical
+# copy (cache_path()/ensure() key their cache file by this resolved style). 'legacy' stays on its own 'v1' —
+# that one IS still visually distinct (head-down orientation, no specular).
+TIER_STYLE = {"modern": "v3", "lite": "v3", "legacy": "v1"}
 
 def cache_path(cache_dir, nsn, style="v3"):
     safe = re.sub(r"[^0-9A-Za-z]", "", (nsn or "part"))
@@ -642,7 +668,16 @@ def ensure(nsn, name, chars, cache_dir, style="v3"):
         return None
 
 # ---------------- interactive turntable (rotating/scalable CAD) ----------------
-SPIN_FRAMES = {"v1": 12, "v2": 16, "v3": 24}   # tier-aware default frame counts (legacy/lite/modern)
+# Keyed by STYLE (not tier) -- used as the frame-count fallback when a caller asks for a style directly
+# (e.g. "?style=v2", no tier in play). Kept exactly as it was before the TIER_STYLE collapse above.
+SPIN_FRAMES = {"v1": 12, "v2": 16, "v3": 24}
+# Keyed by TIER -- render_spin()'s frame COUNT is a CPU/time cost knob that legitimately still varies by
+# machine tier even though 'lite' and 'modern' now render the identical v3 *style* (TIER_STYLE above): a
+# weaker "lite" machine should still default to fewer turntable frames than "modern", so this must NOT be
+# derived from the (now-collapsed) resolved style the way SPIN_FRAMES is. Same legacy/lite/modern counts as
+# SPIN_FRAMES always had before the collapse; callers that resolve a style from a tier should look the frame
+# count up here (by tier), not in SPIN_FRAMES (by style).
+TIER_FRAMES = {"legacy": 12, "lite": 16, "modern": 24}
 
 def spin_path(cache_dir, nsn, n, style="v3"):
     safe = re.sub(r"[^0-9A-Za-z]", "", (nsn or "part"))
@@ -651,14 +686,26 @@ def spin_path(cache_dir, nsn, n, style="v3"):
 
 def render_spin(name, chars, nsn, n=24, style="v3", fw=440, fh=340):
     """A horizontal sprite sheet of N CAD frames around a full 360° turntable (no title block — clean rotation).
-    Each frame is fw x fh; the sheet is (n*fw) x fh. The viewer scrubs frames on drag to spin the part."""
+    Each frame is fw x fh; the sheet is (n*fw) x fh. The viewer scrubs frames on drag to spin the part.
+
+    The material surface texture is deterministic -- seeded from nsn/name/klass only, never yaw/frame index --
+    so it is IDENTICAL across every frame of one spin sheet. render() recomputes it from scratch on every call
+    by default, which used to mean n independent full-resolution procedural-texture computations per sheet
+    (worst, proportionally, on legacy, which still pays for its own SPIN_FRAMES count of them). Compute it ONCE
+    here and hand the same array to every frame via render()'s surface_texture= param instead."""
     if Image is None: raise RuntimeError("Pillow not available")
     n = max(4, min(48, int(n)))
     sheet = Image.new("RGB", (fw*n, fh), (244, 246, 248))
+    tex = None
+    try:
+        _, _, klass = material_props(chars, name, use_color=True)   # matches render()'s own colorize=None default
+        tex = _surface_texture(fw*_SS, fh*_SS, klass, seed=_tex_seed(nsn, name, klass))
+    except Exception:
+        tex = None   # fall back to render() computing it internally per-frame, same as before this optimization
     for i in range(n):
         ya = (i / n) * (2*math.pi)
         try:
-            fr = render(name, chars, nsn, w=fw, h=fh, style=style, yaw=ya, title=False)
+            fr = render(name, chars, nsn, w=fw, h=fh, style=style, yaw=ya, title=False, surface_texture=tex)
         except Exception:
             fr = _fallback_card(name, nsn, fw, fh)
         sheet.paste(fr, (i*fw, 0))

@@ -113,11 +113,18 @@ def _cad_name_chars(qs, row):
 
 
 def _cad_style(qs, cad_render):
+    """Returns (style, tier). tier is the resolved RPS tier ('modern'/'lite'/'legacy') when style came from tier
+    resolution, or None when the caller passed an explicit ?style= override (no tier in play). Since TIER_STYLE
+    now maps 'lite' onto the same 'v3' style as 'modern' (v2/v3 render byte-identical pixels — see cad_render.py),
+    `style` alone no longer distinguishes those two tiers; callers that need the tier itself (e.g. r_cadspin's
+    tier-aware default frame count, which legitimately still differs even though the style doesn't) must use the
+    returned tier, not try to re-derive it from style."""
     style = qstr(qs, "style").strip().lower()
+    tier = None
     if style not in ("v1", "v2", "v3"):
         tier = qstr(qs, "tier").strip().lower() or core.RPS_MODE
         style = cad_render.TIER_STYLE.get(tier, "v3")
-    return style
+    return style, tier
 
 
 @get("/cadimg")
@@ -126,7 +133,7 @@ def r_cadimg(h, qs):
     if not nsn: h._send(404, {"error": "nsn required"}); return
     import cad_render
     row = _cad_row(nsn); name, chars = _cad_name_chars(qs, row)
-    style = _cad_style(qs, cad_render)
+    style, _tier = _cad_style(qs, cad_render)
     cdir = os.path.join(os.path.dirname(os.path.abspath(core.DB_PATH)), "cadcache")
     pth = cad_render.ensure(nsn, name, chars, cdir, style=style)
     if pth: h._send(200, open(pth, "rb").read(), "image/png", {"Cache-Control": "max-age=86400", "X-CAD-Style": style})
@@ -163,9 +170,14 @@ def r_cadspin(h, qs):
     if not nsn: h._send(404, {"error": "nsn required"}); return
     import cad_render
     row = _cad_row(nsn); name, chars = _cad_name_chars(qs, row)
-    style = _cad_style(qs, cad_render)
+    style, tier = _cad_style(qs, cad_render)
     try: n = int(qstr(qs, "n"))
-    except Exception: n = cad_render.SPIN_FRAMES.get(style, 24)
+    except Exception:
+        # tier known (the normal RPS-resolved path) -> tier-keyed default, so 'lite' still defaults to fewer
+        # frames than 'modern' even though they now share the same 'v3' style/cache. Explicit ?style= override
+        # with no tier -> fall back to the old style-keyed default (SPIN_FRAMES), unchanged from before.
+        n = cad_render.TIER_FRAMES.get(tier) if tier else None
+        if n is None: n = cad_render.SPIN_FRAMES.get(style, 24)
     cdir = os.path.join(os.path.dirname(os.path.abspath(core.DB_PATH)), "cadcache")
     pth, frames = cad_render.ensure_spin(nsn, name, chars, cdir, n=n, style=style)
     if pth:

@@ -92,8 +92,13 @@ def premium_active(profile, setting):
     return m == "modern"
 
 def feature_flags(mode, premium=False):
-    """Return the on/off switches + tuning for a mode. The UI reads `effects`/`animations`/`default_dpi`/
-    `loupe`/`polyfills`/`premium_ui`; the server reads `page_cache`/`prefetch`/`sqlite`/`render_dpi_cap`.
+    """Return the on/off switches + tuning for a mode. Genuinely consumed today: the UI (rps.js) reads
+    `default_dpi`/`animations`/`premium_ui`, and ops.html's diagnostics table reads `effects` for display;
+    the server reads `page_cache`/`prefetch`/`sqlite`/`render_dpi_cap`/`doc_cache`. `loupe` and `polyfills`
+    are carried in the dict for every mode but have no live consumer: `polyfills` because rps.js applies
+    its ES5 polyfills unconditionally via feature-detection before this flag is even fetched from the
+    server, and `loupe` because nothing (client or server) reads it -- both are kept for payload-shape
+    stability rather than because anything acts on them today.
     `premium` is additive and ONLY meaningful when mode=="modern" (see premium_active()) -- it never
     changes any of the backend-behavior values above (page_cache/prefetch/sqlite/render_dpi_cap/
     doc_cache stay exactly what "modern" already used), only adds a UI-facing marker the client's CSS

@@ -164,30 +164,61 @@ def _selftest(adapter):
     except Exception:
         return False
 
-def _get_rapid():
+def _get_rapid(workers=1):
     global _RAPID
     if _RAPID is None:
         with _RAPID_LOCK:
             if _RAPID is None:
-                _RAPID = _build_rapid()
+                _RAPID = _build_rapid(workers)
     return _RAPID
 
-def _build_rapid():
+def _build_rapid(workers=1):
     prov = _providers(); gpu = "CUDAExecutionProvider" in prov
     log("OCR providers: " + (", ".join(prov) or "unknown") + (" [GPU]" if gpu else " [CPU]"))
+    # Thread-count hint for the engine below: _get_rapid() builds ONE shared engine instance up
+    # front (see ocr()), reused concurrently by all `workers` OCR worker THREADS. Leaving
+    # onnxruntime's own intra-op thread pool at its default (-1 -> ~one thread per physical core)
+    # means every concurrent session.run() call spins up its own core-sized pool, oversubscribing
+    # the CPU by roughly `workers`x once workers>1 (each of `workers` concurrent calls competing
+    # for all cores at once). Divide the cores across the worker threads instead so concurrent OCR
+    # calls share them rather than fight over them. At workers<=1 this is a no-op (cores//1==cores,
+    # same ballpark as the previous unset default).
+    cores = os.cpu_count() or 4
+    intra_threads = max(1, cores // max(1, workers))
     # 1) Preferred: modern rapidocr (PP-OCRv5, ~13pt more accurate than v4). GPU auto-engages via
     #    onnxruntime-gpu. Guarded by a self-test so a version/API mismatch can't break extraction.
     if os.environ.get("VIEWER_OCR_V5", "1") != "0":
         try:
             from rapidocr import RapidOCR as RapidV5
-            ad = _RapidAdapter(RapidV5(), "v5")
+            # intra_op_num_threads wiring verified against the real `rapidocr` package source (v3.9.2,
+            # what `pip install rapidocr` resolves to as of this writing -- downloaded and read in the
+            # dev sandbox since the package isn't importable there): rapidocr/main.py's
+            # RapidOCR.__init__(config_path=None, params=None) accepts a `params` dict of dotted config
+            # keys applied via ParseParams.update_batch() (rapidocr/utils/parse_parameters.py), and
+            # rapidocr/inference_engine/onnxruntime/main.py's OrtInferSession._init_sess_opts() reads
+            # EngineConfig.onnxruntime.intra_op_num_threads off that same config and sets it on
+            # onnxruntime's real SessionOptions -- a verified path, not a guess. Any mismatch here
+            # (wrong key, API drift) is caught by the try/except this whole block already runs under,
+            # same fail-open-to-v4 behavior as before this change.
+            ad = _RapidAdapter(RapidV5(params={
+                "EngineConfig.onnxruntime.intra_op_num_threads": intra_threads,
+            }), "v5")
             if _selftest(ad):
-                log("OCR engine: RapidOCR PP-OCRv5" + (" on GPU" if gpu else " on CPU"))
+                log("OCR engine: RapidOCR PP-OCRv5" + (" on GPU" if gpu else " on CPU (intra_op_threads=%d)" % intra_threads))
                 return ad
             log("PP-OCRv5 self-test did not extract text; falling back to PP-OCRv4.")
         except Exception as e:
             log("PP-OCRv5 unavailable (%s); using PP-OCRv4." % str(e)[:70])
     # 2) Proven: rapidocr_onnxruntime (PP-OCRv4), with CUDA when requested.
+    # NOT given the same intra_op_num_threads treatment as v5 above -- verified (not just unverified/
+    # skipped) that this specific wrapper has no hook for it: rapidocr_onnxruntime 1.2.3's session
+    # builder (rapidocr_onnxruntime/utils.py, OrtInferSession.__init__) constructs onnxruntime's
+    # SessionOptions() with everything hardcoded (log_severity_level, enable_cpu_mem_arena,
+    # graph_optimization_level) and never reads ANY thread-count key off its config object at all --
+    # confirmed by downloading and reading the actual PyPI wheel in this sandbox (the package itself
+    # isn't installed/importable here, so this was checked via its real source, not guessed). Passing
+    # e.g. RapidOCR(intra_op_num_threads=N) here would be silently absorbed into the unused Global
+    # config dict and do nothing -- worse than leaving it alone -- so it's intentionally not wired.
     from rapidocr_onnxruntime import RapidOCR
     if USE_CUDA:
         try:
@@ -736,7 +767,7 @@ def ocr(con, limit, workers=1):
         con.execute("UPDATE runs SET finished_at=datetime('now') WHERE id=?", (rid,)); con.commit()
         _heartbeat(dbdir, 0, 0, 0); return 0
     con.executemany("UPDATE pages SET ocr_status='running' WHERE id=?", [(r[0],) for r in rows]); con.commit()
-    if _have_rapid(): _get_rapid()            # build the shared engine once, up front
+    if _have_rapid(): _get_rapid(workers)      # build the shared engine once, up front
     def handle(pid, text, conf, barcode, err):
         nonlocal done, fail
         if err is None:
@@ -1354,11 +1385,24 @@ def main():
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", os.path.join(here,"..","index","viewer.db")))
     ap.add_argument("--limit", type=int, default=200)
     ap.add_argument("--ocr-limit", type=int, default=100000)
-    ap.add_argument("--workers", type=int, default=max(1,(os.cpu_count() or 2)))
+    # --workers/--dpi/--gpu default to sentinels (None / "auto"), NOT hardcoded numbers -- resolved
+    # below, after parse_args(), against sysprobe.py's build_profile() (RAM-headroom-aware, GPU-aware,
+    # laptop/battery-aware ocr_workers/ocr_dpi/use_gpu; cached to index/hardware_profile.json) so an
+    # operator who doesn't pass these gets THAT machine-tuned plan instead of a blind
+    # os.cpu_count()/200/CPU-only guess. An explicit --workers/--dpi/--gpu on the command line always
+    # wins -- the sentinel is only replaced when the flag is truly absent -- so launchers that already
+    # pass explicit values (run_ocr.bat's --workers, run_ocr_gpu.bat's --gpu/--workers/--dpi,
+    # run_ocr_auto.bat's sysprobe-derived --workers/--dpi/[--gpu]) are unaffected.
+    ap.add_argument("--workers", type=int, default=None,
+                     help="OCR worker thread count (default: auto-tuned to this machine via sysprobe.py)")
     ap.add_argument("--max-files", type=int, default=0)
     ap.add_argument("--max-seconds", type=int, default=0)
-    ap.add_argument("--gpu", action="store_true", help="use GPU (CUDA) for OCR; CPU fallback if unavailable")
-    ap.add_argument("--dpi", type=int, default=200, help="OCR render DPI (lower = faster on weak hardware)")
+    ap.add_argument("--gpu", nargs="?", const="on", default="auto", choices=["auto", "on", "off"],
+                     help="use GPU (CUDA) for OCR: 'on' forces it, 'off' forces CPU, 'auto' (default) "
+                          "follows sysprobe.py's hardware probe. Bare --gpu (no value) means 'on', same "
+                          "as the old on/off flag.")
+    ap.add_argument("--dpi", type=int, default=None,
+                     help="OCR render DPI (default: auto-tuned to this machine via sysprobe.py)")
     ap.add_argument("--adaptive", action="store_true", help="adaptive DPI: render sparse pages lower (faster). Off by default so accuracy is unchanged.")
     ap.add_argument("--gsa", default="", help="path to the official GSA NSN Extract CSV/XLSX (for `enrich`)")
     ap.add_argument("--publog", default="", help="path to a single PUB LOG (DLA) CSV/XLSX (for `enrich`)")
@@ -1367,8 +1411,33 @@ def main():
     ap.add_argument("--missing-threshold", type=float, default=0.5, help="`prune` abort threshold: max fraction of indexed documents allowed to be missing before refusing (default 0.5 = 50%%)")
     args = ap.parse_args()
     global OCR_DPI, USE_CUDA, ADAPTIVE_DPI
-    OCR_DPI = args.dpi; USE_CUDA = args.gpu
     if getattr(args, "adaptive", False): ADAPTIVE_DPI = True
+
+    # Resolve the --workers/--dpi/--gpu sentinels against sysprobe.py's hardware profile -- ONLY for
+    # the subcommands that actually run OCR (ocr/ocrall/run); status/search/crawl/prune/etc. never
+    # touch OCR_DPI/USE_CUDA/args.workers, so they never pay the probe cost. Fail-open, same precedent
+    # as --adaptive above / the rest of this codebase's optional-integration try/excepts: if sysprobe
+    # raises for ANY reason (import failure, a corrupt/partial index/hardware_profile.json, etc.), or
+    # doesn't have every key we need, fall straight through to today's EXACT prior defaults
+    # (os.cpu_count(), 200, False) untouched below.
+    prof = None
+    if args.cmd in ("ocr", "ocrall", "run") and (args.workers is None or args.dpi is None or args.gpu == "auto"):
+        try:
+            import sysprobe
+            prof = sysprobe.load_or_build()
+            if not isinstance(prof, dict): prof = None
+        except Exception:
+            prof = None
+    if args.workers is None:
+        args.workers = int(prof["ocr_workers"]) if prof and prof.get("ocr_workers") else max(1, (os.cpu_count() or 2))
+    if args.dpi is None:
+        args.dpi = int(prof["ocr_dpi"]) if prof and prof.get("ocr_dpi") else 200
+    if args.gpu == "auto":
+        args.gpu = bool(prof.get("use_gpu")) if prof else False
+    else:
+        args.gpu = (args.gpu == "on")
+
+    OCR_DPI = args.dpi; USE_CUDA = args.gpu
     os.makedirs(os.path.dirname(os.path.abspath(args.db)), exist_ok=True)
     con = connect(args.db); migrate(con, os.path.join(here,"migrations"), db_path=args.db)
     if args.cmd == "migrate": pass

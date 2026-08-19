@@ -9,7 +9,9 @@ This keeps the backwards-compatibility rule (R1) intact: same `viewer.db` schema
 The master project (`THE VIEWER`) **is** the production build. It uses your NVIDIA GPU for OCR
 (RapidOCR on `onnxruntime-gpu`), which is typically **10–30× faster** than CPU.
 
-- OCR: `engine\run_ocr_gpu.bat` → `viewer_ingest.py ocrall --gpu --workers 8 --dpi 200`
+- OCR: `engine\run_ocr_gpu.bat` → delegates to `engine\run_ocr_auto.bat`, the hardware-adaptive
+  runner (`sysprobe.py` probes the actual machine and picks `--gpu`/`--workers`/`--dpi` at runtime,
+  instead of the old hardcoded `ocrall --gpu --workers 8 --dpi 200`).
 - Indexing: `engine\run_indexing.bat`  ·  App: `engine\run_app.bat`
 - Falls back to CPU automatically if CUDA isn't ready, so it never hard-fails.
 - Setup: see `SETUP-GPU.md`.
@@ -21,20 +23,21 @@ folder** you copy to any Windows PC.
 
 - Build it: `engine\make_portable.bat` (run on the production box after indexing).
 - Ships the **finished index**, so the weak PC searches instantly — no heavy processing.
-- **Both modes:** search-only by default; can also CPU-index/OCR slowly (`run_ocr_lite.bat`,
-  `--workers 2 --dpi 150`).
+- **Both modes:** search-only by default; can also index/OCR slowly (`run_ocr_lite.bat`, which
+  delegates to `run_ocr_auto.bat` so it self-corrects workers/DPI/GPU to whatever PC it lands on,
+  instead of a fixed `--workers 2 --dpi 150`).
 - One-click: `SETUP.bat` (installs CPU packages once) → `START.bat` (open the app).
 - Setup: see `SETUP-LITE.md`.
 
 ## How the profile is selected
 
-`viewer_ingest.py` takes additive flags (defaults unchanged → R1 safe):
-
-| Flag | Meaning | GPU build | Lite build |
-|---|---|---|---|
-| `--gpu` | RapidOCR on CUDA (CPU fallback) | on | off |
-| `--workers N` | OCR threads | 8 | 2 |
-| `--dpi N` | OCR render DPI | 200 | 150 |
+`viewer_ingest.py` takes additive flags (defaults unchanged → R1 safe): `--gpu`, `--workers N`,
+`--dpi N`. Both builds' OCR entry points (`run_ocr_gpu.bat`, `run_ocr_lite.bat`) now delegate to
+`run_ocr_auto.bat`, which fills these in at runtime from `sysprobe.py`'s probe of the actual
+machine — not fixed per-build numbers. Old fixed defaults for reference (still what a strong-GPU
+or bare-minimum-CPU box lands on today): GPU-class hardware → `--gpu --workers 8 --dpi 200`-ish;
+legacy/low-power CPU → `--workers 2 --dpi 130`-ish. Run `engine\sysprobe.py` on any machine to see
+exactly what it picks there.
 
 Diagram: `docs/diagrams/09-forks` (dark, + PDF).
 

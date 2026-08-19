@@ -119,6 +119,47 @@ def supervise(cmd, db_path, max_age, poll_interval):
         raise
 
 
+def _cmd_workers(cmd):
+    """Read `--workers N` off the wrapped command line THIS supervisor was given (run_ocr_auto.bat
+    always passes it explicitly: `... viewer_ingest.py ocrall --workers %W% ...`). Falls back to 1 --
+    the most conservative (largest-worst-case-gap) assumption -- if it's absent, rather than trying to
+    guess viewer_ingest.py's own os.cpu_count()-based default, which depends on whatever machine
+    actually runs the child and could silently under-protect on a smaller box than this one."""
+    for i, a in enumerate(cmd):
+        if a == "--workers" and i + 1 < len(cmd):
+            try:
+                return max(1, int(cmd[i + 1]))
+            except ValueError:
+                pass
+    return 1
+
+
+def _min_safe_max_age(cmd, margin=60):
+    """Verified bug: --max-age's old hardcoded default (600) had ZERO safety margin against a
+    perfectly healthy pass's own worst-case heartbeat gap. viewer_ingest.py's ocr() only calls
+    _heartbeat() every 5 *completed* pages (`if (done+fail) % 5 == 0`), and each page may legitimately
+    take up to OCR_PAGE_TIMEOUT_SECONDS (env VIEWER_OCR_PAGE_TIMEOUT, default 120) before _ocr_task's
+    own per-page watchdog kills it -- so a healthy pass can go ceil(5/workers) * page_timeout seconds
+    between heartbeat writes with no hang at all. At the defaults (workers=1, page_timeout=120) that
+    worst case is ceil(5/1)*120 = 600 -- exactly the old bare default, margin zero. If an operator
+    raises VIEWER_OCR_PAGE_TIMEOUT (an existing, documented escape hatch) without ALSO separately
+    raising this file's own --max-age, a healthy-but-slow pass gets killed and requeued, then
+    immediately re-hits the identical wall on the very next restart: an infinite kill/requeue/restart
+    loop that never completes. Fix: derive a FLOOR from the same inputs instead of trusting a bare CLI
+    default, and let main() take max(args.max_age, this floor).
+
+    page_timeout is read from the exact same env var + default string viewer_ingest.py itself reads
+    (OCR_PAGE_TIMEOUT_SECONDS = int(os.environ.get('VIEWER_OCR_PAGE_TIMEOUT', '120'))) rather than
+    imported from viewer_ingest.py, since that module pulls in PyMuPDF/numpy/etc. and this one is
+    intentionally stdlib-only (see module docstring) -- reading the identical env var/default here
+    keeps the two readings from ever drifting apart without adding that dependency.
+    """
+    page_timeout = int(os.environ.get("VIEWER_OCR_PAGE_TIMEOUT", "120"))
+    workers = _cmd_workers(cmd)
+    worst_case_gap = -(-5 // workers) * page_timeout   # ceil(5/workers) * page_timeout, no float rounding
+    return worst_case_gap + margin
+
+
 def main():
     ap = argparse.ArgumentParser(usage="%(prog)s --db PATH [--max-age SEC] [--poll SEC] -- <command> [args...]")
     ap.add_argument("--db", required=True)
@@ -129,7 +170,12 @@ def main():
     cmd = args.cmd[1:] if args.cmd and args.cmd[0] == "--" else args.cmd
     if not cmd:
         ap.error("no command given after --")
-    return supervise(cmd, args.db, args.max_age, args.poll)
+    max_age = max(args.max_age, _min_safe_max_age(cmd))
+    if max_age > args.max_age:
+        print("ocr_supervisor: raising --max-age %ds -> %ds (heartbeat worst-case floor for "
+              "workers=%d, VIEWER_OCR_PAGE_TIMEOUT=%ss)"
+              % (args.max_age, max_age, _cmd_workers(cmd), os.environ.get("VIEWER_OCR_PAGE_TIMEOUT", "120")))
+    return supervise(cmd, args.db, max_age, args.poll)
 
 
 if __name__ == "__main__":

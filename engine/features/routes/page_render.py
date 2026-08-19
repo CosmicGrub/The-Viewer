@@ -39,7 +39,12 @@ def r_page(h, qs):
                 small_clip = len(xs) == 4 and (xs[2] - xs[0]) <= 0.35 and (xs[3] - xs[1]) <= 0.35
             except Exception:
                 small_clip = False
-        req_dpi = min(req_dpi, 700 if small_clip else 400)
+        # RPS tier-keyed ceiling (rps.feature_flags()['render_dpi_cap']: modern=400, lite=220,
+        # legacy=150) -- NOT a flat 400 for every tier. A genuinely small clip (magnifier/loupe)
+        # may go higher than the full-page cap, scaled proportionally to the tier so legacy stays
+        # legacy-sized instead of jumping to the modern tier's headroom.
+        dpi_cap = (core.RPS_FLAGS or {}).get("render_dpi_cap", 400)
+        req_dpi = min(req_dpi, int(dpi_cap * 1.75) if small_clip else dpi_cap)
         doc_i = qint(qs, "doc", 0); pg_s = qstr(qs, "page", "1")
         hl = (qs.get("hl") or [None])[0]; cln = qflag(qs, "clean")
         ctr = int(qstr(qs, "contrast", "0") or 0); binz = qflag(qs, "binarize")

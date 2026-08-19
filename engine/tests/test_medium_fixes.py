@@ -8,7 +8,15 @@ builder (now shared via cad_mesh.box_mesh(), checked for outward-facing winding 
 make_cad.py's error-detail capture. #33-#34 add coverage a follow-up xhigh code review of that same
 _box()-dedup/atomic-build-extraction diff found missing: the OCR_LOCK_TIMEOUT_SECONDS/
 OCR_PAGE_TIMEOUT_SECONDS cross-clamp, and proctree.py's kill_tree()/new_process_group_flags() (which
-previously had only indirect coverage via ocr_supervisor.py's _kill_tree wrapper).
+previously had only indirect coverage via ocr_supervisor.py's _kill_tree wrapper). #35-#37 cover the
+v2/v3 CAD-tier bit-rot fix: TIER_STYLE collapsing 'lite' onto 'modern's 'v3' style (v2 and v3 render
+byte-identical pixels since CAD_VERSION 7 unified colour+texture across every tier) so the two tiers
+share one render + one ensure()/cache_path() cache entry instead of independently rendering AND
+disk-caching a visually-identical copy; render_spin()'s shared-texture optimization (the deterministic
+per-material surface texture computed once per spin sheet instead of once per frame, verified against
+the pre-optimization per-frame-independent computation for no visual regression); and TIER_FRAMES, the
+tier-keyed spin-frame-count fallback that keeps 'lite' defaulting to fewer turntable frames than
+'modern' even though the two tiers' render *style* collapsed together.
 Self-contained; no real corpus. Run:  python tests/test_medium_fixes.py"""
 import os, sys, sqlite3, subprocess, tempfile, random
 from collections import Counter
@@ -502,9 +510,169 @@ except Exception as e:
     failed.append("proctree_direct_coverage(%s)" % e)
 
 
+# =====================================================================================================
+# #35 -- cad_render.py: 'lite' (v2) and 'modern' (v3) render BYTE-IDENTICAL pixels (the only style
+# branches left in render() -- y-flip, specular -- both key off `style != "v1"`), so TIER_STYLE now
+# routes 'lite' onto the same 'v3' style as 'modern' instead of independently rendering AND
+# disk-caching a visually-identical copy. Checked through the REAL ensure()/cache_path() path (not
+# just render()'s raw pixels): the cache KEY collapses too, and a second tier's request reuses the
+# first tier's already-warm cache entry without a second render() call.
+# =====================================================================================================
+try:
+    import cad_render as CR
+    import unittest.mock as mock, shutil, re as _re
+
+    nsn_t, nm_t, ch_t = "3110-01-777-7001", "BEARING, BALL", "OUTSIDE DIAMETER: 2.0 IN WIDTH: 0.6 IN"
+
+    # TIER_STYLE: 'lite' now resolves to the same style as 'modern'; 'legacy' is untouched.
+    ok("tier_style_lite_collapsed_onto_modern", CR.TIER_STYLE["lite"] == CR.TIER_STYLE["modern"] == "v3")
+    ok("tier_style_legacy_still_v1", CR.TIER_STYLE["legacy"] == "v1")
+
+    if CR.Image is not None:
+        # raw render() pixels: v2 and v3 are byte-identical for the same part; v1 is NOT (still distinct).
+        im_v2 = CR.render(nm_t, ch_t, nsn_t, w=160, h=120, style="v2")
+        im_v3 = CR.render(nm_t, ch_t, nsn_t, w=160, h=120, style="v3")
+        im_v1 = CR.render(nm_t, ch_t, nsn_t, w=160, h=120, style="v1")
+        ok("render_v2_v3_byte_identical_pixels", im_v2.tobytes() == im_v3.tobytes())
+        ok("render_v1_still_visually_distinct", im_v1.tobytes() != im_v3.tobytes())
+
+        # cache_path(): the two styles TIER_STYLE now maps 'lite'/'modern' onto resolve to the SAME file.
+        cdir = tempfile.mkdtemp(prefix="cad_cachekey_")
+        try:
+            p_modern = CR.cache_path(cdir, nsn_t, CR.TIER_STYLE["modern"])
+            p_lite = CR.cache_path(cdir, nsn_t, CR.TIER_STYLE["lite"])
+            p_legacy = CR.cache_path(cdir, nsn_t, CR.TIER_STYLE["legacy"])
+            ok("cache_path_lite_and_modern_share_key", p_modern == p_lite)
+            ok("cache_path_legacy_still_separate_key", p_legacy != p_modern)
+
+            # ensure(): a 'lite'-tier request after a 'modern'-tier request finds the cache already warm
+            # (same path, no second render() call) -- the actual dollars-and-cents fix for the mixed-fleet
+            # double-render/double-cache the audit finding described.
+            call_count = {"n": 0}
+            real_render = CR.render
+            def _counting_render(*a, **kw):
+                call_count["n"] += 1
+                return real_render(*a, **kw)
+            with mock.patch.object(CR, "render", side_effect=_counting_render):
+                out_modern = CR.ensure(nsn_t, nm_t, ch_t, cdir, style=CR.TIER_STYLE["modern"])
+                out_lite = CR.ensure(nsn_t, nm_t, ch_t, cdir, style=CR.TIER_STYLE["lite"])
+            ok("ensure_lite_reuses_modern_cache_path", out_modern is not None and out_modern == out_lite)
+            ok("ensure_lite_after_modern_renders_only_once", call_count["n"] == 1)
+
+            # only ONE cached PNG exists for this nsn (not a "_v2.png" + "_v3.png" pair)
+            files = sorted(f for f in os.listdir(cdir) if f.startswith(_re.sub(r"[^0-9A-Za-z]", "", nsn_t)))
+            ok("only_one_cache_file_written_for_lite_and_modern", files == [os.path.basename(out_modern)])
+        finally:
+            shutil.rmtree(cdir, ignore_errors=True)
+    else:
+        failed.append("PIL_unavailable_35")
+except Exception as e:
+    failed.append("cad_render_v2_v3_cache_collapse(%s)" % e)
+
+
+# =====================================================================================================
+# #36 -- cad_render.py's render_spin(): the deterministic material surface texture is computed ONCE per
+# spin sheet (not once per frame) and shared across all N frames via render()'s new surface_texture=
+# parameter. Verified two ways: (a) _surface_texture() is actually called only once for an N-frame
+# sheet (the real performance fix), and (b) a couple of the sheet's frames are pixel-identical to the
+# SAME frame rendered independently the pre-optimization way (render() computing its own texture
+# internally, i.e. no surface_texture= passed) -- proving the shared-texture optimization introduced no
+# visual regression. Also: render()'s existing single-image callers (no surface_texture= passed) are
+# unaffected -- they still compute the texture internally exactly as before.
+# =====================================================================================================
+try:
+    import cad_render as CR
+    import unittest.mock as mock, math
+
+    nsn_s, nm_s, ch_s = "3110-01-777-7002", "BEARING, BALL", "OUTSIDE DIAMETER: 2.0 IN WIDTH: 0.6 IN"
+
+    if CR.Image is not None:
+        n, fw, fh = 8, 140, 110
+        tex_calls = {"n": 0}
+        real_tex = CR._surface_texture
+        def _counting_tex(*a, **kw):
+            tex_calls["n"] += 1
+            return real_tex(*a, **kw)
+        with mock.patch.object(CR, "_surface_texture", side_effect=_counting_tex):
+            sheet, frames = CR.render_spin(nm_s, ch_s, nsn_s, n=n, style="v3", fw=fw, fh=fh)
+        ok("render_spin_frame_count_and_sheet_size_correct",
+           frames == n and sheet.size == (fw * n, fh))
+        ok("render_spin_computes_surface_texture_exactly_once", tex_calls["n"] == 1)
+
+        # a couple of frames must be pixel-identical to the pre-optimization independent-per-frame
+        # computation (render() with no surface_texture= -> computes its own internally, same seed/klass).
+        for i in (0, n - 1):
+            ya = (i / n) * (2 * math.pi)
+            expected = CR.render(nm_s, ch_s, nsn_s, w=fw, h=fh, style="v3", yaw=ya, title=False)
+            got = sheet.crop((i * fw, 0, (i + 1) * fw, fh))
+            ok("render_spin_frame_%d_matches_pre_optimization_independent_render" % i,
+               got.tobytes() == expected.tobytes())
+
+        # render()'s single-image call sites are unaffected: no surface_texture= passed -> computes
+        # internally exactly as before (surface_texture defaults to None).
+        im_direct = CR.render(nm_s, ch_s, nsn_s, w=fw, h=fh, style="v3", title=False)
+        im_direct2 = CR.render(nm_s, ch_s, nsn_s, w=fw, h=fh, style="v3", title=False)
+        ok("render_direct_call_unaffected_by_optimization", im_direct.tobytes() == im_direct2.tobytes())
+    else:
+        failed.append("PIL_unavailable_36")
+except Exception as e:
+    failed.append("render_spin_shared_texture(%s)" % e)
+
+
+# =====================================================================================================
+# #37 -- SPIN_FRAMES vs TIER_FRAMES: frame COUNT still legitimately differs by tier ('lite' stays at 16,
+# 'modern' at 24) even though 'lite' and 'modern' now share the identical v3 render *style* -- exercised
+# through the real /cadspin route (features/routes/parts_media.py) so the fix is checked end-to-end, not
+# just as isolated dict values. Style now matches ('v3') for both tiers; frame COUNT does not.
+# =====================================================================================================
+try:
+    import viewer_app  # triggers features/routes registration + `core` DI into parts_media
+    from features.routes import parts_media as PM
+    import cad_render as CR
+    import unittest.mock as mock, shutil
+
+    # the module-level knobs themselves: still tier-differentiated, decoupled from the collapsed style
+    ok("tier_frames_legacy_lite_modern_distinct", CR.TIER_FRAMES == {"legacy": 12, "lite": 16, "modern": 24})
+    ok("spin_frames_unchanged_style_keyed", CR.SPIN_FRAMES == {"v1": 12, "v2": 16, "v3": 24})
+
+    class _FakeHandler:
+        def __init__(self): self.sent = None
+        def _send(self, status, body, ctype=None, headers=None): self.sent = (status, body, ctype, headers)
+
+    if CR.Image is not None:
+        tdir = tempfile.mkdtemp(prefix="cadspin_tierframes_")
+        try:
+            with mock.patch.object(PM.core, "DB_PATH", os.path.join(tdir, "viewer.db")):
+                nsn_r, nm_r, ch_r = "3110-01-777-7003", "BEARING, BALL", "OUTSIDE DIAMETER: 2.0 IN WIDTH: 0.6 IN"
+
+                h_lite = _FakeHandler()
+                PM.r_cadspin(h_lite, {"nsn": [nsn_r], "name": [nm_r], "chars": [ch_r], "tier": ["lite"]})
+                _, _, _, hdr_lite = h_lite.sent
+                ok("cadspin_lite_tier_style_is_v3", hdr_lite["X-CAD-Style"] == "v3")
+                ok("cadspin_lite_tier_frame_count_stays_16", hdr_lite["X-CAD-Frames"] == "16")
+
+                h_modern = _FakeHandler()
+                PM.r_cadspin(h_modern, {"nsn": [nsn_r], "name": [nm_r], "chars": [ch_r], "tier": ["modern"]})
+                _, _, _, hdr_modern = h_modern.sent
+                ok("cadspin_modern_tier_style_is_v3", hdr_modern["X-CAD-Style"] == "v3")
+                ok("cadspin_modern_tier_frame_count_stays_24", hdr_modern["X-CAD-Frames"] == "24")
+
+                # explicit ?style= override (no tier) keeps the OLD style-keyed default -- unchanged behavior
+                h_style = _FakeHandler()
+                PM.r_cadspin(h_style, {"nsn": [nsn_r], "name": [nm_r], "chars": [ch_r], "style": ["v2"]})
+                _, _, _, hdr_style = h_style.sent
+                ok("cadspin_explicit_style_override_keeps_style_keyed_frames", hdr_style["X-CAD-Frames"] == "16")
+        finally:
+            shutil.rmtree(tdir, ignore_errors=True)
+    else:
+        failed.append("PIL_unavailable_37")
+except Exception as e:
+    failed.append("cadspin_tier_frames(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
-print("\n%d passed, %d failed (of %d checks for Medium-tier audit fixes #21-#34)" %
+print("\n%d passed, %d failed (of %d checks for Medium-tier audit fixes #21-#37)" %
       (len(passed), len(failed), len(passed) + len(failed)))
 sys.exit(1 if failed else 0)
 

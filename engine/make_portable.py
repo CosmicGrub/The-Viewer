@@ -39,22 +39,23 @@ call "%~dp0engine\run_app.bat"
 """
 
 RUN_OCR_LITE = r"""@echo off
-REM Lite OCR pass tuned for weak hardware (fewer threads, lower DPI). Optional, slow, resumable.
-setlocal
-set "VIEWER_DB=%~dp0..\index\viewer.db"
-set "PY="
-where py >nul 2>nul && set "PY=py"
-if not defined PY ( where python >nul 2>nul && set "PY=python" )
-if not defined PY ( echo [ERROR] Python 3 not found.& pause & goto :end )
-%PY% -m pip install --upgrade pip
-%PY% -c "import fitz" 2>nul || %PY% -m pip install --user pymupdf
-%PY% -c "import rapidocr_onnxruntime" 2>nul || %PY% -m pip install --user rapidocr-onnxruntime
-%PY% "%~dp0viewer_ingest.py" cleanup --db "%VIEWER_DB%"
-%PY% "%~dp0viewer_ingest.py" ocrall --workers 2 --dpi 150 --db "%VIEWER_DB%"
-%PY% "%~dp0viewer_ingest.py" status --db "%VIEWER_DB%"
-:end
-pause
-endlocal
+REM ============================================================
+REM  THE VIEWER (Lite) -- OCR pass for this portable copy. Optional, resumable.
+REM
+REM  Used to run its own hardcoded `ocrall --workers 2 --dpi 150` pass -- fixed
+REM  "safe for any weak PC" numbers guessed at build time on the GPU production
+REM  box, not measured on whatever PC this portable copy actually lands on.
+REM  run_ocr_auto.bat (plus sysprobe.py/rps.py it depends on) ships into every
+REM  build unmodified, and already probes the real machine at runtime --
+REM  workers/dpi/gpu/battery-throttling all self-corrected -- so this is now a
+REM  thin wrapper that delegates to it instead of drifting out of sync as a
+REM  second hardcoded copy. Same familiar double-click entry point
+REM  (run_ocr_lite.bat); the plan it prints just reflects this PC's actual
+REM  capability (including using a GPU here too, if one turns out to be
+REM  available) rather than a worst-case guess.
+REM ============================================================
+cd /d "%~dp0"
+call "%~dp0run_ocr_auto.bat"
 """
 
 README = """THE VIEWER -- Lite / Portable build
@@ -77,7 +78,7 @@ BOTH MODES
   - Search-only (default): just use START.bat. Everything is already indexed; nothing heavy runs.
   - Full (optional, slow on weak PCs):
       engine\\run_indexing.bat   crawl/extract new files you add to the corpus
-      engine\\run_ocr_lite.bat   OCR scanned pages (CPU, low threads, lower DPI) -- resumable
+      engine\\run_ocr_lite.bat   OCR scanned pages (auto-tunes threads/DPI/GPU to THIS pc) -- resumable
 
 NOTES
   - Fully offline. No internet needed after SETUP.

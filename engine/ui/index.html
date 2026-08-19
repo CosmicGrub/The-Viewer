@@ -703,9 +703,17 @@ if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallb
 
 <script>
 const $=s=>document.querySelector(s);
-let SESSION={}, CART=[], VIEW={doc:null,page:1,pages:1,meta:null,zi:2,hl:true,thumbs:false}, LAST_QUERY="", BROWSE_ONLY=false;
-let ALL=[], DYM=[], FILTER={vehicle:null,type:null,source:null}, VEHICLES=null, THUMB={lo:0,hi:0};   // DYM: v0.97.0 did-you-mean (C20)
 const DPIS=[90,120,150,200,260,340];
+// Tier-aware default zoom index: rps.js sets window.RPS.dpi to the server's tiered default_dpi (150
+// modern / 120 lite / 100 legacy -- rps.py's feature_flags()) once /api/rps resolves. Map it to the
+// nearest DPIS slot instead of assuming index 2 (150) on every tier, so weak hardware actually gets
+// the lighter initial page render the server already computed for it.
+function dpiIndexFor(dpi){ var best=2, bestDiff=Infinity;
+  for(var i=0;i<DPIS.length;i++){ var d=Math.abs(DPIS[i]-dpi); if(d<bestDiff){ bestDiff=d; best=i; } }
+  return best; }
+function defaultZi(){ return dpiIndexFor((window.RPS&&window.RPS.dpi)||150); }
+let SESSION={}, CART=[], VIEW={doc:null,page:1,pages:1,meta:null,zi:defaultZi(),hl:true,thumbs:false}, LAST_QUERY="", BROWSE_ONLY=false;
+let ALL=[], DYM=[], FILTER={vehicle:null,type:null,source:null}, VEHICLES=null, THUMB={lo:0,hi:0};   // DYM: v0.97.0 did-you-mean (C20)
 
 // ---- Settings & layout presets (presentation only; never touches data/search/request) ----
 const SET_DEFAULTS={size:"normal",density:"comfortable",fields:"advanced",match:"all",vthumbs:false,vhl:true};
@@ -1258,7 +1266,7 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
 var _PREFETCHED={};
 function prefetchResult(r){
   if(!r||!r.doc_id) return;
-  var page=r.page_number||1, dpi=DPIS[2];
+  var page=r.page_number||1, dpi=DPIS[defaultZi()];   // must match loadPage()'s default dpi or the hover-prefetch misses the cache
   var hl=""; if(VIEWER_DEF_HL){ var q=(LAST_QUERY||"").replace(/<<|>>/g,"").trim(); if(q.length>=3) hl="&hl="+encodeURIComponent(q); }
   var url="/page?doc="+r.doc_id+"&page="+page+"&dpi="+dpi+hl;
   if(_PREFETCHED[url]) return; _PREFETCHED[url]=1;
@@ -1285,7 +1293,7 @@ function jumpMatch(i){ if(!VFIND.list.length)return;
   loadPage();
 }
 async function openViewer(r){
-  VIEW={doc:r.doc_id,page:r.page_number||1,pages:r.page_count||1,meta:r,snip:r.snip||"",zi:2,hl:VIEWER_DEF_HL,thumbs:VIEWER_DEF_THUMBS};
+  VIEW={doc:r.doc_id,page:r.page_number||1,pages:r.page_count||1,meta:r,snip:r.snip||"",zi:defaultZi(),hl:VIEWER_DEF_HL,thumbs:VIEWER_DEF_THUMBS};
   VFIND={term:"",list:[],idx:-1,total:0}; var _vf=$("#vfind"); if(_vf)_vf.value=""; var _vfn=$("#vfindn"); if(_vfn)_vfn.textContent="";
   $("#vhl").classList.toggle("on",VIEW.hl);
   $("#vthumbs").classList.toggle("on",VIEW.thumbs);$("#vthumbtg").classList.toggle("on",VIEW.thumbs);
@@ -1622,6 +1630,11 @@ $("#vcallouts").onclick=()=>{VP.callouts=!VP.callouts;$("#vcallouts").classList.
   function crisp(lb,url){ lb.style.backgroundImage="url('"+url+"')"; lb.style.backgroundSize=LSIZE+"px "+LSIZE+"px"; lb.style.backgroundPosition="0 0"; }
   function paint(){ raf=0; if(!cur){ return; } const img=cur.img,r=cur.r,x=cur.x,y=cur.y;
     const lb=lbox(); lb.style.display="block"; lb.style.transform="translate("+(cur.cx-LSIZE/2)+"px,"+(cur.cy-LSIZE/2)+"px)";
+    // Tier-aware: rps.py's feature_flags() sets loupe:'local' on lite/legacy specifically so weak
+    // machines' magnifier stays client-only (zero network calls) -- the same pure-CSS technique
+    // loupe.js's Loupe.attach uses on schematics.html, just applied against the page image already on
+    // screen instead of a separate <img>. Never escalate to the server crop below on that tier.
+    if(window.RPS && RPS.flags && RPS.flags.loupe==="local"){ shown=""; localZoom(lb,img,r,x,y); return; }
     const fx=x/r.width, fy=y/r.height, k=cellKey(fx,fy);
     if(cache[k]){ if(shown!==k){ shown=k; crisp(lb,cache[k]); } return; }
     if(shown!==k){ shown=""; localZoom(lb,img,r,x,y); }      // instant soft zoom while the crop loads

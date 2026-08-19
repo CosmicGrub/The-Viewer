@@ -14,6 +14,13 @@ except Exception:
 _MODEL = None
 DIM = 384  # sentence-transformers all-MiniLM dim; the fallback also uses this width
 
+core = None  # injected by viewer_app at startup, same DI pattern as features/render_feature.py etc.
+             # (viewer_app.py: `import embed as _embed; _embed.core = sys.modules[__name__]`).
+             # Stays None when embed.py is used standalone -- BUILD-EMBEDDINGS.bat, this file's own
+             # `__main__` self-test, or a bare `import embed` in a script/test -- in which case
+             # _load_arrays() below treats it exactly like "modern" tier (full in-memory load,
+             # today's behavior, zero change).
+
 # search() used to _np.load(npy) fresh from disk on EVERY call -- unlike the keyword-search path's
 # TTL'd LRU (features/routes.py's _SEARCH_LRU, ~line 134), the embeddings array (which can be tens of
 # MB) was re-read off disk on every single /api/semantic request. Cached here instead, keyed by
@@ -167,14 +174,31 @@ def _index_is_stale(index_dir):
 
 def _load_arrays(index_dir, npy, tsv):
     """Return (arr, ids) for this index_dir, loading from disk only when there's no cached copy yet
-    or either file's mtime has moved on (i.e. a rebuild happened). See _ARR_CACHE above."""
+    or either file's mtime has moved on (i.e. a rebuild happened). See _ARR_CACHE above.
+
+    RPS-aware load: on lite/legacy tier (low-RAM / legacy hardware -- see rps.py), the embeddings
+    array is memory-mapped from disk (_np.load(..., mmap_mode='r')) instead of fully copied into
+    RAM. At THE VIEWER's documented default index cap (200,000 rows x 384 dims x float32) a full
+    load pins ~293MB of resident RAM for the server's entire process lifetime, from just one
+    /api/semantic or /api/search_hybrid hit -- on the <4GB machines sysprobe.py's own tier profile
+    already flags as "Legacy / low-power", that is 10-15%+ of total system RAM, and two orders of
+    magnitude past what feature_flags() already bothers tuning for this same tier elsewhere
+    (SQLite cache_kb 8MB->1MB, doc_cache 8->2 open PDFs). numpy's dot()/linalg.norm() (search()'s
+    cosine ranking) work unchanged against a memmap'd array -- the OS pages it in from disk on
+    demand, correct but slower on first touch, an acceptable trade on hardware RPS already treats
+    as slow. Modern tier (and the no-`core`-injected standalone case) is completely unchanged: a
+    full in-memory _np.load(npy), same as before this cache existed."""
     npy_mtime = os.path.getmtime(npy)
     tsv_mtime = os.path.getmtime(tsv)
     with _ARR_CACHE_LOCK:
         ent = _ARR_CACHE.get(index_dir)
         if ent is not None and ent[0] == npy_mtime and ent[1] == tsv_mtime:
             return ent[2], ent[3]
-        arr = _np.load(npy)
+        rps_mode = getattr(core, "RPS_MODE", "modern")     # None-safe: getattr(None, ..., default) is fine
+        if rps_mode in ("lite", "legacy"):
+            arr = _np.load(npy, mmap_mode="r")
+        else:
+            arr = _np.load(npy)
         ids = [ln.rstrip("\n").split("\t") for ln in open(tsv, encoding="utf-8")]
         _ARR_CACHE[index_dir] = (npy_mtime, tsv_mtime, arr, ids)
         return arr, ids

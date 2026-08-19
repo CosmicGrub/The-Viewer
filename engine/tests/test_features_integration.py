@@ -159,6 +159,96 @@ try:
 except Exception as e:
     failed.append("embed_cache(%s)" % e)
 
+# --- embed.py: _load_arrays() is RPS-aware -- on lite/legacy tier (core.RPS_MODE, read the same
+# way features/render_feature.py's _get_doc() reads core.RPS_FLAGS for its open-PDF LRU cap) it
+# memory-maps embeddings.npy from disk (np.load(..., mmap_mode='r')) instead of fully copying it
+# into RAM. At THE VIEWER's documented default index cap (200,000 rows x 384 dims x float32) a full
+# load pins ~293MB of resident RAM for the server's whole process lifetime from a single
+# /api/semantic hit -- on the <4GB machines sysprobe.py's own tier profile already calls
+# "Legacy / low-power", that's 10-15%+ of total system RAM, two orders of magnitude past what
+# feature_flags() already tunes for this same tier elsewhere (SQLite cache_kb 8MB->1MB, doc_cache
+# 8->2 open PDFs). Confirms (a) search()'s cosine ranking is IDENTICAL whether the backing array is
+# a real in-memory copy (modern tier / core=None, today's unchanged default) or a memmap (lite /
+# legacy tier) -- the mmap path isn't just "loads without crashing", it ranks correctly -- and
+# (b) the loaded array is actually a numpy.memmap under lite/legacy (not "correct by accident"),
+# while modern tier truly stays a plain, fully-resident ndarray (zero behavior change there).
+try:
+    import embed as EMB3, numpy as ENP3, unittest.mock as mock3, tempfile as _tf3, json as _json3
+
+    if not EMB3._OK:
+        failed.append("embed_rps_tier(numpy unavailable)")
+    else:
+        ed3 = _tf3.mkdtemp(prefix="embed_rps_")
+        npy_p3 = os.path.join(ed3, "embeddings.npy")
+        tsv_p3 = os.path.join(ed3, "embeddings_ids.tsv")
+
+        # 5 synthetic rows; the forced "query" vector is row 2 scaled + a little noise, so it's
+        # unambiguously nearest (by cosine) to doc2 in this 384-dim space -- deterministic (fixed
+        # seed), independent of whichever real embed_text() backend happens to be installed here
+        # (embed_text() itself is mocked out below so the backend never matters).
+        rng3 = ENP3.random.RandomState(42)
+        rows3 = rng3.normal(size=(5, EMB3.DIM)).astype(ENP3.float32)
+        query_vec3 = (rows3[2] * 3.0 + rng3.normal(scale=0.01, size=EMB3.DIM).astype(ENP3.float32))
+        ENP3.save(npy_p3, rows3)
+        with open(tsv_p3, "w", encoding="utf-8") as f:
+            for i in range(5):
+                f.write("doc%d\t%d\n" % (i, i + 1))
+        # meta stamped "sentence-transformers" so _index_is_stale() short-circuits False regardless
+        # of the real active backend here -- same rationale as the embed_cache block above.
+        with open(EMB3._meta_path(ed3), "w", encoding="utf-8") as f:
+            _json3.dump({"backend": "sentence-transformers", "hash_algo_version": None}, f)
+
+        class _CoreModern:
+            RPS_MODE = "modern"
+
+        class _CoreLite:
+            RPS_MODE = "lite"
+
+        class _CoreLegacy:
+            RPS_MODE = "legacy"
+
+        with mock3.patch.object(EMB3, "embed_text", return_value=query_vec3):
+            EMB3._ARR_CACHE.clear(); EMB3.core = None       # standalone / no DI -> defaults to modern
+            r_modern = EMB3.search("query", ed3, top=5)
+            arr_modern = EMB3._ARR_CACHE[ed3][2]
+            ok("embed_modern_none_core_is_full_ndarray_not_memmap",
+               isinstance(arr_modern, ENP3.ndarray) and not isinstance(arr_modern, ENP3.memmap))
+
+            EMB3._ARR_CACHE.clear(); EMB3.core = _CoreModern
+            r_modern2 = EMB3.search("query", ed3, top=5)
+            arr_modern2 = EMB3._ARR_CACHE[ed3][2]
+            ok("embed_modern_tier_is_full_ndarray_not_memmap",
+               isinstance(arr_modern2, ENP3.ndarray) and not isinstance(arr_modern2, ENP3.memmap))
+
+            EMB3._ARR_CACHE.clear(); EMB3.core = _CoreLite
+            r_lite = EMB3.search("query", ed3, top=5)
+            arr_lite = EMB3._ARR_CACHE[ed3][2]
+            ok("embed_lite_tier_array_is_memmap",
+               isinstance(arr_lite, ENP3.memmap) and not arr_lite.flags.writeable)
+
+            EMB3._ARR_CACHE.clear(); EMB3.core = _CoreLegacy
+            r_legacy = EMB3.search("query", ed3, top=5)
+            arr_legacy = EMB3._ARR_CACHE[ed3][2]
+            ok("embed_legacy_tier_array_is_memmap",
+               isinstance(arr_legacy, ENP3.memmap) and not arr_legacy.flags.writeable)
+
+            # Same cosine ranking (order AND score) on every tier -- mmap'd search() isn't silently
+            # wrong -- and doc2 (the vector the forced query is nearest to) correctly ranks #1.
+            docs_modern = [r["doc"] for r in r_modern["results"]]
+            docs_lite = [r["doc"] for r in r_lite["results"]]
+            docs_legacy = [r["doc"] for r in r_legacy["results"]]
+            ok("embed_rps_tier_ranking_matches_modern",
+               docs_modern == docs_lite == docs_legacy and docs_modern[0] == "doc2")
+            scores_modern = [r["score"] for r in r_modern["results"]]
+            scores_lite = [r["score"] for r in r_lite["results"]]
+            scores_legacy = [r["score"] for r in r_legacy["results"]]
+            ok("embed_rps_tier_scores_match_modern",
+               scores_modern == scores_lite == scores_legacy)
+
+        EMB3._ARR_CACHE.clear(); EMB3.core = None
+except Exception as e:
+    failed.append("embed_rps_tier(%s)" % e)
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d integration checks)" % (len(passed), len(failed), len(passed) + len(failed)))

@@ -47,5 +47,8 @@ If you ever **click inside the black OCR window**, Windows may enter "Select" mo
 output (the title shows "Select"). Press **Esc** or **Enter**, or click another window, to resume.
 
 ## Tuning
-- `--workers` = parallel OCR streams (8 by default for GPU). `--dpi 200` balances quality/speed.
+- `run_ocr_gpu.bat` delegates to `run_ocr_auto.bat`, which probes this PC (`sysprobe.py`) and picks
+  `--workers` / `--dpi` / `--gpu` at runtime instead of a fixed profile — typically `--workers 8`
+  (more on a strong discrete GPU) and `--dpi 220` on GPU-capable hardware, backed off automatically
+  on a laptop or on battery. Run `python engine\sysprobe.py` to see the exact plan for this machine.
 - Fully **resumable** — stop and re-run anytime.

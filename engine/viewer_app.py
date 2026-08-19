@@ -364,6 +364,11 @@ import xref_feature as _xr; _xr.core = sys.modules[__name__]
 import xref_online as _xo; _xo.core = sys.modules[__name__]   # X4: opt-in cached online enrichment (off by default)
 from material_feature import part_material as _part_material
 import material_feature as _mf; _mf.core = sys.modules[__name__]
+# embed.py (semantic search: /api/semantic, /api/search_hybrid via hybrid.py) reads core.RPS_MODE
+# to decide whether to mmap or fully load embeddings.npy -- see embed.py's _load_arrays(). Same DI
+# as the injections above; embed.py stays usable standalone (BUILD-EMBEDDINGS.bat, tests) because
+# its `core` defaults to None there, which _load_arrays() treats as modern/full-load.
+import embed as _embed; _embed.core = sys.modules[__name__]
 
 
 def _same_origin(origin, host):
@@ -524,7 +529,19 @@ class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
         except Exception:
             n = 0
         if n <= 0:
-            try: n = max(8, min(64, (os.cpu_count() or 4) * 4))
+            try:
+                base = max(8, min(64, (os.cpu_count() or 4) * 4))
+                # RPS-deepen finding: the core-count-only formula gave a 6GB/8-core laptop (RPS mode
+                # "lite" -- mode_for() only ever returns "modern" when ram_gb>=8, so this can never
+                # regress the modern case) the same 32-thread ceiling as a 32GB workstation, on exactly
+                # the asset-burst-thrash scenario this class's own docstring above warns about. legacy
+                # additionally runs pdftoppm as a subprocess per page (heavier per-thread than in-process
+                # PyMuPDF), so it gets the tightest cap. rps_init() already ran in main() before this
+                # server object is constructed, so RPS_MODE is a free, already-computed global here --
+                # no extra probe cost. VIEWER_MAX_WORKERS above still overrides this unconditionally.
+                if RPS_MODE == "legacy": n = min(base, 8)
+                elif RPS_MODE == "lite": n = min(base, 16)
+                else: n = base
             except Exception: n = 16
         self._worker_sem = _threading.BoundedSemaphore(n)
         self.max_workers = n

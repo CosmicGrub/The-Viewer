@@ -158,6 +158,52 @@ try:
         ok("kill_tree_grandchild_survives_on_posix_fallback_known_limitation", _pid_alive(grandchild_pid))
         try: os.kill(grandchild_pid, 9)   # clean up so it doesn't linger past this test process
         except Exception: pass
+
+    # --- 7. --max-age floor: no-margin bug against the heartbeat worst-case gap ---
+    # Bug: the OLD hardcoded --max-age default (600) equaled the healthy-pass worst-case heartbeat
+    # gap EXACTLY at defaults (workers=1, page_timeout=120: ceil(5/1)*120 == 600) -- zero margin.
+    # Raising VIEWER_OCR_PAGE_TIMEOUT (a documented escape hatch) without separately re-raising
+    # --max-age blew straight through that wall: a healthy pass would get killed, requeued, and then
+    # immediately re-hit the identical wall forever. _min_safe_max_age() must now floor --max-age
+    # strictly ABOVE the raw worst-case gap, and must track VIEWER_OCR_PAGE_TIMEOUT when it rises.
+    env_save = dict(os.environ)
+    try:
+        os.environ.pop("VIEWER_OCR_PAGE_TIMEOUT", None)   # exercise the real default (120), not a leftover
+        fake_cmd = [sys.executable, "viewer_ingest.py", "ocrall", "--workers", "1", "--db", "x"]
+
+        # (a) at default page_timeout(=120)/workers(=1), the derived floor must be a STRICT margin
+        #     above the raw worst-case gap (600s) -- not equal to it, which was the exact bug.
+        raw_worst_case_gap = 600   # ceil(5/1) * 120
+        floor_a = SUP._min_safe_max_age(fake_cmd)
+        ok("max_age_floor_defaults_match_worst_case_gap_math", floor_a > raw_worst_case_gap)
+        ok("max_age_floor_defaults_has_positive_margin", floor_a - raw_worst_case_gap > 0)
+
+        # a bare/default --max-age (600, argparse's own default) must get raised past the floor.
+        effective_a = max(600, floor_a)
+        ok("bare_default_max_age_gets_raised_past_worst_case", effective_a > 600)
+
+        # (b) raising VIEWER_OCR_PAGE_TIMEOUT must raise the floor too, closing the exact gap: at
+        #     page_timeout=300 the raw worst-case gap is 1500s, well past the old bare 600s default --
+        #     the floor must clear 1500s, not silently stay pinned at (or near) the old default.
+        os.environ["VIEWER_OCR_PAGE_TIMEOUT"] = "300"
+        raw_worst_case_gap_b = 1500   # ceil(5/1) * 300
+        floor_b = SUP._min_safe_max_age(fake_cmd)
+        ok("max_age_floor_tracks_raised_page_timeout", floor_b > raw_worst_case_gap_b)
+        ok("raised_page_timeout_floor_exceeds_old_bare_default", floor_b > 600)
+
+        # workers scales the gap down (5 pages split across more threads -> heartbeat more often) --
+        # confirm the floor actually reads --workers off the wrapped cmd line, not a hardcoded 1.
+        os.environ["VIEWER_OCR_PAGE_TIMEOUT"] = "120"
+        fake_cmd_w5 = [sys.executable, "viewer_ingest.py", "ocrall", "--workers", "5", "--db", "x"]
+        floor_w5 = SUP._min_safe_max_age(fake_cmd_w5)   # ceil(5/5)*120 + 60 = 180
+        ok("max_age_floor_reads_workers_from_wrapped_cmdline", floor_w5 < floor_a)
+
+        # --workers absent from the cmd line falls back to the conservative (largest-gap) workers=1.
+        fake_cmd_noworkers = [sys.executable, "viewer_ingest.py", "ocrall", "--db", "x"]
+        ok("max_age_floor_workers_absent_falls_back_conservative",
+           SUP._min_safe_max_age(fake_cmd_noworkers) == floor_a)
+    finally:
+        os.environ.clear(); os.environ.update(env_save)
 except Exception as e:
     failed.append("ocr_supervisor(%s)" % e)
 

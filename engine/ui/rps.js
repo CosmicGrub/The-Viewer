@@ -49,7 +49,11 @@
     var cls=(b.className||"").replace(/\brps-(modern|lite|legacy|premium)\b/g,"").replace(/\s+$/,"")+" rps-"+RPS.mode;
     if(RPS.premium) cls+=" rps-premium";
     b.className=cls;
-    if(RPS.mode!=="modern"){
+    // Read flags.animations (single source of truth: rps.py's feature_flags()) rather than re-deriving
+    // "not modern" here -- flags.animations is False on every non-modern tier today, so this is a pure
+    // refactor, not a behavior change; see the two network-failure applyMode fallbacks below, which set
+    // animations:true explicitly so a network failure still lands on the same full-effects default.
+    if(!RPS.flags.animations){
       var st=document.getElementById("rps-lite-style");
       if(!st){st=document.createElement("style");st.id="rps-lite-style";
         st.textContent=".rps-lite *,.rps-legacy *{animation:none!important;transition:none!important;}"+
@@ -70,8 +74,8 @@
     try{
       window.fetch("/api/rps"+(ov?("?mode="+encodeURIComponent(ov)):"")).then(function(r){return r.json();}).then(function(d){
         applyMode(d&&d.mode,d&&d.flags); RPS.serverMode=d&&d.reason;
-      })["catch"](function(){applyMode("modern",{default_dpi:150});});
-    }catch(e){applyMode("modern",{default_dpi:150});}
+      })["catch"](function(){applyMode("modern",{default_dpi:150,animations:true});});
+    }catch(e){applyMode("modern",{default_dpi:150,animations:true});}
   }
   RPS.getOverride=function(){try{return (window.localStorage&&localStorage.getItem("rps.mode"))||"auto";}catch(e){return "auto";}};
   RPS.setMode=function(m){                         // persist the user's choice and re-apply without a reload

@@ -23,8 +23,11 @@ That's it for search-only. Everything is already indexed; nothing heavy runs.
 
 ## Optional — full mode on the weak PC (slow)
 - Add new manuals to a folder, edit `VIEWER_ROOT` inside `engine\run_indexing.bat`, run it to index them.
-- `engine\run_ocr_lite.bat` OCRs scanned pages with low threads / low DPI (`--workers 2 --dpi 150`),
-  tuned for weak hardware. Slow but resumable.
+- `engine\run_ocr_lite.bat` OCRs scanned pages. It delegates to `engine\run_ocr_auto.bat`, which
+  probes the actual PC (`sysprobe.py`) and picks threads/DPI/GPU for it at runtime, instead of a
+  fixed low profile — so a weak PC gets a low, safe plan automatically, and a portable copy that
+  happens to land on a stronger PC (or one with a working NVIDIA GPU) isn't held back by numbers
+  guessed on the production box. Slow on genuinely weak hardware but resumable.
 
 ## Notes
 - Fully offline after `SETUP.bat`.

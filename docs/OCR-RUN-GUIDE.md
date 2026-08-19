@@ -14,8 +14,9 @@ remotely). It's fully resumable — start, stop, and re-run as often as you like
 
 ## Run it
 
-1. Double-click **`engine\run_ocr_gpu.bat`** (or run it from a terminal).
-   It will, in order:
+1. Double-click **`engine\run_ocr_gpu.bat`** (or run it from a terminal). It delegates to
+   `engine\run_ocr_auto.bat`, the hardware-adaptive runner, which will, in order:
+   - **probe this machine** (`sysprobe.py`) and pick workers/DPI/GPU for it — not a fixed profile,
    - install/verify PyMuPDF + RapidOCR + `onnxruntime-gpu`,
    - take a **safeguard snapshot** (`pre-ocr` restore point),
    - **cleanup** (requeue any half-finished pages),
@@ -38,7 +39,9 @@ remotely). It's fully resumable — start, stop, and re-run as often as you like
 | GPU (RapidOCR + CUDA) | ~5–15 pages/sec | a few hours to ~half a day |
 | CPU (multi-core) | ~0.5–2 pages/sec | 1–3 days |
 
-Numbers vary widely by GPU, page complexity, and DPI. Lower `--dpi` is faster; the launcher uses 200.
+Numbers vary widely by GPU, page complexity, and DPI. Lower `--dpi` is faster; the launcher no longer
+hardcodes it — `sysprobe.py` picks it for this machine (around 220 on GPU-capable hardware, lower on
+CPU-only tiers). Run `python engine\sysprobe.py` to see the exact number it picked here.
 
 ## If something looks off
 

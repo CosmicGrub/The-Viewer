@@ -31,6 +31,7 @@
     <a class="btn" id="opendoc" target="_blank">open full document ↗</a>
     <a class="btn" id="vec" target="_blank" title="Vectorize this page to crisp SVG line-art (offline, OpenCV)">⛭ Vectorize</a>
     <button id="fpbtn" title="List every part called out on this page (from the parts index)">🧩 Parts on page</button>
+    <button id="edbtn" style="display:none" title="Other editions of this manual found in the corpus (index/dedup.db)">📚 Editions</button>
     <span class="muted" id="cinfo"></span>
   </div>
   <div id="stage"></div>
@@ -63,11 +64,14 @@
   fetch('/api/doc?id='+encodeURIComponent(doc)).then(function(r){return r.json();}).then(function(j){
     if(j){ $('#meta').textContent=(j.vehicle||'')+(j.tm_number?(' · '+j.tm_number):'')+(j.title?(' · '+j.title):''); }
   }).catch(function(){});
-  $('#prev').onclick=function(){ if(page>1){ page--; mount(); loadParts(); } };
-  $('#next').onclick=function(){ page++; mount(); loadParts(); };
+  $('#prev').onclick=function(){ if(page>1){ page--; mount(); if(panelMode==='parts') loadParts(); } };
+  $('#next').onclick=function(){ page++; mount(); if(panelMode==='parts') loadParts(); };
 
-  // ---- "parts on this page" drawer (GET /api/figureparts) ----
-  var partsLoaded=-1;
+  // ---- shared side drawer: "parts on this page" (GET /api/figureparts) and "editions of this
+  // document" (GET /api/editions, dedup.py) share the SAME #fpanel -- only one is open at a time,
+  // so there's no reason to duplicate the drawer markup/CSS for a second, rarely-populated panel. ----
+  var panelMode='parts';   // 'parts' | 'editions'
+  var partsLoaded=-1, editionsLoaded=-1;
   /* esc()/toast() from /shared.js */
   function loadParts(){
     partsLoaded=-1;
@@ -88,8 +92,37 @@
       $('#fplist').innerHTML=html;
     }).catch(function(){ $('#fplist').innerHTML='<div style="padding:14px;color:#c66;font-size:12px">Could not load parts.</div>'; });
   }
-  $('#fpbtn').onclick=function(){ var p=$('#fpanel'); p.classList.toggle('open'); if(p.classList.contains('open')&&partsLoaded<0) loadParts(); };
+  // editions don't change as you flip pages (they're a property of the DOCUMENT, not the page) --
+  // loaded once per document, not re-fetched on every page navigation like loadParts() above.
+  function loadEditions(){
+    if(!doc) return;
+    $('#fplist').innerHTML='<div style="padding:14px;color:#8a98a8;font-size:12px">Loading…</div>';
+    fetch('/api/editions?doc='+encodeURIComponent(doc)).then(function(r){return r.json();}).then(function(j){
+      var rows=(j&&j.editions)||[];
+      editionsLoaded=rows.length;
+      $('#fptitle').textContent='Other editions'+(rows.length?(' ('+rows.length+')'):'');
+      if(!rows.length){ $('#fplist').innerHTML='<div style="padding:14px;color:#8a98a8;font-size:12px">No other editions found in the corpus.</div>'; return; }
+      var html='';
+      for(var i=0;i<rows.length;i++){ var e=rows[i];
+        html+='<a class="fp" href="/deepzoom?doc='+encodeURIComponent(e.document_id)+'&page=1" target="_blank">'
+             +'<b>'+esc(e.title||e.tm_number||('doc '+e.document_id))+'</b>'
+             +(e.tm_number?(' <span class="n">'+esc(e.tm_number)+'</span>'):'')
+             +'<br><span class="n">'+Math.round((e.similarity||0)*100)+'% similar'+(e.page_count?(' · '+e.page_count+' pg'):'')+'</span>'
+             +'</a>';
+      }
+      $('#fplist').innerHTML=html;
+    }).catch(function(){ editionsLoaded=0; $('#fplist').innerHTML='<div style="padding:14px;color:#c66;font-size:12px">Could not load editions.</div>'; });
+  }
+  $('#fpbtn').onclick=function(){ panelMode='parts'; var p=$('#fpanel'); p.classList.add('open'); loadParts(); };
+  $('#edbtn').onclick=function(){ panelMode='editions'; var p=$('#fpanel'); p.classList.add('open'); loadEditions(); };
   $('#fpclose').onclick=function(){ $('#fpanel').classList.remove('open'); };
+  // #edbtn stays hidden (no dead "0 editions" button on the common case) unless dedup.db actually
+  // has a cluster for this document -- checked once, on load, not on every page flip.
+  if(doc){
+    fetch('/api/editions?doc='+encodeURIComponent(doc)).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.editions&&j.editions.length){ $('#edbtn').style.display=''; $('#edbtn').textContent='📚 Editions ('+j.editions.length+')'; }
+    }).catch(function(){});
+  }
 
   mount();
 })();

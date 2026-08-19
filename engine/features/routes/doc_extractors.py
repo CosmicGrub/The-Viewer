@@ -117,6 +117,20 @@ def r_kg(h, qs):
                   **kg.neighbors(kgp, qstr(qs, "q", ""))})
 
 
+@get("/api/editions")
+def r_editions(h, qs):
+    # other editions/near-duplicates of this document (catalog §7.1, dedup.py). Read-only on
+    # index/dedup.db (built host-side via DEDUP.bat / build_dedup.py) -- same missing-sidecar-
+    # degrades-to-empty contract /api/kg already has, never a 500 just because the batch hasn't
+    # been run yet. This module deliberately never claims which edition is "latest" (no reliable
+    # signal for that across every TM's own change/date convention) -- just that these documents
+    # are near-identical, most-similar first.
+    import dedup, os
+    doc = qint(qs, "doc", 0)
+    ddp = os.path.join(os.path.dirname(core.DB_PATH), "dedup.db")
+    h._send(200, {"doc": doc, "available": os.path.exists(ddp), "editions": dedup.editions_for(ddp, doc)})
+
+
 @get("/api/ietm")
 def r_ietm(h, qs):
     # parse a document as S1000D/IETM XML if its file is XML (catalog §6.2)

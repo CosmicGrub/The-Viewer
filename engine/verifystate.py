@@ -23,7 +23,7 @@ SELFTEST_MODULES = [
     "jobpack", "validate", "trust", "integrity", "signoff", "tmrev", "verifystate", "serviceability",
     "torqueseq", "bom", "pinouts", "training", "fieldnotes", "crossmethod", "rpstl", "intervals",
     "fluidsmatrix", "commonality", "handover", "forms", "ingestpipe", "airgap", "standards", "nsndecode",
-    "smrdecode", "cage", "harnesstrace", "macchart", "features/corpus",
+    "smrdecode", "cage", "harnesstrace", "macchart", "features/corpus", "office", "flags",
 ]
 
 _PASS = re.compile(r"\[([^\]]*?)\s+PASS\]|\b([a-z_]+) self-test (?:OK|PASS)\b|\bpy parse OK\b", re.I)

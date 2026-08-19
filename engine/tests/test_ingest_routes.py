@@ -1198,6 +1198,85 @@ def main():
                     _subprocess_mod.Popen = _real_popen
                     if _real_sg_mod is not None: sys.modules["safeguard"] = _real_sg_mod
                     else: sys.modules.pop("safeguard", None)
+
+            # =================================================================================
+            # A SEVENTH e2e run: edition/duplicate clustering (dedup.py + build_dedup.py + the
+            # /api/editions route), another deferred item picked up alongside the flags audit.
+            # build_dedup.py exercised as a REAL subprocess (same as viewer_ingest.py's `flags`
+            # subcommand above) against a real corpus of near-duplicate + distinct documents.
+            # =================================================================================
+            e2e7_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_dedup_")
+            e2e7_db = os.path.join(e2e7_dir, "viewer.db")
+            e2e7_con = _VI.connect(e2e7_db)
+            _VI.migrate(e2e7_con, os.path.join(ENGINE, "migrations"), db_path=e2e7_db)
+            corpus7_dir = os.path.join(e2e7_dir, "corpus"); os.makedirs(corpus7_dir)
+
+            base_text = ("The alternator is mounted on the front of the engine and is driven by the serpentine "
+                         "belt. Remove the two mounting bolts and disconnect the wiring harness before extraction. "
+                         "Torque to 30 foot pounds and verify clearance before reassembly of the housing.")
+            edition_text = base_text.replace("30 foot pounds", "35 foot pounds") + " Change 3 revision notice page."
+            other_text = ("The transmission fluid should be checked with the vehicle on level ground and the "
+                          "engine at operating temperature. Use only the specified lubricant grade and do not "
+                          "overfill the reservoir under any condition or void the warranty coverage terms.")
+
+            doc11 = _fitz2.open(); p11 = doc11.new_page(width=612, height=792)
+            p11.insert_text((72, 72), base_text)
+            doc11.save(os.path.join(corpus7_dir, "TM-9-2320-280-24-CH2.pdf")); doc11.close()
+
+            doc12 = _fitz2.open(); p12 = doc12.new_page(width=612, height=792)
+            p12.insert_text((72, 72), edition_text)
+            doc12.save(os.path.join(corpus7_dir, "TM-9-2320-280-24-CH3.pdf")); doc12.close()
+
+            doc13 = _fitz2.open(); p13 = doc13.new_page(width=612, height=792)
+            p13.insert_text((72, 72), other_text)
+            doc13.save(os.path.join(corpus7_dir, "TM-9-2320-280-10.pdf")); doc13.close()
+
+            _VI._tally_reset()
+            _VI.crawl(e2e7_con, corpus7_dir)
+            e2e7_con.commit()
+            e2e7_con.close()
+
+            e2e7_dedup_db = os.path.join(e2e7_dir, "dedup.db")
+            env = dict(os.environ, VIEWER_DB=e2e7_db, DEDUP_DB=e2e7_dedup_db)
+            dedup_proc = subprocess.run(
+                [sys.executable, os.path.join(ENGINE, "build_dedup.py"), "--threshold", "0.6"],
+                capture_output=True, text=True, timeout=60, env=env)
+            check("build_dedup.py exits 0", dedup_proc.returncode == 0)
+            check("build_dedup.py reports finding exactly one cluster", "1 cluster" in dedup_proc.stdout)
+            check("build_dedup.py actually wrote dedup.db", os.path.exists(e2e7_dedup_db))
+
+            e2e7_con2 = sqlite3.connect(e2e7_db)
+            ch2_id = e2e7_con2.execute("SELECT id FROM documents WHERE path LIKE ?", ("%TM-9-2320-280-24-CH2.pdf",)).fetchone()[0]
+            ch3_id = e2e7_con2.execute("SELECT id FROM documents WHERE path LIKE ?", ("%TM-9-2320-280-24-CH3.pdf",)).fetchone()[0]
+            other_id = e2e7_con2.execute("SELECT id FROM documents WHERE path LIKE ?", ("%TM-9-2320-280-10.pdf",)).fetchone()[0]
+            e2e7_con2.close()
+
+            import dedup as _dedup_mod
+            ch2_editions = _dedup_mod.editions_for(e2e7_dedup_db, ch2_id)
+            check("e2e dedup: the near-duplicate CH2/CH3 pair was correctly clustered together",
+                  len(ch2_editions) == 1 and ch2_editions[0]["document_id"] == ch3_id)
+            check("e2e dedup: the genuinely different document has no editions", _dedup_mod.editions_for(e2e7_dedup_db, other_id) == [])
+
+            # the real /api/editions route, exercised directly (same technique test_tables_plus_stitch.py
+            # uses -- no need for a full HTTP server to prove the routing + real dedup.py calls are wired).
+            import features.routes.doc_extractors as _de_mod
+            class _FakeHandler7:
+                def __init__(self): self.sent=None
+                def _send(self, c, b): self.sent=(c,b)
+            class _FakeCoreForEditions:
+                DB_PATH = e2e7_db
+            _orig_de_core = _de_mod.core
+            _de_mod.core = _FakeCoreForEditions
+            try:
+                h7 = _FakeHandler7()
+                _de_mod.r_editions(h7, {"doc": [str(ch2_id)]})
+                code7, body7 = h7.sent
+                check("/api/editions route: 200 + available=True (dedup.db exists)",
+                      code7 == 200 and body7.get("available") is True)
+                check("/api/editions route: returns the real sibling edition via the real route function",
+                      len(body7.get("editions") or []) == 1 and body7["editions"][0]["document_id"] == ch3_id)
+            finally:
+                _de_mod.core = _orig_de_core
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

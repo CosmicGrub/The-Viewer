@@ -94,7 +94,7 @@ append-only sidecars (R1/R6).
 
 | # | Method | Status | Approach / library | Effort |
 |--|--------|--------|--------------------|--------|
-|7.1| Edition / duplicate detection across TMs | ◐ | `dedup.py` (shingle + Jaccard clustering) — implemented, no caller yet (no `build_dedup.py` sidecar or `/api/dedup` route) | S |
+|7.1| Edition / duplicate detection across TMs | ✅ | `dedup.py` (shingle + Jaccard clustering) + `build_dedup.py` (`index/dedup.db`, host-run, DEDUP.bat) + `/api/editions` -- Deep Zoom shows a "📚 Editions" button when a document has near-duplicate siblings | — |
 |7.2| NIIN-drift correlation + confirmed-interchangeable alias map | ✅ | `correlations.db` | — |
 |7.3| Semantic / embedding index | ✅ | `embed.py` | — |
 |7.4| **Knowledge graph** (part↔figure↔procedure↔spec↔NSN) | ✅ | `kg.py` + `build_kg.py` → `index/kg.db` + `/api/kg` | — |

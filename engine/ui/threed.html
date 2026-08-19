@@ -34,7 +34,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 .gside mark{background:rgba(202,162,74,.32);color:#fff;border-radius:3px;padding:0 2px}
 </style><script src="/rps.js"></script></head><body><div class="wrap">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
-  <div><h1>3D Library <span class="muted" id="count"></span></h1>
+  <div><h1>🧊 3D Library <span class="muted" id="count"></span></h1>
     <div class="muted">CAD images of every part — shape inferred from the name/NSN, scaled to FLIS dimensions, textured by material. Click a part for the interactive 3-D and the cited manual figure.</div></div>
   <div><a href="/">← back to search</a></div>
 </div>
@@ -51,7 +51,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 <div class="gate" id="gate">
   <div class="gbar"><div style="flex:1;font-size:14px" id="gtitle"></div>
     <span class="muted">drag to rotate · scroll to zoom · double-click to reset</span>
-    <button id="greset">⟲ Reset</button><button id="gclose">Close ✕</button></div>
+    <button id="greset" title="Reset view">⟲ Reset</button><button id="gclose">Close ✕</button></div>
   <div class="gmain"><div class="gstage" id="gstage"></div><div class="gside" id="gside"></div></div>
 </div>
 <script src="/gl3d.js?v=0841"></script>
@@ -524,7 +524,7 @@ function loadRefs(m){
   fetch('/api/threed_refs?nsn='+nq+'&part='+encodeURIComponent(m.partno||'')).then(r=>r.json()).then(j=>{
     const b=$("#refsbody"); if(!b) return; let html='';
     const cols=j.collections||[];
-    if(cols.length){ html+='<div style="margin-bottom:8px">In collections: '+cols.map(c=>'<a href="/collections" title="appears on pages in this collection">🗂 '+esc(c.name)+'</a>').join(' · ')+'</div>'; }
+    if(cols.length){ html+='<div style="margin-bottom:8px">In collections: '+cols.map(c=>'<a href="/collections" title="appears on pages in this collection">🏷 '+esc(c.name)+'</a>').join(' · ')+'</div>'; }
     const pg=j.pages||[];
     if(!pg.length){ html+='<div class="muted">No manual page mentions this NSN yet. As OCR reaches more pages, references will appear here automatically.</div>'; }
     else {

@@ -7,13 +7,14 @@
   :root{--bg:#0f1419;--panel:#171d26;--p2:#1c2430;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;
         --acc:#4f9dff;--grn:#2f7d4f;--amb:#caa24a;--red:#e0564f;--teal:#1d9e75;--pur:#7f77dd;--hi:#36c06a;--lo:#3a7bd5;}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font:13px/1.45 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);font:13px/1.45 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto;flex-wrap:wrap}
   header h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.2px}
   header .tag{font-size:10.5px;color:var(--sub);border:1px solid var(--line);padding:2px 7px;border-radius:20px}
   header .sp{flex:1}
   a.home{color:var(--acc);text-decoration:none;font-size:12px}
-  .wrap{display:grid;grid-template-columns:194px 1fr 236px;height:calc(100vh - 49px)}
+  .wrap{display:grid;grid-template-columns:194px 1fr 236px;flex:1 1 auto;min-height:0}
   .rail{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:10px}
   .rail.right{border-right:none;border-left:1px solid var(--line)}
   .stage{position:relative;overflow:hidden;background:#0b0f14}

@@ -61,7 +61,7 @@
     var t=TREES[i]; if(!t) return; var cur=0;
     function draw(){
       var h='<div class="tree"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">'
-        +'<h3 style="margin:0;font-size:16px">🔧 '+esc(t.symptom)+'</h3>'
+        +'<h3 style="margin:0;font-size:16px">🌳 '+esc(t.symptom)+'</h3>'
         +'<a class="btn" href="/deepzoom?doc='+encodeURIComponent(t.doc)+'&page='+encodeURIComponent(t.page)+'" target="_blank">open p.'+esc(t.page)+' ↗</a></div>'
         +'<div class="cite muted" style="margin:4px 0 8px">'+esc(t.tm||t.vehicle||'')+'</div>';
       (t.steps||[]).forEach(function(s,si){

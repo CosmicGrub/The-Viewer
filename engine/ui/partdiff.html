@@ -10,7 +10,11 @@
   header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
   header h1{font-size:17px;margin:0;font-weight:700}
   header .sp{flex:1}
-  a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  /* class is "btn" (not the old plain-text "nav") so base.css's body.kiosk-mode selector
+     (which enlarges button/.btn/.chip/etc. touch targets, not bare links) picks these up --
+     matches the header-nav pattern already used by semantic.html/related.html/visual.html/audit.html. */
+  a.btn{color:var(--acc);text-decoration:none;font-size:13px;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:7px 12px}
+  a.btn:hover{border-color:var(--acc)}
   .wrap{max-width:1080px;margin:0 auto;padding:20px}
   .bar{display:flex;gap:10px;margin-bottom:8px}
   #q{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:15px}
@@ -59,7 +63,7 @@
   <h1>🔍 Look-Alike Parts</h1>
   <span class="muted">tell apart parts that look identical but aren't</span>
   <span class="sp"></span>
-  <a class="nav" href="/schematics">📐 Schematics</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+  <a class="btn" href="/schematics">🔌 Schematics</a><a class="btn" href="/">← Home</a>
 </header>
 <div class="wrap">
   <div class="bar">

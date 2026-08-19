@@ -2,13 +2,16 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Job packet — THE VIEWER</title>
-<script src="/shared.js"></script><!-- esc() etc.; base.css deliberately NOT linked — this page keeps its paper-preview look -->
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<!-- esc() etc. base.css IS linked (kiosk-mode 44px touch targets, #vw-footer, :focus-visible) but this
+     page's own <style> below still fully owns the paper-preview look: every visual rule here (body bg,
+     .sheet, .hd, etc.) shares base.css's specificity and comes later in the cascade, so it wins outright -->
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#5b6470;color:#111;font:13px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  .toolbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;padding:10px 16px;background:#171d26;color:#e6e9ee}
+  .toolbar{position:sticky;top:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#171d26;color:#e6e9ee}
   .toolbar .sp{flex:1}
-  .toolbar input{background:#1c2430;border:1px solid #2b333f;border-radius:8px;color:#e6e9ee;padding:8px 11px;font-size:14px}
+  .toolbar input{background:#1c2430;border:1px solid #2b333f;border-radius:8px;color:#e6e9ee;padding:8px 11px;font-size:14px;max-width:60vw}
   .toolbar button,.toolbar a{background:#1c2430;color:#e6e9ee;border:1px solid #2b333f;border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;text-decoration:none}
   .toolbar button.go{background:#4f9dff;border-color:#4f9dff;color:#06121f;font-weight:700}
   .sheet{max-width:800px;margin:18px auto;background:#fff;padding:34px 40px;box-shadow:0 6px 24px rgba(0,0,0,.4);border-radius:4px}
@@ -43,7 +46,7 @@
   <button class="go" onclick="load()">Build packet</button>
   <button onclick="window.print()">🖨 Print / Save PDF</button>
   <span class="sp"></span>
-  <a href="/jobcard" title="Prefer a generated Work Order PDF? The Work Order builder pulls procedures + torque + parts into one document">🧾 Work Order</a> <a href="/solve">← Solve it</a> <a href="/">Home</a>
+  <a class="btn" href="/jobcard" title="Prefer a generated Work Order PDF? The Work Order builder pulls procedures + torque + parts into one document">🧾 Work Order</a> <a class="btn" href="/solve">← Solve it</a> <a class="btn" href="/">Home</a>
 </div>
 <div class="sheet" id="sheet"><div class="spin">Enter a part or NSN and build the packet.</div></div>
 <script>

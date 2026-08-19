@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Add documents — THE VIEWER</title>
+<title>Scan &amp; OCR documents — THE VIEWER</title>
 <link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
 <style>
   /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
@@ -35,16 +35,25 @@
   .ground{font-size:11.5px;color:var(--sub);margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
   .steps{font-size:13px;color:var(--sub);margin:4px 0 0;padding-left:18px} .steps li{margin:3px 0}
   code{background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px}
+  .stages{display:flex;gap:6px;margin:2px 0 12px;flex-wrap:wrap}
+  .stage{font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--p2);border:1px solid var(--line);color:var(--sub)}
+  .stage.active{background:var(--acc);border-color:var(--acc);color:#06121f;font-weight:700}
+  .stage.done{color:#7fd6a0;border-color:#2d5a3f}
+  .bar2.indet i{width:32%!important;animation:ingest-indet 1.3s ease-in-out infinite}
+  @keyframes ingest-indet{0%{margin-left:0%}50%{margin-left:66%}100%{margin-left:0%}}
+  .current{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-top:8px}
+  .backlog{border-color:#5a4a2d;background:rgba(240,180,80,.06)}
 </style>
 <script src="/rps.js"></script>
 </head>
 <body>
 <header>
-  <h1>➕ Add documents</h1><span class="muted">index new TMs / PDFs — no command line</span>
+  <h1>➕ Scan &amp; OCR documents</h1><span class="muted">find, index, and OCR new TMs / PDFs — no command line</span>
   <span class="sp"></span><a class="nav" href="/">← Home</a>
 </header>
 <div class="wrap">
-  <p class="muted">Point THE VIEWER at a folder of PDFs on this computer and it indexes the new ones into the searchable corpus. It only <b>adds</b> — your existing data is never changed, a safety snapshot is taken first, and it's resumable if interrupted.</p>
+  <p class="muted">Point THE VIEWER at a folder of PDFs on this computer and it does the whole job in one pass: scans for new documents, indexes them, and OCRs every scanned page so it's searchable too. It only <b>adds</b> — your existing data is never changed, a safety snapshot is taken first, and it's resumable if interrupted.</p>
+  <div id="backlogCard"></div>
   <div class="drop" id="drop">
     <div class="bar">
       <input id="path" placeholder="Folder path on this PC, e.g.  E:\ALL MILITARY TMS\New" spellcheck="false">
@@ -55,7 +64,7 @@
   <div id="recent" class="chips"></div>
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
   <div id="out"></div>
-  <div class="ground">How it works: a safeguard snapshot is taken, then the tested <code>crawl</code> pipeline walks the folder, adds new documents, extracts their text, and queues scanned pages for OCR. Nothing is deleted or overwritten (R1/R6). After indexing, run the GPU OCR to make scanned pages searchable.</div>
+  <div class="ground">How it works: a safeguard snapshot is taken, then the tested pipeline walks the folder, adds new documents, extracts embedded text, OCRs every page that needs it, and rebuilds the parts index — one job, start to finish. Nothing is deleted or overwritten (R1/R6).</div>
 </div>
 <script>
 var $=function(s){return document.querySelector(s);};
@@ -77,28 +86,112 @@ function preview(){
     h+='</div>'; $("#out").innerHTML=h;
   }).catch(function(e){ $("#out").innerHTML='<div class="card"><span class="err">Error: '+esc(e.message)+'</span></div>'; });
 }
+var STAGES=[["crawl","Scanning"],["ocr","OCR'ing"],["parts","Extracting parts"],["done","Done"]];
+function progHtml(label){
+  return '<div class="card" id="prog"><div class="muted">'+label+'</div>'
+    +'<div class="stages" id="stages"></div>'
+    +'<div class="bar2 indet" id="pbwrap"><i id="pf"></i></div>'
+    +'<div id="pstat" class="muted">starting…</div>'
+    +'<div class="current" id="pcur" style="display:none"></div></div>';
+}
 function startRun(){
   var p=$("#path").value.trim(); if(!p)return;
   var btn=$("#run"); if(btn){btn.disabled=true;btn.textContent="Starting…";}
   fetch("/api/ingest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:p})})
     .then(function(r){return r.json();}).then(function(d){
       if(!d.ok){ $("#out").innerHTML+='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t start.")+'</span></div>'; return; }
-      $("#out").innerHTML='<div class="card" id="prog"><div class="muted">Indexing <b>'+esc(p)+'</b>…</div><div class="bar2"><i id="pf"></i></div><div id="pstat" class="muted">starting…</div></div>';
+      $("#out").innerHTML=progHtml("Scanning &amp; OCR'ing <b>"+esc(p)+"</b>…");
+      $("#backlogCard").innerHTML="";   // one job at a time -- hide the backlog offer while this runs
       poll();
     }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent="Index now";} });
+}
+function startBacklog(){
+  var btn=$("#backlogBtn"); if(btn){btn.disabled=true;btn.textContent="Starting…";}
+  fetch("/api/ocr_backlog_start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:true})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ $("#backlogCard").innerHTML+='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t start.")+'</span></div>'; return; }
+      $("#out").innerHTML=progHtml("Finishing the OCR backlog…");
+      $("#backlogCard").innerHTML="";
+      poll();
+    }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="Finish OCR backlog";} });
+}
+function renderStages(activeStage){
+  var idx=-1;
+  for(var si=0;si<STAGES.length;si++){ if(STAGES[si][0]===activeStage){ idx=si; break; } }
+  var h="";
+  STAGES.forEach(function(s,i){
+    var cls="stage"+(s[0]===activeStage?" active":(idx>=0&&i<idx?" done":""));
+    h+='<span class="'+cls+'">'+(idx>=0&&i<idx?"✓ ":"")+s[1]+"</span>";
+  });
+  var st=$("#stages"); if(st) st.innerHTML=h;
+}
+/* Renders the live "where" line for whichever stage is active — a filename for crawl/parts, a
+   document+page pair for ocr (the literal "where and how it is parsed/scanned" ask: which file,
+   which page, right now — not just an aggregate count). */
+function renderCurrent(progress){
+  var cur=$("#pcur"); if(!cur) return;
+  if(!progress || !progress.current){ cur.style.display="none"; return; }
+  var c=progress.current, txt="";
+  if(typeof c==="string") txt="Scanning: "+esc(c);
+  else if(c && c.doc) txt="OCR’ing: "+esc(c.doc)+(c.page?" — page "+c.page:"");
+  if(!txt){ cur.style.display="none"; return; }
+  cur.style.display=""; cur.innerHTML=txt;
 }
 function poll(){
   clearTimeout(pollTimer);
   fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
-    var st=$("#pstat"); if(!st)return; var run=d.run||{};
-    var msg="seen "+(run.files_seen||0)+" files · added "+(run.new_docs||0)+" docs · "+(run.pages_indexed||0)+" pages of text · "+(run.ocr_queued||0)+" pages queued for OCR";
+    var st=$("#pstat"); if(!st)return; var run=d.run||{}, progress=d.progress||null;
+    var stage=progress?progress.stage:null;
+    renderStages(d.running?stage:"done");
+    renderCurrent(progress);
+    var pf=$("#pf"), wrap=$("#pbwrap");
+    if(progress && progress.total){
+      // real per-item progress (OCR pages, mostly) — a genuine percentage, not the old heuristic.
+      var pct=Math.max(2,Math.min(100, Math.round(100*((progress.done||0)+(progress.fail||0))/progress.total)));
+      if(wrap) wrap.classList.remove("indet");
+      if(pf) pf.style.width=pct+"%";
+    } else if(pf && wrap){
+      wrap.classList.add("indet");   // crawl/parts: no known total ahead of time — pulse instead of fake %
+    }
+    var msg;
+    if(stage==="ocr" && progress) msg="OCR: "+(progress.done||0)+" done"+(progress.fail?", "+progress.fail+" failed":"")+" of "+(progress.total||0)+" pages";
+    else msg="seen "+(run.files_seen||0)+" files · added "+(run.new_docs||0)+" docs · "+(run.pages_indexed||0)+" pages of text";
     st.innerHTML=msg+'  <span class="muted">('+(d.elapsed||0)+'s)</span>';
-    var pf=$("#pf"); if(pf){ var tot=Math.max(1,(run.new_docs||0)); pf.style.width=(d.running? Math.min(95, 10+(run.new_docs||0)) : 100)+"%"; }
-    if(d.running){ pollTimer=setTimeout(poll,2000); }
-    else { st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.<ul class="steps"><li>New documents are searchable now (text pages immediately).</li><li>Scanned pages were queued for OCR — run the GPU OCR (<code>START-OCR-NOW.bat</code>) to make them searchable too.</li></ul>';
-      if(pf)pf.style.width="100%"; }
+    if(d.running){ pollTimer=setTimeout(poll,1500); }
+    else {
+      renderStages("done"); renderCurrent(null);
+      st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.<ul class="steps"><li>New documents are searchable now.</li><li>Every scanned page was OCR’d in this same pass — no separate step needed.</li></ul>';
+      if(pf)pf.style.width="100%"; if(wrap)wrap.classList.remove("indet");
+      checkBacklog();
+    }
   }).catch(function(){ pollTimer=setTimeout(poll,3000); });
 }
+/* ---- OCR backlog: pages queued before this feature existed, or from an interrupted run ---- */
+function renderBacklog(n){
+  var box=$("#backlogCard"); if(!box) return;
+  if(!n){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="card backlog"><div class="muted">'+n+' page'+(n===1?'':'s')+' from earlier imports '
+    +''+(n===1?'is':'are')+' still waiting on OCR.</div>'
+    +'<div style="margin-top:10px"><button class="b go" id="backlogBtn" onclick="startBacklog()">Finish OCR backlog</button></div></div>';
+}
+function checkBacklog(){
+  fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
+    if(d.running) return;   // a job is active (possibly the one we just polled to completion) — its own panel is showing
+    renderBacklog(d.ocr_pending||0);
+  }).catch(function(){});
+}
+/* ---- on load: if a scan/OCR job is already running (e.g. this tab was reloaded mid-run), resume
+   watching it instead of showing an idle form; otherwise offer the backlog if one exists. ---- */
+(function(){
+  fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
+    if(d.running){
+      var label=(d.kind==="ocr_backlog")?"Finishing the OCR backlog…":"Scanning &amp; OCR'ing <b>"+esc(d.path||"")+"</b>…";
+      $("#out").innerHTML=progHtml(label); poll();
+    } else {
+      renderBacklog(d.ocr_pending||0);
+    }
+  }).catch(function(){});
+})();
 $("#path").addEventListener("keydown",function(e){if(e.key==="Enter")preview();});
 
 /* ---- Recent ingest paths (localStorage) — one-click re-index of a folder you've used before ---- */

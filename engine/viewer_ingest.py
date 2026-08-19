@@ -6,7 +6,7 @@ OCR for scanned pages: RapidOCR (pip 'rapidocr-onnxruntime', no admin, bundles m
 falls back to Tesseract if RapidOCR is unavailable. Page rasterized via PyMuPDF (or pdftoppm).
 OCR parallelism uses THREADS (shared engine; PyMuPDF render under a lock) -- reliable on Windows.
 """
-import argparse, hashlib, os, re, sqlite3, subprocess, tempfile, threading, time
+import argparse, hashlib, json, os, re, sqlite3, subprocess, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from patterns import norm_nsn   # canonical NSN normalization (A6: single source of truth)
 try:
@@ -407,12 +407,15 @@ def index_pdf(con, doc_id, path):
 
 def crawl(con, root, max_files=0, max_seconds=0):
     rid = con.execute("INSERT INTO runs(kind) VALUES('crawl')").lastrowid
+    dbdir = _db_dir(con)
     seen=new=pi=q=fail=0; t0=time.time()
+    _write_progress(dbdir, stage="crawl", current=None, seen=0, new=0)
     for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
         if os.sep + "." in dirpath: continue
         for fn in filenames:
             if fn.lower() in ("thumbs.db",".ds_store"): continue
             path = os.path.join(dirpath, fn); seen += 1
+            _write_progress(dbdir, stage="crawl", current=fn, seen=seen, new=new)
             try:
                 res = upsert_document(con, path, root)
                 if res is None:
@@ -761,6 +764,26 @@ def _heartbeat(d, done, fail, remaining):
             f.write("%s done=%d fail=%d remaining=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), done, fail, remaining))
     except Exception: pass
 
+def _write_progress(d, **fields):
+    """Best-effort JSON progress sidecar (ingest_progress.json, next to the index) for the in-app
+    'Add documents' UI (features/ingest_feature.py's ingest_status() reads it) -- deliberately
+    separate from _heartbeat()'s plain-text file above, whose exact format ocr_watchdog.py/
+    ocr_supervisor.py depend on for stale-hang detection and must never change. This is purely
+    additive, UI-facing progress state: which stage the run/ocrall pipeline is in (crawl/ocr/parts/
+    done), what item it's on right now (a filename, or a {'doc','page'} pair), and done/total counts
+    for whichever stage is active. Atomic write (temp file + os.replace) so a concurrent reader (the
+    HTTP status route, polled every ~2s from the browser) never sees a half-written file -- same
+    pattern safeguard.py's atomic builds use for the same reason."""
+    if not d: return
+    try:
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, "ingest_progress.json")
+        tmp = path + ".tmp.%d" % os.getpid()
+        with open(tmp, "w") as f:
+            json.dump({"updated": time.time(), **fields}, f)
+        os.replace(tmp, path)
+    except Exception: pass
+
 def ocr(con, limit, workers=1):
     rid = con.execute("INSERT INTO runs(kind) VALUES('ocr')").lastrowid
     done=fail=0
@@ -784,6 +807,12 @@ def ocr(con, limit, workers=1):
         _heartbeat(dbdir, 0, 0, 0); return 0
     con.executemany("UPDATE pages SET ocr_status='running' WHERE id=?", [(r[0],) for r in rows]); con.commit()
     if _have_rapid(): _get_rapid(workers)      # build the shared engine once, up front
+    total = len(rows)
+    # pid -> (page_number, doc basename), so handle() (which only gets a bare pid back from
+    # _ocr_task()) can still report a human-readable "currently processing" line for the in-app
+    # scan UI -- ingest_status() (features/ingest_feature.py) surfaces this via _write_progress().
+    _labels = {r[0]: (r[1], os.path.basename(r[2] or "")) for r in rows}
+    _write_progress(dbdir, stage="ocr", current=None, done=0, fail=0, total=total)
     def handle(pid, text, conf, barcode, err):
         nonlocal done, fail
         if err is None:
@@ -801,6 +830,8 @@ def ocr(con, limit, workers=1):
             con.execute("UPDATE pages SET ocr_status='failed', barcode_type=?, barcode_data=?, barcode_nsn=? WHERE id=?",
                         (bc.get("type"), bc.get("data"), bc.get("nsn"), pid))
             con.execute("INSERT INTO jobs(page_id,stage,state,attempts,last_error) VALUES(?,?, 'failed', 1, ?)", (pid,"ocr",err)); fail += 1
+        pno, dname = _labels.get(pid, (None, ""))
+        _write_progress(dbdir, stage="ocr", current={"doc": dname, "page": pno}, done=done, fail=fail, total=total)
         if (done+fail) % 5 == 0: con.commit(); _heartbeat(dbdir, done, fail, None); log(f"ocr: done={done} failed={fail} (last page {len(text) if text else 0} chars)")
     if workers <= 1:
         for r in rows: handle(*_ocr_task(r))
@@ -1045,6 +1076,7 @@ def extract_parts(con):
     # kill it, discarding the work (and run_ocr_auto.bat would still declare "OCR COMPLETE" since
     # OCR itself had already reached 0 pending by then).
     _heartbeat(dbdir, 0, 0, "extract_parts")
+    _write_progress(dbdir, stage="parts", current=None, done=0, total=None)
     con.execute("DELETE FROM parts WHERE confidence IS NOT NULL"); con.commit()
     try:
         rows = con.execute(
@@ -1475,10 +1507,17 @@ def main():
         prioritize(con)
         while ocr(con, args.limit, args.workers) > 0: pass
         extract_parts(con)   # refresh the structured parts index after OCR adds pages
+        _write_progress(_db_dir(con), stage="done", current=None)
     elif args.cmd == "run":
+        # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
+        # launches exactly this subcommand -- crawl/ocr()/extract_parts() each stamp their own
+        # stage into ingest_progress.json as they go (see _write_progress() calls inside each),
+        # so the only thing left to mark here is the final "done" once every stage has actually
+        # finished, for the polling UI to stop showing a stage and show a completion state instead.
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
+        _write_progress(_db_dir(con), stage="done", current=None)
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)
     elif args.cmd == "cleanup": cleanup(con)

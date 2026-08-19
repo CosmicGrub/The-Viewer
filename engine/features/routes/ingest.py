@@ -138,6 +138,23 @@ def p_ingest(h, qs, payload):
     h._send(200, core.ingest_start(payload.get("path") or ""))
 
 
+@post("/api/ocr_backlog_start")
+def p_ocr_backlog_start(h, qs, payload):
+    # Same in-app job model as /api/ingest, no folder path needed -- just finishes OCR on whatever
+    # pages are already queued (an earlier crawl-only run, or anything pre-dating this feature).
+    # Unlike /api/ingest, this route has no required parameter to validate before it does anything
+    # -- /api/ingest naturally no-ops on a bare/empty POST (an empty `path` fails canon_ingest_path()
+    # before any subprocess or snapshot happens), but a bare POST here has nothing to fail on, so it
+    # would otherwise launch a real subprocess + take a real safeguard snapshot on ANY POST,
+    # confirmed or not (caught live: test_routes.py's generic "hit every POST route with an empty
+    # body, just check it doesn't 500" sweep was silently kicking off a real ocrall run every time
+    # this test suite ran). Requiring an explicit confirm:true is the same shape of safety valve
+    # /api/ingest gets for free from its path requirement.
+    if not payload.get("confirm"):
+        h._send(400, {"ok": False, "error": "confirm:true required"}); return
+    h._send(200, core.ocr_backlog_start())
+
+
 @get("/api/ingest_preview")
 def r_ingest_preview(h, qs):
     # Leaks the same class of info (real host paths + filenames) as /api/ingest_status and the

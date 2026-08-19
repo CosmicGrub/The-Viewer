@@ -201,26 +201,92 @@ def main():
             check("POST /api/ingest fence: no subprocess launched", len(_popen_calls) == 0)
             os.environ.pop("VIEWER_INGEST_ROOTS", None)
 
-            # success path: folder allowed (no fence configured) -> ok:true, started:true, crawl launched.
+            # success path: folder allowed (no fence configured) -> ok:true, started:true, the FULL
+            # in-app pipeline launched (crawl + OCR + parts extraction, one job -- viewer_ingest.py's
+            # 'run' subcommand, not the old crawl-only 'crawl' -- this is the actual "properly scans
+            # AND OCRs documents in-app" fix: OCR used to be an explicit separate step (run
+            # START-OCR-NOW.bat yourself) after this route finished; now it's part of the same job).
             c, b = _req("/api/ingest", {"path": ingest_dir})
             r = _json(b)
-            check("POST /api/ingest starts a crawl -> ok + started", c == 200 and r.get("ok") is True and r.get("started") is True)
-            check("POST /api/ingest actually launched the crawl subprocess", len(_popen_calls) == 1)
+            check("POST /api/ingest starts the run -> ok + started", c == 200 and r.get("ok") is True and r.get("started") is True)
+            check("POST /api/ingest actually launched a subprocess", len(_popen_calls) == 1)
+            check("POST /api/ingest launches viewer_ingest.py's 'run' subcommand (crawl+OCR+parts), not bare 'crawl'",
+                  "run" in _popen_calls[0] and "crawl" not in _popen_calls[0])
 
             # already-running guard, exercised through the actual route (not just ingest_start()
             # called directly, which test_features.py already covers at the module level).
-            _ingest_mod._INGEST = {"proc": _FakeProc(running=True), "path": ingest_dir, "started": time.time()}
+            _ingest_mod._INGEST = {"proc": _FakeProc(running=True), "path": ingest_dir, "started": time.time(), "kind": "scan"}
             c, b = _req("/api/ingest", {"path": ingest_dir})
             r = _json(b)
             check("POST /api/ingest already-running -> ok:false", c == 200 and r.get("ok") is False)
             check("POST /api/ingest already-running error message", "already in progress" in (r.get("error") or ""))
             check("POST /api/ingest already-running: no second subprocess launched", len(_popen_calls) == 1)
+
+            # =================================================================================
+            # POST /api/ocr_backlog_start -- the second half of the same in-app job model: finish
+            # OCR on whatever's already queued (no folder path needed), sharing the SAME one-
+            # job-at-a-time lock as /api/ingest above (both go through ingest_feature._launch()).
+            # Requires confirm:true -- unlike /api/ingest, this route has no required parameter
+            # that would naturally reject a bare/empty POST before it does anything, so an empty
+            # body must be a clean no-op (caught live: test_routes.py's generic empty-body POST
+            # sweep was silently launching a REAL subprocess + taking a REAL safeguard snapshot
+            # every time this suite ran, before this gate existed).
+            # =================================================================================
+            _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0, "kind": None}
+            _popen_calls_before = len(_popen_calls)   # already 1 by here, from the earlier /api/ingest success-path call above
+            c, b = _req("/api/ocr_backlog_start", {})
+            r = _json(b)
+            check("POST /api/ocr_backlog_start bare/empty body -> 400, no launch",
+                  c == 400 and len(_popen_calls) == _popen_calls_before)
+
+            c, b = _req("/api/ocr_backlog_start", {"confirm": True})
+            r = _json(b)
+            check("POST /api/ocr_backlog_start confirm:true -> ok + started", c == 200 and r.get("ok") is True and r.get("started") is True)
+            check("POST /api/ocr_backlog_start launches viewer_ingest.py's 'ocrall' subcommand",
+                  "ocrall" in _popen_calls[-1])
+            check("POST /api/ocr_backlog_start needs no --root (no folder involved)",
+                  "--root" not in _popen_calls[-1])
+
+            # shares the lock with /api/ingest: a backlog job already running blocks a NEW /api/ingest
+            # call too (and vice versa -- proven above) -- genuinely one job at a time against this DB.
+            _ingest_mod._INGEST = {"proc": _FakeProc(running=True), "path": "", "started": time.time(), "kind": "ocr_backlog"}
+            c, b = _req("/api/ingest", {"path": ingest_dir})
+            r = _json(b)
+            check("POST /api/ingest blocked while an OCR-backlog job is running (shared lock)",
+                  c == 200 and r.get("ok") is False and "already in progress" in (r.get("error") or ""))
         finally:
             _subprocess_mod.Popen = _real_popen
             if _real_sg_mod is not None: sys.modules["safeguard"] = _real_sg_mod
             else: sys.modules.pop("safeguard", None)
-            _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0}
+            _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0, "kind": None}
             os.environ.pop("VIEWER_INGEST_ROOTS", None)
+
+        # =====================================================================================
+        # GET /api/ingest_status -- richer response shape: 'progress' (live per-item detail, read
+        # off the ingest_progress.json sidecar) and 'ocr_pending' (drives the UI's backlog card),
+        # both additive -- neither breaks the pre-existing 'running'/'path'/'run' fields.
+        # =====================================================================================
+        c, b = _req("/api/ingest_status")
+        r = _json(b)
+        check("ingest_status -> 200", c == 200)
+        check("ingest_status still has the original 'running' field", "running" in r)
+        check("ingest_status has 'progress' (None when no sidecar written yet)", "progress" in r and r.get("progress") is None)
+        check("ingest_status has 'ocr_pending' as an int", isinstance(r.get("ocr_pending"), int))
+
+        prog_path = os.path.join(os.path.dirname(db), "ingest_progress.json")
+        try:
+            with open(prog_path, "w") as f:
+                json.dump({"stage": "ocr", "current": {"doc": "TM-TEST.pdf", "page": 3}, "done": 7, "fail": 0, "total": 20}, f)
+            c, b = _req("/api/ingest_status")
+            r = _json(b)
+            prog = r.get("progress") or {}
+            check("ingest_status surfaces a real progress sidecar's stage", prog.get("stage") == "ocr")
+            check("ingest_status surfaces the live 'current' doc/page detail",
+                  (prog.get("current") or {}).get("doc") == "TM-TEST.pdf" and (prog.get("current") or {}).get("page") == 3)
+            check("ingest_status surfaces done/total counts", prog.get("done") == 7 and prog.get("total") == 20)
+        finally:
+            try: os.unlink(prog_path)
+            except OSError: pass
 
         # =====================================================================================
         # POST /api/airgap_manifest -- real signed manifest for a real folder + fence enforcement
@@ -330,6 +396,75 @@ def main():
                 print("SKIP form_2404/2407 filled-payload text checks (PyMuPDF not installed)")
         else:
             print("SKIP form_2404/2407 filled-payload text checks (reportlab not installed)")
+
+        # =====================================================================================
+        # End-to-end progress stamping: viewer_ingest.py's crawl() -> ocr() -> extract_parts()
+        # each stamp ingest_progress.json as they actually run, against a REAL tiny PDF corpus --
+        # not mocked. Deliberately engine-independent: ocr()'s _write_progress() call sits inside
+        # handle(), which runs on BOTH the success and failure path (see viewer_ingest.py's OCR-
+        # engine-failure fix earlier this session), so this holds whether or not tesseract/RapidOCR
+        # is actually installed here -- unlike test_barcode_wiring.py's pipeline sections, nothing
+        # here needs OCR to actually SUCCEED, only to actually RUN and reach handle() either way.
+        # =====================================================================================
+        try:
+            import pymupdf as _fitz2
+        except Exception:
+            _fitz2 = None
+        if _fitz2 is None:
+            print("SKIP ingest_progress.json e2e stamping checks (PyMuPDF not installed)")
+        else:
+            import viewer_ingest as _VI
+            e2e_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_")
+            e2e_db = os.path.join(e2e_dir, "viewer.db")
+            e2e_con = _VI.connect(e2e_db)
+            _VI.migrate(e2e_con, os.path.join(ENGINE, "migrations"), db_path=e2e_db)
+            corpus_dir = os.path.join(e2e_dir, "corpus"); os.makedirs(corpus_dir)
+            prog_e2e_path = os.path.join(e2e_dir, "ingest_progress.json")
+
+            # a text-layer page (indexed directly by crawl(), never queued for OCR) + an image-only
+            # page (queued -- exercises the 'ocr' stage regardless of whether OCR actually succeeds).
+            doc1 = _fitz2.open(); p1 = doc1.new_page(width=612, height=792)
+            p1.insert_text((72, 72), "REAL TEXT LAYER PAGE FOR PROGRESS E2E TEST")
+            doc1.save(os.path.join(corpus_dir, "TEXT-DOC.pdf")); doc1.close()
+
+            doc2 = _fitz2.open(); p2 = doc2.new_page(width=612, height=792)
+            # a filled black rectangle -- no text layer, dense enough to clear index_pdf()'s
+            # blank-page skip so it genuinely gets queued for OCR (same shape test_barcode_wiring.py's
+            # fixtures use, minus the barcode).
+            p2.draw_rect(_fitz2.Rect(50, 50, 550, 740), color=(0, 0, 0), fill=(0, 0, 0))
+            doc2.save(os.path.join(corpus_dir, "SCAN-DOC.pdf")); doc2.close()
+
+            _VI.crawl(e2e_con, corpus_dir)
+            e2e_con.commit()
+            check("e2e crawl: text-layer page indexed directly (0 queued from it)",
+                  e2e_con.execute("SELECT char_count FROM pages p JOIN documents d ON d.id=p.document_id "
+                                  "WHERE d.path LIKE ?", ("%TEXT-DOC.pdf",)).fetchone()[0] > 0)
+            queued = e2e_con.execute("SELECT COUNT(*) FROM pages WHERE ocr_status='pending'").fetchone()[0]
+            check("e2e crawl: the image-only page was queued for OCR", queued == 1)
+            with open(prog_e2e_path) as f:
+                prog_after_crawl = json.load(f)
+            check("e2e crawl stamped stage='crawl' in ingest_progress.json", prog_after_crawl.get("stage") == "crawl")
+            check("e2e crawl stamped a real 'current' filename (not left over from init)",
+                  isinstance(prog_after_crawl.get("current"), str) and prog_after_crawl["current"].endswith(".pdf"))
+
+            remaining = _VI.ocr(e2e_con, 10, workers=1)
+            with open(prog_e2e_path) as f:
+                prog_after_ocr = json.load(f)
+            check("e2e ocr stamped stage='ocr'", prog_after_ocr.get("stage") == "ocr")
+            check("e2e ocr stamped total=1 (one page was queued)", prog_after_ocr.get("total") == 1)
+            check("e2e ocr stamped done+fail covering the one queued page",
+                  (prog_after_ocr.get("done") or 0) + (prog_after_ocr.get("fail") or 0) == 1)
+            cur = prog_after_ocr.get("current") or {}
+            check("e2e ocr stamped the real 'current' doc/page it just processed",
+                  cur.get("doc") == "SCAN-DOC.pdf" and cur.get("page") == 1)
+            check("e2e ocr: no pages left pending regardless of OCR success/failure (each got a terminal status)",
+                  remaining == 0)
+
+            _VI.extract_parts(e2e_con)
+            with open(prog_e2e_path) as f:
+                prog_after_parts = json.load(f)
+            check("e2e extract_parts stamped stage='parts'", prog_after_parts.get("stage") == "parts")
+            e2e_con.close()
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

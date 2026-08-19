@@ -339,7 +339,8 @@ from features.procedures_feature import (                         # noqa: E402,F
 from features.render_feature import (                             # noqa: E402,F401
     _clean_png, _poppler_png, _which, _get_doc, _clip_rect_for, render_page_png,
     cached_page_render, _warm_adjacent, page_words, _locate_box, _digits, page_callouts)
-from features.ingest_feature import ingest_preview, ingest_start, ingest_status   # noqa: E402,F401
+from features.ingest_feature import (                             # noqa: E402,F401
+    ingest_preview, ingest_start, ingest_status, ocr_backlog_start, ocr_pending_count)
 from features.sessions_feature import recent_sessions, save_request               # noqa: E402,F401
 
 # ---- the earlier extractions (unchanged): DI exactly as before ----------------------------------

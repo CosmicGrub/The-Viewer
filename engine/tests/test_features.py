@@ -202,7 +202,7 @@ finally:
     _subprocess_mod.Popen = _real_popen
     if _real_sg_mod is not None: sys.modules["safeguard"] = _real_sg_mod
     else: sys.modules.pop("safeguard", None)
-    _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0}   # reset for any later use in-process
+    _ingest_mod._INGEST = {"proc": None, "path": "", "started": 0.0, "kind": None}   # reset for any later use in-process
 
 # --- RPS mode (via the rps module) ---
 try:

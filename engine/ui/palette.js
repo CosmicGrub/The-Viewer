@@ -57,7 +57,7 @@
     {ic:"🏷",label:"Smart Collections",hint:"living groups that auto-fill from OCR",url:"/collections"},
     {ic:"🔖",label:"Keywords & synonyms",hint:"teach the search your slang, nicknames & abbreviations",url:"/keywords"},
     {ic:"🕸",label:"Knowledge graph",hint:"everything one hop from a part, figure, vehicle, procedure, or spec",url:"/kg"},
-    {ic:"➕",label:"Add documents",hint:"index new TMs / PDFs",url:"/ingest"},
+    {ic:"➕",label:"Add documents",hint:"scan, index & OCR new TMs / PDFs",url:"/ingest"},
     {ic:"📊",label:"Ops dashboard",hint:"health · cache · runs · audit",url:"/ops"},
     {ic:"🛰",label:"Command center",hint:"are-we-complete: OCR% · coverage · PUBLOG · gaps",url:"/command"},
     {ic:"✅",label:"Verification cockpit",hint:"proof state: tests · last verify · sidecars",url:"/verify"},

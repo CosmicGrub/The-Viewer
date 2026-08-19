@@ -153,19 +153,23 @@ def ingest_upload(filename, data_b64):
     data_b64 may be a bare base64 string or a full data: URI (`data:application/pdf;base64,...`) --
     same shape features/routes/search.py's r_visualmatch() already accepts for an image upload;
     mirrored here rather than inventing a second convention."""
-    # Discovery Engine phase 1: viewer_ingest.py's index_other() now genuinely extracts images/
-    # .txt/.html (queued for OCR, read directly, and tag-stripped respectively -- see its own
-    # docstring); upload accepts the same set for consistency -- there's no reason drag-and-drop
-    # should support less than a folder-path scan already does. Genuine Office formats (.docx/.xlsx/
-    # etc.) stay unsupported here too, matching that same scope decision.
+    # Discovery Engine: viewer_ingest.py's index_other() genuinely extracts images/.txt/.html
+    # (queued for OCR, read directly, and tag-stripped respectively) and, as of the OFFICE_SCAN
+    # phase, .docx/.xlsx/.pptx/.rtf too (office.py) -- upload accepts the same set for consistency,
+    # there's no reason drag-and-drop should support less than a folder-path scan already does.
+    # .doc/.xls/.ppt (pre-2007 binary Office formats) stay unsupported here too, matching
+    # index_other()'s own scope decision (no good dependency-light reader exists for them).
     _IMAGE_UPLOAD_EXTS = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif")
     _TEXT_UPLOAD_EXTS = (".txt", ".htm", ".html")
+    _OOXML_UPLOAD_EXTS = (".docx", ".xlsx", ".pptx")
+    _RTF_UPLOAD_EXTS = (".rtf",)
     name = os.path.basename((filename or "").strip().replace("\\", "/"))
     if not name:
         return {"ok": False, "error": "filename required"}
     ext = os.path.splitext(name)[1].lower()
-    if ext not in (".pdf",) + _IMAGE_UPLOAD_EXTS + _TEXT_UPLOAD_EXTS:
-        return {"ok": False, "error": "unsupported file type -- PDF, image (jpg/png/tif/bmp/gif), .txt, or .html only"}
+    if ext not in (".pdf",) + _IMAGE_UPLOAD_EXTS + _TEXT_UPLOAD_EXTS + _OOXML_UPLOAD_EXTS + _RTF_UPLOAD_EXTS:
+        return {"ok": False, "error": "unsupported file type -- PDF, image (jpg/png/tif/bmp/gif), "
+                                       ".txt, .html, .docx, .xlsx, .pptx, or .rtf only"}
     data_b64 = data_b64 or ""
     if "," in data_b64:
         data_b64 = data_b64.split(",", 1)[1]           # strip a data:...;base64, prefix, if present
@@ -190,6 +194,14 @@ def ingest_upload(filename, data_b64):
             Image.open(io.BytesIO(raw)).verify()
         except Exception:
             return {"ok": False, "error": "not a valid image file"}
+    elif ext in _OOXML_UPLOAD_EXTS:
+        # .docx/.xlsx/.pptx are all ZIP-based OOXML containers -- the ZIP local-file-header magic
+        # (PK\x03\x04) is the same cheap, real content check the PDF/image branches already get.
+        if raw[:2] != b"PK":
+            return {"ok": False, "error": "not a valid Office document (missing the ZIP/OOXML header)"}
+    elif ext in _RTF_UPLOAD_EXTS:
+        if raw.lstrip()[:5] != b"{\\rtf":
+            return {"ok": False, "error": "not a valid RTF file (missing the {\\rtf header)"}
     # .txt/.html: no meaningful magic-byte signature exists for plain text -- accepted as-is,
     # matching index_other()'s own tolerant errors="ignore" read.
     updir = _uploads_dir()

@@ -105,8 +105,8 @@ def run():
     real_envs = {t["env"] for t in real}
     expected = {"VIEWER_OCR_PREPROCESS", "VIEWER_BARCODE_SCAN", "VIEWER_MEASURES_SCAN",
                 "VIEWER_SCHEMATIC_SCAN", "VIEWER_TABLES_SCAN", "VIEWER_RPSTL_SCAN",
-                "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN"}
-    check("viewer_ingest.py import registers all 8 real extraction toggles", expected <= real_envs)
+                "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN", "VIEWER_OFFICE_SCAN"}
+    check("viewer_ingest.py import registers all 9 real extraction toggles", expected <= real_envs)
     # live-lookback against the REAL module, not a fake namespace this time
     orig = VI.RPSTL_SCAN
     try:

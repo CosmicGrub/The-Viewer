@@ -156,9 +156,10 @@ you deliberately expose the server on a LAN.
 
 Every scan (`crawl`/`ocr`/`run`) runs a fixed sequence of extraction stages on top of the base
 text/OCR pass — barcode decode, dimensional-data extraction, schematic detection, table extraction,
-RPSTL parts-list rows, header/footer boilerplate stripping, and (from `enrich`) a keywords.json
-refresh. Each has its own opt-out toggle, all following the same convention as `VIEWER_OCR_PREPROCESS`
-above (unset or anything but `"0"` → the stage runs; `"0"` → it's skipped), all default **on**:
+RPSTL parts-list rows, header/footer boilerplate stripping, Office document text extraction, and
+(from `enrich`) a keywords.json refresh. Each has its own opt-out toggle, all following the same
+convention as `VIEWER_OCR_PREPROCESS` above (unset or anything but `"0"` → the stage runs; `"0"` →
+it's skipped), all default **on**:
 
 - **`VIEWER_BARCODE_SCAN`** — machine-decoded barcode/QR read (`barcodes.py`) on the same page
   render OCR already produced. Cheap regardless — a no-op add-on when neither backend (pyzbar/
@@ -180,6 +181,18 @@ above (unset or anything but `"0"` → the stage runs; `"0"` → it's skipped), 
 - **`VIEWER_KEYWORDS_SCAN`** — refreshes `keywords.json` (`build_keywords.py`'s colloquial-name
   merge) right after the `enrich` subcommand's `enrich_flis()` populates the "Also called: X" data
   it depends on. Only runs from `enrich`, not every `crawl`/`ocr`/`run`.
+- **`VIEWER_OFFICE_SCAN`** — Office document text extraction (`office.py`): `.docx`/`.xlsx`/`.pptx`
+  paragraph/cell/slide text, plus a dependency-free `.rtf` stripper. One page per `.docx` (Word has
+  no native page concept) and per `.rtf`, one page **per sheet** for `.xlsx` and **per slide** for
+  `.pptx` (both have a real page boundary). `.docx`/`.xlsx`/`.pptx` are ALSO gated on the modern-OS
+  tier (`sysprobe.py`'s `modern_os`, Win10/11 — the same signal GPU OCR and `camelot_tables()`'s
+  backend selection already use): `python-docx` 1.x needs Python 3.9+, ruling it out even on this
+  app's documented Win7/Python-3.8 floor, so Office parsing is an ADDITIVE modern-tier extra, never
+  a requirement — on the legacy tier, or with `VIEWER_OFFICE_SCAN=0`, these formats are still
+  *discovered* exactly as before (`classify_ext()` already recognizes them), just 0 extracted
+  pages. `.rtf` has no such gate (nothing new to import). `.doc`/`.xls`/`.ppt` (pre-2007 binary
+  Office formats) remain unsupported on every tier — `python-docx`/`openpyxl`/`python-pptx` only
+  read the modern XML-based formats, and no good dependency-light reader exists for the legacy ones.
 
 Check what's actually active right now (env vars resolved in the current process, no DB needed):
 

@@ -16,6 +16,14 @@ opencv-python>=4.8,<6   # vectorize, dimension-line scan, symbol detect, barcode
 pytesseract>=0.3.10    # figure callout-number OCR  (ALSO needs the Tesseract program: see INSTALL.bat note)
 pdfplumber>=0.11       # borderless / cross-page table recovery (catalog §2.2/2.3)
 segno>=1.5             # offline QR codes on the job packet / part pages (pure-python, no other deps) -> /api/qr
+# .docx/.xlsx/.pptx text extraction (engine/office.py) -- gated to the modern OS tier (Win10/11, the
+# SAME sysprobe.py signal that already picks GPU OCR / camelot's backend), not just installed-or-not:
+# python-docx 1.x needs Python 3.9+, ruling it out even on this app's documented Win7 floor (Python
+# 3.8) -- .doc/.docx/.xls/.xlsx/.ppt/.pptx documents are still DISCOVERED on every OS regardless
+# (classify_ext() already recognizes them); this only controls whether their text gets extracted.
+python-docx>=1.0,<2     # .docx paragraph + table text
+openpyxl>=3.1,<4        # .xlsx cell text, one page per sheet
+python-pptx>=0.6,<2     # .pptx slide + table text, one page per slide
 
 # ---- OPTIONAL (heavy / GPU / niche — install only if you need them; see INSTALL.bat) --------------
 # easyocr                 # GPU OCR pipeline for scanned pages (pulls in torch — large; matches your RTX 4050)

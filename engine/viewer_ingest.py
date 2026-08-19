@@ -108,6 +108,15 @@ KEYWORDS_SCAN = flags.scan_toggle("VIEWER_KEYWORDS_SCAN", "keywords",
     "keywords.json refresh (build_keywords.py) right after enrich_flis() populates the colloquial "
     "names it merges in. Only runs from the `enrich` subcommand, not every crawl/ocr/run.",
     attr="KEYWORDS_SCAN", ns=globals())
+# Office document text extraction (office.py: .docx/.xlsx/.pptx paragraph/cell/slide text +
+# dependency-free .rtf) -- one user-facing switch for "scan Office documents", even though
+# internally .docx/.xlsx/.pptx are ALSO gated on office.py's own modern-OS-tier check (python-docx
+# needs Python 3.9+, ruling it out even on this app's Win7 floor) while .rtf has no such gate.
+# Off, all four degrade to the same 'discovered, 0 pages' state .doc/.xls/.ppt already have.
+OFFICE_SCAN = flags.scan_toggle("VIEWER_OFFICE_SCAN", "office",
+    "Office document text extraction (office.py): .docx/.xlsx/.pptx (modern-OS-tier-gated) + "
+    "dependency-free .rtf. .doc/.xls/.ppt remain unsupported regardless.",
+    attr="OFFICE_SCAN", ns=globals())
 
 OCR_CHAR_THRESHOLD = 15
 NSN_RE = re.compile(r"\b\d{4}-\d{2}-\d{3}-\d{4}\b")
@@ -494,16 +503,22 @@ def index_pdf(con, doc_id, path):
 # recognized 'image' and 'office' documents (crawl() has always been ABLE to tell a .jpg from a
 # .docx), but crawl()'s dispatch did nothing with either: any non-PDF document was just marked
 # status='indexed' with zero pages, discovered but never actually read -- confirmed by grep, there
-# was no code path at all. This closes that gap for the formats reachable without adding new
-# dependencies (images, plain text, HTML); genuine Office-format parsing (.doc/.docx/.ppt/.pptx/
-# .xls/.xlsx/.rtf) needs new libraries (python-docx/openpyxl/python-pptx) this pass deliberately
-# doesn't add -- those documents are still discovered exactly as before, just still zero pages.
+# was no code path at all. Phase 1 closed this for the formats reachable without new dependencies
+# (images, plain text, HTML). Phase 2 (below, OFFICE_SCAN) adds real .docx/.xlsx/.pptx/.rtf parsing
+# (engine/office.py) -- .doc/.xls/.ppt (pre-2007 binary Office formats) remain discovered-not-
+# extracted, same as before, since no good dependency-light reader exists for them (see office.py's
+# own module docstring).
 _IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif")
 # .svg/.svgz deliberately excluded: vector MARKUP, not a raster photo -- PyMuPDF can't page-render
 # arbitrary SVG the way it can a raster image or PDF, and "parse SVG content" is a different problem
 # (structured markup, not pixels to OCR) than every other format handled here.
 _TEXT_EXTS = (".txt",)
 _HTML_EXTS = (".htm", ".html")
+_DOCX_EXTS = (".docx",)
+_XLSX_EXTS = (".xlsx",)
+_PPTX_EXTS = (".pptx",)
+_RTF_EXTS = (".rtf",)
+_OFFICE_EXTS = _DOCX_EXTS + _XLSX_EXTS + _PPTX_EXTS + _RTF_EXTS
 _HTML_TAG_RE = re.compile(r"<script\b.*?</script>|<style\b.*?</style>|<[^>]+>", re.I | re.S)
 _HTML_ENTITY_RE = re.compile(r"&(amp|lt|gt|quot|#39|nbsp);")
 _HTML_ENTITY_MAP = {"amp": "&", "lt": "<", "gt": ">", "quot": '"', "#39": "'", "nbsp": " "}
@@ -517,8 +532,33 @@ def _strip_html(raw):
     text = _HTML_ENTITY_RE.sub(lambda m: _HTML_ENTITY_MAP.get(m.group(1), m.group(0)), text)
     return re.sub(r"[ \t]+", " ", text).strip()
 
+def _insert_text_pages(con, doc_id, page_texts):
+    """Insert N pre-extracted text pages (each already a plain string -- office.py's docx/xlsx/pptx/
+    rtf extractors, or the .txt/.html path above) and tally dimensional extraction on each, the same
+    bookkeeping index_pdf()'s text-layer branch already does. Every page here is 'indexed'
+    immediately (text pulled straight out of a structured document never needs OCR), so queued is
+    always 0 -- same (indexed, queued) contract every other indexer in this file returns. An empty
+    `page_texts` list (extraction failed, or the format's library is unavailable) correctly inserts
+    nothing and returns (0, 0), leaving the document at page_count=0 -- 'discovered, not extracted',
+    same degrade shape .doc/.xls/.ppt already have."""
+    indexed = 0
+    meas_con = _open_meas_db(_db_dir(con)) if _EXTRACT_TALLY else None
+    try:
+        for i, txt in enumerate(page_texts, start=1):
+            body = (txt or "").strip()
+            con.execute("INSERT INTO pages(document_id,page_number,body_text,char_count,source,ocr_status) "
+                        "VALUES(?,?,?,?, 'text','none')", (doc_id, i, body, len(body)))
+            indexed += 1
+            if body and _EXTRACT_TALLY:
+                _EXTRACT_TALLY["dimensions"] += _extract_measures_for_page(meas_con, doc_id, i, body)
+    finally:
+        if meas_con:
+            try: meas_con.close()
+            except Exception: pass
+    return indexed, 0
+
 def index_other(con, doc_id, path):
-    """Non-PDF content extraction for the formats reachable without new dependencies:
+    """Non-PDF content extraction:
       image (.jpg/.png/.tif/...) -- queued for OCR exactly like a scanned PDF page. PyMuPDF opens a
         raw image file as a 1-page document (verified: fitz.open('photo.png').page_count == 1,
         get_pixmap() renders it identically to a real page) -- so _render_png()/ocr_one() need ZERO
@@ -527,7 +567,13 @@ def index_other(con, doc_id, path):
         row exists with ocr_status='pending'.
       .txt -- read directly as the page's body_text, no OCR needed.
       .htm/.html -- stdlib-only tag-stripped to plain text (_strip_html() above), no OCR needed.
-      anything else 'office'-classified (.doc/.docx/.ppt/.pptx/.xls/.xlsx/.rtf) -- discovered, not
+      .docx/.xlsx/.pptx/.rtf (OFFICE_SCAN, default on) -- real text extraction via office.py: one
+        page for .docx (Word has no native page concept) and .rtf, one page PER SHEET for .xlsx and
+        PER SLIDE for .pptx (both have a real, natural page boundary). .docx/.xlsx/.pptx are
+        modern-OS-tier-gated (office.py's own _modern_tier(), same signal GPU OCR / camelot's
+        backend selection already use) -- OFF, they degrade to the SAME 'discovered, 0 pages' state
+        as when OFFICE_SCAN itself is off; .rtf has no such gate (dependency-free stdlib stripper).
+      anything else 'office'-classified (.doc/.ppt/.xls, or OFFICE_SCAN=0) -- discovered, not
         extracted (see module comment above).
     Returns (indexed, queued), same contract index_pdf() already has, so crawl()'s pi/q tallies and
     every caller that unpacks that pair stay correct for these document types too."""
@@ -556,7 +602,31 @@ def index_other(con, doc_id, path):
                 finally:
                     meas_con.close()
         return (1, 0) if body else (0, 0)
-    con.execute("UPDATE documents SET status='indexed' WHERE id=?", (doc_id,))   # unsupported -- unchanged from before this function existed
+    if ext in _OFFICE_EXTS and OFFICE_SCAN:
+        try:
+            import office
+        except Exception:
+            office = None
+        page_texts = []; dtype = "office"
+        if office is not None:
+            try:
+                if ext in _DOCX_EXTS:
+                    dtype = "docx"; body = office.extract_docx(path)
+                    page_texts = [body] if body else []
+                elif ext in _XLSX_EXTS:
+                    dtype = "xlsx"; page_texts = [t for _name, t in office.extract_xlsx(path)]
+                elif ext in _PPTX_EXTS:
+                    dtype = "pptx"; page_texts = [t for _n, t in office.extract_pptx(path)]
+                elif ext in _RTF_EXTS:
+                    dtype = "rtf"; body = office.extract_rtf(path)
+                    page_texts = [body] if body else []
+            except Exception:
+                page_texts = []
+        indexed, queued = _insert_text_pages(con, doc_id, page_texts)
+        con.execute("UPDATE documents SET page_count=?, type=?, status='indexed' WHERE id=?",
+                    (indexed, dtype, doc_id))
+        return indexed, queued
+    con.execute("UPDATE documents SET status='indexed' WHERE id=?", (doc_id,))   # unsupported (or OFFICE_SCAN off) -- unchanged from before this function existed
     return 0, 0
 
 def _track_crawled_doc(con, doc_id):

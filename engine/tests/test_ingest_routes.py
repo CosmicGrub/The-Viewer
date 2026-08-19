@@ -266,13 +266,13 @@ def main():
             _popen_before = len(_popen_calls)
             import base64 as _b64
 
-            # Discovery Engine phase 1: ingest_upload() now accepts images/.txt/.html too, matching
-            # viewer_ingest.py's index_other() -- an unsupported extension (.docx: genuine Office-
-            # format parsing needs new dependencies, deliberately out of scope) is the real rejection
-            # case now, not .txt (which IS a supported format as of this same change).
-            c, b = _req("/api/ingest_upload", {"filename": "manual.docx", "data": _b64.b64encode(b"hi").decode()})
+            # Discovery Engine: ingest_upload() now accepts images/.txt/.html/.docx/.xlsx/.pptx/.rtf,
+            # matching viewer_ingest.py's index_other() -- .doc (the legacy PRE-2007 binary Word
+            # format) is the real still-unsupported case now (no good dependency-light reader exists
+            # for it; see engine/office.py's own module docstring), not .docx.
+            c, b = _req("/api/ingest_upload", {"filename": "manual.doc", "data": _b64.b64encode(b"hi").decode()})
             r = _json(b)
-            check("ingest_upload rejects an unsupported extension (.docx)", c == 200 and r.get("ok") is False
+            check("ingest_upload rejects an unsupported extension (.doc, legacy binary)", c == 200 and r.get("ok") is False
                   and "unsupported" in (r.get("error") or "").lower())
             check("ingest_upload unsupported ext: no subprocess launched", len(_popen_calls) == _popen_before)
 
@@ -822,8 +822,8 @@ def main():
                     f.write("Gasket length 3.0 in, diameter .750 in.")
                 with open(os.path.join(corpus4_dir, "export.html"), "w") as f:
                     f.write("<html><body><h1>Torque Table</h1><p>Bolt torque 45 ft-lb <b>required</b>.</p></body></html>")
-                with open(os.path.join(corpus4_dir, "manual.docx"), "wb") as f:
-                    f.write(b"PK\x03\x04 fake docx bytes -- unsupported, must not crash the crawl")
+                with open(os.path.join(corpus4_dir, "manual.doc"), "wb") as f:
+                    f.write(b"\xd0\xcf\x11\xe0 fake legacy-binary-Word bytes -- unsupported, must not crash the crawl")
 
                 # a real ruled-line table (tables.py needs actual grid geometry, not just text --
                 # confirmed live: a plain textbox never triggers PyMuPDF's find_tables()).
@@ -847,8 +847,8 @@ def main():
                       doc_rows.get("notes.txt") == ("text", 1, "indexed"))
                 check("e2e formats: .html tag-stripped + indexed immediately",
                       doc_rows.get("export.html") == ("html", 1, "indexed"))
-                check("e2e formats: unsupported .docx discovered but not crashed, 0 pages (same as before this feature)",
-                      doc_rows.get("manual.docx") == ("office", 0, "indexed"))
+                check("e2e formats: unsupported .doc (legacy binary) discovered but not crashed, 0 pages",
+                      doc_rows.get("manual.doc") == ("office", 0, "indexed"))
 
                 txt_body = e2e4_con.execute(
                     "SELECT body_text FROM pages p JOIN documents d ON d.id=p.document_id WHERE d.path LIKE ?",
@@ -996,13 +996,13 @@ def main():
                 [sys.executable, os.path.join(ENGINE, "viewer_ingest.py"), "flags"],
                 capture_output=True, text=True, timeout=30)
             check("`viewer_ingest.py flags` exits 0", flags_proc.returncode == 0)
-            check("`viewer_ingest.py flags` lists all 8 real toggles by env var name", all(
+            check("`viewer_ingest.py flags` lists all 9 real toggles by env var name", all(
                 e in flags_proc.stdout for e in (
                     "VIEWER_OCR_PREPROCESS", "VIEWER_BARCODE_SCAN", "VIEWER_MEASURES_SCAN",
                     "VIEWER_SCHEMATIC_SCAN", "VIEWER_TABLES_SCAN", "VIEWER_RPSTL_SCAN",
-                    "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN")))
-            check("`viewer_ingest.py flags` reports all 8 active by default (no env override)",
-                  "8 of 8 toggles active" in flags_proc.stdout)
+                    "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN", "VIEWER_OFFICE_SCAN")))
+            check("`viewer_ingest.py flags` reports all 9 active by default (no env override)",
+                  "9 of 9 toggles active" in flags_proc.stdout)
 
             # --- keywords: enrich_flis() populating a real 'Also called:' colloquial name must
             # trigger build_keywords.run() -- monkeypatched to a recording stub so this NEVER writes
@@ -1058,6 +1058,146 @@ def main():
                 _bk.run = _orig_bk_run
 
             e2e5_con.close()
+
+            # =================================================================================
+            # A SIXTH e2e run: Office document text extraction (office.py -- .docx/.xlsx/.pptx/
+            # .rtf), a deferred item picked up alongside the flags audit, tier-gated to the modern
+            # OS signal per explicit user direction (avoid Vista/legacy incompatibilities).
+            # =================================================================================
+            try:
+                import docx as _have_docx_mod
+                import openpyxl as _have_xlsx_mod
+                import pptx as _have_pptx_mod
+                _have_office_libs = True
+            except Exception:
+                _have_office_libs = False
+            if not _have_office_libs:
+                print("SKIP Office-format e2e checks (python-docx/openpyxl/python-pptx not installed)")
+            else:
+                e2e6_dir = tempfile.mkdtemp(prefix="ingest_progress_e2e_office_")
+                e2e6_db = os.path.join(e2e6_dir, "viewer.db")
+                e2e6_con = _VI.connect(e2e6_db)
+                _VI.migrate(e2e6_con, os.path.join(ENGINE, "migrations"), db_path=e2e6_db)
+                corpus6_dir = os.path.join(e2e6_dir, "corpus"); os.makedirs(corpus6_dir)
+
+                docx_doc = _have_docx_mod.Document()
+                docx_doc.add_paragraph("Torque the alternator bracket bolt to 45 ft-lb.")
+                docx_doc.add_paragraph("NSN 5305-01-123-4567 SCREW,MACHINE")
+                docx_doc.save(os.path.join(corpus6_dir, "notes.docx"))
+
+                wb = _have_xlsx_mod.Workbook()
+                ws1 = wb.active; ws1.title = "Specs"
+                ws1["A1"] = "Overall length"; ws1["B1"] = "180 in"
+                wb.create_sheet("Torque")["A1"] = "45 ft-lb"
+                wb.save(os.path.join(corpus6_dir, "specs.xlsx"))
+
+                pr = _have_pptx_mod.Presentation()
+                s1 = pr.slides.add_slide(pr.slide_layouts[1])
+                s1.shapes.title.text = "Bolt Torque"
+                s1.placeholders[1].text = "NSN 5305-01-123-4567 SCREW,MACHINE"
+                pr.save(os.path.join(corpus6_dir, "deck.pptx"))
+
+                with open(os.path.join(corpus6_dir, "memo.rtf"), "w", encoding="latin-1") as f:
+                    f.write(r"{\rtf1\ansi{\fonttbl{\f0 Arial;}}\f0 Fording depth 30 in required.\par }")
+
+                _VI._tally_reset()
+                _VI.crawl(e2e6_con, corpus6_dir)
+                e2e6_con.commit()
+
+                doc6_rows = {os.path.basename(p): (t, pc, st) for p, t, pc, st in
+                            e2e6_con.execute("SELECT path, type, page_count, status FROM documents")}
+                check("e2e office: .docx classified + 1 page extracted", doc6_rows.get("notes.docx") == ("docx", 1, "indexed"))
+                check("e2e office: .xlsx classified + 2 pages (one per sheet)", doc6_rows.get("specs.xlsx") == ("xlsx", 2, "indexed"))
+                check("e2e office: .pptx classified + 1 page (one per slide)", doc6_rows.get("deck.pptx") == ("pptx", 1, "indexed"))
+                check("e2e office: .rtf classified + 1 page (dependency-free, no tier gate)", doc6_rows.get("memo.rtf") == ("rtf", 1, "indexed"))
+
+                docx_id = e2e6_con.execute("SELECT id FROM documents WHERE path LIKE ?", ("%notes.docx",)).fetchone()[0]
+                docx_body = e2e6_con.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=1", (docx_id,)).fetchone()[0]
+                check("e2e office: .docx body_text is the real paragraph content", "Torque the alternator bracket bolt" in docx_body)
+
+                xlsx_id = e2e6_con.execute("SELECT id FROM documents WHERE path LIKE ?", ("%specs.xlsx",)).fetchone()[0]
+                xlsx_pages = e2e6_con.execute("SELECT page_number, body_text FROM pages WHERE document_id=? ORDER BY page_number", (xlsx_id,)).fetchall()
+                check("e2e office: .xlsx sheet 1 body_text has the real cell content", "180 in" in xlsx_pages[0][1])
+                check("e2e office: .xlsx sheet 2 is a genuinely separate page", "45 ft-lb" in xlsx_pages[1][1] and "45 ft-lb" not in xlsx_pages[0][1])
+
+                meas6 = sqlite3.connect(os.path.join(e2e6_dir, "measures.db")).execute(
+                    "SELECT type, value FROM meas").fetchall()
+                check("e2e office: dimensional extraction ran on Office-extracted text too "
+                      "(docx torque, xlsx length+torque, rtf length)",
+                      ("torque", "45") in meas6 and ("length", "180") in meas6 and ("length", "30") in meas6)
+
+                # toggle off -> discovered, 0 pages, same degrade shape .doc/.xls/.ppt already have
+                e2e6b_db = os.path.join(e2e6_dir, "viewer_off.db")
+                e2e6b_con = _VI.connect(e2e6b_db)
+                _VI.migrate(e2e6b_con, os.path.join(ENGINE, "migrations"), db_path=e2e6b_db)
+                _VI.OFFICE_SCAN = False
+                try:
+                    _VI._tally_reset()
+                    _VI.crawl(e2e6b_con, corpus6_dir)
+                    e2e6b_con.commit()
+                    off_row = e2e6b_con.execute("SELECT type, page_count, status FROM documents WHERE path LIKE ?",
+                                                ("%notes.docx",)).fetchone()
+                    check("e2e office: OFFICE_SCAN=False -> discovered, 0 pages (same shape as .doc/.xls/.ppt)",
+                          off_row == ("office", 0, "indexed"))
+                finally:
+                    _VI.OFFICE_SCAN = True
+                    e2e6b_con.close()
+
+                # unsupported legacy binary formats (.doc/.xls/.ppt) still just discover, 0 pages, no crash
+                with open(os.path.join(corpus6_dir, "legacy.doc"), "wb") as f:
+                    f.write(b"\xd0\xcf\x11\xe0 fake legacy binary doc -- must not crash the crawl")
+                _VI._tally_reset()
+                _VI.crawl(e2e6_con, corpus6_dir)
+                e2e6_con.commit()
+                doc_row = e2e6_con.execute("SELECT type, page_count, status FROM documents WHERE path LIKE ?",
+                                           ("%legacy.doc",)).fetchone()
+                check("e2e office: .doc (legacy binary) still unsupported, discovered, 0 pages, no crash",
+                      doc_row == ("office", 0, "indexed"))
+
+                e2e6_con.close()
+
+                # ingest_upload() must accept the same 4 formats, with real content validation
+                # (ZIP/OOXML magic for docx/xlsx/pptx, {\rtf header for rtf). Self-contained imports
+                # here rather than relying on _if/_b64u from the e2e4 section above, which are only
+                # bound if PIL happened to be installed when that section ran. Popen/safeguard
+                # mocked (reusing the fakes from the POST /api/ingest section above) -- two REAL,
+                # unmocked launches back-to-back (the accepted .docx, then the accepted .rtf) would
+                # otherwise collide with ingest_feature.py's own single-job-at-a-time lock
+                # (_INGEST["proc"].poll() is None), rejecting the second as "already in progress"
+                # for a reason that has nothing to do with the content validation under test here.
+                import features.ingest_feature as _if6
+                import base64 as _b64u
+                _orig_core_if6 = _if6.core
+                class _FakeCoreForOffice:
+                    DB_PATH = e2e6_db
+                _if6.core = _FakeCoreForOffice
+                _subprocess_mod.Popen = _fake_popen
+                sys.modules["safeguard"] = _FakeSafeguard()
+                try:
+                    real_docx_bytes = open(os.path.join(corpus6_dir, "notes.docx"), "rb").read()
+                    r_docx = _if6.ingest_upload("upload.docx", _b64u.b64encode(real_docx_bytes).decode())
+                    check("ingest_upload() accepts a real .docx (valid ZIP/OOXML header)", r_docx.get("ok") is True)
+
+                    r_bad_docx = _if6.ingest_upload("fake.docx", _b64u.b64encode(b"not a real docx").decode())
+                    check("ingest_upload() rejects .docx bytes that aren't a real ZIP/OOXML container",
+                          r_bad_docx.get("ok") is False)
+
+                    real_rtf_bytes = open(os.path.join(corpus6_dir, "memo.rtf"), "rb").read()
+                    r_rtf = _if6.ingest_upload("upload.rtf", _b64u.b64encode(real_rtf_bytes).decode())
+                    check("ingest_upload() accepts a real .rtf (valid {\\rtf header)", r_rtf.get("ok") is True)
+
+                    r_bad_rtf = _if6.ingest_upload("fake.rtf", _b64u.b64encode(b"not rtf at all").decode())
+                    check("ingest_upload() rejects .rtf bytes missing the {\\rtf header",
+                          r_bad_rtf.get("ok") is False)
+
+                    r_legacy_doc = _if6.ingest_upload("old.doc", _b64u.b64encode(b"\xd0\xcf\x11\xe0 legacy binary").decode())
+                    check("ingest_upload() still rejects .doc (legacy binary, unsupported extension)",
+                          r_legacy_doc.get("ok") is False)
+                finally:
+                    _if6.core = _orig_core_if6
+                    _subprocess_mod.Popen = _real_popen
+                    if _real_sg_mod is not None: sys.modules["safeguard"] = _real_sg_mod
+                    else: sys.modules.pop("safeguard", None)
     finally:
         if _orig_roots is None: os.environ.pop("VIEWER_INGEST_ROOTS", None)
         else: os.environ["VIEWER_INGEST_ROOTS"] = _orig_roots

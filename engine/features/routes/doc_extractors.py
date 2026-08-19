@@ -140,10 +140,35 @@ def r_acronyms(h, qs):
 
 @get("/api/tables_plus")
 def r_tables_plus(h, qs):
-    # borderless (text-aligned) table extraction for a doc's page (catalog §2.2)
-    import tables_plus, sqlite3
+    # borderless (text-aligned) table extraction for a doc's page (catalog §2.2), or -- with
+    # stitch=1 -- the WHOLE document's borderless tables with cross-page continuations merged
+    # (catalog §2.3, tables_plus.stitch()). Audit finding: stitch() was implemented and unit-tested
+    # from day one, but this route never built the ordered (page, table) list it expects, so a
+    # spec/RPSTL table that legitimately continues onto a following page was always returned as
+    # separate, unmerged per-page fragments. Single-page mode (the default, no stitch= param) is
+    # completely unchanged -- this only ADDS a second mode, existing callers see no difference.
+    import tables_plus
     doc = qint(qs, "doc", 0); page = qint(qs, "page", 0, hi=100000)
     path = core.doc_path(doc)          # v1.13: pooled + leak-free (was raw mode=ro connect closed inside try)
+    if qflag(qs, "stitch"):
+        pairs = []
+        if path:
+            try:
+                prow = core.db().execute("SELECT page_count FROM documents WHERE id=?", (doc,)).fetchone()
+                # a sane per-request ceiling -- a huge/corrupt page_count must never turn one HTTP
+                # request into an unbounded pdfplumber scan (each page is a real, non-trivial parse).
+                total = min(int(prow[0]), 500) if prow and prow[0] else 0
+            except Exception:
+                total = 0
+            for p in range(1, total + 1):
+                try:
+                    for t in tables_plus.borderless_tables(path, p):
+                        pairs.append((p, t))
+                except Exception:
+                    continue
+        stitched = tables_plus.stitch(pairs)
+        h._send(200, {"doc": doc, "available": tables_plus.available(), "tables": stitched, "stitched": True})
+        return
     tbls = []
     if path:
         try: tbls = tables_plus.borderless_tables(path, page)   # v1.13: degrade to empty on a bad page, don't 500

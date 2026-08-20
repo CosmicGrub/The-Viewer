@@ -246,11 +246,17 @@ table.t th{background:var(--p2);color:var(--sub)}
     </section>
 
     <!-- ADD DOCS -->
-    <section class="screen" id="scr-ingest">
+    <section class="screen" id="scr-ingest" style="position:relative">
       <p class="h">Add documents</p><p class="sh">Drop in any new TM/PDF — it’s parsed, OCR’d, and searchable without a sweat.</p>
       <div class="drop" id="i-drop">⬇ Drop PDFs / TMs here, or click to browse<div class="muted" style="font-size:12px;margin-top:8px">TM 9-2320-387-24P_added.pdf — queued</div></div>
       <div class="prog" id="i-progress"><i></i></div>
       <div class="muted" style="font-size:12px;margin-top:6px">parsing pages · extracting parts · building the search index … 72%</div>
+      <!-- Recommendations annex #9 (palette-discoverability): a STATIC mockup of the real
+           bottom-corner pill (real palette.js is deliberately never loaded on this page -- see the
+           comment above <script src="/rps.js"> -- test_demo_tour.py's does_not_load_palette_js
+           check pins that). Spotlighted by the last tour step below so a first-timer sees where it
+           lives before ever landing on the real app. -->
+      <div class="pill-demo" id="d-pill" style="position:absolute;right:14px;bottom:14px;background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;padding:10px 16px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.35)">🔍 Jump to anything</div>
     </section>
 
   </div><!-- /stage -->
@@ -336,7 +342,8 @@ table.t th{background:var(--p2);color:var(--sub)}
     {scr:'scr-circuit',sel:'c-run',   side:'mech', scene:'Circuit Lab', t:'Simulate it', x:'Run a real simulation — currents and voltages — in a background worker, so the UI never freezes.'},
     {scr:'scr-coll',   sel:'o-item',  side:'mech', scene:'Collections', t:'Smart Collections', x:'The OCR text layer auto-groups related pages across manuals, so a whole subsystem is one click away.'},
     {scr:'scr-ingest', sel:'i-drop',  side:'mech', scene:'Add docs', t:'Add any document', x:'Drop in a new TM or PDF and it is parsed, OCR’d and indexed automatically — the library just grows.'},
-    {scr:'scr-ingest', sel:'i-progress', side:'both', scene:'Done', t:'That’s the tour', x:'Search → page → procedure → parts → solve. Click Finish to choose your side and start using THE VIEWER for real — no more guides.'}
+    {scr:'scr-ingest', sel:'i-progress', side:'both', scene:'Done', t:'That’s the tour', x:'Search → page → procedure → parts → solve. Click Finish to choose your side and start using THE VIEWER for real — no more guides.'},
+    {scr:'scr-ingest', sel:'d-pill', side:'both', scene:'Done', t:'Always one tap away', x:'This search shortcut is on every screen — tap it any time to jump straight to a part, procedure, or manual.'}
   ];
 
   function buildSteps(){

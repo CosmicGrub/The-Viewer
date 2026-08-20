@@ -226,10 +226,17 @@
   // ---- QoL: record this page for the Recent list + a discoverability pill on every page ----
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",recordCurrent); else recordCurrent();
   try{
-    var pcss="#cmdk-pill,#bench-pill{position:fixed;bottom:12px;z-index:9998;background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;padding:6px 12px;font:11px/1 -apple-system,Segoe UI,Arial,sans-serif;cursor:pointer;opacity:.7;user-select:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}#cmdk-pill{right:12px}#bench-pill{right:104px}#cmdk-pill:hover,#bench-pill:hover{opacity:1;color:#e6e9ee}@media print{#cmdk-pill,#bench-pill{display:none}}";
+    // Recommendations annex #9 (palette-discoverability): "⌘K jump" read as a keyboard-shortcut
+    // reminder for an audience with no reason to know that convention, and was unusable on a touch
+    // tablet with no physical keyboard anyway -- the ONLY entry point there was this pill, at
+    // 11px/opacity .7, competing with the equally tiny bench-pill next to it, sized BELOW the
+    // 44px touch target base.css's own kiosk-mode/pointer:coarse rules use everywhere else. Relabel
+    // to a verb-first description of what it DOES, and size for touch unconditionally -- not gated
+    // behind kiosk mode, which a first-touch tablet user has no way to have already discovered.
+    var pcss="#cmdk-pill,#bench-pill{position:fixed;bottom:12px;z-index:9998;background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;padding:10px 16px;font:13px/1 -apple-system,Segoe UI,Arial,sans-serif;cursor:pointer;opacity:.85;user-select:none;box-shadow:0 4px 14px rgba(0,0,0,.35);min-height:44px;display:flex;align-items:center;box-sizing:border-box}#cmdk-pill{right:12px}#bench-pill{right:150px}#cmdk-pill:hover,#bench-pill:hover{opacity:1;color:#e6e9ee}@media print{#cmdk-pill,#bench-pill{display:none}}";
     var ps=document.createElement("style"); ps.textContent=pcss; (document.head||document.documentElement).appendChild(ps);
-    var pill=document.createElement("div"); pill.id="cmdk-pill"; pill.textContent="⌘K jump"; pill.title="Jump to any tool or part — command palette (Ctrl/Cmd+K)";
-    pill.setAttribute("role","button"); pill.setAttribute("tabindex","0"); pill.setAttribute("aria-label","Open command palette (Ctrl or Cmd + K)");
+    var pill=document.createElement("div"); pill.id="cmdk-pill"; pill.textContent="🔍 Jump to anything"; pill.title="Search everything — any tool, part, or procedure (or press Ctrl/Cmd+K)";
+    pill.setAttribute("role","button"); pill.setAttribute("tabindex","0"); pill.setAttribute("aria-label","Search everything — any tool, part, or procedure");
     pill.onclick=function(){ open(); };
     pill.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } };
     var bpill=null;

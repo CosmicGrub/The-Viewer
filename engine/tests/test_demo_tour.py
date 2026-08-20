@@ -44,12 +44,14 @@ try:
     ok("every_script_scr_is_a_real_screen", all(e[0] in screen_ids for e in entries))
 
     # ---- step-count regression pins (this session trimmed the mechanic path 20->18 by merging two
-    # step-pairs that spotlighted adjacent/overlapping content on the same screen; operator path is
-    # untouched at 9). A future edit changing these should be a deliberate choice, not silent drift.
+    # step-pairs that spotlighted adjacent/overlapping content on the same screen; operator path was
+    # 9). Recommendations annex #9 (palette-discoverability) added one new side:'both' step
+    # spotlighting the command-palette pill mockup -- both paths +1 (18->19, 9->10). A future edit
+    # changing these should be a deliberate choice, not silent drift.
     mech_steps = [e for e in entries if e[2] in ("both", "mech")]
     op_steps = [e for e in entries if e[2] in ("both", "op")]
-    ok("mechanic_path_step_count", len(mech_steps) == 18)
-    ok("operator_path_step_count", len(op_steps) == 9)
+    ok("mechanic_path_step_count", len(mech_steps) == 19)
+    ok("operator_path_step_count", len(op_steps) == 10)
 
     # ---- icon consistency with palette.js's canonical per-feature assignment (this file is the one
     # deliberately excluded from the app-wide icon-consistency workflow pass -- nothing else checks it).

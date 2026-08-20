@@ -105,6 +105,76 @@ PASS embed
 [6] sidecar writers use safeguard.atomic_write (durable-write guard)
 PASS no raw os.replace() in request-serving modules (all durable via safeguard)
 
+[7] python module reachability from viewer_app/viewer_ingest (dead-module guard)
+PASS analytics                  reachable from viewer_app/viewer_ingest
+PASS xref                       reachable from viewer_app/viewer_ingest
+PASS phash                      reachable from viewer_app/viewer_ingest
+PASS embed                      reachable from viewer_app/viewer_ingest
+PASS measures                   reachable from viewer_app/viewer_ingest
+PASS tables                     reachable from viewer_app/viewer_ingest
+PASS enrich                     reachable from viewer_app/viewer_ingest
+PASS masterfile                 reachable from viewer_app/viewer_ingest
+PASS units                      reachable from viewer_app/viewer_ingest
+PASS leadingspecs               reachable from viewer_app/viewer_ingest
+PASS specparse                  reachable from viewer_app/viewer_ingest
+PASS pdfmeta                    reachable from viewer_app/viewer_ingest
+PASS barcodes                   reachable from viewer_app/viewer_ingest
+PASS cautions                   reachable from viewer_app/viewer_ingest
+PASS textquality                reachable from viewer_app/viewer_ingest
+PASS acronyms                   reachable from viewer_app/viewer_ingest
+PASS pagetrim                   reachable from viewer_app/viewer_ingest
+PASS tables_plus                reachable from viewer_app/viewer_ingest
+PASS ietm                       reachable from viewer_app/viewer_ingest
+PASS kg                         reachable from viewer_app/viewer_ingest
+PASS dimscan                    reachable from viewer_app/viewer_ingest
+PASS ocrprep                    reachable from viewer_app/viewer_ingest
+PASS layout                     reachable from viewer_app/viewer_ingest
+PASS dedup                      reachable from viewer_app/viewer_ingest
+PASS callouts                   reachable from viewer_app/viewer_ingest
+PASS symbols                    reachable from viewer_app/viewer_ingest
+PASS vlm                        reachable from viewer_app/viewer_ingest
+PASS specsheet                  reachable from viewer_app/viewer_ingest
+PASS qrgen                      reachable from viewer_app/viewer_ingest
+PASS publog                     reachable from viewer_app/viewer_ingest
+PASS hybrid                     reachable from viewer_app/viewer_ingest
+PASS publogdiff                 reachable from viewer_app/viewer_ingest
+PASS dimscad                    reachable from viewer_app/viewer_ingest
+PASS conflicts                  reachable from viewer_app/viewer_ingest
+PASS faulttree                  reachable from viewer_app/viewer_ingest
+PASS ask                        reachable from viewer_app/viewer_ingest
+PASS jobpack                    reachable from viewer_app/viewer_ingest
+PASS validate                   reachable from viewer_app/viewer_ingest
+PASS trust                      reachable from viewer_app/viewer_ingest
+PASS integrity                  reachable from viewer_app/viewer_ingest
+PASS signoff                    reachable from viewer_app/viewer_ingest
+PASS tmrev                      reachable from viewer_app/viewer_ingest
+PASS verifystate                reachable from viewer_app/viewer_ingest
+PASS serviceability             reachable from viewer_app/viewer_ingest
+PASS torqueseq                  reachable from viewer_app/viewer_ingest
+PASS bom                        reachable from viewer_app/viewer_ingest
+PASS pinouts                    reachable from viewer_app/viewer_ingest
+PASS training                   reachable from viewer_app/viewer_ingest
+PASS fieldnotes                 reachable from viewer_app/viewer_ingest
+PASS crossmethod                reachable from viewer_app/viewer_ingest
+PASS rpstl                      reachable from viewer_app/viewer_ingest
+PASS intervals                  reachable from viewer_app/viewer_ingest
+PASS fluidsmatrix               reachable from viewer_app/viewer_ingest
+PASS commonality                reachable from viewer_app/viewer_ingest
+PASS handover                   reachable from viewer_app/viewer_ingest
+PASS forms                      reachable from viewer_app/viewer_ingest
+PASS ingestpipe                 reachable from viewer_app/viewer_ingest
+PASS airgap                     reachable from viewer_app/viewer_ingest
+PASS standards                  reachable from viewer_app/viewer_ingest
+PASS nsndecode                  reachable from viewer_app/viewer_ingest
+PASS smrdecode                  reachable from viewer_app/viewer_ingest
+PASS cage                       reachable from viewer_app/viewer_ingest
+PASS harnesstrace               reachable from viewer_app/viewer_ingest
+PASS macchart                   reachable from viewer_app/viewer_ingest
+PASS features/corpus            reachable from viewer_app/viewer_ingest
+PASS office                     reachable from viewer_app/viewer_ingest
+PASS flags                      reachable from viewer_app/viewer_ingest
+checked 67 self-tested modules for production reachability -- 0 flagged
+
 ============================================================
 SUMMARY: 0 FAIL · 0 WARN
-A clean audit = 0 FAIL. WARNs are advisory (orphan test pages, dynamic links).
+A clean audit = 0 FAIL. WARNs are advisory (orphan test pages, dynamic links, unreachable modules).

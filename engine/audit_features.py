@@ -6,7 +6,7 @@ no file, an orphan page, a broken internal link, or a feature module that no lon
 
 Run:  python audit_features.py       (from engine/)  -> writes docs/feature_audit.txt and exits non-zero on any FAIL.
 Read-only. Stdlib only. Additive (R1)."""
-import os, re, sys, glob, io
+import os, re, sys, glob, io, ast
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 UI = os.path.join(HERE, "ui")
@@ -31,6 +31,94 @@ def read(path):
         return open(path, encoding="utf-8", errors="replace").read()
     except Exception:
         return ""
+
+
+# ------------------------------------------------------------------------------------------------
+# [7] python module reachability (dead-module guard) -- module-level (not nested in main()) so
+# test_audit_reachability.py can exercise the closure/BFS logic directly against a synthetic tree,
+# not just observe pass/fail text from a full audit run against the live repo. See main()'s [7]
+# section below for the rationale/design docstring.
+# ------------------------------------------------------------------------------------------------
+def reach_local_modules(engine_dir):
+    """{module-key -> absolute .py path} for every module the live app could plausibly import:
+    top-level engine/*.py, plus the features/ and features/routes/ packages (each package's own
+    __init__.py is registered under the BARE package key too, e.g. "features/routes", so a whole-
+    package import like `import features.routes` resolves to a real graph node)."""
+    mods = {}
+    for f in glob.glob(os.path.join(engine_dir, "*.py")):
+        mods[os.path.splitext(os.path.basename(f))[0]] = f
+    for sub in ("features", os.path.join("features", "routes")):
+        d = os.path.join(engine_dir, sub)
+        if not os.path.isdir(d):
+            continue
+        slash = sub.replace(os.sep, "/")
+        init = os.path.join(d, "__init__.py")
+        if os.path.exists(init):
+            mods[slash] = init
+        for f in glob.glob(os.path.join(d, "*.py")):
+            base = os.path.splitext(os.path.basename(f))[0]
+            if base != "__init__":
+                mods[slash + "/" + base] = f
+    return mods
+
+
+def reach_imports_of(path):
+    """Every name a file imports, anywhere in it -- ast.walk() (not a top-level-only scan)
+    deliberately also finds imports nested inside function bodies: several route submodules import
+    their heavier dependencies (masterfile, dedup, symbols) lazily inside a handler function, not at
+    module top; a shallower walk would false-positive every one of those as unreachable."""
+    try:
+        tree = ast.parse(read(path), filename=path)
+    except SyntaxError:
+        return set()
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                names.add(a.name)
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            names.add(node.module)
+            for a in node.names:
+                names.add(node.module + "." + a.name)
+    return names
+
+
+def reach_resolve(name, mods):
+    """A raw dotted import name -> the set of registered module keys it could plausibly refer to
+    ("masterfile" from "masterfile.build"; "features/routes" from "features.routes"; "features/
+    routes/doc_extractors" from "features.routes.doc_extractors")."""
+    parts = name.split(".")
+    cands = {parts[0], "/".join(parts)}
+    if len(parts) >= 2:
+        cands.add("/".join(parts[:2]))
+    return {c for c in cands if c in mods}
+
+
+def reach_from(roots, mods):
+    """BFS import closure from `roots` (module keys) over `mods`. Returns the set of reachable keys."""
+    seen, stack = set(), [r for r in roots if r in mods]
+    while stack:
+        key = stack.pop()
+        if key in seen:
+            continue
+        seen.add(key)
+        for raw in reach_imports_of(mods[key]):
+            for resolved in reach_resolve(raw, mods):
+                if resolved not in seen:
+                    stack.append(resolved)
+    return seen
+
+
+def reach_bat_invoked(repo_root):
+    """Module base-names invoked by any root *.bat file ("python build_measures.py" ->
+    "build_measures") -- a module launched by its own .bat is a legitimate standalone tool, not an
+    orphan. Derived from the .bat files themselves rather than a hand-maintained whitelist, so it
+    can't independently drift the way a hand-maintained list would."""
+    invoked = set()
+    for bat in glob.glob(os.path.join(repo_root, "*.bat")):
+        for m in re.finditer(r"([A-Za-z0-9_]+)\.py\b", read(bat)):
+            invoked.add(m.group(1))
+    return invoked
 
 
 def main():
@@ -191,10 +279,55 @@ def main():
         line("PASS", "no raw os.replace() in request-serving modules (all durable via safeguard)")
     emit("")
 
+    # --- 7. python module reachability (dead-module guard) ---------------------------------------
+    # Recommendations annex #15 (architecture-reachability): the recurring "built + self-tested but
+    # never called from production" bug class (measures.py, schemgraph.py, RPSTL, pagetrim, dedup.py,
+    # symbols.py, tables_plus.stitch(), Office formats, build_keywords -- all found orphaned at some
+    # point) had NO mechanical defense: SELFTEST_MODULES tracks "has a self-test", never "is reachable
+    # from production" -- proven by every one of those modules already being on that list when found
+    # orphaned. This extends [2]'s dead-JS-script pattern to Python: an AST import-closure walk rooted
+    # at the two real entry points (viewer_app.py for routes, viewer_ingest.py for the pipeline),
+    # cross-checked against verifystate.SELFTEST_MODULES (imported, not re-listed, so this can't drift
+    # from that roster the way SELFTEST_MODULES itself once drifted from VERIFY.bat).
+    #
+    # ast.walk() (not a top-level-only scan) deliberately also finds imports nested inside function
+    # bodies -- several route submodules import their heavier dependencies (masterfile, dedup, symbols)
+    # lazily inside a handler function, not at module top; a shallower walk would false-positive every
+    # one of those as unreachable.
+    #
+    # WARN-only, not FAIL: a static import walk cannot see a genuinely dynamic
+    # importlib.import_module(some_variable) call, and this is a first pass against the live 65-module
+    # roster, not yet proven to zero false positives -- exactly the same caution [3]/[4] (orphan pages,
+    # broken links) already apply below WARN rather than FAIL for the same reason.
+    emit("[7] python module reachability from viewer_app/viewer_ingest (dead-module guard)")
+
+    _mods = reach_local_modules(HERE)
+    _reachable = reach_from(("viewer_app", "viewer_ingest"), _mods)
+    _bat_invoked = reach_bat_invoked(os.path.join(HERE, ".."))
+    try:
+        from verifystate import SELFTEST_MODULES as _selftest_mods
+    except Exception as e:
+        _selftest_mods = []
+        line("WARN", "could not import verifystate.SELFTEST_MODULES (%s) -- skipping [7]" % e)
+    _flagged = 0
+    for _mod in _selftest_mods:
+        _base = _mod.split("/")[-1]
+        if _mod in _reachable:
+            line("PASS", "%-26s reachable from viewer_app/viewer_ingest" % _mod)
+        elif _base in _bat_invoked or _base.startswith("build_"):
+            line("PASS", "%-26s self-tested, standalone tool (invoked by a .bat)" % _mod)
+        else:
+            _flagged += 1
+            line("WARN", "%-26s self-tested but UNREACHABLE from viewer_app/viewer_ingest and no "
+                          ".bat invokes it -- verify it's actually wired in (or this checker has a "
+                          "blind spot: dynamic import, indirect registration, etc.)" % _mod)
+    emit("checked %d self-tested modules for production reachability -- %d flagged" % (len(_selftest_mods), _flagged))
+    emit("")
+
     # --- summary --------------------------------------------------------------------------------
     emit("=" * 60)
     emit("SUMMARY: %d FAIL · %d WARN" % (FAILS[0], WARNS[0]))
-    emit("A clean audit = 0 FAIL. WARNs are advisory (orphan test pages, dynamic links).")
+    emit("A clean audit = 0 FAIL. WARNs are advisory (orphan test pages, dynamic links, unreachable modules).")
     _flush()
     return 1 if FAILS[0] else 0
 

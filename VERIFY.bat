@@ -149,6 +149,11 @@ REM test_truncation quick_checks the real 3.65GB index via snapshot()'s default 
 REM hard wall-clock cap so a locked/slow disk can never stall the whole gate (VERIFY-099 lesson).
 %PY% tools\run_timeout.py 900 %PY% tests\test_truncation.py
 if errorlevel 1 set "FAILED=!FAILED! test_truncation"
+REM backup-dr fix (recommendations annex #1): proves safeguard.py's backupdb() end to end (a full
+REM VACUUM INTO backup, disk-space guard, rotation, corrupt-then-recover) -- entirely against a
+REM small synthetic DB in a patched temp ROOT/DB_BACKUP_DIR, never the real index, so no timeout wrap.
+%PY% tests\test_backupdb.py
+if errorlevel 1 set "FAILED=!FAILED! test_backupdb"
 %PY% tests\test_hardening.py
 if errorlevel 1 set "FAILED=!FAILED! test_hardening"
 %PY% tests\test_search_quality.py

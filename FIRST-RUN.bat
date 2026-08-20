@@ -22,7 +22,12 @@ echo.
 
 if not exist "%CORPUS%" (
   echo [warn] Corpus folder not found at "%CORPUS%".
-  echo        Copy/junction your TMs there, or edit CORPUS in this file, then re-run.
+  echo        Copy your unit's TM/parts-manual PDF files into that folder ^(create it
+  echo        if it doesn't exist yet^), then re-run. See docs\REFERENCE-SOURCING.md
+  echo        for where those PDFs come from if you don't already have them.
+  echo        If they already live elsewhere on this PC, ask IT/S6 to set up a
+  echo        shortcut folder ^(a "junction"^) named "corpus" pointing there instead
+  echo        of copying them -- or edit the CORPUS= line above this section.
 )
 if not exist "%INDEX%\viewer.db" (
   echo [warn] No index found at "%INDEX%\viewer.db" -- copy your index\ folder here first ^(see docs\PORTING.md^).

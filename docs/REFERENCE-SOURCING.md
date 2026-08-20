@@ -4,6 +4,32 @@
 offline; any pull is a one-time, hand-run step (ideally on a connected machine, then copy the DB back).
 Companion diagram: `docs/diagrams/33-nsn-sourcing-assessment.pdf`.*
 
+## Sourcing your TM PDFs (the manuals themselves)
+
+Everything below this section is about NSN/parts *reference* data (PUB LOG, FLIS) — a separate
+question from where the Technical Manual PDFs THE VIEWER indexes come from in the first place.
+Recommendations annex #16 (onboarding-sourcing).
+
+**THE VIEWER does not ship, host, download, or redistribute any TMs.** It only indexes PDFs you
+already have and place in your local `corpus` folder (see `START-HERE.bat` option 0 /
+`FIRST-RUN.bat`). This is deliberate, not an oversight: most Army TMs carry a DoD distribution
+statement (commonly B, C, or D — controlled, not public release), so a generic "here's where to
+download TMs" guide would risk pointing at, or facilitating, unauthorized redistribution of
+controlled technical data. That's a real legal boundary this doc won't cross, even informally.
+
+What to actually do: get your unit's manuals through the channel your unit already uses —
+- Your unit's **publications clerk / S4** — the normal channel for issuing/updating TMs.
+- **LOGSA's Electronic TM (ETM) system**, for units with an active account for their assigned
+  equipment.
+- Your existing **AKO / unit publications library**, if your unit maintains one.
+- A manual **you already legitimately possess** (a physical copy scanned, or a PDF already on a
+  unit share drive) — just copy or link it into the `corpus` folder.
+
+Whichever path applies, confirm the copy you're indexing is the current authorized edition for your
+equipment before relying on any value THE VIEWER extracts from it — this app never validates that on
+its own (see `docs/SYSTEM-REQUIREMENTS.md` and the Masterfile's own confidence badges for how
+extracted values are flagged, not verified against publication currency).
+
 ## Verdict: PUB LOG® (DLA) is the source for military NSN data
 
 After assessing the options, **PUB LOG®** (Public Logistics Data, from DLA Logistics Information

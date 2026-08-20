@@ -86,6 +86,10 @@ echo --- [gate 0] .bat CRLF line-ending check ^(LF-only bats blink-crash on Wind
 %PY% tools\check_crlf.py
 if errorlevel 1 set "FAILED=!FAILED! crlf-check"
 
+echo --- [gate 0b] onboarding menu mentions the corpus folder (annex #16) ---
+%PY% tools\check_onboarding_menu.py
+if errorlevel 1 set "FAILED=!FAILED! onboarding-menu-check"
+
 echo.
 echo --- [gate 1] syntax: shell + features + new modules ---
 %PY% -c "import ast,glob; [ast.parse(open(f,encoding='utf-8').read()) for f in ['viewer_app.py','schemreview.py','build_schemgraph.py','vectorize.py','build_vectorize.py','coverage.py','partlocate.py','doctor.py','figuresheet.py','figureparts.py','jobcard.py','audit_features.py','pmcs.py','build_iteration_snapshot.py','analytics.py','xref.py','partspdf.py','phash.py','embed.py','cut_v1.py','measures.py','tables.py','build_measures.py','build_tables.py','enrich.py','build_enrich.py','masterfile.py','build_masterfile.py','units.py','leadingspecs.py','specparse.py','pdfmeta.py','barcodes.py','cautions.py','textquality.py','acronyms.py','pagetrim.py','tables_plus.py','ietm.py','kg.py','build_kg.py','dimscan.py','ocrprep.py','layout.py','dedup.py','callouts.py','symbols.py','vlm.py','specsheet.py','qrgen.py','publog.py','build_publog.py','hybrid.py','publogdiff.py','dimscad.py','cad_render.py','make_cad.py','image3d_experiment.py','verify_3d_deps.py','jobpack.py','conflicts.py','faulttree.py','ask.py','validate.py','trust.py','integrity.py','signoff.py','tmrev.py','verifystate.py','serviceability.py','torqueseq.py','bom.py','pinouts.py','training.py','fieldnotes.py','crossmethod.py','rpstl.py','intervals.py','fluidsmatrix.py','commonality.py','handover.py','forms.py','ingestpipe.py','airgap.py','standards.py','nsndecode.py','smrdecode.py','cage.py','harnesstrace.py','macchart.py','safeguard.py','tools/run_timeout.py','tools/check_crlf.py']+glob.glob('features/*.py')]; print('py parse OK')"

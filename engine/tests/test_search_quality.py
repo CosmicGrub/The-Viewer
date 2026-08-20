@@ -90,6 +90,32 @@ def main():
         ok("exact rows sort first (stable bands)",
            first_band == sorted(first_band, reverse=True))
 
+    # ---- recommendations annex #13 (fuzzy-match-badge): a synonym-only hit is flagged approx,
+    # a literal hit is not, and the two don't cross-contaminate each other's rows ----
+    import features.search_feature as _SF
+    orig_syn = dict(_SF.SYN)
+    con2 = V.db()
+    con2.execute("INSERT INTO pages(id,document_id,page_number,body_text,char_count,source) VALUES"
+                "(8,1,8,'Replace the door seal before the winter season begins.',53,'text')")
+    con2.execute("INSERT INTO pages_fts(rowid,body_text) SELECT id,body_text FROM pages WHERE id=8")
+    con2.commit(); con2.close()
+    try:
+        _SF.SYN = dict(orig_syn); _SF.SYN["gasket"] = ["seal"]
+        rows_g = V.search("gasket", limit=20)
+        by_page = {r["page_number"]: r for r in rows_g}
+        ok("fuzzy_match_badge_literal_gasket_page_is_exact_not_approx",
+           7 in by_page and by_page[7].get("exact") is True and not by_page[7].get("approx"))
+        ok("fuzzy_match_badge_synonym_only_seal_page_is_flagged_approx",
+           8 in by_page and by_page[8].get("approx") is True and not by_page[8].get("exact"))
+        ok("fuzzy_match_badge_approx_row_names_the_matched_synonym",
+           8 in by_page and by_page[8].get("matched_via") == "synonym"
+           and by_page[8].get("matched_term") == "seal")
+        idx_of = {r["page_number"]: i for i, r in enumerate(rows_g)}
+        ok("fuzzy_match_badge_approx_row_sorts_below_the_exact_row",
+           7 in idx_of and 8 in idx_of and idx_of[7] < idx_of[8])
+    finally:
+        _SF.SYN = orig_syn   # restore -- other tests in this same process must see the real table
+
     # ---- C20: did-you-mean ----
     V._VOCAB_READY = False
     dym = V.did_you_mean("brale")               # one substitution from 'brake' (indexed)

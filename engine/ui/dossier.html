@@ -76,6 +76,17 @@ function render(q, part, ref, pd, pr){
   (pd.variants||[]).forEach(function(v){ if(!vehicle&&v.vehicles&&v.vehicles.length) vehicle=v.vehicles[0]; });
   (pr.procedures||[]).forEach(function(p){ if(!vehicle&&p.vehicle) vehicle=p.vehicle; });
   var h='<div class="head"><span class="nom">'+esc(nom)+'</span>'+(nsn?'<span class="nsn">'+esc(nsn)+'</span>':'')+'</div>';
+  // Recommendations annex #14 (barcode-ocr-conflict): part_lookup()'s part.conflicts (already fetched
+  // above via nsnP) surfaced up top, before the action links -- the same "don't silently pick a
+  // reading" treatment index.html's cart panel gives this. Barcode is machine-decoded (more
+  // reliable) but the disagreement itself is the point: never auto-resolved.
+  if(part&&part.conflicts&&part.conflicts.length){
+    h+='<div class="head-conflict" style="background:rgba(224,86,79,.1);border:1px solid var(--red,#e0564f);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:13px">';
+    part.conflicts.slice(0,3).forEach(function(cf){
+      h+='<div>⚠ Barcode on p.'+esc(cf.page)+' reads <b>'+esc(cf.barcode_nsn)+'</b> — the page text there reads <b>'+esc(cf.page_nsn)+'</b>. Barcode is machine-decoded (more reliable), but verify against the physical part before ordering.</div>';
+    });
+    h+='</div>';
+  }
   h+='<div class="actions">';
   h+='<a href="/packet?q='+encodeURIComponent(q)+'" target="_blank">🖨 Job packet</a>';
   h+='<a href="/procedure?q='+encodeURIComponent(nom)+'" target="_blank">🔧 How to do it</a>';

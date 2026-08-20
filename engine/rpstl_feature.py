@@ -176,7 +176,10 @@ def lookup(pn, cagec=None, limit=20):
     rows = []
     if con is not None:
         try:
-            q = "SELECT * FROM parts_rows WHERE pn_norm=?"; args = [key]
+            # Recommendations annex #12 (rpstl-confidence): was confidence-blind -- best=rows[0] below
+            # depended on whatever order SQLite happened to return, not the highest-confidence row.
+            # Matches the pn_base fallback query two lines below, which already had this ORDER BY.
+            q = "SELECT * FROM parts_rows WHERE pn_norm=? ORDER BY confidence DESC"; args = [key]
             r = con.execute(q, args).fetchall()
             if not r:                                   # variant grouping: match the base then suffixed
                 r = con.execute("SELECT * FROM parts_rows WHERE pn_base=? ORDER BY confidence DESC LIMIT ?",

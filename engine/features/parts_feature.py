@@ -384,7 +384,12 @@ def tech_status_suggest(vehicle, fault, parts=""):
 
 def part_lookup(nsn):
     """Cited catalog references for an NSN: which figure(s)/page(s)/vehicle(s) it appears in (RPSTL).
-    Grounded and verifiable — every ref points at a real page. Does not assert an exact part#."""
+    Grounded and verifiable — every ref points at a real page. Does not assert an exact part#.
+
+    Recommendations annex #14 (barcode-ocr-conflict): also surfaces any recorded barcode-vs-OCR
+    disagreement touching this NSN (viewer_ingest.extract_parts()'s parts_conflicts table, migration
+    0012) -- on EITHER side (this NSN could be what the barcode decoded, or what the page's OCR text
+    read, in a given conflict row). Read-only, degrades to [] on an older DB without the table."""
     nsn = (nsn or "").strip()
     if not nsn: return {"nsn": "", "found": False, "refs": []}
     nsn = norm_nsn(nsn) or nsn   # canonical dashed form -- parts.nsn is always stored dashed (A6)
@@ -396,9 +401,15 @@ def part_lookup(nsn):
             "GROUP BY vehicle, fig_no, fig_title ORDER BY n DESC, vehicle LIMIT 20", (nsn,)).fetchall()]
     except sqlite3.OperationalError:
         refs = []
+    try:
+        conflicts = [dict(r) for r in con.execute(
+            "SELECT document_id, page, vehicle, barcode_nsn, page_nsn FROM parts_conflicts "
+            "WHERE barcode_nsn=? OR page_nsn=? LIMIT 10", (nsn, nsn)).fetchall()]
+    except sqlite3.OperationalError:
+        conflicts = []   # pre-migration-0012 DB -- no conflicts table yet
     con.close()
     nomen = next((r["fig_title"] for r in refs if r.get("fig_title")), None)
-    return {"nsn": nsn, "found": bool(refs), "nomenclature": nomen, "refs": refs}
+    return {"nsn": nsn, "found": bool(refs), "nomenclature": nomen, "refs": refs, "conflicts": conflicts}
 
 
 def part_differences(query, limit=80):

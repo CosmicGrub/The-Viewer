@@ -341,6 +341,19 @@ def _alts(con, word, last, use_fuzzy):
     return "(" + " OR ".join(quoted) + ")"
 
 
+def _token_alts(con, toks, use_fuzzy):
+    """Recommendations annex #13 (fuzzy-match-badge): per-token alt-term provenance, reusing exactly
+    the same SYN.get()/fuzzy_terms() calls _alts() above already makes for the FTS expression --
+    this just also keeps the raw alt lists (not folded into a quoted OR-expr string) so search()'s
+    exact-boost pass can tell WHICH alternative actually matched a given result row, not just that
+    build_match() included one. Returns {lowercased token: {"syn": [...], "fuzzy": [...]}}."""
+    out = {}
+    for t in toks:
+        w = t.lower()
+        out[w] = {"syn": SYN.get(w, []), "fuzzy": fuzzy_terms(con, w) if use_fuzzy else []}
+    return out
+
+
 _VEH_CACHE = {"t": 0.0, "v": []}
 
 
@@ -551,18 +564,43 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
                 exact_nsns.add(r2[0])
         except sqlite3.OperationalError:
             pass
+    # Recommendations annex #13 (fuzzy-match-badge): r["exact"] above was computed but never
+    # threaded through to the UI, so a row that only matched because a query word fuzzy/synonym-
+    # expanded (build_match() AND-combines those into the same query, not an opt-in mode) rendered
+    # identically to a literal keyword hit. FTS5's own snippet() already wraps whichever term
+    # actually matched in <<...>> (_meta_rows()'s SELECT, above) -- compare that against the literal
+    # query tokens vs. their synonym/fuzzy alternatives to tell them apart, for free (no extra query).
+    # Snippet-window blind spot: a match outside the ~12-token snippet excerpt won't be attributable
+    # this way and the row silently reads as literal -- an accepted false-negative, never a false
+    # positive (never wrongly flags a genuinely literal hit as approximate).
+    q_toks = re.findall(r"[A-Za-z0-9]+", q)[:6]
+    token_alts = _token_alts(con, q_toks, use_fuzzy) if q_toks else {}
+    lit_lower = {t.lower() for t in q_toks}
     for r in rows:
         snip = (r.get("snip") or "").lower().replace("<<", "").replace(">>", "")
         if ql and len(ql) >= 4 and ql in snip:
             r["exact"] = True
         if exact_nsns and (r.get("nsn") or "").strip() in exact_nsns:
             r["exact"] = True; r["part_number_match"] = q.strip()
+        if not r.get("exact") and token_alts:
+            hi = [h.lower() for h in re.findall(r"<<(.*?)>>", r.get("snip") or "")]
+            hi_set = set(hi)
+            if hi_set and not (hi_set & lit_lower):
+                for w, alts in token_alts.items():
+                    syn_hit = hi_set & {a.lower() for a in alts["syn"]}
+                    if syn_hit:
+                        r["approx"] = True; r["matched_via"] = "synonym"
+                        r["matched_term"] = next(iter(syn_hit)); break
+                    fuzzy_hit = hi_set & {a.lower() for a in alts["fuzzy"]}
+                    if fuzzy_hit:
+                        r["approx"] = True; r["matched_via"] = "fuzzy"
+                        r["matched_term"] = next(iter(fuzzy_hit)); break
     # Learned ranking: float parts you've successfully requested before to the top (stable).
     pop = core.popular_nsns(con)
     if pop:
         for r in rows:
             if (r.get("nsn") or "").strip() in pop: r["boosted"] = True
-    rows.sort(key=lambda r: (0 if r.get("exact") else 1, 0 if r.get("boosted") else 1))
+    rows.sort(key=lambda r: (0 if r.get("exact") else 1, 1 if r.get("approx") else 0, 0 if r.get("boosted") else 1))
     con.close(); return rows
 
 

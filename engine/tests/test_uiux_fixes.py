@@ -974,6 +974,63 @@ except Exception as e:
     failed.append("touch_target_consistency_ui(%s)" % e)
 
 
+# =====================================================================================================
+# Recommendations annex #10 (ocr-badge-tooltips), #12-UI (rpstl-confidence), #13-UI (fuzzy-match-
+# badge), #14-UI (barcode-ocr-conflict) -- shared.js's new confTier() helper, and the four places
+# that now render confidence/approx-match/conflict signals the backend already computed.
+# =====================================================================================================
+try:
+    SHARED_JS = os.path.join(ENGINE, "ui", "shared.js")
+    DOSSIER_HTML2 = os.path.join(ENGINE, "ui", "dossier.html")
+    shared_js_src = open(SHARED_JS, encoding="utf-8").read()
+    index_src5 = open(INDEX_HTML, encoding="utf-8").read()
+    dossier_src2 = open(DOSSIER_HTML2, encoding="utf-8").read()
+
+    ok("sharedjs_defines_confTier", "function confTier(conf) {" in shared_js_src)
+    ok("sharedjs_exports_confTier_on_VW", "confTier: confTier" in shared_js_src)
+    # the boundary is derived from rpstl_feature.py's real review(max_conf=0.6) default, not a
+    # second, independently-drifting magic number
+    import rpstl_feature as _RF
+    real_max_conf = _RF.review.__defaults__[1]
+    ok("conftier_low_boundary_matches_the_real_backend_default",
+       ("if (c > " + repr(real_max_conf) + ")") in shared_js_src)
+    ok("sharedjs_stays_es5_clean", not _rl4.scan_file(SHARED_JS))
+
+    # #10: the home-page OCR badge finally explains itself, and the part-match card shows a
+    # plain-language tier instead of a bare, unexplained percentage
+    ok("index_html_ocr_badge_has_a_title", 'class="badge ocr" title=' in index_src5)
+    ok("index_html_partmatch_uses_conftier", "VW.confTier(j.confidence" in index_src5)
+    ok("index_html_partmatch_forces_high_for_a_manually_pinned_override",
+       "j.overridden?{key:'high'" in index_src5)
+    ok("index_html_partmatch_fix_button_gated_on_the_shared_tier_not_a_local_number",
+       "t.key==='low'?" in index_src5 and "conf<60?" not in index_src5)
+
+    # #12-UI: the tap-a-part-number drawer (pdRenderMatches) now reads confidence and won't
+    # silently auto-select a single low-confidence match
+    ok("index_html_pdRenderMatches_reads_confidence", "m.confidence!==undefined" in index_src5)
+    ok("index_html_pdRenderMatches_uses_conftier", "VW.confTier(m.confidence)" in index_src5)
+    ok("index_html_pdRenderMatches_does_not_autoselect_a_low_confidence_solo_match",
+       "if(rows.length===1 && !anyLow)" in index_src5)
+
+    # #13-UI: an approximate (synonym/fuzzy) search hit is visually distinguished from a literal one
+    ok("index_html_renderList_shows_approx_badge", "r.approx?" in index_src5)
+    ok("index_html_approx_badge_names_the_matched_term", "r.matched_via" in index_src5 and "r.matched_term" in index_src5)
+    ok("index_html_defines_badge_approx_css", ".badge.approx{" in index_src5)
+
+    # #14-UI: barcode-vs-OCR conflicts surfaced in both the cart panel and the dossier page
+    ok("index_html_enrichPart_reads_conflicts", "d.conflicts&&d.conflicts.length" in index_src5)
+    ok("index_html_renderCart_renders_conflicts_before_refs",
+       index_src5.index("const conflicts=") < index_src5.index("refs+ext"))
+    ok("dossier_html_reads_part_conflicts", "part.conflicts&&part.conflicts.length" in dossier_src2)
+    ok("dossier_html_conflict_banner_names_both_readings",
+       "cf.barcode_nsn" in dossier_src2 and "cf.page_nsn" in dossier_src2)
+
+    ok("index_html_dossier_html_stay_valid",
+       not _rl4.scan_file(DOSSIER_HTML2))
+except Exception as e:
+    failed.append("confidence_signaling_ui(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for priority-5 UI/UX audit fixes)" %

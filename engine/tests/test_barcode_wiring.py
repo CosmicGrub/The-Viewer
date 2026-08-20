@@ -482,6 +482,110 @@ except Exception as e:
     failed.append("section9_ocr_engine_failure_preserves_barcode(%s)" % e)
 
 
+# =====================================================================================================
+# Section 10 -- recommendations annex #14 (barcode-ocr-conflict): a page whose barcode-decoded NSN
+# DISAGREES with the NSN its own OCR text reads must be recorded in parts_conflicts (migration 0012)
+# and surfaced through part_lookup() for EITHER NSN -- not silently filed as two uncorrelated catalog
+# rows. Bypasses the real QR encode/decode round trip (this environment's actual capability, already
+# proven by sections 1-9 above) and inserts pages.barcode_nsn directly -- the conflict-detection logic
+# under test here operates purely on already-captured DB columns, so this is a real, deterministic unit
+# test of extract_parts()'s own comparison, not a re-test of barcode decoding itself.
+# =====================================================================================================
+try:
+    d10, con10 = _new_db("barcode_ocr_conflict_")
+    con10.execute("INSERT INTO documents(path,rel_path,type,vehicle,status) VALUES(?,?,?,?,?)",
+                  (os.path.join(d10, "TM-CONFLICT.pdf"), "TM-CONFLICT.pdf", "pdf", "HMMWV", "indexed"))
+    doc_id10 = con10.execute("SELECT id FROM documents WHERE rel_path=?", ("TM-CONFLICT.pdf",)).fetchone()[0]
+    barcode_nsn10 = "5305-01-674-1467"    # what the barcode decodes to
+    page_nsn10 = "5305-01-999-9999"       # what the page's own OCR text reads -- deliberately different
+    body10 = ("FIG 14 BOLT ASSEMBLY %s HEX HEAD Usable on code A" % page_nsn10)
+    con10.execute("INSERT INTO pages(document_id,page_number,body_text,source,barcode_type,barcode_data,"
+                 "barcode_nsn) VALUES(?,?,?,?,?,?,?)",
+                 (doc_id10, 1, body10, "text", "QRCODE", ("NSN " + barcode_nsn10), barcode_nsn10))
+    con10.execute("INSERT INTO pages_fts(rowid, body_text) SELECT id, body_text FROM pages WHERE document_id=?",
+                 (doc_id10,))
+    con10.commit()
+
+    VI.extract_parts(con10)
+    conflicts10 = con10.execute(
+        "SELECT document_id, page, vehicle, barcode_nsn, page_nsn FROM parts_conflicts").fetchall()
+    ok("conflict_recorded_exactly_once", conflicts10 == [(doc_id10, 1, "HMMWV", barcode_nsn10, page_nsn10)])
+
+    # both the 'page' and 'barcode' rows still get inserted into parts as before -- conflict detection
+    # is additive, it never suppresses either row.
+    parts10 = con10.execute("SELECT nsn, confidence FROM parts WHERE document_id=? ORDER BY confidence",
+                            (doc_id10,)).fetchall()
+    ok("conflict_does_not_suppress_either_parts_row",
+       sorted(parts10) == sorted([(barcode_nsn10, "barcode"), (page_nsn10, "page")]))
+
+    # a full re-run (idempotent-rebuild contract) must not duplicate the conflict row.
+    VI.extract_parts(con10)
+    conflicts10b = con10.execute("SELECT COUNT(*) FROM parts_conflicts").fetchone()[0]
+    ok("conflict_rebuild_does_not_duplicate", conflicts10b == 1)
+
+    # part_lookup() surfaces the conflict for EITHER side's NSN, not just the one that was queried.
+    class _Core10:
+        DB_PATH = os.path.join(d10, "viewer.db")
+        @staticmethod
+        def db():
+            c = sqlite3.connect(_Core10.DB_PATH, timeout=30); c.row_factory = sqlite3.Row; return c
+    parts_feature.core = _Core10
+    looked_up_barcode_side = parts_feature.part_lookup(barcode_nsn10)
+    looked_up_page_side = parts_feature.part_lookup(page_nsn10)
+    ok("part_lookup_surfaces_conflict_from_the_barcode_side",
+       len(looked_up_barcode_side.get("conflicts", [])) == 1
+       and looked_up_barcode_side["conflicts"][0]["page_nsn"] == page_nsn10)
+    ok("part_lookup_surfaces_conflict_from_the_page_side",
+       len(looked_up_page_side.get("conflicts", [])) == 1
+       and looked_up_page_side["conflicts"][0]["barcode_nsn"] == barcode_nsn10)
+
+    # a page with NO disagreement (barcode and OCR text encode the SAME NSN) must record no conflict.
+    d10b, con10b = _new_db("barcode_ocr_no_conflict_")
+    con10b.execute("INSERT INTO documents(path,rel_path,type,vehicle,status) VALUES(?,?,?,?,?)",
+                   (os.path.join(d10b, "TM-AGREE.pdf"), "TM-AGREE.pdf", "pdf", "HMMWV", "indexed"))
+    doc_id10b = con10b.execute("SELECT id FROM documents WHERE rel_path=?", ("TM-AGREE.pdf",)).fetchone()[0]
+    same_nsn = "5305-01-111-1111"
+    body10b = "FIG 3 WASHER %s Usable on code A" % same_nsn
+    con10b.execute("INSERT INTO pages(document_id,page_number,body_text,source,barcode_type,barcode_data,"
+                   "barcode_nsn) VALUES(?,?,?,?,?,?,?)",
+                   (doc_id10b, 1, body10b, "text", "QRCODE", ("NSN " + same_nsn), same_nsn))
+    con10b.execute("INSERT INTO pages_fts(rowid, body_text) SELECT id, body_text FROM pages WHERE document_id=?",
+                   (doc_id10b,))
+    con10b.commit()
+    VI.extract_parts(con10b)
+    ok("agreeing_barcode_and_page_nsn_records_no_conflict",
+       con10b.execute("SELECT COUNT(*) FROM parts_conflicts").fetchone()[0] == 0)
+    ok("agreeing_barcode_and_page_nsn_both_rows_still_present",
+       sorted(con10b.execute("SELECT nsn, confidence FROM parts WHERE document_id=?", (doc_id10b,)).fetchall())
+       == sorted([(same_nsn, "barcode"), (same_nsn, "page")]))
+    con10.close(); con10b.close()
+
+    # a barcode on a page with a DENSE regex-NSN list (a real multi-item RPSTL table, not a
+    # single-item label) must NOT flag every one of those NSNs as "in conflict" -- that's noise, not
+    # a real disagreement. Bounded at <=5 page NSNs; 6 distinct NSNs on one page must record none.
+    d10c, con10c = _new_db("barcode_ocr_dense_page_")
+    con10c.execute("INSERT INTO documents(path,rel_path,type,vehicle,status) VALUES(?,?,?,?,?)",
+                   (os.path.join(d10c, "TM-DENSE.pdf"), "TM-DENSE.pdf", "pdf", "HMMWV", "indexed"))
+    doc_id10c = con10c.execute("SELECT id FROM documents WHERE rel_path=?", ("TM-DENSE.pdf",)).fetchone()[0]
+    dense_nsns = ["5305-01-%03d-%04d" % (i, i) for i in range(100, 106)]   # 6 distinct NSNs
+    dense_body = "FIG 20 PARTS LIST Usable on code A " + " ".join(dense_nsns)
+    barcode_nsn10c = "5305-01-999-8888"   # not among the 6 -- would be a "conflict" under no bound
+    con10c.execute("INSERT INTO pages(document_id,page_number,body_text,source,barcode_type,barcode_data,"
+                   "barcode_nsn) VALUES(?,?,?,?,?,?,?)",
+                   (doc_id10c, 1, dense_body, "text", "QRCODE", ("NSN " + barcode_nsn10c), barcode_nsn10c))
+    con10c.execute("INSERT INTO pages_fts(rowid, body_text) SELECT id, body_text FROM pages WHERE document_id=?",
+                   (doc_id10c,))
+    con10c.commit()
+    VI.extract_parts(con10c)
+    ok("dense_parts_list_page_bounds_out_noisy_conflicts",
+       con10c.execute("SELECT COUNT(*) FROM parts_conflicts WHERE document_id=?", (doc_id10c,)).fetchone()[0] == 0)
+    ok("dense_parts_list_page_all_7_rows_still_extracted (6 page + 1 barcode)",
+       con10c.execute("SELECT COUNT(*) FROM parts WHERE document_id=?", (doc_id10c,)).fetchone()[0] == 7)
+    con10c.close()
+except Exception as e:
+    failed.append("section10_barcode_ocr_conflict(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for barcodes.py's OCR-pass wiring, decode backend=%s)" %

@@ -82,6 +82,8 @@
   .badge{background:#22314a;color:#bcd4ff;border-radius:5px;padding:1px 7px;font-size:11px}
   .badge.tm{background:#2a3a2c;color:#bfe6c5}.badge.pg{background:#3a3326;color:#e8d5a6}
   .badge.ocr{background:#3a2a3a;color:#e6bce6}.badge.ty{background:#2c2f3a;color:#cdd3e0}
+  .badge.approx{background:#2f3a2a;color:#c9e6a0}
+  .conf.high{background:#1e3324;color:#7fd6a0}.conf.verify{background:#3a301a;color:#e8c07a}.conf.low{background:#3a2020;color:#e6a0a0}
   .badge.fav{background:#3a3320;color:#ecdca0}
   .snip{color:#cfd6df;font-size:13px;line-height:1.45}
   .snip mark{background:var(--mark);color:#ffe9a8;padding:0 2px;border-radius:2px}
@@ -1128,11 +1130,16 @@ function renderPartMatch(q){
     card.style.cssText='border:1px solid var(--acc);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px;display:flex;gap:14px;align-items:flex-start';
     var conf=Math.round((j.confidence||0)*100);
     var imgUrl=j.image_url||'';
+    // Recommendations annex #10 (ocr-badge-tooltips): a manually-pinned override (j.overridden) is
+    // always trustworthy regardless of the raw stored float -- forced to 'high' rather than showing
+    // a stale/irrelevant confidence number for a row a human already corrected.
+    var t=j.overridden?{key:'high',label:'High confidence',note:''}:VW.confTier(j.confidence||0);
     card.innerHTML=
       '<a href="'+(j.doc_id?('/page?doc='+j.doc_id+'&page='+j.page+'&dpi=200'):'#')+'" target="_blank" style="flex:0 0 auto">'+
         (imgUrl?('<img id="pmimg" src="'+imgUrl+'" style="width:200px;height:150px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">'):'')+'</a>'+
       '<div style="min-width:0;flex:1">'+
-        '<div style="font-size:12px;color:var(--sub)">PART NUMBER MATCH'+(j.overridden?' · pinned':'')+' · confidence '+conf+'%</div>'+
+        '<div style="font-size:12px;color:var(--sub)">PART NUMBER MATCH'+(j.overridden?' · pinned':'')+' · <span class="conf '+t.key+'" style="padding:1px 6px;border-radius:5px;font-size:11px">'+esc(t.label)+'</span> ('+conf+'%)</div>'+
+        (t.note?('<div style="font-size:11px;margin-top:2px;color:var(--amb)">'+esc(t.note)+'</div>'):'')+
         '<div style="font-size:18px;font-weight:700">'+esc(j.nomenclature||'(name not parsed)')+'</div>'+
         '<div style="font-size:13px;margin-top:3px">P/N <b>'+esc(j.part_no||pn)+'</b>'+(j.cagec?(' · CAGEC '+esc(j.cagec)+(j.manufacturer?(' ('+esc(j.manufacturer)+')'):'')):'')+(j.item?(' · item '+esc(String(j.item))):'')+(j.fig_no?(' · FIG '+esc(String(j.fig_no))):'')+'</div>'+
         (j.nsn?('<div style="font-size:13px;margin-top:2px">NSN <a href="/dossier?q='+encodeURIComponent(j.nsn)+'" target="_blank">'+esc(j.nsn)+'</a>'+(j.superseded_by?(' <span style="color:var(--amb)">→ superseded by '+esc(j.superseded_by)+'</span>'):'')+'</div>'):'')+
@@ -1142,7 +1149,7 @@ function renderPartMatch(q){
         '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'+
           (j.callout_url?'<button class="ghost" id="pmcallout" style="font-size:12px;padding:5px 10px">🎯 Zoom to item '+esc(String(j.item||''))+'</button>':'')+
           (j.image_url?'<button class="ghost" id="pmfull" style="font-size:12px;padding:5px 10px">🖼 Whole figure</button>':'')+
-          (conf<60?'<button class="ghost" id="pmfix" style="font-size:12px;padding:5px 10px;border-color:var(--amb);color:var(--amb)">✎ Fix this match</button>':'')+
+          (t.key==='low'?'<button class="ghost" id="pmfix" style="font-size:12px;padding:5px 10px;border-color:var(--amb);color:var(--amb)">✎ Fix this match</button>':'')+
         '</div><div id="pmfixbox"></div></div>';
     host.insertBefore(card, host.firstChild);
     var im=$("#pmimg");
@@ -1332,7 +1339,8 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
       (r.tm_number?'<span class="badge tm">'+esc(r.tm_number)+'</span>':'')+
       (r.nsn?'<span class="badge">NSN '+esc(r.nsn)+'</span>':'')+
       '<span class="badge pg">p.'+(r.page_number||"?")+'</span>'+
-      (r.source==="ocr"?'<span class="badge ocr">OCR</span>':'')+'</div>'+
+      (r.source==="ocr"?'<span class="badge ocr" title="Machine-read text (OCR) — this page has no clean text layer; wording may contain scan errors. Verify against the page image.">OCR</span>':'')+
+      (r.approx?('<span class="badge approx" title="Matched via '+esc(r.matched_via||"synonym")+': \''+esc(r.matched_term||"")+'\' — not a literal match on your exact words">≈ approx</span>'):'')+'</div>'+
       '<div class="snip">'+snip+'</div>'+
       '<div class="rowbtns"><button class="ghost vbtn">📄 View page</button><button class="ghost abtn">+ Add to request</button></div>';
     d.querySelector(".vbtn").onclick=ev=>{ev.stopPropagation();openViewer(r);};
@@ -1583,14 +1591,29 @@ function pdRenderMatches(rows,c){
   var box=$("#pd_results");
   if(!rows.length){ box.innerHTML='<div class="muted" style="font-size:12px">No catalogued match for this number.</div>'; $("#pd_assets").style.display="none"; return; }
   box.innerHTML="";
+  // Recommendations annex #12 (rpstl-confidence): this is the drawer opened by TAPPING a part
+  // number highlighted on a scanned page (openPartDrawer() above) -- likely the single most common
+  // real-world lookup in the app, and it was confidence-blind end to end: m.confidence was in every
+  // response already (rpstl_feature.lookup()'s ORDER BY confidence DESC fix above guarantees rows[0]
+  // is genuinely the best match now, not just whatever order SQLite returned), just never read here.
+  // Mirrors renderPartMatch()'s existing confidence treatment (same VW.confTier(), same threshold)
+  // so a mechanic sees the identical language regardless of which of the app's two lookup paths
+  // they landed on.
+  var anyLow=false;
   rows.forEach(function(m){
     var nsn=m.nsn||m.NSN||"", name=m.name||m.item_name||m.nomenclature||"(unnamed part)", pn=m.part_no||m.part_number||"";
     var row=document.createElement("div"); row.className="pd-row";
-    row.innerHTML='<div style="min-width:0"><div class="ti">'+esc(name)+'</div><div class="me">'+esc(_fmtNSN(nsn)||nsn)+(pn?(' · P/N '+esc(pn)):'')+'</div></div>';
+    var t=(m.confidence!==undefined&&m.confidence!==null)?VW.confTier(m.confidence):null;
+    var confHtml=t?(' · '+Math.round(m.confidence*100)+'%'+(t.key==="low"?' <span style="color:var(--amb)">⚠ '+esc(t.label)+'</span>':'')):'';
+    if(t&&t.key==="low") anyLow=true;
+    row.innerHTML='<div style="min-width:0"><div class="ti">'+esc(name)+'</div><div class="me">'+esc(_fmtNSN(nsn)||nsn)+(pn?(' · P/N '+esc(pn)):'')+confHtml+'</div></div>';
     row.onclick=function(){ var rr=box.querySelectorAll(".pd-row"); for(var k=0;k<rr.length;k++) rr[k].classList.remove("sel"); row.classList.add("sel"); pdSelect(m,c); };
     box.appendChild(row);
   });
-  if(rows.length===1) box.querySelector(".pd-row").click();
+  // a single low-confidence match no longer auto-selects silently -- the mechanic sees the caveat
+  // and has to confirm it themselves, same "don't act on an unverified match for them" bar
+  // renderPartMatch()'s "Fix this match" gate already applies.
+  if(rows.length===1 && !anyLow) box.querySelector(".pd-row").click();
 }
 function pdSelect(m,c){
   $("#pd_assets").style.display="block";
@@ -1841,6 +1864,11 @@ async function enrichPart(it){
     if(d&&d.found&&d.refs&&d.refs.length){ it._refs=d.refs;
       if(!it.fig && d.refs[0].fig_no) it.fig=d.refs[0].fig_no;   // auto-fill FIG from the catalog (cited)
       renderCart(); }
+    // Recommendations annex #14 (barcode-ocr-conflict): part_lookup() now surfaces any recorded
+    // disagreement between what a page's barcode decoded and what its own OCR text read for this
+    // NSN (viewer_ingest.extract_parts()'s parts_conflicts table) -- checked independently of
+    // d.found/d.refs above, since a conflict can exist even when this NSN has no other catalog refs.
+    if(d&&d.conflicts&&d.conflicts.length){ it._conflicts=d.conflicts; renderCart(); }
   }catch(e){}
   try{ const sm=(it.item_name||"").match(/(\d+\/\d+-\d+|M\d+(?:x[\d.]+)?)/i); const size=sm?sm[1]:"";
     const rd=await (await fetch("/api/reference?nsn="+encodeURIComponent(it.nsn)+(size?("&size="+encodeURIComponent(size)):""))).json();
@@ -1856,6 +1884,12 @@ function renderCart(){const box=$("#cart");
   box.innerHTML="";
   CART.forEach((it,i)=>{const e=document.createElement("div");e.className="item";
     const refs=(it._refs&&it._refs.length)?'<div class="pref">📐 In parts catalog: '+it._refs.slice(0,3).map(rf=>'<span class="prefl" data-doc="'+rf.document_id+'" data-pg="'+rf.page+'">FIG '+esc(rf.fig_no||"?")+' '+esc(rf.fig_title||"")+' (p.'+rf.page+')</span>').join(' · ')+(it._refs.length>3?' · +'+(it._refs.length-3)+' more figure'+(it._refs.length-3===1?'':'s'):'')+' — verify</div>':'';
+    // annex #14: a barcode-vs-OCR disagreement on this exact NSN -- machine-decoded is more
+    // reliable than OCR-guessed text, but the disagreement itself is what matters here: don't
+    // silently pick one, show the mechanic both readings and where they came from.
+    const conflicts=(it._conflicts&&it._conflicts.length)?it._conflicts.slice(0,2).map(cf=>
+      '<div class="pref" style="color:var(--red,#e0564f);border-left:3px solid var(--red,#e0564f);padding-left:8px">⚠ Barcode on p.'+esc(cf.page)+' reads <b>'+esc(cf.barcode_nsn)+'</b> — the page text there reads <b>'+esc(cf.page_nsn)+'</b>. Barcode is machine-decoded (more reliable), but verify against the physical part before ordering.</div>'
+    ).join(''):'';
     let ext='';
     if(it._refext){ const parts=[]; const rn=it._refext.nsn, rh=it._refext.hardware;
       if(rn){ const yr=(rn.data_date||'').match(/\d{4}/);
@@ -1866,7 +1900,7 @@ function renderCart(){const box=$("#cart");
       if(rh){ parts.push('thread '+esc(rh.size)+(rh.tap_drill?' · tap '+esc(rh.tap_drill):'')+(rh.torque_ref_lbft?' · ~'+esc(rh.torque_ref_lbft)+' lb-ft (general ref — TM governs)':'')); }
       if(it._refext.versions>1) parts.push(it._refext.versions+' versions on file');
       if(parts.length) ext='<div class="pref" style="color:#9aa6b6">📚 External reference (cited, offline · DLA FLIS): '+parts.join(' · ')+'</div>'; }
-    e.innerHTML='<button class="rm">remove</button><div style="font-size:11px;color:var(--sub);margin-bottom:6px">From '+esc(it._ref||"")+'</div>'+refs+ext+
+    e.innerHTML='<button class="rm">remove</button><div style="font-size:11px;color:var(--sub);margin-bottom:6px">From '+esc(it._ref||"")+'</div>'+conflicts+refs+ext+
       '<div class="grid"><div class="full"><label>Item name</label><input data-k="item_name" placeholder="e.g. GASKET, WATER PUMP"></div>'+
       '<div><label>NSN</label><input data-k="nsn"></div><div><label>Part #</label><input data-k="part"></div>'+
       '<div><label>FIG #</label><input data-k="fig"></div><div><label>QTY</label><input data-k="qty"></div>'+

@@ -1454,7 +1454,17 @@ def extract_parts(con):
     _heartbeat(dbdir, 0, 0, "extract_parts")
     if not _EXTRACT_TALLY: _tally_reset()   # same lazy-default as crawl()/ocr(): the bare `parts` subcommand calls this alone
     _write_progress(dbdir, stage="parts", current=None, done=0, total=None, extracted=dict(_EXTRACT_TALLY))
-    con.execute("DELETE FROM parts WHERE confidence IS NOT NULL"); con.commit()
+    con.execute("DELETE FROM parts WHERE confidence IS NOT NULL")
+    # Recommendations annex #14 (barcode-ocr-conflict): same full-rebuild contract as `parts` itself
+    # -- repopulated from scratch below, never accumulates a stale conflict from a page whose
+    # disagreement has since been resolved (a better OCR pass, a corrected barcode capture, etc.).
+    # try/except: this table only exists once migration 0012 has been applied -- degrade to "skip
+    # conflict detection" on an older/not-yet-migrated DB rather than fail the whole extraction.
+    try:
+        con.execute("DELETE FROM parts_conflicts")
+    except sqlite3.OperationalError:
+        pass
+    con.commit()
     try:
         rows = con.execute(
             "SELECT p.document_id, p.page_number, p.body_text, d.vehicle "
@@ -1463,6 +1473,11 @@ def extract_parts(con):
     except Exception as e:
         log(f"parts: FTS query failed ({e}); run migrate/crawl first"); return 0
     batch = []; seen = set(); npages = 0
+    # Recommendations annex #14: every OCR-regex NSN found per page, keyed for the barcode loop
+    # below to compare against -- a barcode encoding a DIFFERENT NSN than the page's own OCR text
+    # is exactly the disagreement this feature exists to surface, not silently file as two
+    # uncorrelated catalog entries.
+    page_nsns = {}
     for r in rows:
         # Bug found + fixed during review verification (pre-existing, predates this diff): this
         # loop used dict-style row access (r["document_id"], ...) against a connection that
@@ -1483,19 +1498,24 @@ def extract_parts(con):
             if key in seen: continue
             seen.add(key)
             batch.append((nsn, ftit, ftit, document_id, page_number, vehicle, fno, ftit, "page"))
+            page_nsns.setdefault((document_id, page_number), set()).add(nsn)
         if npages % 200 == 0:
             _heartbeat(dbdir, npages, 0, "extract_parts")
     # Barcode-decoded NSNs (migration 0010 / viewer_ingest.ocr_one()'s _scan_barcode()): a machine
     # read has no character-recognition ambiguity, so these get their own confidence tag ('barcode')
     # instead of 'page' -- distinguishable, higher-trust provenance, picked up for free by every
     # existing confidence-IS-NOT-NULL consumer (features/parts_feature.py's part_lookup() etc.)
-    # without those callers needing to change. Full-rebuild-safe: this scans EVERY page with a
+    # for the basic "here's a citable NSN" case. Recommendations annex #14 (barcode-ocr-conflict)
+    # closed the one part that WASN'T actually free: when the barcode and the page's own OCR text
+    # disagree on the NSN, nothing compared them before this fix -- see page_nsns/conflicts below.
+    # Full-rebuild-safe: this scans EVERY page with a
     # captured barcode_nsn each time extract_parts() runs (same idempotent-rebuild contract as the
     # regex pass above), so a barcode row survives the DELETE at the top of this function exactly
     # like a regex-extracted 'page' row does -- it just gets regenerated from pages.barcode_nsn
     # instead of re-parsed from body_text.
     nbar = 0
     seen_barcode = set()
+    conflicts = []   # annex #14: (document_id, page, vehicle, barcode_nsn, page_nsn) rows
     try:
         brows = con.execute(
             "SELECT p.document_id, p.page_number, p.barcode_nsn, p.barcode_data, d.vehicle "
@@ -1528,9 +1548,25 @@ def extract_parts(con):
         label = (bdata or "").strip() or None
         batch.append((nsn, label, label, document_id, page_number, vehicle, None, None, "barcode"))
         nbar += 1
+        # Recommendations annex #14 (barcode-ocr-conflict): the SAME page's OCR-regex NSNs (if any)
+        # disagree with what the barcode decoded. Bounded to pages with a SMALL regex-NSN count
+        # (<=5) -- a barcode on a dense multi-item RPSTL parts-list page isn't "in conflict" with
+        # every NSN the page happens to list, it's just a single-item label sharing a page with a
+        # parts table; flagging all of those would be noisy false positives, not real disagreements.
+        page_regex_nsns = page_nsns.get((document_id, page_number))
+        if page_regex_nsns and nsn not in page_regex_nsns and len(page_regex_nsns) <= 5:
+            for pn in page_regex_nsns:
+                conflicts.append((document_id, page_number, vehicle, nsn, pn))
     con.executemany(
         "INSERT INTO parts(nsn, name, nomenclature, document_id, page, vehicle, fig_no, fig_title, confidence, created_at) "
         "VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))", batch)
+    if conflicts:
+        try:
+            con.executemany(
+                "INSERT INTO parts_conflicts(document_id, page, vehicle, barcode_nsn, page_nsn) "
+                "VALUES(?,?,?,?,?)", conflicts)
+        except sqlite3.OperationalError:
+            pass   # migration 0012 not applied yet on this DB -- skip, same degrade as the DELETE above
     con.commit()
     _heartbeat(dbdir, npages, 0, 0)
     # Final, authoritative counts -- extract_parts() does a full DELETE-then-rebuild every time (see

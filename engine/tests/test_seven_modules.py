@@ -137,6 +137,24 @@ try:
     rv2 = RF.review(max_conf=0.9)
     ok("review_sidecar_lists_low_conf_row", rv2["total"] == 1 and rv2["items"][0]["part_no"] == "MS35307-123")
 
+    # Recommendations annex #12 (rpstl-confidence): two rows sharing one pn_norm, deliberately
+    # inserted LOW confidence first, HIGH confidence second -- before the ORDER BY fix, best=rows[0]
+    # (rpstl_feature.py's lookup()) depended on whatever order SQLite happened to return them in,
+    # not the higher-confidence row. A different pn_norm from the rest of this test so it doesn't
+    # interact with the override check below.
+    rc2 = sqlite3.connect(rdb)
+    rc2.execute("INSERT INTO parts_rows VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+               ("MS51861-999", "MS51861-999", "MS51861-999", "96906", None, 15,
+                "WASHER,FLAT LOCK (low-confidence read)", "14", 2, 13, 0.3))
+    rc2.execute("INSERT INTO parts_rows VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+               ("MS51861-999", "MS51861-999", "MS51861-999", "96906", None, 15,
+                "WASHER,FLAT LOCK", "14", 2, 13, 0.95))
+    rc2.commit(); rc2.close()
+    found3 = RF.lookup("ms51861-999")
+    ok("lookup_returns_the_highest_confidence_row_not_insertion_order",
+       found3["found"] is True and found3["confidence"] == 0.95
+       and found3["nomenclature"] == "WASHER,FLAT LOCK")
+
     sv = RF.save_override("ms35307-123", {"nomenclature": "BOLT, HEX HD CAP SCR", "nsn": "5305-01-674-1467"}, by="tester")
     ok("save_override_ok", sv["ok"] is True and sv["part_no"] == "MS35307-123")
     found2 = RF.lookup("MS35307-123")
@@ -178,10 +196,13 @@ try:
     ok("xf_part_record_blank_key", XF.part_record("   ") == {"found": False})
 
     # rpstl_feature's test section (runs earlier in this file) already created a real rpstl.db sidecar
-    # with one row (nsn NULL, part_no set) -- coverage() now reads it for real instead of degrading.
+    # -- coverage() now reads it for real instead of degrading. 3 rows total (nsn NULL on all,
+    # part_no set on all): the original 1-row insert, plus 2 more added by the annex #12
+    # (rpstl-confidence) confidence-ordering test -- same shared sidecar file, deliberately updated
+    # here rather than silently drifting.
     cov = XF.coverage()
-    ok("xf_coverage_reads_sidecar", cov["built"] is True and cov["rows"] == 1
-       and cov["with_nsn"] == 0 and cov["with_part_no"] == 1)
+    ok("xf_coverage_reads_sidecar", cov["built"] is True and cov["rows"] == 3
+       and cov["with_nsn"] == 0 and cov["with_part_no"] == 3)
 except Exception as e:
     failed.append("xref_feature(%s)" % e)
 

@@ -29,6 +29,19 @@
   body.kiosk-mode button,body.kiosk-mode a.ghost,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{min-height:44px;padding-top:11px;padding-bottom:11px;font-size:15px}
   body.kiosk-mode a{text-decoration:underline}
   body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
+  /* Recommendations annex #7 (touch-target-consistency): base.css now carries a generic
+     @media(pointer:coarse) touch-sizing rule -- but per the SAME "doesn't load base.css" gap the
+     comment above already fixed once for kiosk-mode/focus-visible, this page never inherits it
+     either. Inlined here for the identical reason: without this, the fix that made every OTHER
+     page touch-friendly by default would have left the app's own front door as the one page still
+     reverted to desktop-mouse sizing on a bare touchscreen (no kiosk-mode toggle needed). */
+  @media (pointer:coarse){
+    button,a.ghost,.chip,input:not([type="checkbox"]):not([type="radio"]),select,[role="button"]{
+      min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px;
+    }
+    .pgctl,.pgctl *{ min-height:0; min-width:0; }
+    .pgctl button{ min-height:32px; padding:6px 8px; }
+  }
   .menuwrap{position:relative;display:inline-flex}
   .menupop{position:absolute;right:0;top:calc(100% + 6px);min-width:228px;background:var(--panel);
     border:1px solid var(--line);border-radius:10px;padding:6px;z-index:60;display:flex;flex-direction:column;
@@ -207,8 +220,12 @@
     .vside{width:100%;min-width:0;border-left:none;border-top:1px solid var(--line)}
     .vthumbs{display:none !important}
   }
+  /* Recommendations annex #7 (touch-target-consistency): the button-sizing half of this rule moved
+     to base.css so every page gets it, not just this one -- see base.css's own comment for why.
+     These three stay HERE: .vehcard/.result/.searchbar input are index.html-specific class names
+     (page content density, not generic touch-target sizing), so they don't belong in the shared
+     token sheet. */
   @media (pointer:coarse){
-    button{padding:11px 15px}
     .vehcard{padding:12px}
     .result{padding:14px 16px}
     .searchbar input{padding:13px}
@@ -402,7 +419,22 @@ if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallb
   var b=document.getElementById("toolsBtn"), p=document.getElementById("toolsPop");
   if(!b||!p) return;
   function close(){ p.hidden=true; b.setAttribute("aria-expanded","false"); }
-  function open_(){ p.hidden=false; b.setAttribute("aria-expanded","true"); }
+  // recommendations annex #6 (search-torque-routing): every destination page already reads ?q= off
+  // its own URL and prefills/auto-runs (torque.html/measures.html/part.html/dossier.html etc. all
+  // do this) -- but nothing here ever SET it, so opening a tool from the menu silently dropped
+  // whatever the mechanic had just typed/searched, forcing a retype. Threaded through on every open,
+  // not baked into each link's static href (the current query changes on every search).
+  function threadQuery(){
+    var qEl=document.getElementById("q");
+    var q=((qEl&&qEl.value)||(typeof LAST_QUERY!=="undefined"?LAST_QUERY:"")||"").trim();
+    var links=p.querySelectorAll('a[href^="/"]');
+    for(var i=0;i<links.length;i++){
+      var href=links[i].getAttribute("href");
+      var base=href.split("?")[0];
+      links[i].setAttribute("href", q ? (base+"?q="+encodeURIComponent(q)) : base);
+    }
+  }
+  function open_(){ threadQuery(); p.hidden=false; b.setAttribute("aria-expanded","true"); }
   b.addEventListener("click",function(ev){ ev.stopPropagation(); p.hidden?open_():close(); });
   document.addEventListener("click",function(ev){ if(!p.hidden && !p.contains(ev.target) && ev.target!==b) close(); });
   document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && !p.hidden){ close(); b.focus(); } });
@@ -819,6 +851,12 @@ function chooseSide(side){
   if(side==="operator"){            // operator -> straight to the browser, skip the parts-request sheet
     BROWSE_ONLY=true; $("#overlay").style.display="none"; $("#editBtn").style.display="none";
     renderCtx(); loadHome(); var qq=$("#q"); if(qq) qq.focus();
+  } else if(browseSavedFresh()){    // recommendations annex #5 (mechanic-regate): a mechanic who
+    // already chose "just let me browse" this shift shouldn't re-clear the same modal every single
+    // cold start -- only re-prompt once the choice has expired (or a real session is later started,
+    // which clearBrowseOnly() below re-arms).
+    BROWSE_ONLY=true; $("#editBtn").style.display=""; $("#overlay").style.display="none";
+    renderCtx(); loadHome(); var qq2=$("#q"); if(qq2) qq2.focus();
   } else {                          // mechanic -> the parts-request sheet onboarding
     BROWSE_ONLY=false; $("#editBtn").style.display="";
     $("#overlay").style.display="flex"; if(typeof updateSheetPrev==="function") updateSheetPrev();
@@ -876,9 +914,22 @@ if($("#watchTourBtn")) $("#watchTourBtn").onclick=function(){ $("#sidegate").sty
 
 // ---- skip straight to browsing (no tour, no side commitment — pure repository) ----
 function browseSaved(){ try{ return localStorage.getItem("viewer_browse_only")==="1"; }catch(e){ return false; } }
+// recommendations annex #5 (mechanic-regate): time-box the "just let me browse" preference to one
+// duty shift (12h) rather than forever -- a stale bumper#/fault-adjacent skip shouldn't silently
+// persist for days on a shared kiosk laptop. One source of truth for setting/clearing it, used by
+// skipToBrowsing(), the #browseBtn overlay handler, and chooseSide()'s mechanic-side check above.
+function browseSavedFresh(){
+  if(!browseSaved()) return false;
+  try{ var ts=parseInt(localStorage.getItem("viewer_browse_only_ts")||"0",10);
+       return ts>0 && (Date.now()-ts) < 12*60*60*1000; }catch(e){ return true; }
+}
+function setBrowseOnly(){ try{ localStorage.setItem("viewer_browse_only","1");
+  localStorage.setItem("viewer_browse_only_ts", String(Date.now())); }catch(e){} }
+function clearBrowseOnly(){ try{ localStorage.removeItem("viewer_browse_only");
+  localStorage.removeItem("viewer_browse_only_ts"); }catch(e){} }
 function skipToBrowsing(){
   setDemoSeen();
-  try{ localStorage.setItem("viewer_browse_only","1"); }catch(e){}
+  setBrowseOnly();
   var g=$("#demogate"); if(g) g.style.display="none"; var f=$("#demoFrame"); if(f) f.src="about:blank";
   $("#sidegate").style.display="none";
   SIDE=null; updateSideLbl();                 // no side filter -> search spans the whole repository
@@ -905,6 +956,7 @@ $("#startBtn").onclick=()=>{
   if(!b||!f){toast("Bumper # and Fault are required.");return;}
   SESSION={mechanic:$("#m_mechanic").value.trim(),bumper:b,fault:f,tm:$("#m_tm").value.trim(),
            uoc:$("#m_uoc").value.trim(),tech_status:$("#m_tech").value.trim(),motor_sergeant:$("#m_motor").value.trim()};
+  clearBrowseOnly();   // annex #5: a genuine session submit re-arms the mechanic-side gate for next launch
   $("#overlay").style.display="none";$("#editBtn").style.display="";renderCtx();
   const ex=$("#m_express").value.trim();
   if(ex){ $("#q").value=ex; runSearch(ex,true); } else { loadHome(); $("#q").focus(); }
@@ -912,6 +964,7 @@ $("#startBtn").onclick=()=>{
 // Browse-only: use THE VIEWER as a pure repository — skip the parts-request sheet. Start a session anytime
 // from the "📋 Parts session" button (which reopens this window).
 $("#browseBtn").onclick=()=>{
+  setBrowseOnly();   // annex #5: persist so chooseSide()'s mechanic branch skips the modal next launch
   BROWSE_ONLY=true; $("#overlay").style.display="none"; renderCtx(); loadHome(); $("#q").focus();
 };
 $("#editBtn").onclick=()=>{
@@ -1098,6 +1151,39 @@ function renderPartMatch(q){
     var fx=$("#pmfix"); if(fx) fx.onclick=function(){ pmFixForm(j); };
   }).catch(function(){});
 }
+// Recommendations annex #6 (search-torque-routing): the home search box is the first thing a
+// mechanic types into, but a torque/measurement-shaped query only ever returned page-text
+// snippets -- the cited, unit-converted answer sat one un-discovered menu-click away at /torque
+// or /measures, requiring the query to be retyped there too. Surfaces a compact answer inline,
+// reusing the same measures.find_for_query() every /measures lookup already calls -- no new
+// backend logic. Deliberately keyword-gated (not "query contains a digit") so a vehicle
+// designator like "M915" doesn't spuriously trigger this card.
+function looksMeasureShaped(q){
+  var s=(q||'').toLowerCase();
+  return /\btorque\b|\btighten\b|\bclearance\b|\bpressure\b|\bcapacity\b|\btemperature\b|\bthread\b|\bdiameter\b|\bweight\b|\bvoltage\b|\bamperage\b|ft-?lbs?\b|in-?lbs?\b|\bpsi\b|\bn[\s·-]?m\b/.test(s);
+}
+function renderMeasureMatch(q){
+  var host=$("#results"); var old=document.getElementById('measurematch'); if(old) old.parentNode.removeChild(old);
+  if(!host||!looksMeasureShaped(q)) return;
+  fetch('/api/measures?q='+encodeURIComponent(q)+'&limit=8').then(function(r){return r.json();}).then(function(j){
+    if(!j||!j.count) return;
+    var rows=(j.results||[]).slice(0,4);
+    var card=document.createElement('div'); card.id='measurematch';
+    card.style.cssText='border:1px solid var(--acc);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px';
+    var h='<div style="font-size:12px;color:var(--sub)">MEASUREMENTS &amp; DIMENSIONS · '+j.count+' cited in the manuals</div>';
+    rows.forEach(function(m){
+      var val=esc(m.value)+(m.value2?('–'+esc(m.value2)):'')+(m.tolerance?(' ±'+esc(m.tolerance)):'')+' '+esc(m.unit);
+      var badge=(m.trust_badge&&m.trust_badge.show)?(' <span style="color:'+esc(m.trust_badge.color)+';font-size:10px;text-transform:uppercase" title="Trust: '+esc(m.trust_badge.label)+' — verify on the cited page">'+esc(m.trust_badge.label)+'</span>'):'';
+      h+='<div style="margin-top:6px;font-size:14px"><b style="text-transform:capitalize">'+esc(m.type)+'</b>: '+val+badge+' <a href="'+esc(m.page_url)+'" target="_blank" style="font-size:11px;margin-left:4px">p.'+esc(m.page)+' ↗</a></div>';
+    });
+    h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'+
+       '<a href="/measures?q='+encodeURIComponent(q)+'" style="font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;color:var(--sub);text-decoration:none">📐 Full measurements →</a>'+
+       '<a href="/torque?q='+encodeURIComponent(q)+'" style="font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;color:var(--sub);text-decoration:none">🔩 Torque quick-ref →</a></div>';
+    card.innerHTML=h;
+    var pm=document.getElementById('partmatch');
+    host.insertBefore(card, pm ? pm.nextSibling : host.firstChild);
+  }).catch(function(){});
+}
 function pmFixForm(j){
   var box=$("#pmfixbox"); if(!box) return;
   box.innerHTML='<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
@@ -1161,6 +1247,7 @@ async function runSearch(q, autojump, mode){
     ALL=d.results||[]; DYM=d.did_you_mean||[]; FILTER={vehicle:null,type:null,source:null}; renderResults(q);
     renderSearchHints(d, q);            // v1.5: acronym-glossary expansion + fuzzy NSN 'did you mean'
     renderPartMatch(q);                 // PART NUMBER -> show its correlative breakdown image up top
+    renderMeasureMatch(q);              // annex #6: torque/measurement-shaped query -> cited values inline
     if(ALL.length) pushRecent(q);
     if(autojump && ALL[0] && ALL[0].nsn_query){ if(ALL[0].nsn_kind==="vehicle") openVehicle(ALL[0].nsn_query); else openViewer(ALL[0]); }}
   catch(err){$("#results").innerHTML='<div class="empty">Search error: '+esc(String(err))+'</div>';}

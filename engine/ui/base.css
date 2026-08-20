@@ -50,6 +50,28 @@ body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-
    their own padding/shape but still guarantee the 44px minimum footprint via min-height/min-width above */
 body.kiosk-mode #vw-footer a{padding:9px 10px;display:inline-flex;align-items:center;justify-content:center}
 body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{padding:11px 16px;font-size:13px}
+/* Recommendations annex #7 (touch-target-consistency): a @media(pointer:coarse) touch-sizing rule
+   used to exist ONLY in index.html's own <style> block -- the home page auto-enlarged its tap
+   targets on a touchscreen, but every OTHER page (torque.html, procedure.html, part.html, the
+   whole app) reverted to desktop-mouse sizing the moment a mechanic navigated off the home page,
+   unless they separately discovered and toggled kiosk mode. This generalizes that rule here, app-
+   wide, reusing the exact same selector list kiosk-mode's own rule above already maintains (so the
+   two stay in lockstep instead of drifting into two different "which controls count as touch
+   targets" lists). Independent of kiosk-mode: a touchscreen gets sane tap targets by default,
+   whether or not kiosk-mode (bigger text/contrast, a separate opt-in choice) is also on.
+   Checkbox/radio scoped out for the same reason kiosk-mode's rule above scopes them out (min-width
+   would distort them into a square); dense script-driven toolbars (index.html's in-viewer zoom/
+   contrast/tilt row) opt out via .pgctl, sized separately below -- an unscoped 44px min here would
+   blow out that row's height on the one page dense enough to need it compact. */
+@media (pointer:coarse){
+  button,a.btn,.chip,input:not([type="checkbox"]):not([type="radio"]),select,
+  [role="button"],#vw-footer a,#cmdk-pill,#bench-pill{
+    min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px;
+  }
+  input[type="checkbox"],input[type="radio"]{ min-height:24px; min-width:24px; }
+  .pgctl,.pgctl *{ min-height:0; min-width:0; }
+  .pgctl button{ min-height:32px; padding:6px 8px; }
+}
 body{margin:0;background:var(--bg);color:var(--txt);
   font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
 a{color:var(--acc)}

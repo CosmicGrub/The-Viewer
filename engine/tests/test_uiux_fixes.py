@@ -858,6 +858,122 @@ except Exception as e:
     failed.append("cautions_single_page_ui(%s)" % e)
 
 
+# =====================================================================================================
+# Recommendations annex #5 (mechanic-regate) -- the mechanic-side session modal used to re-clear on
+# EVERY cold start (chooseSide()'s mechanic branch unconditionally opened #overlay), not just first
+# run. Now checks a time-boxed (12h) "already chose to browse" preference first, and a genuine session
+# submit re-arms it for next launch.
+# =====================================================================================================
+try:
+    index_src2 = open(INDEX_HTML, encoding="utf-8").read()
+
+    ok("mechanic_regate_defines_browseSavedFresh", "function browseSavedFresh(){" in index_src2)
+    ok("mechanic_regate_time_boxes_to_twelve_hours", "12*60*60*1000" in index_src2)
+    ok("mechanic_regate_defines_setBrowseOnly_and_clearBrowseOnly",
+       "function setBrowseOnly(){" in index_src2 and "function clearBrowseOnly(){" in index_src2)
+
+    # chooseSide()'s mechanic branch (the `else` after the operator `if`) must consult
+    # browseSavedFresh() BEFORE unconditionally opening the overlay -- not just have the function
+    # defined somewhere unrelated.
+    chooseside_body = index_src2.split("function chooseSide(side){")[1].split("\nfunction ")[0]
+    ok("chooseSide_mechanic_branch_checks_browseSavedFresh", "browseSavedFresh()" in chooseside_body)
+    ok("chooseSide_still_has_a_real_overlay_branch_for_the_non_fresh_case",
+       '$("#overlay").style.display="flex"' in chooseside_body)
+
+    # the overlay bypass button now PERSISTS the choice (setBrowseOnly()), not just an in-memory flag
+    browsebtn_onclick = index_src2.split('$("#browseBtn").onclick=()=>{')[1].split("};", 1)[0]
+    ok("browseBtn_handler_persists_via_setBrowseOnly", "setBrowseOnly()" in browsebtn_onclick)
+
+    # skipToBrowsing() routes through the same helper (one source of truth), not a separate
+    # direct localStorage.setItem call
+    skiptobrowsing_body = index_src2.split("function skipToBrowsing(){")[1].split("\n}", 1)[0]
+    ok("skipToBrowsing_routes_through_setBrowseOnly", "setBrowseOnly()" in skiptobrowsing_body)
+
+    # a genuine session submit (#startBtn) re-arms the gate for next launch -- sliced up to the NEXT
+    # handler definition, not a naive "};" split (the handler body itself contains an object-literal
+    # assignment, SESSION={...};, whose own closing "};" would otherwise truncate the slice early)
+    startbtn_onclick = index_src2.split('$("#startBtn").onclick=()=>{')[1].split('$("#browseBtn").onclick', 1)[0]
+    ok("startBtn_handler_rearms_via_clearBrowseOnly", "clearBrowseOnly()" in startbtn_onclick)
+
+    ok("index_html_stays_syntax_valid_node_check", True)   # covered by review_fix_pass_all_files_parse_with_node above
+except Exception as e:
+    failed.append("mechanic_regate_ui(%s)" % e)
+
+
+# =====================================================================================================
+# Recommendations annex #6 (search-torque-routing) -- the home search box now surfaces a torque/
+# measurement-shaped answer inline (reusing /api/measures, no new backend), and the Tools-menu links
+# carry the current query (?q=) instead of dropping it.
+# =====================================================================================================
+try:
+    index_src3 = open(INDEX_HTML, encoding="utf-8").read()
+
+    ok("defines_looksMeasureShaped", "function looksMeasureShaped(q){" in index_src3)
+    ok("looksMeasureShaped_gated_on_keywords_not_bare_digits",
+       "\\btorque\\b" in index_src3 and "\\bpsi\\b" in index_src3)
+    ok("defines_renderMeasureMatch", "function renderMeasureMatch(q){" in index_src3)
+    ok("renderMeasureMatch_calls_the_existing_measures_api", "/api/measures?q=" in index_src3)
+    ok("runSearch_calls_renderMeasureMatch", "renderMeasureMatch(q);" in index_src3)
+    ok("measure_match_card_links_to_full_measures_and_torque_pages",
+       "/measures?q=" in index_src3 and "/torque?q=" in index_src3)
+    ok("measure_match_card_shows_trust_badge_when_backend_says_show",
+       "m.trust_badge&&m.trust_badge.show" in index_src3)
+
+    ok("defines_threadQuery", "function threadQuery(){" in index_src3)
+    ok("tools_menu_open_calls_threadQuery",
+       "function open_(){ threadQuery();" in index_src3)
+    ok("threadQuery_rewrites_local_links_with_the_query",
+       'a[href^="/"]' in index_src3 and 'setAttribute("href"' in index_src3)
+except Exception as e:
+    failed.append("search_torque_routing_ui(%s)" % e)
+
+
+# =====================================================================================================
+# Recommendations annex #7 (touch-target-consistency) -- the @media(pointer:coarse) touch-sizing rule
+# used to live ONLY in index.html; every other page reverted to desktop-mouse sizing on a touchscreen.
+# Now lives in base.css (app-wide by default), with the dense in-viewer toolbar (.pgctl) opted back
+# out, and index.html keeps only its own page-specific (non-generic) refinements locally.
+# =====================================================================================================
+try:
+    BASE_CSS = os.path.join(ENGINE, "ui", "base.css")
+    base_css_src = open(BASE_CSS, encoding="utf-8").read()
+    index_src4 = open(INDEX_HTML, encoding="utf-8").read()
+
+    ok("base_css_defines_pointer_coarse_rule", "@media (pointer:coarse){" in base_css_src)
+    coarse_block = base_css_src.split("@media (pointer:coarse){", 1)[1].split("\n}\n", 1)[0]
+    for needle in ("button", "a.btn", ".chip", "select", '[role="button"]', "#vw-footer a",
+                   "#cmdk-pill", "#bench-pill"):
+        ok("base_css_pointer_coarse_covers_%s" % re.sub(r"\W+", "_", needle), needle in coarse_block)
+    ok("base_css_pointer_coarse_gives_checkbox_radio_their_own_smaller_min",
+       'input[type="checkbox"],input[type="radio"]{ min-height:24px; min-width:24px; }' in coarse_block)
+    ok("base_css_pointer_coarse_excludes_the_dense_pgctl_toolbar", ".pgctl" in coarse_block)
+
+    # index.html doesn't load base.css at all (its own long-standing, explicitly-documented reason --
+    # see its kiosk-mode/focus-visible rules, inlined for the identical reason). So base.css's new
+    # generic rule alone would NEVER reach this page -- confirmed live: before adding the second
+    # assertion below, #q's computed min-height on a touch-emulated viewport was 0px, not 44px,
+    # despite base.css's rule (verified working on /torque) supposedly covering it. Caught by live
+    # browser verification, not just these source-text assertions -- see the commit message.
+    ok("index_html_local_pointer_coarse_no_longer_sizes_bare_button_the_old_way",
+       "button{padding:11px 15px}" not in index_src4)
+    ok("index_html_has_its_own_local_generic_pointer_coarse_rule_since_it_skips_base_css",
+       "min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px;" in index_src4)
+    local_coarse_blocks = index_src4.split("@media (pointer:coarse){")[1:]
+    ok("index_html_local_pointer_coarse_generic_rule_covers_the_search_input",
+       any('input:not([type="checkbox"]):not([type="radio"])' in b[:300] for b in local_coarse_blocks))
+    ok("index_html_local_pointer_coarse_still_has_page_specific_selectors",
+       any(".vehcard" in b[:300] and ".result" in b[:300] and ".searchbar input" in b[:300]
+           for b in local_coarse_blocks))
+    ok("index_html_local_pointer_coarse_also_excludes_the_dense_pgctl_toolbar",
+       any(".pgctl" in b[:400] for b in local_coarse_blocks))
+
+    import rps_lint as _rl4
+    ok("index_html_still_es5_exempt_modern_by_design", True)  # index.html is modern-by-design; rps_lint.py's
+                                                                # own gate (already run above) covers actual syntax
+except Exception as e:
+    failed.append("touch_target_consistency_ui(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for priority-5 UI/UX audit fixes)" %

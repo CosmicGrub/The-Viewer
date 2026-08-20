@@ -211,8 +211,22 @@ try:
             "INSERT INTO master_raw(subject,subject_label,doc,page,type,unit,value,value2,tolerance,context,origin) "
             "VALUES(?,?,?,?,?,?,?,?,?,?,?)", raw)
         groups = defaultdict(list); labels = {}
+        # corroboration-count fix (masterfile.py): build() now dedupes corpus rows by (tm-or-doc,
+        # page) identity per group before counting them -- mirrored here too so this oracle stays a
+        # true diff reference for the NEW behavior, not just an accidental pass because this seed's
+        # synthetic rows never collide on (doc,page) within a group. This test's synthetic documents
+        # table has no tm_number column, so identity always falls back to "doc%s"%doc, same as
+        # build()'s own fallback path.
+        dedup_seen = set()
         for subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin in raw:
-            groups[(subj, ty, unit, origin)].append(val); labels[subj] = label
+            labels[subj] = label
+            key = (subj, ty, unit, origin)
+            if origin == "corpus":
+                dkey = (key, "doc%s" % doc, page)
+                if dkey in dedup_seen:
+                    continue
+                dedup_seen.add(dkey)
+            groups[key].append(val)
         filt = []
         for (subj, ty, unit, origin), vals in groups.items():
             rep, low, high, n = masterfile._canonical(vals)
@@ -305,6 +319,25 @@ try:
     c2.close()
     ok("masterfile_null_only_group_yields_n0_row", torque_row == ("", "", "", 0))
     ok("masterfile_real_value_group_unaffected", weight_row == ("500", "500", "500", 1))
+
+    # a dedicated, deterministic (doc,page) collision case (corroboration-count fix), spelled out
+    # rather than relying on the random trials above to happen to hit it: two rows sharing the exact
+    # same doc+page must dedupe to n=1, both in build() and in the oracle mirrored above.
+    d3 = tempfile.mkdtemp(prefix="masterfile_corrob_")
+    dbp3 = os.path.join(d3, "viewer.db"); mdb3 = os.path.join(d3, "measures.db"); mf3 = os.path.join(d3, "m.db")
+    a = sqlite3.connect(dbp3); a.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, vehicle TEXT)")
+    a.execute("INSERT INTO documents VALUES(1,'HMMWV')"); a.commit(); a.close()
+    m = sqlite3.connect(mdb3)
+    m.execute("CREATE TABLE meas(doc INT,page INT,type TEXT,unit TEXT,value TEXT,value2 TEXT,tolerance TEXT,context TEXT)")
+    m.executemany("INSERT INTO meas VALUES(?,?,?,?,?,?,?,?)", [
+        (1, 9, "capacity", "gal", "25", None, None, "Fuel 25 gal"),
+        (1, 9, "capacity", "gal", "25", None, None, "same doc+page re-cited (dup)")])
+    m.commit(); m.close()
+    masterfile.build(dbp3, mdb3, None, mf3)
+    c3 = sqlite3.connect(mf3)
+    cap_row = c3.execute("SELECT value,n FROM master_filtered WHERE type='capacity'").fetchone()
+    c3.close()
+    ok("masterfile_same_doc_page_collision_dedupes_to_n1", cap_row == ("25", 1))
 except Exception as e:
     failed.append("masterfile_streaming_equivalence(%s)" % e)
 

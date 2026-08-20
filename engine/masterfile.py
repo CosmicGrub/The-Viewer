@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""THE VIEWER -- MASTERFILE (v1.1.4). The single, all-encompassing consolidation of measurement/dimensional data for the
+"""THE VIEWER -- MASTERFILE (v1.1.5). The single, all-encompassing consolidation of measurement/dimensional data for the
 whole project. It MERGES the corpus's authoritative measurements (from measures.db, page-cited to the real TM files)
 with the external gap-fills (from enrich.db) into ONE congruent dataset keyed to the authoritative subjects, so the rest
 of the project sees a unified picture instead of scattered sources.
@@ -123,11 +123,19 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
         # build -- exactly the scenario safeguard.py's whole premise designs around elsewhere) leaked the
         # connection, which can then block a subsequent rebuild or snapshot/replace targeting the same path.
         doc_veh = {}
+        doc_tm = {}
         v = None
         try:
             v = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True)
             for did, veh in v.execute("SELECT id, COALESCE(vehicle,'') FROM documents"):
                 doc_veh[did] = (veh or "").strip()
+            # Masterfile comparison audit (corroboration-count fix): tm_number, best-effort -- older/
+            # synthetic DBs without the column fall back to per-document identity below, never raise.
+            try:
+                for did, tm in v.execute("SELECT id, COALESCE(tm_number,'') FROM documents"):
+                    doc_tm[did] = (tm or "").strip().lower()
+            except sqlite3.OperationalError:
+                pass
         except Exception:
             pass
         finally:
@@ -139,6 +147,7 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
         bounds = {}                        # (subj,ty,unit,origin) -> (min_numeric, max_numeric) running span
         labels = {}                        # also doubles as the distinct-subjects set (labels.keys())
         corpus_have = defaultdict(set)
+        dedup_seen = set()                 # (key, tm-or-doc identity, page) already counted -- see accumulate()
         n_raw = corpus_raw = external_raw = 0
         FLUSH_AT = 2000
 
@@ -149,7 +158,7 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                     "VALUES(?,?,?,?,?,?,?,?,?,?,?)", raw_buf)
                 raw_buf.clear()
 
-        def accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin):
+        def accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin, tm=None):
             nonlocal n_raw, corpus_raw, external_raw
             raw_buf.append((subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin))
             if len(raw_buf) >= FLUSH_AT:
@@ -158,6 +167,22 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
             if origin == "corpus": corpus_raw += 1
             else: external_raw += 1
             key = (subj, ty, unit, origin)
+            # Masterfile comparison audit (corroboration-count fix): the corpus holds confirmed
+            # duplicate ingestions of the same manual (same pattern procedures_feature.py already
+            # dedupes by tm_number, not doc id, for this exact reason) -- and viewer_ingest.py's OCR
+            # dedup cache means a re-scanned duplicate page reuses the identical (possibly wrong)
+            # cached text. Without this, two duplicate ingestions of one misread page could earn
+            # "high -- cited & corroborated", the safest-looking badge in the system, off a single
+            # uncorrected error. Count each (TM edition or, absent tm_number, document) x page pair
+            # into the group's Counter/bounds only ONCE -- every row still lands in master_raw
+            # unchanged, so the raw audit view stays complete; only the FILTERED corroboration count
+            # is deduped. External rows have no doc/tm identity worth deduping this way.
+            if origin == "corpus":
+                ident = tm or ("doc%s" % doc)
+                dkey = (key, ident, page)
+                if dkey in dedup_seen:
+                    return
+                dedup_seen.add(dkey)
             counter = groups[key]        # touch the group even for a null/empty value -- matches the
             if val not in (None, ""):    # original's unconditional groups[key].append(val) + _canonical's
                 counter[val] += 1        # later filtering, so an all-null group still yields an n=0 row
@@ -176,7 +201,8 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                     label = doc_veh.get(doc, "") or ("doc%s" % doc)
                     subj = label.strip().lower()
                     corpus_have[subj].add(ty)   # must be complete before the enrich loop below reads it
-                    accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, "corpus")
+                    accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, "corpus",
+                               tm=doc_tm.get(doc, ""))
             except Exception:
                 pass
             finally:
@@ -355,9 +381,15 @@ if __name__ == "__main__":
     edb = os.path.join(d, "enrich.db"); mf = os.path.join(d, "masterfile.db")
     # authoritative DB
     a = sqlite3.connect(dbp)
-    a.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, vehicle TEXT)")
-    a.executemany("INSERT INTO documents VALUES(?,?)",
-                  [(1, "HMMWV"), (2, "HMMWV"), (3, "HMMWV"), (4, "HMMWV"), (5, "HMMWV")])
+    a.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, vehicle TEXT, tm_number TEXT)")
+    a.executemany("INSERT INTO documents VALUES(?,?,?)", [
+        (1, "HMMWV", "TM9-2320-280-24-1"), (2, "HMMWV", "TM9-2320-280-24-2"),
+        (3, "HMMWV", "TM9-2320-280-24-3"), (4, "HMMWV", "TM9-2320-280-24-4"),
+        (5, "HMMWV", "TM9-2320-280-24-5"),
+        # docs 6/7: two SEPARATE document rows (two ingestions) of the SAME manual edition -- the
+        # real scenario the corroboration-count fix targets, distinct from the doc-1-referenced-twice
+        # case below.
+        (6, "HMMWV", "TM9-2320-280-24-6"), (7, "HMMWV", "TM9-2320-280-24-6")])
     a.commit(); a.close()
     # corpus measures: HMMWV has length + weight (authoritative)
     m = sqlite3.connect(mdb)
@@ -373,7 +405,12 @@ if __name__ == "__main__":
         (2, 5, "torque", "ft-lb", "100", None, None, "Torque 100 ft-lb (doc 2)"),
         (3, 5, "torque", "ft-lb", "100", None, None, "Torque 100 ft-lb (doc 3, repeat)"),
         (4, 5, "torque", "ft-lb", "105", None, None, "Torque 105 ft-lb (doc 4)"),
-        (5, 5, "torque", "ft-lb", "200", None, None, "Torque 200 ft-lb (doc 5, outlier)")])
+        (5, 5, "torque", "ft-lb", "200", None, None, "Torque 200 ft-lb (doc 5, outlier)"),
+        # pressure: docs 6 and 7 are two DISTINCT document rows sharing one tm_number -- a duplicate
+        # ingestion of the same manual reporting the identical (possibly misread) value. Pre-fix this
+        # would count n=2 and earn "high -- cited & corroborated"; post-fix it dedupes to n=1.
+        (6, 30, "pressure", "psi", "40", None, None, "Tire pressure 40 psi"),
+        (7, 30, "pressure", "psi", "40", None, None, "Tire pressure 40 psi (duplicate ingestion)")])
     m.commit(); m.close()
     # external enrich: capacity (gap) + weight (corpus already has -> must be dropped)
     e = sqlite3.connect(edb)
@@ -409,6 +446,18 @@ if __name__ == "__main__":
     # repeated value is trivially that value, same as the old mode pick would have given.
     length = next(f for f in res["filtered"] if f["type"] == "length")
     assert length["value"] == "180", length
+    # Masterfile comparison audit (corroboration-count fix): the length rows are the SAME document
+    # (doc 1) referenced twice -- dedupes to n=1, not the raw row count of 2.
+    assert length["n"] == 1, ("corroboration-count fix regressed for same-doc duplicate rows", length)
+    # the pressure rows are TWO DIFFERENT document rows (docs 6/7) sharing one tm_number -- a real
+    # duplicate ingestion of the same manual edition. Pre-fix this earned n=2 / "high -- cited &
+    # corroborated" off a single value repeated by one re-scanned manual; post-fix it dedupes to n=1
+    # and drops to "medium" (authoritative single sample), which is the honest read.
+    pressure = next(f for f in res["filtered"] if f["type"] == "pressure")
+    assert pressure["n"] == 1, ("corroboration-count fix regressed for cross-doc same-tm_number "
+                                 "duplicate ingestion", pressure)
+    assert pressure["confidence"] == "medium", ("a duplicate ingestion must not earn 'high' off one "
+                                                 "uncorroborated value", pressure)
     print("masterfile self-test OK (merge, corpus-authoritative, no links surfaced, authoritative page "
-          "refs kept, numeric-median representative value)")
+          "refs kept, numeric-median representative value, duplicate-ingestion corroboration-count fix)")
 # END OF FILE

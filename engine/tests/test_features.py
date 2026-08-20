@@ -27,6 +27,11 @@ def _build_db():
             "2. Remove the drive belt.\n3. Remove the alternator bolts.\n")
     c.execute("INSERT INTO pages(id,document_id,page_number,body_text,source) VALUES(1,1,12,?,'text')", (proc,))
     c.execute("INSERT INTO pages(id,document_id,page_number,body_text,source) VALUES(2,1,40,'alternator wiring schematic','text')")
+    # recommendations annex #2 (torque-measures-confidence): a torque-bearing page with a real, LOW
+    # ocr_confidence -- proves torque_specs() actually threads pages.ocr_confidence through to each
+    # spec's confidence/quality flag, not just that the column exists.
+    torque_txt = "ALTERNATOR MOUNTING. Torque the mounting bolts to 30 to 35 foot-pounds, then verify seating."
+    c.execute("INSERT INTO pages(id,document_id,page_number,body_text,source,ocr_confidence) VALUES(3,1,13,?,'ocr',0.15)", (torque_txt,))
     c.execute("INSERT INTO pages_fts(rowid,body_text) SELECT id,body_text FROM pages")
     c.executemany("INSERT INTO request_items(item_name,nsn) VALUES(?,?)",
                   [("ALTERNATOR ASSEMBLY", "2920-01-111-1111"), ("BRAKE CALIPER", "2530-01-222-2222")])
@@ -103,6 +108,38 @@ from features import corpus as _corpus_mod
 corpus_rows = _corpus_mod.fts_pages("alternator", limit=5, with_body=True, db_path=DBP)
 ok("fts_pages_carries_ocr_confidence_key", bool(corpus_rows) and "ocr_confidence" in corpus_rows[0])
 ok("fts_pages_ocr_confidence_none_for_synthetic_page", corpus_rows[0]["ocr_confidence"] is None)  # not set in this fixture -> real NULL, handled gracefully
+
+# torque_specs() (recommendations annex #2): now threads pages.ocr_confidence through to each spec
+# the same way _parse_procedure() already does for cautions -- was previously computing NOTHING here.
+ts = V.torque_specs("alternator")
+ok("torque_specs_found", ts["found"] and ts["n"] >= 1)
+ts_low_conf_specs = [s for s in ts["specs"] if s.get("page") == 13]
+ok("torque_specs_cites_the_low_confidence_page", bool(ts_low_conf_specs))
+ok("torque_specs_low_ocr_confidence_downgrades_the_spec",
+   bool(ts_low_conf_specs) and ts_low_conf_specs[0].get("confidence") in ("suspect", "poor")
+   and ts_low_conf_specs[0].get("quality") is not None and ts_low_conf_specs[0]["quality"] <= 0.15)
+ok("torque_specs_every_spec_carries_a_confidence_field",
+   all("confidence" in s and "quality" in s for s in ts["specs"]))
+
+# measures.find_for_query() (recommendations annex #2): m["trust_badge"] is a NEW additive field
+# ({level,color,label,show} via trust.badge()) so measures.html can render it directly without
+# reimplementing trust.py's color/label tables client-side. m["trust"] (the bare level string) is
+# left UNCHANGED -- the aggregate trust.worst([m["trust"] for m in out]) call a few lines below it
+# in measures.py still needs a list of strings, not dicts, so this must stay additive, not a rename.
+import measures as _measures_mod
+mq = _measures_mod.find_for_query(DBP, "alternator")
+ok("measures_find_for_query_found_the_torque_value",
+   mq["count"] >= 1 and any(r["type"] == "torque" for r in mq["results"]))
+torque_rows = [r for r in mq["results"] if r["type"] == "torque"]
+ok("measures_result_trust_is_still_a_bare_string (backward-compat for trust.worst())",
+   bool(torque_rows) and isinstance(torque_rows[0].get("trust"), str))
+ok("measures_result_trust_badge_is_the_new_dict_shape",
+   bool(torque_rows) and isinstance(torque_rows[0].get("trust_badge"), dict)
+   and {"level", "color", "label", "show"} <= set(torque_rows[0]["trust_badge"].keys()))
+ok("measures_result_trust_badge_level_matches_the_bare_trust_string",
+   bool(torque_rows) and torque_rows[0]["trust_badge"]["level"] == torque_rows[0]["trust"])
+ok("measures_aggregate_trust_still_computed_from_bare_strings_not_dicts", mq.get("trust") in
+   ("high", "medium", "review", "low", "quarantined", None))
 
 # --- suggest ---
 sg = V.suggest("alt")

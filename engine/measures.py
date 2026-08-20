@@ -205,6 +205,12 @@ def find_for_query(db_path, q, limit=40):
             if v.get("reason"):
                 m["quality_reason"] = v["reason"]
             m["trust"] = _trust.level(source="corpus", validation_status=v["status"], n_samples=1)
+            # recommendations annex #2 (torque-measures-confidence): measures.html was reading none
+            # of trust/quality/quarantined_count -- all already computed here, just never rendered.
+            # Additive field (m["trust"] above stays a bare level string -- worst() below still needs
+            # that shape) so the UI gets {level,color,label} without re-implementing trust.py's
+            # _COLOR/_LABEL tables client-side.
+            m["trust_badge"] = _trust.badge(source="corpus", validation_status=v["status"], n_samples=1)
             if v["status"] == "quarantine":
                 quarantined.append(m)            # withheld from display by default; never silently dropped
                 continue

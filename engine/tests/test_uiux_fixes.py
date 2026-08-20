@@ -796,6 +796,36 @@ except Exception as e:
     failed.append("review_fix_pass_syntax_sweep(%s)" % e)
 
 
+# =====================================================================================================
+# Recommendations annex #2 (torque-measures-confidence) -- torque.html/measures.html now render the
+# OCR-confidence / trust signal the backend already computes (torque_specs()'s per-spec confidence,
+# measures.find_for_query()'s trust_badge + quarantined_count), matching part.html's existing pattern.
+# =====================================================================================================
+try:
+    TORQUE_HTML = os.path.join(ENGINE, "ui", "torque.html")
+    MEASURES_HTML = os.path.join(ENGINE, "ui", "measures.html")
+    torque_src = open(TORQUE_HTML, encoding="utf-8").read()
+    measures_src = open(MEASURES_HTML, encoding="utf-8").read()
+
+    ok("torque_html_reads_spec_confidence_field", "s.confidence" in torque_src)
+    ok("torque_html_shows_verify_on_page_for_non_clean_confidence",
+       's.confidence!=="clean"' in torque_src and "verify on page" in torque_src)
+    ok("torque_html_warns_that_a_clean_digit_swap_can_pass_undetected",
+       "digit" in torque_src.lower() and "verify on page" in torque_src)
+
+    ok("measures_html_reads_trust_badge_field", "m.trust_badge" in measures_src)
+    ok("measures_html_trust_chip_respects_the_backend_show_flag", "b.show" in measures_src)
+    ok("measures_html_surfaces_quarantined_count", "quarantined_count" in measures_src)
+    ok("measures_html_withheld_note_explains_what_it_means",
+       "withheld" in measures_src.lower() and "flagged" in measures_src.lower())
+
+    import rps_lint as _rl2
+    ok("torque_measures_html_stay_es5_clean",
+       not _rl2.scan_file(TORQUE_HTML) and not _rl2.scan_file(MEASURES_HTML))
+except Exception as e:
+    failed.append("torque_measures_confidence_ui(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for priority-5 UI/UX audit fixes)" %

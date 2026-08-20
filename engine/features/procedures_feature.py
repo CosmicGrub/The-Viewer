@@ -152,7 +152,13 @@ def _norm_unit(u):
 
 def torque_specs(query, limit=14):
     """Find torque values stated in the manuals for a part: sentences mentioning torque/tighten near a
-    number + unit (ft-lb / in-lb / N·m), each cited to its page. Read-only; grows with OCR."""
+    number + unit (ft-lb / in-lb / N·m), each cited to its page. Read-only; grows with OCR.
+
+    Recommendations annex #2 (torque-measures-confidence): now selects p.ocr_confidence and threads
+    it through textquality.annotate() exactly the way _parse_procedure()'s cautions already do --
+    each spec gains a confidence/quality flag so torque.html can show "verify on page" the same way
+    part.html/dossier.html already do for cautions. Before this fix, torque -- arguably the value
+    most directly tied to whether a bolt holds -- carried ZERO OCR-quality signal."""
     q = (query or "").strip()
     if not q: return {"query": "", "found": False, "specs": []}
     con = core.db(); nom = None; ref = norm_nsn(q)
@@ -168,7 +174,7 @@ def torque_specs(query, limit=14):
         match = phrase + ' AND (torque OR tighten OR "ft-lb" OR "lb-ft")'
         try:
             rows = con.execute(
-                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, p.page_number, p.body_text "
+                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, p.page_number, p.body_text, p.ocr_confidence "
                 "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid JOIN documents d ON d.id=p.document_id "
                 "WHERE pages_fts MATCH ? ORDER BY rank LIMIT ?", (match, limit*2)).fetchall()
         except sqlite3.OperationalError:
@@ -176,9 +182,14 @@ def torque_specs(query, limit=14):
     except sqlite3.OperationalError:
         rows = []
     con.close()
+    try:
+        import textquality as _tq
+    except Exception:
+        _tq = None
     specs = []; seen = set()
     for r in rows:
         bt = r["body_text"] or ""
+        ocr_conf = r["ocr_confidence"]
         for sent in re.split(r"(?<=[\.\n])\s+", bt):
             low = sent.lower()
             if "torque" not in low and "tighten" not in low: continue
@@ -189,8 +200,15 @@ def torque_specs(query, limit=14):
                 key = (val, ctx[:40])
                 if key in seen: continue
                 seen.add(key)
-                specs.append({"value": val, "context": ctx, "page": r["page_number"],
-                              "doc_id": r["doc_id"], "vehicle": r["vehicle"], "tm_number": r["tm_number"]})
+                spec = {"value": val, "context": ctx, "page": r["page_number"],
+                        "doc_id": r["doc_id"], "vehicle": r["vehicle"], "tm_number": r["tm_number"]}
+                if _tq:
+                    try:
+                        scored = _tq.annotate({"text": ctx}, context_key="text", real_confidence=ocr_conf)
+                        spec["confidence"] = scored["confidence"]; spec["quality"] = scored["quality"]
+                    except Exception:
+                        pass
+                specs.append(spec)
                 if len(specs) >= limit: break
             if len(specs) >= limit: break
         if len(specs) >= limit: break

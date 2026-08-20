@@ -63,12 +63,50 @@ def similarity(t1, t2, k=4):
     return round(jaccard(shingles(t1, k), shingles(t2, k)), 3)
 
 
-def find_duplicates(docs, threshold=0.8, k=4):
+def block_key(tm_number):
+    """Normalize a TM number to its base family, stripping a trailing 2-digit volume/change suffix
+    ("TM 9-2320-280-24" -> "TM 9-2320-280") so different volumes of the SAME base TM (operator,
+    unit-maintenance, direct-support...) still land in one comparison bucket -- they're exactly the
+    kind of near-duplicate/overlapping-content pair this module exists to find -- while genuinely
+    unrelated TM families (a different weapon system, a different base number entirely) don't.
+    Falls back to the whole (stripped/uppercased) string when there's no trailing -NN to strip, and
+    to "" for a missing/blank tm_number (which find_duplicates() below buckets separately, never
+    silently merged into an unrelated family's comparison set)."""
+    return re.sub(r"-\d{2}$", "", (tm_number or "").strip().upper())
+
+
+def find_duplicates(docs, threshold=0.8, k=4, block_keys=None):
     """`docs` = [(id, text)]. Returns clusters [[id,...]] of near-duplicate / same-edition documents (similarity >=
-    threshold). Singletons are omitted. O(n^2) -- fine for a sidecar builder over the corpus."""
-    sigs = [(i, shingles(t, k)) for i, t in docs]
-    n = len(sigs)
-    parent = {i: i for i, _ in sigs}
+    threshold). Singletons are omitted. O(n^2) per bucket -- fine for a sidecar builder over the corpus.
+
+    dedup-scale fix (recommendations annex #4): at real corpus scale (~40k documents,
+    docs/ROLLBACK.md) the unblocked O(n^2) comparison is ~787M pairs and holding every document's
+    shingle set in memory before the loop starts is an estimated 8-10GB+ against the documented <8GB
+    "legacy" hardware tier (docs/SYSTEM-REQUIREMENTS.md) -- either a multi-day run or an outright
+    MemoryError on exactly the hardware this app claims to support. `block_keys`, an optional list
+    parallel to `docs` (same length, same order -- typically block_key(tm_number) per document),
+    restricts comparisons to same-bucket pairs and builds each bucket's shingle sets lazily instead
+    of materializing the whole corpus's sets upfront, bounding peak memory to the largest bucket
+    instead of the whole corpus. Documents whose block key is missing/blank are still bucketed
+    together (key "") rather than silently skipped, and a doc with no informative key at all can
+    still self-cluster with truly identical text via that bucket.
+
+    Backward compatible: block_keys=None (the default) is the original unblocked, single-bucket
+    behavior -- every existing caller that doesn't pass it gets byte-identical output to before this
+    fix. The accepted tradeoff of blocking: a cross-family duplicate (e.g. the same content re-filed
+    under a typo'd or unrelated TM number) won't be caught -- undocumented recall gap, not a silent
+    behavior change, since it only ever applies when the caller opts in via block_keys."""
+    n = len(docs)
+    if block_keys is None:
+        buckets = {None: list(range(n))}
+    else:
+        if len(block_keys) != n:
+            raise ValueError("block_keys must be the same length as docs")
+        buckets = {}
+        for i, key in enumerate(block_keys):
+            buckets.setdefault(key, []).append(i)
+
+    parent = {i: i for i in range(n)}
 
     def find(x):
         while parent[x] != x:
@@ -79,19 +117,26 @@ def find_duplicates(docs, threshold=0.8, k=4):
         ra, rb = find(a), find(b)
         if ra != rb:
             parent[rb] = ra
-    for a in range(n):
-        ia, sa = sigs[a]
-        for b in range(a + 1, n):
-            ib, sb = sigs[b]
-            if jaccard(sa, sb) >= threshold:
-                union(ia, ib)
+
+    for indices in buckets.values():
+        if len(indices) < 2:
+            continue
+        sigs = [(i, shingles(docs[i][1], k)) for i in indices]
+        m = len(sigs)
+        for a in range(m):
+            ia, sa = sigs[a]
+            for b in range(a + 1, m):
+                ib, sb = sigs[b]
+                if jaccard(sa, sb) >= threshold:
+                    union(ia, ib)
+
     groups = {}
-    for i, _ in sigs:
-        groups.setdefault(find(i), []).append(i)
+    for i in range(n):
+        groups.setdefault(find(i), []).append(docs[i][0])
     return [sorted(g) for g in groups.values() if len(g) > 1]
 
 
-def build(dedup_db, docs, threshold=0.8, k=4, meta=None):
+def build(dedup_db, docs, threshold=0.8, k=4, meta=None, use_blocking=True):
     """`docs` = [(document_id, text, tm_number, vehicle, title, page_count)]. Clusters near-
     duplicate/same-edition documents via find_duplicates() and writes them to dedup_db. Build-to-
     temp-then-atomic-swap (safeguard.atomic_sqlite_build), same crash-safety contract kg.build()/
@@ -99,10 +144,17 @@ def build(dedup_db, docs, threshold=0.8, k=4, meta=None):
     committed. Each cluster's first (lowest document_id) member is used as the similarity-comparison
     anchor purely for a stable, deterministic reference point -- NOT a claim about which edition is
     "latest"; this module has no reliable signal for that (no universal change-number/date field
-    across every TM), so it never asserts one. Returns {clusters, documents_in_clusters}."""
+    across every TM), so it never asserts one. Returns {clusters, documents_in_clusters}.
+
+    dedup-scale fix (recommendations annex #4): use_blocking=True (the default) buckets documents by
+    block_key(tm_number) before the O(n^2) pass -- see find_duplicates()'s docstring for why. Pass
+    use_blocking=False to force the old unblocked, whole-corpus comparison (e.g. for a small/trusted
+    corpus where the cross-family recall gap matters more than the cost, or for a direct diff against
+    pre-fix output)."""
     import safeguard
     id_text = [(d[0], d[1]) for d in docs]
-    groups = find_duplicates(id_text, threshold=threshold, k=k)
+    block_keys = [block_key(d[2]) for d in docs] if use_blocking else None
+    groups = find_duplicates(id_text, threshold=threshold, k=k, block_keys=block_keys)
     by_id = {d[0]: d for d in docs}
     with safeguard.atomic_sqlite_build(dedup_db) as (con, _tmp):
         con.executescript(SCHEMA)   # CREATE TABLE IF NOT EXISTS -- no DROP needed, the temp file starts empty

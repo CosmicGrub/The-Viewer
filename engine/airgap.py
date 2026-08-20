@@ -80,6 +80,40 @@ def _safe_join(root_real, name):
     return candidate
 
 
+def export_decisions(decisions, secret, label="niin-decisions"):
+    """Sign an arbitrary list of decision dicts for air-gapped transfer between units (recommendations
+    annex #17: airgap-multiunit). `decisions` is opaque to this function -- semantic validation (NIIN
+    format, decision enum) is the caller's job (parts_feature.py owns that), same layering
+    make_manifest()/verify() already have with file-list semantics. A distinct "kind" (not the file-
+    manifest shape) means verify()'s file-hashing path can never be accidentally pointed at this --
+    airgap intentionally does NOT try to sync the built sidecars (viewer.db/kg.db/dedup.db/
+    masterfile.db/correlations.db) themselves: those are deterministic BUILD OUTPUTS from source
+    PDFs, versioned by FLIS-enrichment vintage, not independently-editable data -- two units'
+    copies diverging isn't corruption to reconcile via file hashing, it's two different build runs
+    (see docs/SYSTEM-REQUIREMENTS.md). reviews.db's niin_decisions is different: small, human-
+    authored, append-only, and genuinely safe to merge -- this is the one derived-data path that's
+    worth a real signed sync."""
+    manifest = {"kind": "niin-decisions", "label": label, "created": int(time.time()),
+                "count": len(decisions), "decisions": list(decisions)}
+    return sign(manifest, secret)
+
+
+def import_decisions(manifest, secret):
+    """Fail-closed verify of a signed decisions export. Returns {ok, decisions} -- decisions is []
+    unless the signature is valid AND the manifest is genuinely decisions-shaped. Semantic
+    validation (NIIN format, decision enum) and conflict detection against local data are the
+    caller's job (parts_feature.py) -- this only proves the export wasn't tampered with in transit,
+    the same fail-closed-before-touching-anything-else contract verify() has for files."""
+    if not isinstance(manifest, dict) or manifest.get("kind") != "niin-decisions":
+        return {"ok": False, "error": "not a niin-decisions manifest", "decisions": []}
+    if not signature_valid(manifest, secret):
+        return {"ok": False, "error": "signature invalid", "decisions": []}
+    decisions = manifest.get("decisions")
+    if not isinstance(decisions, list):
+        return {"ok": False, "error": "malformed decisions list", "decisions": []}
+    return {"ok": True, "decisions": decisions}
+
+
 def verify(manifest, root, secret):
     """Fail-closed verification on the receiving side. Returns a dict with keys ok, signature_valid,
     files (each name/present/match), missing (list of names), and tampered (list of names).
@@ -196,6 +230,37 @@ if __name__ == "__main__":
     vw2 = verify(weird_man, dst, "attacker-chosen-secret")
     assert not vw2["ok"] and 12345 in vw2["tampered"], vw2
     print("non-string file name rejected (no crash) OK -> tampered=%s" % vw2["tampered"])
+
+    # ---- export_decisions()/import_decisions() (annex #17: airgap-multiunit) ---------------------
+    decisions = [{"niin": "012345678", "decision": "distinct", "canonical_nsn": "5310-01-234-5678",
+                  "note": "confirmed distinct part", "decided_by": "SGT A", "decided_at": "2026-01-01"},
+                 {"niin": "987654321", "decision": "interchangeable", "canonical_nsn": "",
+                  "note": "", "decided_by": "SSG B", "decided_at": "2026-01-02"}]
+    dman = export_decisions(decisions, SECRET, label="unit-A-decisions")
+    assert dman["kind"] == "niin-decisions" and dman["count"] == 2, dman
+    assert signature_valid(dman, SECRET), "decisions manifest should validate"
+    print("export_decisions OK -> %d decisions, signed" % dman["count"])
+
+    imp = import_decisions(dman, SECRET)
+    assert imp["ok"] and imp["decisions"] == decisions, imp
+    print("import_decisions (clean) OK -> %d decisions" % len(imp["decisions"]))
+
+    imp_wrong_key = import_decisions(dman, "attacker-key")
+    assert not imp_wrong_key["ok"] and imp_wrong_key["decisions"] == [], imp_wrong_key
+    print("import_decisions (wrong key) OK -> rejected, no decisions leaked")
+
+    # a self-signed forged decisions manifest (attacker controls both content and secret) must still
+    # be rejected by KIND if handed to verify() or ignored if a file-manifest is handed to
+    # import_decisions() -- the two paths must never cross.
+    file_man = make_manifest(src, ["TM-A.pdf"], SECRET)
+    cross = import_decisions(file_man, SECRET)
+    assert not cross["ok"] and "niin-decisions manifest" in cross["error"], cross
+    print("import_decisions rejects a file-manifest handed to it by mistake OK")
+
+    tampered_dman = dict(dman); tampered_dman["decisions"] = [dict(decisions[0], decision="dismiss")] + decisions[1:]
+    imp_tampered = import_decisions(tampered_dman, SECRET)
+    assert not imp_tampered["ok"], imp_tampered
+    print("import_decisions rejects a tampered decisions list (signature no longer matches) OK")
 
     print("airgap self-test PASS")
 

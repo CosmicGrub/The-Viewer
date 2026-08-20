@@ -61,6 +61,40 @@ def r_airgap_verify(h, qs, payload):
     h._send(200, {"ok": True, "result": airgap.verify(manifest, folder, secret)})
 
 
+@post("/api/airgap_export_decisions")
+def r_airgap_export_decisions(h, qs, payload):
+    # sign the full local NIIN-review-decision history for transfer to another unit
+    # (recommendations annex #17: airgap-multiunit). No folder/VIEWER_INGEST_ROOTS fence needed --
+    # unlike airgap_manifest/airgap_verify, this never touches an arbitrary caller-supplied path.
+    import airgap
+    import features.parts_feature as parts_feature
+    secret = payload.get("secret") or ""
+    if not secret:
+        h._send(400, {"error": "secret required"}); return
+    decisions = parts_feature.all_decisions()
+    h._send(200, {"ok": True, "manifest": airgap.export_decisions(
+        decisions, secret, label=payload.get("label", "unit-decisions"))})
+
+
+@post("/api/airgap_import_decisions")
+def r_airgap_import_decisions(h, qs, payload):
+    # verify + merge a signed decisions export from another unit. Fail-closed on a bad signature
+    # (nothing is written); a NIIN whose local latest decision disagrees with the incoming one is
+    # surfaced as a conflict and NOT written -- see parts_feature.apply_imported_decisions()'s
+    # docstring for why this never auto-resolves a disagreement.
+    import airgap
+    import features.parts_feature as parts_feature
+    manifest = payload.get("manifest"); secret = payload.get("secret") or ""
+    if not (isinstance(manifest, dict) and secret):
+        h._send(400, {"error": "manifest (object) and secret required"}); return
+    verified = airgap.import_decisions(manifest, secret)
+    if not verified["ok"]:
+        h._send(200, {"ok": False, "error": verified.get("error", "verification failed"),
+                      "imported": 0, "conflicts": []}); return
+    result = parts_feature.apply_imported_decisions(verified["decisions"])
+    h._send(200, {"ok": True, **result})
+
+
 @post("/api/ingest_scan")
 def r_ingest_scan(h, qs, payload):
     # scan a folder of manuals -> an ingestion plan (new vs already-in-corpus). Read-only over the folder.

@@ -76,6 +76,35 @@
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
   <div id="out"></div>
   <div class="ground">How it works: a safeguard snapshot is taken, then the tested pipeline walks the folder, adds new documents, extracts embedded text, OCRs every page that needs it, and rebuilds the parts index — one job, start to finish. Nothing is deleted or overwritten (R1/R6).</div>
+
+  <details class="card" id="airgapCard" style="margin-top:18px">
+    <summary style="cursor:pointer;font-weight:700">🔒 Air-gap transfer (advanced)</summary>
+    <p class="muted" style="margin-top:10px">For moving manuals between two disconnected machines with a signed, tamper-evident package — a USB drive, not the network. Everything here runs against files already on THIS computer.</p>
+
+    <div style="margin-top:14px"><b style="font-size:13px">1. Build a signed manifest</b> <span class="muted">(on the sending machine, before copying files to media)</span>
+      <div class="bar"><input id="agFolder" placeholder="Folder of PDFs to send, e.g. E:\Outgoing" spellcheck="false"></div>
+      <div class="bar"><input id="agSecret" type="password" placeholder="Shared secret (agree on this with the receiving unit beforehand)" spellcheck="false"></div>
+      <button class="b" onclick="agBuildManifest()">Build manifest</button>
+      <div id="agManifestOut" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:12px"><b style="font-size:13px">2. Verify a received manifest</b> <span class="muted">(on the receiving machine, after copying files off media)</span>
+      <div class="bar"><textarea id="agManifestIn" placeholder="Paste the manifest JSON you received alongside the files" spellcheck="false" style="flex:1;min-height:70px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace"></textarea></div>
+      <div class="bar"><input id="agVerifyFolder" placeholder="Folder where you copied the received files, e.g. E:\Incoming" spellcheck="false"></div>
+      <div class="bar"><input id="agVerifySecret" type="password" placeholder="Same shared secret the sender used" spellcheck="false"></div>
+      <button class="b" onclick="agVerify()">Verify received files</button>
+      <div id="agVerifyOut" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:12px"><b style="font-size:13px">3. Part-number review decisions</b> <span class="muted">(export yours to send, or import ones you received — never overwrites a disagreement, always shows it to you first)</span>
+      <div class="bar"><input id="agDecSecret" type="password" placeholder="Shared secret" spellcheck="false">
+        <button class="b" onclick="agExportDecisions()">Export mine</button></div>
+      <div id="agExportOut" class="muted" style="margin-top:4px"></div>
+      <div class="bar" style="margin-top:8px"><textarea id="agDecIn" placeholder="Paste a received decisions export JSON here" spellcheck="false" style="flex:1;min-height:70px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace"></textarea></div>
+      <button class="b" onclick="agImportDecisions()">Import (never auto-overwrites a disagreement)</button>
+      <div id="agImportOut" class="muted" style="margin-top:8px"></div>
+    </div>
+  </details>
 </div>
 <script>
 var $=function(s){return document.querySelector(s);};
@@ -422,6 +451,78 @@ function uploadFile(file){
   });
 })();
 renderRecent();
+
+/* ---- Air-gap transfer (recommendations annex #17: airgap-multiunit) — a thin UI over the
+   existing signed-manifest routes, plus the new decisions export/import pair. Deliberately does
+   NOT try to transfer the built sidecars (viewer.db/kg.db/dedup.db/masterfile.db) themselves —
+   see airgap.py's export_decisions() docstring for why those are treated as separate per-unit
+   build outputs, not something to sync. ---- */
+function agBuildManifest(){
+  var folder=$("#agFolder").value.trim(), secret=$("#agSecret").value;
+  var out=$("#agManifestOut");
+  if(!folder||!secret){ out.innerHTML='<span class="err">Folder and secret are both required.</span>'; return; }
+  out.textContent="Building…";
+  fetch("/api/airgap_manifest",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({folder:folder,secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ out.innerHTML='<span class="err">'+esc(d.error||"Couldn't build a manifest.")+'</span>'; return; }
+      var json=JSON.stringify(d.manifest);
+      out.innerHTML='<span class="ok">✓ '+d.manifest.count+' file(s) signed.</span> Copy this manifest (and the files themselves) to media, and give both to the receiving unit:'
+        +'<textarea readonly style="width:100%;min-height:70px;margin-top:6px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace" onclick="this.select()">'+esc(json)+'</textarea>';
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
+function agVerify(){
+  var raw=$("#agManifestIn").value.trim(), folder=$("#agVerifyFolder").value.trim(), secret=$("#agVerifySecret").value;
+  var out=$("#agVerifyOut");
+  if(!raw||!folder||!secret){ out.innerHTML='<span class="err">Manifest, folder, and secret are all required.</span>'; return; }
+  var manifest;
+  try{ manifest=JSON.parse(raw); }catch(e){ out.innerHTML='<span class="err">That doesn’t look like valid manifest JSON.</span>'; return; }
+  out.textContent="Verifying…";
+  fetch("/api/airgap_verify",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({manifest:manifest,folder:folder,secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      var res=(d&&d.result)||{};
+      if(res.verdict==="ACCEPT"){ out.innerHTML='<span class="ok">✓ ACCEPT — every file present and matches. Safe to ingest normally from '+esc(folder)+'.</span>'; return; }
+      var lines=[];
+      if(!res.signature_valid) lines.push("signature invalid — wrong secret, or the manifest/files were altered");
+      if(res.missing&&res.missing.length) lines.push(res.missing.length+" file(s) missing: "+res.missing.join(", "));
+      if(res.tampered&&res.tampered.length) lines.push(res.tampered.length+" file(s) don't match (tampered or corrupted in transit): "+res.tampered.join(", "));
+      out.innerHTML='<span class="err">✗ REJECT — do not trust this transfer.</span><br>'+esc(lines.join(" · ")||d.error||"verification failed");
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
+function agExportDecisions(){
+  var secret=$("#agDecSecret").value, out=$("#agExportOut");
+  if(!secret){ out.innerHTML='<span class="err">Shared secret required.</span>'; return; }
+  out.textContent="Exporting…";
+  fetch("/api/airgap_export_decisions",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ out.innerHTML='<span class="err">'+esc(d.error||"Couldn't export.")+'</span>'; return; }
+      var json=JSON.stringify(d.manifest);
+      out.innerHTML='<span class="ok">✓ '+d.manifest.count+' decision(s) signed.</span> '
+        +'<textarea readonly style="width:100%;min-height:60px;margin-top:6px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace" onclick="this.select()">'+esc(json)+'</textarea>';
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
+function agImportDecisions(){
+  var raw=$("#agDecIn").value.trim(), secret=$("#agDecSecret").value, out=$("#agImportOut");
+  if(!raw||!secret){ out.innerHTML='<span class="err">Paste a decisions export and enter the shared secret.</span>'; return; }
+  var manifest;
+  try{ manifest=JSON.parse(raw); }catch(e){ out.innerHTML='<span class="err">That doesn’t look like valid JSON.</span>'; return; }
+  out.textContent="Importing…";
+  fetch("/api/airgap_import_decisions",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({manifest:manifest,secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ out.innerHTML='<span class="err">'+esc(d.error||"Import failed — check the secret matches.")+'</span>'; return; }
+      var h='<span class="ok">✓ '+(d.imported||0)+' new decision(s) merged.</span>';
+      if(d.skipped_invalid&&d.skipped_invalid.length) h+=' <span class="muted">('+d.skipped_invalid.length+' skipped — invalid NIIN/decision)</span>';
+      if(d.conflicts&&d.conflicts.length){
+        h+='<div style="margin-top:6px;color:#f0a6a6">⚠ '+d.conflicts.length+' NIIN(s) disagree with what you already have — NOT imported, review manually:</div><div style="font-size:11.5px;margin-top:4px">';
+        d.conflicts.forEach(function(c){ h+='<div>NIIN '+esc(c.niin)+': you have "'+esc(c.local&&c.local.decision||"")+'", they sent "'+esc(c.incoming&&c.incoming.decision||"")+'"</div>'; });
+        h+='</div>';
+      }
+      out.innerHTML=h;
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
 </script>
 <script src="/palette.js"></script>
 </body></html>

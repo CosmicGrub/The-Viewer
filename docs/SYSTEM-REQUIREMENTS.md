@@ -233,6 +233,33 @@ disabled stage's missing counts never look unexplained.
   `{nsn}`/`{niin}` placeholders (e.g. `https://example-public-nsn-catalog/api?nsn={nsn}`). Empty by
   default.
 
+## Multi-unit / air-gapped transfer (recommendations annex #17)
+
+`airgap.py` + `/api/airgap_manifest` / `/api/airgap_verify` / `/api/airgap_export_decisions` /
+`/api/airgap_import_decisions` (also reachable via the "🔒 Air-gap transfer" panel on `/ingest`, or
+`BUILD-AIRGAP-MANIFEST.bat` / `VERIFY-AIRGAP-BUNDLE.bat` from the command line) sign and verify a
+folder of **source PDFs**, and separately export/import **NIIN review decisions**
+(`reviews.db`'s `niin_decisions` table), for moving data between two disconnected machines on
+removable media.
+
+**What this deliberately does NOT do: sync the built sidecars.** `viewer.db`, `kg.db`, `dedup.db`,
+`masterfile.db`, and `correlations.db` are all **deterministic build outputs** from source PDFs +
+FLIS enrichment data, not independently-editable data. Two units' copies of these files diverging
+isn't corruption to reconcile via file hashing — it's two different build runs (different FLIS
+enrichment vintage, different OCR passes, different corpora). Signing and "syncing" them the way
+`airgap.py` signs source files would make a stale per-unit snapshot look "verified" when it's
+merely old, hiding the real problem (the receiving unit needs to re-run its own build) instead of
+surfacing it. The correct workflow for a receiving unit is: verify + copy the source PDFs with
+`airgap.py`, then run the normal ingest/OCR pipeline locally to produce its own, independently
+current sidecars.
+
+`niin_decisions` is the one exception, and is handled separately (`export_decisions()`/
+`import_decisions()`): it's small, human-authored, and append-only by design
+(`parts_feature.record_niin_decision()`'s own docstring), so it's genuinely safe to merge. Import
+never silently overwrites a disagreement — a NIIN whose local latest decision differs from an
+imported one is surfaced as a conflict and left for a human to resolve, never auto-picked by
+timestamp or "last write wins".
+
 ## Your machine — Acer Nitro 5
 
 The Nitro 5 line ships with an **NVIDIA GPU** (GTX 1650 → RTX 30/40-series), 6–8 core CPU, 8–32 GB RAM,

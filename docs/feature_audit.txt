@@ -1,9 +1,9 @@
 THE VIEWER — feature audit
 ============================================================
-registry: 249 GET · 24 POST · 46 page-routes · 16 served scripts
+registry: 249 GET · 26 POST · 46 page-routes · 16 served scripts
 
 [0] duplicate route paths (a dup silently drops one handler)
-PASS no duplicate route paths (156 decorators, all unique per method)
+PASS no duplicate route paths (158 decorators, all unique per method)
 
 [1] page & script files exist
 PASS page /                      -> ui/index.html

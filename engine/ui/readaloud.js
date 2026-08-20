@@ -78,6 +78,106 @@
     if(q.parentNode) q.parentNode.insertBefore(mic, q.nextSibling);
   }
 
-  function init(){ mountBtn(); mountMic(); }
+  // ---- step-by-step navigation (recommendations annex #8: readaloud-navigation) ----
+  // procedure.html renders numbered steps into #stepwrap/#out as .step elements after its own XHR
+  // resolves (this script has no dependency on procedure.html's internals beyond that DOM shape --
+  // it doesn't reference procedure.html's own 'CUR' variable, which isn't a shared contract). A
+  // mechanic mid-task can advance/repeat/go back by voice or a large touch target without touching
+  // the screen -- read-aloud alone can only play the WHOLE page once, start to finish.
+  var stepIdx = -1;
+  function stepNodes(){
+    var host = document.getElementById("stepwrap") || document.getElementById("out");
+    if(!host) return [];
+    return Array.prototype.slice.call(host.querySelectorAll(".step"));
+  }
+  function stepText(el){
+    // strip the checkbox + torque/fig/NSN chips before reading -- "Step 2. Torque the bolt to 35
+    // ft-lb  35 ft-lb  FIG 5  NSN 5305-01-674-1467" would read the chip text twice (once as prose,
+    // once as the chip label) since the chips are siblings INSIDE .body, not separate from it.
+    var clone = el.cloneNode(true);
+    var kill = clone.querySelectorAll("input, .chip");
+    for(var i=0;i<kill.length;i++){ if(kill[i].parentNode) kill[i].parentNode.removeChild(kill[i]); }
+    var nEl = clone.querySelector(".n"), bodyEl = clone.querySelector(".body");
+    var num = nEl ? (nEl.textContent||"").trim() : "";
+    var body = bodyEl ? (bodyEl.innerText||bodyEl.textContent||"") : (clone.innerText||clone.textContent||"");
+    return "Step " + num + ". " + clean(body);
+  }
+  function gotoStep(i){
+    var ns = stepNodes(); if(!ns.length) return;
+    stepIdx = Math.max(0, Math.min(i, ns.length-1));
+    speak(stepText(ns[stepIdx]));
+    paintStepNav();
+  }
+  function nextStep(){ gotoStep(stepIdx<0?0:stepIdx+1); }
+  function prevStep(){ gotoStep(stepIdx<0?0:stepIdx-1); }
+  function repeatStep(){ gotoStep(stepIdx<0?0:stepIdx); }
+
+  function mountStepNav(){
+    if(document.getElementById("vw-stepnav")) return;
+    var css="#vw-stepnav{position:fixed;bottom:12px;right:340px;z-index:9998;display:none;gap:6px;align-items:center}"
+      +"#vw-stepnav button{background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;padding:8px 14px;font:12px Segoe UI,Arial,sans-serif;cursor:pointer;opacity:.85;min-height:36px}"
+      +"#vw-stepnav button:hover{opacity:1;color:#e6e9ee}#vw-stepnav button.on{color:#7fd6a0;border-color:#1d9e75}"
+      +"#vw-stepnav .lbl{color:#7fd6a0;font:11px Segoe UI,Arial,sans-serif;padding:0 2px;min-width:34px;text-align:center}"
+      +"@media print{#vw-stepnav{display:none!important}}"
+      +"@media (pointer:coarse){#vw-stepnav button{min-height:44px;padding:10px 16px}}";
+    var st=document.createElement("style"); st.textContent=css; (document.head||document.documentElement).appendChild(st);
+    var wrap=document.createElement("div"); wrap.id="vw-stepnav";
+    wrap.innerHTML='<button id="vw-step-prev" title="Previous step" role="button" tabindex="0">◀ prev</button>'
+      +'<span class="lbl" id="vw-step-lbl"></span>'
+      +'<button id="vw-step-next" title="Next step" role="button" tabindex="0">next ▶</button>';
+    (document.body||document.documentElement).appendChild(wrap);
+    var pb=document.getElementById("vw-step-prev"), nb=document.getElementById("vw-step-next");
+    pb.onclick=prevStep; nb.onclick=nextStep;
+    pb.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); prevStep(); } };
+    nb.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); nextStep(); } };
+    mountStepMic(wrap);
+  }
+  function paintStepNav(){
+    var wrap=document.getElementById("vw-stepnav"); if(!wrap) return;
+    var ns=stepNodes();
+    if(!ns.length){ wrap.style.display="none"; return; }
+    wrap.style.display="flex";
+    var lbl=document.getElementById("vw-step-lbl");
+    if(lbl) lbl.textContent=(stepIdx>=0?(stepIdx+1):"–")+"/"+ns.length;
+  }
+  function watchSteps(){
+    var host=document.getElementById("stepwrap") || document.getElementById("out");
+    paintStepNav();
+    if(!host || !window.MutationObserver) return;
+    var mo=new MutationObserver(function(){ stepIdx=-1; paintStepNav(); });
+    mo.observe(host, {childList:true, subtree:true});
+  }
+  // a SEPARATE recognizer from mountMic()'s search-dictation mic (that one fills #q and searches;
+  // this one only ever calls nextStep()/prevStep()/repeatStep()/stop() -- conflating the two would
+  // make one press of either mic do something the mechanic didn't ask for).
+  function mountStepMic(wrap){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR || document.getElementById("vw-step-mic")) return;
+    var mic=document.createElement("button"); mic.id="vw-step-mic"; mic.type="button"; mic.textContent="🎤";
+    mic.title="Voice: say next, back, repeat, or stop"; mic.setAttribute("aria-label","Voice step control");
+    wrap.appendChild(mic);
+    var rec=null, on=false;
+    mic.onclick=function(){
+      if(on && rec){ try{ rec.stop(); }catch(e){} return; }
+      try{ rec=new SR(); }catch(e){ toast("Voice control unavailable."); return; }
+      rec.lang="en-US"; rec.continuous=true; rec.interimResults=false;
+      rec.onresult=function(ev){
+        for(var i=ev.resultIndex;i<ev.results.length;i++){
+          var txt=(ev.results[i][0].transcript||"").toLowerCase();
+          if(/\bnext\b/.test(txt)) nextStep();
+          else if(/\bprevious\b|\bback\b/.test(txt)) prevStep();
+          else if(/\brepeat\b|\bagain\b/.test(txt)) repeatStep();
+          else if(/\bstop\b/.test(txt)) stop();
+        }
+      };
+      rec.onstart=function(){ on=true; mic.className="on"; };
+      rec.onend=function(){ on=false; mic.className=""; };
+      rec.onerror=function(){ on=false; mic.className=""; toast("Didn't catch that."); };
+      try{ rec.start(); }catch(e){ toast("Voice control needs microphone permission."); }
+    };
+  }
+  window.viewerNextStep=nextStep; window.viewerPrevStep=prevStep; window.viewerRepeatStep=repeatStep;
+
+  function init(){ mountBtn(); mountMic(); mountStepNav(); watchSteps(); }
   if(document.body) init(); else document.addEventListener("DOMContentLoaded", init);
 })();

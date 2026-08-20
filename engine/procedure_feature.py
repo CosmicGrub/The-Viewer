@@ -127,10 +127,36 @@ def procedure_full(query, limit=6):
     if not best or best[0] <= 0:
         return out
     score, r, pr = best
+    # Recommendations annex #11 (cautions-single-page): a TM's WARNING/CAUTION/DANGER box commonly
+    # precedes the steps it gates, printed at the bottom of the PRECEDING page -- procedure_full()
+    # only ever parsed the single best-matched page, so that callout was silently absent. Look back
+    # exactly ONE page (not further -- a warning further back risks belonging to a different work
+    # package entirely, and this app has no reliable WP-boundary signal to check against), scoped to
+    # just the tail (~12 non-blank-ish lines) so unrelated body text from that prior page isn't
+    # dragged in as if it were part of this procedure. Every warning is tagged with the page it
+    # actually came from (mirrors cautions.py's own per-callout page tagging) so the UI can cite it
+    # correctly rather than implying every warning is on the matched page.
+    warnings = [dict(w, page=r["page_number"]) for w in pr["warnings"]]
+    try:
+        con2 = core.db()
+        try:
+            prev = con2.execute(
+                "SELECT body_text FROM pages WHERE document_id=? AND page_number=?",
+                (r["doc_id"], r["page_number"] - 1)).fetchone()
+        finally:
+            con2.close()
+        if prev and prev["body_text"]:
+            tail_lines = [l for l in prev["body_text"].splitlines() if l.strip()][-12:]
+            if tail_lines:
+                lead_pr = parse_procedure("\n".join(tail_lines), title=q)
+                lead = [dict(w, page=r["page_number"] - 1) for w in lead_pr["warnings"]]
+                warnings = (lead + warnings)[:12]
+    except Exception as e:
+        out["warnings_error"] = str(e)
     nsns = sorted({n for st in pr["steps"] for n in st.get("nsns", [])})
     out.update({"found": True, "title": q, "kind": pr["kind"],
                 "source": {"doc_id": r["doc_id"], "page": r["page_number"], "tm": r["tm_number"], "vehicle": r["vehicle"]},
-                "tools": pr["tools"], "warnings": pr["warnings"], "steps": pr["steps"],
+                "tools": pr["tools"], "warnings": warnings, "steps": pr["steps"],
                 "parts": [{"nsn": n} for n in nsns],
                 "fault_terms": re.findall(r"[A-Za-z0-9]{3,}", q)[:6]})
     return out

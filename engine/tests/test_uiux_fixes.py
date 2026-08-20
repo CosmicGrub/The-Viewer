@@ -826,6 +826,38 @@ except Exception as e:
     failed.append("torque_measures_confidence_ui(%s)" % e)
 
 
+# =====================================================================================================
+# Recommendations annex #11 (cautions-single-page) -- procedure.html's three-state warnings contract
+# (found / genuinely-none / extraction-failed) and dossier.html distinguishing a genuine empty
+# cautions result from a silent lookup failure (cj===null or cj.error), instead of both rendering the
+# identical "no safety callouts" text.
+# =====================================================================================================
+try:
+    PROCEDURE_HTML = os.path.join(ENGINE, "ui", "procedure.html")
+    DOSSIER_HTML = os.path.join(ENGINE, "ui", "dossier.html")
+    procedure_src = open(PROCEDURE_HTML, encoding="utf-8").read()
+    dossier_src = open(DOSSIER_HTML, encoding="utf-8").read()
+
+    ok("procedure_html_checks_warnings_error_before_the_empty_case",
+       "d.warnings_error" in procedure_src)
+    ok("procedure_html_failed_state_says_do_not_treat_as_no_warnings",
+       "do not treat this as" in procedure_src.lower())
+    ok("procedure_html_genuine_empty_state_distinguishes_itself_from_failure",
+       "not that the check failed" in procedure_src.lower())
+    ok("procedure_html_tags_a_merged_warning_with_its_real_source_page", "wr.page" in procedure_src)
+
+    ok("dossier_html_checks_cj_null_before_reading_results", "cj===null" in dossier_src)
+    ok("dossier_html_checks_cj_error_before_reading_results", "cj.error" in dossier_src)
+    ok("dossier_html_failed_state_says_do_not_treat_as_no_hazards",
+       "do not treat this as" in dossier_src.lower())
+
+    import rps_lint as _rl3
+    ok("procedure_dossier_html_stay_es5_clean",
+       not _rl3.scan_file(PROCEDURE_HTML) and not _rl3.scan_file(DOSSIER_HTML))
+except Exception as e:
+    failed.append("cautions_single_page_ui(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for priority-5 UI/UX audit fixes)" %

@@ -597,42 +597,52 @@ def main():
         # including the UTF-8 BOM robustness fix (PowerShell's ">" redirect writes a BOM by
         # default; VERIFY-AIRGAP-BUNDLE.bat must read a BOM-prefixed manifest file just as cleanly
         # as a plain one).
+        # .bat is a Windows batch script -- there is no POSIX equivalent to fall back to (unlike the
+        # mklink/symlink split test_features.py uses for its own os.name=="nt" branch), so this
+        # whole subsection is Windows-only and must be SKIPPED, not attempted, on the Ubuntu CI
+        # runners the project's own CI matrix added: `cmd` doesn't exist there at all, so
+        # subprocess.run(["cmd", ...]) doesn't fail the .bat -- it fails to even launch (live CI
+        # failure: FileNotFoundError: [Errno 2] No such file or directory: 'cmd'), aborting the rest
+        # of this file's checks along with it.
         # =====================================================================================
-        repo_root = os.path.dirname(ENGINE)
-        bat_send = tempfile.mkdtemp(prefix="airgap_bat_send_")
-        bat_recv = tempfile.mkdtemp(prefix="airgap_bat_recv_")
-        open(os.path.join(bat_send, "TM-BAT.pdf"), "wb").write(b"%PDF-1.4 battest" + b"\x03" * 200)
-        bat_secret = "bat-wrapper-secret-2026"
+        if os.name != "nt":
+            print("SKIP BUILD-AIRGAP-MANIFEST.bat / VERIFY-AIRGAP-BUNDLE.bat checks (Windows-only, .bat scripts)")
+        else:
+            repo_root = os.path.dirname(ENGINE)
+            bat_send = tempfile.mkdtemp(prefix="airgap_bat_send_")
+            bat_recv = tempfile.mkdtemp(prefix="airgap_bat_recv_")
+            open(os.path.join(bat_send, "TM-BAT.pdf"), "wb").write(b"%PDF-1.4 battest" + b"\x03" * 200)
+            bat_secret = "bat-wrapper-secret-2026"
 
-        build_bat = os.path.join(repo_root, "BUILD-AIRGAP-MANIFEST.bat")
-        bp = subprocess.run(["cmd", "/c", build_bat, bat_send, bat_secret],
-                            capture_output=True, text=False, timeout=60)
-        check("BUILD-AIRGAP-MANIFEST.bat exits 0", bp.returncode == 0)
-        bat_manifest_json = bp.stdout.decode("utf-8", errors="replace").strip()
-        check("BUILD-AIRGAP-MANIFEST.bat printed a signed manifest to stdout",
-              '"signature"' in bat_manifest_json and '"TM-BAT.pdf"' in bat_manifest_json)
+            build_bat = os.path.join(repo_root, "BUILD-AIRGAP-MANIFEST.bat")
+            bp = subprocess.run(["cmd", "/c", build_bat, bat_send, bat_secret],
+                                capture_output=True, text=False, timeout=60)
+            check("BUILD-AIRGAP-MANIFEST.bat exits 0", bp.returncode == 0)
+            bat_manifest_json = bp.stdout.decode("utf-8", errors="replace").strip()
+            check("BUILD-AIRGAP-MANIFEST.bat printed a signed manifest to stdout",
+                  '"signature"' in bat_manifest_json and '"TM-BAT.pdf"' in bat_manifest_json)
 
-        shutil.copy(os.path.join(bat_send, "TM-BAT.pdf"), os.path.join(bat_recv, "TM-BAT.pdf"))
-        manifest_path_bom = os.path.join(bat_send, "manifest_bom.json")
-        # deliberately write WITH a UTF-8 BOM -- exactly what PowerShell's ">" redirect produces --
-        # to prove VERIFY-AIRGAP-BUNDLE.bat's utf-8-sig fix actually handles it, not just plain UTF-8.
-        with open(manifest_path_bom, "w", encoding="utf-8-sig") as f:
-            f.write(bat_manifest_json)
+            shutil.copy(os.path.join(bat_send, "TM-BAT.pdf"), os.path.join(bat_recv, "TM-BAT.pdf"))
+            manifest_path_bom = os.path.join(bat_send, "manifest_bom.json")
+            # deliberately write WITH a UTF-8 BOM -- exactly what PowerShell's ">" redirect produces --
+            # to prove VERIFY-AIRGAP-BUNDLE.bat's utf-8-sig fix actually handles it, not just plain UTF-8.
+            with open(manifest_path_bom, "w", encoding="utf-8-sig") as f:
+                f.write(bat_manifest_json)
 
-        verify_bat = os.path.join(repo_root, "VERIFY-AIRGAP-BUNDLE.bat")
-        vp = subprocess.run(["cmd", "/c", verify_bat, manifest_path_bom, bat_recv, bat_secret],
-                            capture_output=True, text=True, timeout=60)
-        check("VERIFY-AIRGAP-BUNDLE.bat accepts a BOM-prefixed manifest file (exit 0, VERDICT: ACCEPT)",
-              vp.returncode == 0 and "VERDICT: ACCEPT" in vp.stdout)
-        check("VERIFY-AIRGAP-BUNDLE.bat prints the [ACCEPT] summary line", "[ACCEPT]" in vp.stdout)
+            verify_bat = os.path.join(repo_root, "VERIFY-AIRGAP-BUNDLE.bat")
+            vp = subprocess.run(["cmd", "/c", verify_bat, manifest_path_bom, bat_recv, bat_secret],
+                                capture_output=True, text=True, timeout=60)
+            check("VERIFY-AIRGAP-BUNDLE.bat accepts a BOM-prefixed manifest file (exit 0, VERDICT: ACCEPT)",
+                  vp.returncode == 0 and "VERDICT: ACCEPT" in vp.stdout)
+            check("VERIFY-AIRGAP-BUNDLE.bat prints the [ACCEPT] summary line", "[ACCEPT]" in vp.stdout)
 
-        # tamper -> the same .bat must reject
-        with open(os.path.join(bat_recv, "TM-BAT.pdf"), "r+b") as f:
-            f.seek(5); f.write(b"\xff\xff")
-        vp2 = subprocess.run(["cmd", "/c", verify_bat, manifest_path_bom, bat_recv, bat_secret],
-                             capture_output=True, text=True, timeout=60)
-        check("VERIFY-AIRGAP-BUNDLE.bat rejects a tampered file (exit 1, [REJECT])",
-              vp2.returncode == 1 and "[REJECT]" in vp2.stdout and "'TM-BAT.pdf'" in vp2.stdout)
+            # tamper -> the same .bat must reject
+            with open(os.path.join(bat_recv, "TM-BAT.pdf"), "r+b") as f:
+                f.seek(5); f.write(b"\xff\xff")
+            vp2 = subprocess.run(["cmd", "/c", verify_bat, manifest_path_bom, bat_recv, bat_secret],
+                                 capture_output=True, text=True, timeout=60)
+            check("VERIFY-AIRGAP-BUNDLE.bat rejects a tampered file (exit 1, [REJECT])",
+                  vp2.returncode == 1 and "[REJECT]" in vp2.stdout and "'TM-BAT.pdf'" in vp2.stdout)
 
         # =====================================================================================
         # POST /api/form_2404 + /api/form_2407 -- filled payload data actually renders into the PDF

@@ -27,7 +27,7 @@ USE_CUDA = False       # GPU OCR when True (RapidOCR + onnxruntime-gpu)
 ADAPTIVE_DPI = os.environ.get("VIEWER_ADAPTIVE_DPI") == "1"   # opt-in: lower DPI on sparse pages (default OFF = no accuracy change)
 _RAPID_LOCK = threading.Lock()
 _FITZ_LOCK = threading.Lock()
-_DEDUP = {}                       # img_hash -> OCR text: identical pages (boilerplate) reuse text, skip re-inference
+_DEDUP = {}                       # img_hash -> (text, confidence): identical pages (boilerplate) reuse the cached result, skip re-inference
 _DEDUP_LOCK = threading.Lock()
 _DEDUP_STATS = {"hits": 0}
 def _page_density(path, page_number):

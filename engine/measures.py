@@ -115,6 +115,16 @@ def _classify(unit_raw):
 # "deg F"/"°F" match that happens to span a newline -- same conservative trade-off already accepted above.
 _BARE_LETTER_UNITS = {"V", "A", "W", "N", "L", "m", "g", "degF", "degC"}
 
+# v1.13.5 fix: labels that make a following "<number> <letter>" a document CALLOUT, not a temperature.
+# The bare-letter F/C alternative above fires on any number + space + F/C, and in a TM that shape is
+# overwhelmingly a figure/table/item reference ("FIGURE 5 C", "Refer to TABLE 3 F", "Grade 8 F bolts").
+# The designator (F-16), C-rate (0.5C) and newline-bridge guards can't catch these -- a real space
+# genuinely separates the number from the letter, which is exactly what the whitespace check accepts.
+# Anchored at the end so it only inspects the text immediately preceding the number.
+_CALLOUT = re.compile(
+    r"(?<![a-z])(?:fig(?:ure)?|table|tbl|item|detail|sheet|view|note|step|para(?:graph)?|"
+    r"section|grade|class|type|key|zone|index|nos?)\.?\s*\Z", re.I)
+
 
 def extract(text, page=None, cap=200):
     """Return [{type, value, value2, tolerance, unit, raw, context}] for every measurement in `text`."""
@@ -137,6 +147,11 @@ def extract(text, page=None, cap=200):
             # words/symbols already and don't need this extra check.
             ustart = m.start("unit")
             if ustart == 0 or not text[ustart - 1].isspace():
+                continue
+            # ...and it must not be a document callout ("FIGURE 5 C", "TABLE 3 F", "Grade 8 F"). See
+            # _CALLOUT above: the whitespace rule alone ACCEPTS every one of these, because a callout
+            # puts a real space there too. A 40-char lookback covers the label plus any lead-in words.
+            if _CALLOUT.search(text[max(0, m.start() - 40):m.start()]):
                 continue
         raw = m.group(0).strip()
         start = max(0, m.start() - 45); end = min(len(text), m.end() + 45)

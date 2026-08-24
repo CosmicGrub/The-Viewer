@@ -53,6 +53,22 @@ def test_measures_bare_temperature():
     check("bare F 120 extracted", any(r["unit"] == "degF" and r["value"] == "120" for r in temps))
     check("bare C -20 extracted", any(r["unit"] == "degC" and r["value"] == "-20" for r in temps))
     check("no designator/C-rate false positives (exactly 3 real readings)", len(temps) == 3)
+    # v1.13.5 fix: document callouts are the OTHER high-frequency "<number> <letter>" shape in a TM, and
+    # unlike the designator/C-rate forms they put a real space there -- so the whitespace rule above
+    # ACCEPTS them. Every one of these extracted a bogus temperature before _CALLOUT was added.
+    callouts = ["FIGURE 5 C shows the pump assembly.",
+                "Refer to TABLE 3 F for torque values.",
+                "Install item 2 C and item 4 F as shown.",
+                "Use Grade 8 F bolts throughout.",
+                "Class 2 C wiring is required.",
+                "DETAIL 7 C, SHEET 2 F"]
+    for s in callouts:
+        got = [r for r in measures.extract(s) if r["type"] == "temperature"]
+        check("callout not read as temperature: %s" % s[:28], not got)
+    # ...while genuine readings that merely follow a callout reference still extract.
+    real = measures.extract("See FIGURE 5 for the curve. Operating limit is 120 F at sea level.")
+    check("real temp after a callout still extracted",
+          any(r["unit"] == "degF" and r["value"] == "120" for r in real))
 
 
 def test_measures_unbroken_digit_run_not_truncated():

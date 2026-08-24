@@ -166,7 +166,7 @@ OCR_LOCK_TIMEOUT_SECONDS = int(os.environ.get("VIEWER_OCR_LOCK_TIMEOUT", "20"))
 # longer than that, defeating the split's whole point (a busy-but-healthy lock should fail fast and be
 # reported as lock contention, distinct from a genuine page-level hang). Clamp, don't just document.
 OCR_LOCK_TIMEOUT_SECONDS = min(OCR_LOCK_TIMEOUT_SECONDS, OCR_PAGE_TIMEOUT_SECONDS)
-_DEDUP = {}                       # img_hash -> OCR text: identical pages (boilerplate) reuse text, skip re-inference
+_DEDUP = {}                       # img_hash -> (text, confidence): identical pages (boilerplate) reuse the cached result, skip re-inference
 _DEDUP_LOCK = threading.Lock()
 _DEDUP_STATS = {"hits": 0}
 def _page_density(path, page_number):

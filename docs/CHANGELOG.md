@@ -12,6 +12,240 @@ every change going forward.
 
 ---
 
+## [1.15.0] — 2026-08-19 — Discovery Engine phase 1 + in-app scanning, 5 deferred items closed, RPS Premium tier, OCR confidence threaded end-to-end, full-codebase reachability audit
+30 commits, 2026-08-18 20:40 → 2026-08-19 21:41 (~25 hours, effectively one continuous session) — the
+largest single body of undocumented work this file has ever carried at once, and itself a fresh instance
+of the drift [1.14.0] documents at length: `docs/CHANGELOG.md` sat at [1.14.1] while `main` moved 30
+commits further, `VERSION` stayed `"1.14.1"`, and `docs/HANDOFF-NOTE.md`/`PROJECT-SUMMARY.md`/
+`MASTER-RECONCILIATION.md` were all still pinned to [1.14.0]. This entry reconciles `CHANGELOG.md` only —
+those three still need their own pass (tracked in `docs/HANDOFF-NOTE.md`'s "Suggested next"). **`VERSION`
+→ `1.15.0`.**
+
+### Added — Discovery Engine phase 1 + in-app scan/OCR (`05ff17f` → `85df23c`)
+- **Add Documents runs scan+OCR+parts as one in-app job** (`05ff17f`): `ingest_start()` now launches
+  `viewer_ingest.py`'s full `run` subcommand (crawl → ocr-until-drained → extract_parts) instead of the
+  old crawl-only path — closes the "go run START-OCR-NOW.bat yourself" gap. New `ocr_backlog_start()` +
+  `POST /api/ocr_backlog_start` finishes OCR already queued from an earlier crawl-only run, sharing the
+  same one-job-at-a-time lock; requires `confirm:true` since it has no other required body field — caught
+  live: `test_routes.py`'s generic empty-body POST sweep was silently launching a real subprocess + taking
+  a real `safeguard.snapshot()` every test run before this gate existed. New atomic `ingest_progress.json`
+  sidecar (`_write_progress()`) drives a real 4-stage progress panel (Scanning → OCR'ing → Extracting parts
+  → Done) in `ingest.html`, including through an OCR-engine failure, not just success.
+- **Drag-and-drop single-file upload** (`26a2f56`): new `ingest_upload(filename, data_b64)` decodes,
+  validates (extension, base64, `%PDF-` magic header, 150 MB cap), saves into a server-owned `uploads/`
+  folder (suffixed not overwritten on a repeat name), and launches the same `run` job. New
+  `POST /api/ingest_upload` + a `do_POST` size-cap exception scoped to just this route (200 MB vs. the
+  normal 8 MB). A process-lifetime `_EXTRACT_TALLY` accumulator feeds a live "where did my data go"
+  breakdown panel (documents/pages/parts/barcodes, each linking to where that data actually lives).
+- **Dimensional + schematic detection wired into the live scan** (`701fb41`): `measures.py`/
+  `specparse.py`/`leadingspecs.py` and `schem_overlay.py`/`schemgraph.py` were fully built, self-tested
+  batch-only tools with zero live callers; new `_extract_measures_for_page()` and a 4th pipeline stage
+  `_run_schematic_stage()` (new `schematics` table, migration `0011_schematics.sql`) wire both in, scoped
+  to documents the current run actually touched. `part_differences()` gains a live "dimensions" discriminator
+  citing real per-variant measurement values.
+- **`index_other()`: crawl() actually reads images/.txt/.html now** (`85df23c`) — before this, a non-PDF
+  file was marked `indexed`/0 pages and never read at all. Images are queued as a single OCR page (PyMuPDF
+  already opens a raw image as a 1-page document, so the entire existing OCR/barcode/dimensional pipeline
+  runs on it for free); `.txt` read directly (2 MB cap); `.htm`/`.html` tag-stripped via a new
+  dependency-free regex stripper. `tables.py`'s `find_tables()` becomes a live 5th pipeline stage
+  (`TABLES_SCAN` toggle) — it had been stranded the same way. Genuine Office formats stayed unsupported
+  here (closed two commits later, see below).
+
+### Added — Full-codebase reachability audit: RPSTL/pagetrim/keywords wiring + `flags.py` registry (`099737f`, `e9eee88`)
+- **RPSTL parts-list rows, pagetrim boilerplate stripping, and an automatic keywords.json refresh**
+  (`099737f`): a 6-agent sweep of ~90 root-level modules against every route/pipeline caller — the same
+  "built but never wired in" bug class already fixed for measures/schemgraph/tables — found three more
+  genuine gaps. New 6th pipeline stage `_run_rpstl_stage()` runs `rpstl_feature.parse_page()` (the same
+  parser `build_rpstl.py` uses) directly over already-stored page text. `pagetrim.clean_pages()` finally
+  gets called from `index_pdf()` for text-layer pages (OCR'd pages deferred — closed in `d5fb9f8` below); a
+  real correctness catch along the way: TM-number/title detection now reads from a separately-computed raw
+  pre-strip string, since the running header pagetrim removes is exactly what document-identification
+  depends on. `build_keywords.py`'s `main()` became an importable `run()`, now called automatically from
+  `enrich_flis()` instead of needing a remembered second manual step.
+- **`engine/flags.py`** (`e9eee88`): centralizes the 8 extraction-pipeline opt-out toggles
+  (`VIEWER_OCR_PREPROCESS`/`BARCODE_SCAN`/`MEASURES_SCAN`/`SCHEMATIC_SCAN`/`TABLES_SCAN`/`RPSTL_SCAN`/
+  `PAGETRIM_SCAN`/`KEYWORDS_SCAN`) into one live (not snapshotted) registry — `python viewer_ingest.py flags`
+  now introspects current state, and `ingest_progress.json` bakes in a `flags_off` list automatically at
+  every stage. `docs/SYSTEM-REQUIREMENTS.md` gained the section documenting all 8 that never existed before.
+
+### Added — Five deferred items closed (`ee3714d` → `d5fb9f8`)
+- **`tables_plus.py`'s `stitch()`** wired into `/api/tables_plus?stitch=1` for cross-page borderless-table
+  merging (`ee3714d`); **`engine/office.py`** (new) adds real `.docx`/`.xlsx`/`.pptx`/`.rtf` text extraction
+  via python-docx/openpyxl/python-pptx, tier-gated to `sysprobe.py`'s `modern_os` signal since python-docx
+  needs Python 3.9+ (this app's floor is Win7/3.8) — off that tier these still discover with 0 pages, same
+  as still-unsupported legacy `.doc`/`.xls`/`.ppt`. A real bug caught mid-implementation: the RTF stripper's
+  brace-depth walk double-pushed a skip level for `\*\generator`, silently blanking the rest of the document.
+- **`dedup.py` gains a persistence layer** (`97ef29b`): `build()`/`editions_for()`/`stats()`, a new
+  `build_dedup.py` batch driver + `DEDUP.bat`, `GET /api/editions`, and a "📚 Editions" button in
+  `deepzoom.html` that only appears when a document actually has clustered siblings.
+- **`symbols.py`'s missing template-sourcing UI** (`03f1d57`): three new routes
+  (`/api/symbols`, `/api/symbols_template`, `/api/symbols_page_image`) plus a crop-and-save modal in
+  `deepzoom.html` — before this, teaching the app a new symbol template required hand-cropping a PNG and
+  dropping it into `index/symbols/` outside the app entirely. Verified live end-to-end via real dispatched
+  mouse events selecting a region, saving it, and the next detection pass finding both instances.
+- **`pagetrim.py`'s OCR-page path** (`d5fb9f8`) — the last of the 5: new `_run_pagetrim_ocr_stage()` runs as
+  the 7th and final pipeline stage over a touched document's full page set (OCR'd pages arrive one at a time
+  in `ocr()`, which never has the whole-document list `clean_pages()` needs to detect what recurs).
+
+### Added — RPS hardware-adaptive engine: Premium tier + deepen/widen (`bdc17cd`, `735455f`)
+- **`Premium`**: a 4th Settings run-mode choice (`bdc17cd`), an opt-in visual layer (elevation shadows,
+  motion timing, hover-lift, accent glows — all scoped under `body.rps-premium`) that only ever activates
+  on top of an already-`modern`-capable machine; a weaker machine gets an explicit fallback reason, never a
+  silent downgrade. `VALID_MODES` stays exactly `(modern, lite, legacy)` — this is a UI-intent layer on top,
+  not a 4th engine mode.
+- **RPS deepen + widen** (`735455f`): 9 real gaps closed where the hardware-tier flags RPS already computes
+  went unread — `viewer_ingest.py`'s `--workers`/`--dpi`/`--gpu` now default to a `sysprobe.py`-resolved
+  profile instead of a flat guess; `embed.py` `mmap`s the embeddings array on lite/legacy instead of a full
+  ~293MB in-memory copy; `_BoundedThreadingHTTPServer`'s worker ceiling now branches on `RPS_MODE`, not just
+  core count; `features/routes/page_render.py`'s DPI clamp finally reads `RPS_FLAGS["render_dpi_cap"]` (a
+  legacy machine could previously trigger a full-page render at 2.7x its intended cap). A real bug caught
+  along the way in `ocr_supervisor.py`: the watchdog's `--max-age` floor had zero safety margin against a
+  healthy pass's own worst-case heartbeat gap — raising the per-page OCR timeout without it would have
+  caused an infinite kill/requeue/restart loop.
+
+### Added — Airgap NIIN-decision sync, weekly DB backup, and a mechanical reachability checker (`875ffd5`, `822d830`, `72e1797`)
+- **`airgap.py`**: `export_decisions()`/`import_decisions()` sign and fail-closed-verify a batch of
+  `reviews.db` NIIN review decisions for transfer between air-gapped units — a genuine disagreement is
+  surfaced as a conflict and never auto-resolved. New `POST /api/airgap_export_decisions` /
+  `/api/airgap_import_decisions`, an "Air-gap transfer" panel on `/ingest`, and `BUILD-AIRGAP-MANIFEST.bat`/
+  `VERIFY-AIRGAP-BUNDLE.bat`. Two real bugs caught live testing the `.bat` wrappers end to end: the verify
+  script's exit code never propagated past its own `pause`/`endlocal` sequence (a REJECT verdict still
+  returned 0), and a PowerShell `>`-redirected manifest's UTF-8 BOM was rejected outright by `json.load`.
+- **Weekly full `viewer.db` backup** (`822d830`): the multi-GB searchable index was never covered by any
+  automatic task — only the source-file snapshot vault was. `register_snapshot_task.bat` now also registers
+  `THE_VIEWER_WeeklyDBBackup` (Sunday 03:00, `safeguard.py backupdb --auto`), and new `run_backupdb.bat`
+  gives a manual entry point.
+- **`audit_features.py` [7]: an AST import-closure reachability checker** (`72e1797`) for the exact
+  "built but never wired in" bug class that recurred across at least 9 commits in this project's visible
+  history (measures/schemgraph/tables/RPSTL/pagetrim/keywords/tables_plus-stitch/Office-formats/dedup were
+  all found orphaned at some point) — `verifystate.py`'s self-test roster only ever asked "does it have a
+  self-test", never "is it reachable from production"; this asks the second question mechanically via a BFS
+  import closure rooted at `viewer_app.py`/`viewer_ingest.py`, plus `.bat`-invocation detection.
+
+### Added — Masterfile comparison audit + dedup performance (`40a811b`, `299629b`, `ddbc302`)
+- **`masterfile.py`**: the representative value for a group of corroborating measurements was the most-common
+  exact value *string* — for continuous measurements that's almost always an arbitrary first-seen tiebreak
+  dressed as agreement (confirmed live: 3 real docs at 180/180.5/179.8in produced `value='180'` purely
+  because that doc crawled first). Now the numeric median of everything in the group that parses as a
+  number. `build()` now builds via `safeguard.atomic_sqlite_build()` instead of a live DROP+CREATE.
+  Separately, `_confidence()`'s "high — cited & corroborated" badge counted raw row count with no dedup by
+  document/edition, so two duplicate ingestions of one misread page could earn the safest-looking badge off
+  a single uncorrected error — corroboration is now deduped by `(tm_number-or-doc-id, page)` first.
+- **`dedup.py`/`build_dedup.py`**: `find_duplicates()` compared every document against every other
+  unconditionally — at the real corpus scale (39,683 docs) that's ~787M pairwise comparisons and an
+  estimated 8-10GB+ upfront, against this app's documented <8GB legacy-tier floor. New `block_key(tm_number)`
+  buckets by TM family (stripping the trailing volume/change suffix) before comparing, plus a
+  `--max-docs-per-bucket` cap on the batch driver.
+
+### Fixed — Functions + security pass: 52 confirmed fixes across every route cluster (`c147614`)
+A dedicated audit of all 265+ routes plus two security-specific angles (network exposure; injection/
+traversal/durable-write) — 51 confirmed / 2 refuted, 52 fixed. Security highlights: `Handler._dispatch()`
+used bare `None` as both its "this is a GET" sentinel and a value a POST body can legitimately carry
+(`json.loads(b"null")`), so a literal JSON `null` POST 500'd instead of getting the route's own clean 400 —
+fixed with a private sentinel object `json.loads` can never produce. `POST /api/airgap_verify` never
+enforced the `VIEWER_INGEST_ROOTS` fence its sibling manifest route already had. `GET /api/ingest_preview`
+leaked real host paths in exposed mode, missing the guard its sibling `/api/ingest_status` already enforced.
+`cad_render.py`'s cache writes moved to `safeguard.atomic_write()` (a crash mid-write could leave a
+truncated file served as "cached" forever). `ingest_start()`'s check-then-act race (two concurrent
+`POST /api/ingest` calls both launching a crawl against the same DB) closed with a module lock. Correctness
+highlights: `dimscan.py` indexed `cv2.HoughLinesP`'s result assuming the pre-5.x shape, silently returning 0
+lines under the installed opencv-python 5.x. `hybrid.py`'s RRF fusion read the wrong dict key for keyword/
+FTS rows' page number, silently collapsing distinct pages onto one fusion key. `tmrev.py`'s revision matcher
+used a 12-char TM-number prefix — exactly the shared weapon-system segment — wrongly treating e.g. the parts
+manual and the unit-maintenance manual for the same platform as revisions of each other. `measures.py`'s
+digit-run cap silently truncated an impossible 7+-digit value into a wrong-but-plausible shorter one before
+`validate.py`'s garbled-value quarantine ever saw it. Four new test files close real gaps, including the
+first-ever HTTP coverage for both airgap security routes.
+
+### Fixed — Icon/emblem quality pass: 7 palette collisions + 32 verified UI fixes across 20 files (`4b3224c`)
+`palette.js`'s 51-entry command inventory had 7 genuine duplicate-glyph collisions (two-to-three unrelated
+commands sharing one emoji), each resolved and cross-checked so no swap created a new collision, then synced
+into every affected page's own header/cross-link icon. A follow-up workflow-audited pass (30/31 candidates
+verified live, 1 refuted via real `getBoundingClientRect()` measurement) fixed stale cross-references, a
+genuinely-wrong Unicode codepoint on `procedure.html`'s hammer icon, and — separately — a real kiosk-mode
+touch-target gap: `dossier.html`/`partdiff.html`'s header links used plain `nav` styling instead of `btn`,
+excluding them from the 44px touch-target rule (invisible with a mouse, a real glove-mode bug on a bay
+tablet); `packet.html` linked no stylesheet at all, so kiosk-mode never applied to a page whose entire
+purpose is print/export in the field.
+
+### Fixed — Barcode lost on an OCR text-engine failure (`54d2546`)
+Caught by CI on its very first real run against the barcode-wiring pipeline, not by hand: `ocr_one()`
+computed a barcode read independently of (and before) the OCR text engine, but when the text-engine call
+itself raised, the exception unwound the stack with no way to recover the already-successful barcode value
+— `ocr_status='failed'` silently discarded a decoded NSN. Fixed by attaching the barcode to the exception
+before it propagates, so a genuine OCR-engine outage still queues the page as `failed` for retry (never a
+silently-empty `done`) while the barcode value survives and still promotes into `parts`.
+
+### Fixed — Confidence signaling: badge tooltips, RPSTL exact-match ordering, fuzzy-match badge, barcode/OCR conflict table (`9b0e5b9`)
+Four instances of the same pattern — confidence/provenance data the backend already computed but the UI
+never surfaced, or computed in whatever order SQLite happened to return rather than a real ranking. New
+`shared.js` `VW.confTier()` buckets a raw confidence float into high/verify/low, cross-checked at test time
+against `rpstl_feature.review()`'s own threshold so the two numbers (which had already silently drifted
+once) can't drift apart unnoticed; backported to the home-page OCR badge (previously no tooltip at all) and
+the part-match card. `rpstl_feature.py`'s exact-match lookup had no `ORDER BY confidence` — unlike its own
+fallback two lines below — so `best=rows[0]` depended on incidental SQLite row order in the function behind
+tapping a part number on a scanned page, likely the single most common lookup in the app; now ordered.
+`search_feature.py`'s `exact`/fuzzy-match flag existed but was never read by the UI, so a synonym-only hit
+rendered identically to a literal one — now tagged and badged "≈ approx". New migration
+`0012_barcode_ocr_conflict.sql` adds a `parts_conflicts` table: `extract_parts()` already inserted both an
+OCR-regex NSN and a barcode-decoded NSN per page with separate dedup keys, but nothing compared them when
+they disagreed — now flagged and rendered explicitly ("barcode reads X, page reads Y"), never auto-resolved.
+
+### Fixed — UX pass: adjacent-page warnings, honest failure states, hands-free navigation, touch sizing, inline search answers (`da0c996` → `cc02caa`)
+- **`procedure_feature.py`** (`da0c996`): `procedure_full()` only ever parsed WARNING/CAUTION/DANGER boxes
+  off the single best-matched page — a box printed at the bottom of the *preceding* page of the same work
+  package (a common TM layout) was silently absent; now looked back exactly one page. Separately,
+  `dossier.html`/`procedure.html`'s cautions/warnings panels rendered identical "none found" copy for three
+  different situations (genuinely empty, a fetch/parse failure, a backend retrieval error) — a mechanic had
+  no way to tell "no hazards" from "the lookup silently failed"; now three distinct states.
+- **`readaloud.js`** (`32614b7`): step-aware hands-free navigation for `procedure.html` — voice commands
+  ("next"/"previous"/"repeat"/"stop") plus a floating touch-sized prev/next bar, active only when real
+  `.step` DOM nodes exist so every other page is unaffected.
+- **`palette.js`** (`00b1d4a`): the "⌘K jump" discovery pill — a keyboard-shortcut convention this audience
+  has no reason to recognize — relabeled "🔍 Jump to anything" and resized unconditionally to the 44px
+  touch-target floor (was below it, on the single fastest way around the app).
+- **`index.html`** (`cc02caa`): the mechanic path's full-screen session modal opened on *every* cold start,
+  not just first run — now gated by a 12-hour "already chose to browse" preference. A torque/measurement-
+  shaped home search now renders an inline answer card (value/tolerance/unit/trust badge) instead of leaving
+  the structured answer one undiscovered menu click away. Kiosk-mode touch-sizing, previously local to
+  `index.html`'s own `<style>` block, generalized into `base.css` so every other page gets it too.
+- **`torque.html`/`measures.html`** (`fcd0d75`): both were silently discarding real OCR confidence and an
+  already-computed trust signal (`quality_reason`, `quarantined_count`) that never rendered anywhere.
+- **Demo tour** (`9852279`): wired in `rps.js`, fixed 3 drifted Solve-it-hub icons, trimmed the mechanic path
+  20→18 steps, and gave `demo.html` its first-ever test coverage (previously zero, despite being the first
+  thing a new user sees).
+- **`START-HERE.bat`** (`804bb08`): the guided menu walked Install → Verify → Build PUBLOG → Resume OCR →
+  Launch without ever mentioning the corpus folder — a first-time user was never told where to put their
+  unit's manuals until one menu deeper. New "Add your unit's manuals" option now shown first.
+
+### Verified
+Every commit in this range was independently `verify_all.py --snapshot`'d before landing; the range ends at
+**46/46 checks, ALL GREEN** (`9b0e5b9`), up from 26/26 at the start of [1.14.0]. New test files added across
+the range: `test_ingest_routes.py`, `test_ops_status.py`, `test_parts_request_route.py`,
+`test_render_feature.py`, `test_demo_tour.py`, `test_flags.py`, `test_dedup.py`, `test_dedup_scale.py`,
+`test_symbols_routes.py`, `test_tables_plus_stitch.py`, `test_office_formats.py`,
+`test_masterfile_robustness.py`, `test_backupdb.py`, `test_audit_reachability.py`,
+`test_sysprobe_cli_resolution.py`, `test_page_render_dpi_cap.py`, `test_build_keywords.py`,
+`test_readaloud_stepnav.py`.
+
+### Compatibility (R1)
+All additive. Two new migrations (`0011_schematics.sql`, `0012_barcode_ocr_conflict.sql`), both new tables
+with no change to existing schema. Every new pipeline stage is gated by its own opt-out toggle (default on)
+via the new `flags.py` registry; every new route degrades cleanly (empty result, not an error) when its
+sidecar DB doesn't exist yet.
+
+### Known, deliberately deferred
+- `camelot_tables()` (the 3rd table-extraction engine pilot) stays unwired into `/api/tables_plus` — a
+  documented cv2/opencv-python binary-collision risk on version skew, not just "unmeasured benefit".
+- `dedup.py` cross-TM-family duplicates are not caught by design (TM-family blocking trades that for
+  bounded runtime); a duplicate re-filed under an unrelated TM number won't cluster.
+- `docs/HANDOFF-NOTE.md`, `docs/PROJECT-SUMMARY.md`, `docs/MASTER-RECONCILIATION.md` still need their own
+  reconciliation pass to this version — this entry only reconciles `CHANGELOG.md`.
+- OCR-confidence blending stays conservative-only (can pull a heuristic quality call down, never raise it)
+  — a deliberate asymmetry, not a partial implementation.
+
+---
+
 ## [1.14.1] — 2026-08-18 — Barcode/QR wired into the OCR pass (catalog §4.9) + routes/ package split, embed cache, camelot pilot, KG page, fingerprint consolidation
 `barcodes.py` had been a fully-built, self-tested, dual-backend (pyzbar/OpenCV) barcode/QR/Data-Matrix
 `detect()` since it was written — its own docstring states the intent (some TMs print NSNs/part numbers

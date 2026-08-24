@@ -21,12 +21,25 @@ def _run(label, args, timeout=900):
         r = subprocess.run([PY] + args, cwd=ENGINE, capture_output=True, text=True, timeout=timeout)
         ok = (r.returncode == 0)
         out = (r.stdout or "").strip().splitlines()
-        tail = "\n   ".join(out[-3:]) if out else ""
         print(("PASS " if ok else "FAIL ") + label + ("  (%.1fs)" % (time.time() - t)))
-        if tail: print("   " + tail)
-        if not ok:
+        if ok:
+            # Compact on success -- a passing suite's individual checks aren't interesting, just
+            # its closing summary line(s).
+            tail = "\n   ".join(out[-3:]) if out else ""
+            if tail: print("   " + tail)
+        else:
+            # Full output on failure. This used to be the same last-3-lines tail as the success
+            # case, which is exactly wrong: verify_all's own per-suite FAIL/PASS check() lines
+            # (which name the specific thing that broke) sort BEFORE the suite's closing
+            # "N passed, M failed" line, so they fell outside that window and were silently
+            # discarded -- never written anywhere, not just unprinted. Confirmed live: a CI run
+            # that failed 5 checks in test_ingest_routes.py surfaced only "170 passed, 5 failed"
+            # in the log, with no way to tell which 5 without reproducing locally. Print
+            # everything a failing suite said; a few dozen extra lines in CI output is cheap next
+            # to a failure nobody can diagnose from the log.
+            if out: print("   " + "\n   ".join(out))
             err = (r.stderr or "").strip().splitlines()
-            if err: print("   stderr: " + err[-1])
+            if err: print("   stderr: " + "\n   stderr: ".join(err))
         return ok
     except Exception as e:
         print("FAIL  " + label + "  -> " + str(e))

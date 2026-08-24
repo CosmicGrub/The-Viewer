@@ -5,9 +5,21 @@ name: CI
 # discovers and runs every engine/tests/test_*.py file (glob-based -- the count grows as test files
 # are added, so it isn't restated here) plus the RPS ES5-lint gate. Every one of those test files is
 # self-contained (tempfile-based fixtures, no real corpus, no GPU, no network egress -- see each
-# file's own docstring) and every optional native dependency (cv2/pytesseract/tesseract binary) is
-# already try/except-guarded in the modules under test, so a bare `pip install -r requirements.txt`
-# on a stock runner is sufficient.
+# file's own docstring) and every optional native dependency (cv2/pytesseract) is already
+# try/except-guarded in the modules under test, so `pip install -r requirements.txt` alone is
+# sufficient for those.
+#
+# The tesseract BINARY is a different story, and its own line above used to lump it in with the
+# pip-installable ones -- wrong. pytesseract (the pip package requirements.txt installs) is just a
+# thin subprocess wrapper around a real, separately-installed `tesseract` executable; without it on
+# PATH, the OCR call doesn't raise (it's already guarded, per above) -- it just returns empty text,
+# so every check downstream of "OCR actually ran" fails instead of erroring. Confirmed live: the
+# first real run of this workflow failed the exact same 5 checks on all four matrix jobs (Ubuntu
+# 3.12/3.13/3.14 + Windows) -- every one an OCR-content assertion (test_ingest_routes.py's "image's
+# OCR'd text is real", pagetrim OCR-path header/body/FTS) -- while every local repro attempt
+# (fresh clone, venv matching requirements.txt exactly) passed clean, because the dev machine
+# already had tesseract installed system-wide from earlier project work, masking the gap. Installed
+# explicitly below on both runners now.
 on:
   push:
     branches: [main]
@@ -33,6 +45,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: requirements.txt
+
+      - name: Install tesseract
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr
 
       - name: Install dependencies
         run: |
@@ -65,6 +82,16 @@ jobs:
           python-version: "3.13"
           cache: "pip"
           cache-dependency-path: requirements.txt
+
+      - name: Install tesseract
+        # choco's own install updates machine PATH via the registry, which doesn't reliably
+        # propagate to the CURRENT job's later steps on GH Actions Windows runners (each step is a
+        # fresh shell, but the runner doesn't always re-read registry PATH mid-job) -- append the
+        # known install dir to GITHUB_PATH explicitly so `tesseract` resolves in the steps after this
+        # one without relying on that.
+        run: |
+          choco install tesseract -y --no-progress
+          echo "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install dependencies
         run: |

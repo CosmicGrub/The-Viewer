@@ -74,8 +74,14 @@ def overview(db_path, index_dir):
         # until naturally re-OCR'd, so ocr_conf_scored is expected to lag pages_ocr for a long time.
         # 0.5 is a first-pass, uncalibrated "worth a look" bar -- deliberately conservative (low false-
         # alarm risk) pending real corpus data to tune it against.
-        ocr_conf_avg = scalar("SELECT AVG(ocr_confidence) FROM pages WHERE ocr_confidence IS NOT NULL")
+        # Order matters: scalar() returns 0 on ANY failure, so on a database where migration 0009
+        # hasn't run yet the AVG query raises (no such column) and would publish avg_confidence: 0 --
+        # indistinguishable from "OCR confidence is catastrophically bad". Gate it on the count, which
+        # is 0 in exactly the two states where there is no average to report (column missing, or
+        # nothing scored yet), so both correctly read as null rather than zero.
         ocr_conf_scored = scalar("SELECT COUNT(*) FROM pages WHERE ocr_confidence IS NOT NULL")
+        ocr_conf_avg = (scalar("SELECT AVG(ocr_confidence) FROM pages WHERE ocr_confidence IS NOT NULL")
+                        if ocr_conf_scored else None)
         ocr_conf_low = scalar("SELECT COUNT(*) FROM pages WHERE ocr_confidence IS NOT NULL AND ocr_confidence < 0.5")
         con.close()
     except Exception:

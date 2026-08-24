@@ -1188,10 +1188,18 @@ def main():
                 # with the UPDATE this stage issues -- real content still findable, stripped header not.
                 fts_content_hits = e2e5c_con.execute(
                     "SELECT COUNT(*) FROM pages_fts WHERE pages_fts MATCH ?", ('"torque"',)).fetchone()[0]
-                check("e2e pagetrim OCR-path: FTS index still finds real content after the UPDATE", fts_content_hits >= 5)
+                # >=5 (not ==6): this is an FTS-sync regression check, not an OCR-accuracy benchmark --
+                # tolerates one page's real-tesseract OCR missing the word without failing the whole
+                # suite over ordinary OCR variance. The count is embedded in the check's own name (not
+                # just a bare bool) specifically so a value that DOES fall below the floor is visible
+                # straight from a CI log, not just "false" -- the same silent-detail problem verify_all's
+                # tail-3-lines behavior had, one level down.
+                check("e2e pagetrim OCR-path: FTS index still finds real content after the UPDATE "
+                      "(%d/6 pages matched 'torque', want >=5)" % fts_content_hits, fts_content_hits >= 5)
                 fts_header_hits = e2e5c_con.execute(
                     "SELECT COUNT(*) FROM pages_fts WHERE pages_fts MATCH ?", ('"7777"',)).fetchone()[0]
-                check("e2e pagetrim OCR-path: FTS index no longer matches the stripped header", fts_header_hits == 0)
+                check("e2e pagetrim OCR-path: FTS index no longer matches the stripped header "
+                      "(%d/6 pages still matched '7777', want 0)" % fts_header_hits, fts_header_hits == 0)
 
                 e2e5c_con.close()
 

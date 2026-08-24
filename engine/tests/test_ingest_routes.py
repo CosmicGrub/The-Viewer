@@ -47,6 +47,30 @@ import fixture                                            # noqa: E402
 PORT = 8894
 BASE = "http://127.0.0.1:%d" % PORT
 
+# Shared by both real-OCR fixture sections below (standalone-image e2e + pagetrim OCR-path e2e):
+# each renders text into a PIL image and OCRs it back with real tesseract, so the font actually
+# has to be legible to an OCR engine, not just present. Both used to hardcode ImageFont.truetype
+# ("arial.ttf", N) with a load_default() fallback -- arial.ttf resolves on Windows (PIL's Windows
+# build searches %WINDIR%\Fonts for a bare name), but there is no such lookup on Linux, so the
+# except always took the load_default() branch there -- straight into the exact failure mode its
+# own comment warns about ("the default PIL bitmap font is too thin ... confirmed live"): thin
+# enough to clear the blank-page density gate but not to OCR back cleanly. Silent on this repo's
+# own dev machine (Windows, arial.ttf resolves) -- only visible once this suite actually ran on
+# Linux CI, where it failed 5 checks (image OCR text + 3 pagetrim OCR-path assertions) that read as
+# an OCR/tesseract problem but were really a font problem. DejaVuSans-Bold is on ubuntu-latest and
+# windows-latest GH runners by default (fonts-dejavu-core is preinstalled on the former; the
+# absolute path obviously doesn't apply on the latter, where arial.ttf already resolves first).
+def _ocr_test_font(image_font_mod, size):
+    for candidate in ("arial.ttf",
+                       "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                       "/Library/Fonts/Arial.ttf"):                    # macOS, just in case
+        try:
+            return image_font_mod.truetype(candidate, size)
+        except Exception:
+            continue
+    return image_font_mod.load_default()
+
 
 def _req(path, data=None, hdrs=None):
     body = json.dumps(data).encode() if data is not None else None
@@ -913,10 +937,7 @@ def main():
 
                 # a real, OCR-able standalone image (needs a real font -- the default PIL bitmap
                 # font is too thin to clear the blank-page density skip, confirmed live earlier).
-                try:
-                    font = ImageFont.truetype("arial.ttf", 30)
-                except Exception:
-                    font = ImageFont.load_default()
+                font = _ocr_test_font(ImageFont, 30)
                 img = Image.new("RGB", (800, 200), "white")
                 ImageDraw.Draw(img).text((30, 30), "BOLT LENGTH 2.0 IN NSN 5305-01-888-7777", fill="black", font=font)
                 img.save(os.path.join(corpus4_dir, "photo.png"))
@@ -1111,10 +1132,7 @@ def main():
                 e2e5c_con = _VI.connect(e2e5c_db)
                 _VI.migrate(e2e5c_con, os.path.join(ENGINE, "migrations"), db_path=e2e5c_db)
                 corpus5c_dir = os.path.join(e2e5c_dir, "corpus"); os.makedirs(corpus5c_dir)
-                try:
-                    pt_ocr_font = _PTImageFont.truetype("arial.ttf", 22)
-                except Exception:
-                    pt_ocr_font = _PTImageFont.load_default()
+                pt_ocr_font = _ocr_test_font(_PTImageFont, 22)
                 pt_ocr_header = "TM 9-7777-333-14"
                 pt_ocr_words = ["alternator", "bracket", "coolant", "differential", "engine",
                                 "flywheel", "gasket", "harness", "injector", "manifold"]

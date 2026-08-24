@@ -47,9 +47,14 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install tesseract
+        # fonts-dejavu-core: test_ingest_routes.py's real-OCR fixtures need an actual (non-bitmap)
+        # TrueType font to render OCR-able text -- ubuntu-latest is generally believed to ship this
+        # already, but "generally believed" is exactly the kind of assumption that produced this
+        # job's tesseract-binary gap in the first place; install it explicitly rather than rely on
+        # base-image contents that could change.
         run: |
           sudo apt-get update
-          sudo apt-get install -y tesseract-ocr
+          sudo apt-get install -y tesseract-ocr fonts-dejavu-core
 
       - name: Install dependencies
         run: |

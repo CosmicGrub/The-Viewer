@@ -8,7 +8,13 @@ those call sites to `from patterns import ...`. Stdlib-only, RPS-safe.
 import re
 
 # National Stock Number: FSC(4)-NCB(2)-(3)-(4); the dashes are optional in real text.
-NSN_RE = re.compile(r"(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})")
+# \b-anchored on both ends -- without it, this "canonical" NSN pattern (imported as the single
+# source of truth by render_feature.py/procedure_feature.py, which finditer() it over raw page/
+# procedure text) happily grabs the first 13 digits out of any longer contiguous digit run and
+# misreads it as an NSN: an invoice number, tracking number, or PO number. Every other NSN regex
+# in this codebase (viewer_ingest.py, ocr_report.py, nsndecode.py, xref_feature.py,
+# rpstl_feature.py) is already \b-anchored -- this was the one straggler.
+NSN_RE = re.compile(r"\b(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})\b")
 # Figure reference: "FIG 5", "FIGURE 12-3", "FIG. 4".
 FIG_RE = re.compile(r"\bFIG(?:URE)?\.?\s*([0-9]+(?:-[0-9]+)?)", re.I)
 # Labeled part number: "P/N: MS35338-44", "PART NO. 12345-AB".

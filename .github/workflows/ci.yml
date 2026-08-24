@@ -1,0 +1,75 @@
+name: CI
+
+# Previously nothing here at all -- no .github/, no CI of any kind (audit finding #18). This runs
+# the project's own single health-check entrypoint, engine/tests/verify_all.py, which auto-
+# discovers and runs every engine/tests/test_*.py file (glob-based -- the count grows as test files
+# are added, so it isn't restated here) plus the RPS ES5-lint gate. Every one of those test files is
+# self-contained (tempfile-based fixtures, no real corpus, no GPU, no network egress -- see each
+# file's own docstring) and every optional native dependency (cv2/pytesseract/tesseract binary) is
+# already try/except-guarded in the modules under test, so a bare `pip install -r requirements.txt`
+# on a stock runner is sufficient.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # requirements.txt's own header says 3.11-3.14 are all supported (3.14 fully, not just
+        # "should work") -- this is the first time any of that is actually tested instead of assumed.
+        python-version: ["3.12", "3.13", "3.14"]
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../requirements.txt
+
+      - name: Run verify_all.py
+        # --snapshot: a fresh checkout has no backups/vault yet (backups/ is gitignored), so a bare
+        # `verify_all.py` would always report "safeguard verify: no snapshots yet" as FAILED even
+        # when every real test suite passes. --snapshot takes a self-baseline snapshot of the
+        # just-checked-out tree first, then verifies against it in the same run -- safe because no
+        # test suite mutates tracked source files (all use tempfile.mkdtemp() fixtures).
+        run: python tests/verify_all.py --snapshot
+
+  test-windows:
+    # This app's own test docstrings repeatedly say "RUN ON WINDOWS" (it's the only OS this project
+    # actually targets -- see docs/SYSTEM-REQUIREMENTS.md), and one real code path is Windows-only:
+    # ocr_supervisor.py's _kill_tree() uses `taskkill /F /T` when os.name == "nt", falling back to
+    # proc.kill() everywhere else -- a ubuntu-only CI matrix can only ever exercise the POSIX branch.
+    # A single Python version here is enough; the goal is OS coverage, not another version matrix.
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../requirements.txt
+
+      - name: Run verify_all.py
+        run: python tests/verify_all.py --snapshot

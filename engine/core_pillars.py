@@ -5,7 +5,7 @@ HTTP server. It is a COPY for testing; viewer_app.py remains the source of truth
 (Created because the sandbox mount caches viewer_app.py's inode and cannot re-read it.)"""
 import argparse, json, os, re, sqlite3, sys, tempfile, time, urllib.parse
 try:
-    import fitz
+    import pymupdf as fitz
 except Exception:
     fitz = None
 
@@ -17,7 +17,9 @@ except Exception:
     build_request_pdf = None
 
 DB_PATH = os.path.join(HERE, "..", "index", "viewer.db")
-NSN_RE = re.compile(r"(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})")
+# \b-anchored -- see patterns.py's NSN_RE (this is a verbatim mirror, kept in sync); unanchored,
+# this misreads the first 13 digits of any longer digit run (invoice/tracking/PO numbers) as an NSN.
+NSN_RE = re.compile(r"\b(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})\b")
 FSC_VEHICLE = {"2310","2320","2330","2350","2355","1510","1520","1525","1550","2210","3805","3810","3820","3825","3895","2420","2430"}
 
 def db():

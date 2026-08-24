@@ -1,11 +1,342 @@
 # Changelog — THE VIEWER
 
-All notable changes to THE VIEWER. Format based on *Keep a Changelog*; versions are pre-1.0
-(0.x). Newest at top. Standing rules in effect: **R1** backwards-compatible/rollbackable ·
-**R2** diagram with every addition · **R3** dark diagrams + PDF · **R4** changelog with every change.
+All notable changes to THE VIEWER. Format based on *Keep a Changelog*. Versions passed 1.0 at the
+[1.0.0] cut (see `docs/RELEASE-NOTES-1.0.md`); this file's own header text said "pre-1.0 (0.x)" for
+a long time after that was no longer true — fixed as part of the [1.14.0] reconciliation below, one
+more small instance of the exact kind of drift that entry documents at length. Newest at top.
+Standing rules in effect: **R1** backwards-compatible/rollbackable · **R2** diagram with every
+addition · **R3** dark diagrams + PDF · **R4** changelog with every change.
 
 This file was generated retroactively on 2026-06-01 to cover every prior build, and is appended on
 every change going forward.
+
+---
+
+## [1.14.1] — 2026-08-18 — Barcode/QR wired into the OCR pass (catalog §4.9) + routes/ package split, embed cache, camelot pilot, KG page, fingerprint consolidation
+`barcodes.py` had been a fully-built, self-tested, dual-backend (pyzbar/OpenCV) barcode/QR/Data-Matrix
+`detect()` since it was written — its own docstring states the intent (some TMs print NSNs/part numbers
+as barcodes; a machine-decoded value is higher-trust than OCR text) — but it had **zero callers**
+anywhere in the codebase, only its own `__main__` self-test and the module import-check in
+`verifystate.py`. Wired in. This release also bundles five smaller, independent changes landed in the
+same working tree (R4): a `features/routes.py` → `features/routes/` package split, an `embed.py` search
+cache, an opt-in camelot-py table-extraction pilot, a new `/kg` browsing page, and a hardening pass on
+`ingestpipe.quick_hash()`'s content-only-vs-`viewer_ingest.fingerprint()` distinction — each documented
+in its own bullets below rather than only getting scattered mentions in `ROADMAP-1.1.md` /
+`feature_audit.txt`.
+
+### Added
+- **`viewer_ingest.ocr_one()` now reads barcodes off the same rendered page PNG `_render_png()` already
+  produces for OCR** — never a second render of the page. New `_scan_barcode()` helper is opt-in
+  (`VIEWER_BARCODE_SCAN=0` to disable, default on, mirroring `VIEWER_OCR_PREPROCESS`'s toggle pattern)
+  and cheap: it no-ops instantly whenever `barcodes.available()` is `False` (neither pyzbar nor OpenCV
+  installed), the exact same graceful-degradation contract `barcodes.py` already has. Reuses the
+  existing identical-page dedup cache, so a repeated boilerplate page (covers, dividers) reuses the
+  barcode read exactly like it already reuses OCR text.
+- `ocr_one()`'s return type grew from `(text, confidence)` to `(text, confidence, barcode)`, where
+  `barcode` is `None` or `{'type','data','nsn'}` — the first decoded record, preferring one that
+  actually carries a recognizable NSN over one that doesn't when a page has more than one barcode.
+  Three new nullable columns on `pages` (migration `0010_barcode_capture.sql`, additive/R1, same shape
+  as [1.13.5]'s `ocr_confidence` column): `barcode_type`, `barcode_data` (truncated to 500 chars),
+  `barcode_nsn`.
+- **`extract_parts()` now also mines `pages.barcode_nsn`** on every full rebuild and inserts those rows
+  into `parts` tagged `confidence='barcode'` — distinguishable, higher-trust provenance next to the
+  existing regex-extracted `'page'`/`'aligned'` rows, picked up for free by every existing
+  `confidence IS NOT NULL` consumer (`features/parts_feature.py`'s `part_lookup()` / `part_differences()`)
+  with no changes needed to those callers. Full-rebuild-safe: `extract_parts()`'s own
+  `DELETE FROM parts WHERE confidence IS NOT NULL` at the top of the function removes barcode rows too,
+  but they're deterministically regenerated from `pages.barcode_nsn` every run, exactly like the regex
+  rows are regenerated from `body_text` — confirmed idempotent by the new test.
+- **`engine/features/routes.py` split into a `features/routes/` package** (`_shared.py` plus 13
+  per-domain submodules: `browse`, `diagnostics`, `doc_extractors`, `field_tools`, `ingest`, `jobcards`,
+  `ops_status`, `page_render`, `parts_media`, `parts_refs`, `schematics`, `search`, `static`) — the
+  monolith had grown to 2,198 lines. Every route/handler moved verbatim (behavior unchanged);
+  `viewer_app.py` now DI-wires `core` onto each submodule in `_froutes.SUBMODULES`, not just the
+  package `__init__.py`, since each submodule's handler bodies reference their own module-level `core`
+  global. `audit_features.py`'s duplicate-route-path scan and the route-registration cross-checks in
+  `test_uiux_fixes.py` were updated to scan every `.py` file under the directory instead of one file.
+- **`engine/embed.py`'s `search()` now caches the loaded `embeddings.npy`/`embeddings_ids.tsv` pair**
+  in-process (`_ARR_CACHE`, keyed by `index_dir` + both files' mtimes, guarded by `_ARR_CACHE_LOCK`)
+  instead of `_np.load()`-ing fresh off disk on every `/api/semantic` call — mirrors the keyword-search
+  path's existing TTL'd `_SEARCH_LRU` pattern in `features/routes.py`. A rebuild (`BUILD-EMBEDDINGS.bat`
+  reran) is still picked up immediately because the mtime check invalidates the stale cache entry.
+- **`engine/tables_plus.py` gained an opt-in `camelot_tables()` pilot** — a THIRD, independent
+  table-extraction engine (camelot-py 2.0, documented as an optional extra in `requirements.txt`, not a
+  hard dependency) for cross-validating `tables.py` (PyMuPDF `find_tables`, ruled) and this module's own
+  `borderless_tables()` (pdfplumber) against the same page. `_camelot_backend()` picks camelot's PDF→image
+  backend from the same legacy/modern tier signal `sysprobe.py` already uses for page rendering (forces
+  `poppler` on the legacy tier, otherwise leaves camelot's bundled `pdfium` default alone) and fails open
+  to `pdfium` if the tier probe can't run. `camelot_available()` exposes the optional-import guard the
+  same way `available()` already does for pdfplumber. **Not wired into the served app** — same "built,
+  tested, zero callers" posture `barcodes.py` was in before this release's own barcode-wiring work above:
+  `/api/tables_plus` (`features/routes/doc_extractors.py`) still calls only `borderless_tables()`, and no
+  ingest step calls `camelot_tables()` either; its only callers today are `tests/test_camelot_tables.py`
+  (new file — the pilot's self-test lives there, not in `tables_plus.py`'s own `__main__`).
+- **New `/kg` page (`engine/ui/kg.html`)** — a browsing front-end for the knowledge graph `build_kg.py`
+  already builds and `/api/kg` already served with no UI before this; linked from the nav in
+  `engine/ui/index.html`. Alongside it, `build_kg.py`'s figureparts sample is now CLI-overridable
+  (`--sample-docs` / `--parts-cap`, same `--flag N`/`--flag=N` style as `build_publog.py`'s `--sample`)
+  and its defaults were raised 10x (400→4,000 docs, 5,000→50,000 parts cap) since the old sample covered
+  roughly 1% of the corpus; `BUILD-KG.bat` now forwards its own CLI args through.
+- **`ingestpipe.quick_hash()`'s docstring and self-test now say explicitly why it stays
+  content-only** (size + SHA1 of the first 1 MB, mtime never consulted) instead of delegating to
+  `viewer_ingest.fingerprint()` (`size:mtime:MD5(first 64KB)`), even though both are conceptually
+  "cheap file fingerprint" helpers: `viewer_ingest.fingerprint()` is built for per-path change
+  detection (has *this* file changed since it was last ingested — mtime-sensitivity is correct there),
+  while `quick_hash()`'s job is spotting byte-identical duplicate manuals arriving from mixed sources
+  (re-downloads, archive extractions, USB copies) whose mtimes don't reliably track "same content".
+  The self-test now forces a duplicate file's mtime to differ from the original's and asserts
+  `quick_hash()` still matches, so a future edit that makes it mtime-sensitive again would fail loudly
+  instead of silently missing duplicates.
+
+### Verified
+- `python tests/test_barcode_wiring.py` (new, 49 checks) — built a REAL, machine-decodable QR (OpenCV's
+  `QRCodeEncoder`, the encoder actually available in this environment; `pyzbar`/`segno`/`qrcode` are not
+  installed here, decode backend is OpenCV-QR) encoding an NSN, embedded it into a synthetic PDF page via
+  PyMuPDF, and ran it through the real `crawl`→`index_pdf`→`ocr`→`extract_parts` pipeline against the
+  actual migrated schema: the barcode round-trips through `pages.barcode_*` and lands in `parts` with
+  `confidence='barcode'`, survives a second `extract_parts()` rebuild unchanged, and surfaces through
+  `features/parts_feature.py.part_lookup()`. Also covers the opt-out toggle, simulated
+  `barcodes.available()==False` degradation, a real non-barcode page (decodes to `None`, no crash), a
+  real barcode with no NSN in its payload (type/data captured, `nsn` stays `None`, no `parts` row), and
+  the NSN-preferring selection/truncation logic. Skips cleanly (exit 0, reason printed) instead of
+  faking a pass on an environment that can't actually decode or generate a barcode.
+- `python barcodes.py` / `python qrgen.py` self-tests — unchanged, still pass (backend=opencv-qr here).
+- `python engine/tests/test_features_integration.py` — new `embed_cache_hit_no_reload` /
+  `embed_cache_invalidates_on_rebuild` checks confirm `embed.search()` loads the embeddings array once
+  across two calls against an unchanged `index_dir`, then reloads exactly once after a real,
+  `os.utime`-forced mtime bump simulating a rebuild.
+- `python engine/tests/test_camelot_tables.py` (new, 19 checks) — camelot-py 2.0 happens to be installed
+  in this environment, so every check ran for real (not skipped): builds a real ruled-table PDF via
+  reportlab, round-trips it through `camelot_tables()` and recovers the actual NSN/item-name cell data,
+  covers empty-cell/no-table/missing-file/out-of-range-page degradation, the `_camelot_backend()`
+  legacy/modern tier-gating (incl. a simulated probe-glitch fail-open), a forced-backend override, the
+  `camelot_available()==False` degradation path, and a direct cross-validation against `tables.py`'s
+  PyMuPDF extraction on the same synthetic page (row/column counts and recovered figures agree). Skips
+  cleanly (exit 0) instead where camelot-py isn't installed, same posture as `tables_plus.py`'s own
+  pdfplumber self-test.
+- `python engine/tables_plus.py` — unchanged borderless/stitch self-test still passes; the camelot pilot
+  regression itself was moved out of this file's `__main__` and now lives entirely in
+  `test_camelot_tables.py` (strictly more coverage than duplicating a subset here would give).
+- `python engine/audit_features.py` and `python engine/tests/test_uiux_fixes.py` — both updated to read
+  every file under `features/routes/` instead of the old single `routes.py`; `[0] duplicate route paths`
+  and the nav-link / QR-header route-registration checks all still pass against the split package.
+- `python engine/verify_ui.py` and `python engine/tests/rps_lint.py` — `ui/kg.html` added to both pages
+  lists; passes the syntax check and is classified alongside `related.html`/`semantic.html` as a
+  discovery tool (not a core ES5-required mechanic) in `MODERN_BY_DESIGN`.
+- `python engine/ingestpipe.py` — self-test extended so the duplicate fixture file's mtime is forced
+  to differ from the original's (`os.utime`, +10000s) and asserts `quick_hash()` still returns the same
+  value for both, proving the content-only behavior the docstring now documents.
+- Full suite: `python tests/verify_all.py` — 26/26 suites pass (the new file auto-discovered via the
+  existing glob, [1.14.0] finding #41's own fix). The one non-suite check in that gate,
+  `safeguard verify`, reports pre-existing drift against a stale snapshot from unrelated, already
+  in-progress work in this tree at the time of this change — not caused by this change (`viewer_ingest.py`
+  is the only one of its 14 flagged files this change touched, and it's flagged only because it grew, as
+  expected).
+
+### Compatibility (R1)
+- `pages.barcode_type/barcode_data/barcode_nsn` are additive, nullable columns — no existing query,
+  index, or FTS trigger references them; NULL for every page OCR'd before this migration (not
+  backfilled — same posture [1.13.5] took for `ocr_confidence`).
+- `ocr_one()`'s return type changed again (`(text, conf)` → `(text, conf, barcode)`) — grepped the whole
+  tree; `_ocr_task()` was the only caller, updated in the same change, same as the [1.13.5] precedent.
+- Rollback = don't run future OCR/`extract_parts()` passes; the columns and any `confidence='barcode'`
+  rows stay, but nothing new writes to them.
+- `features/routes.py` no longer exists as a file — `import features.routes` still works unchanged
+  (the package `__init__.py` re-exports every name the monolith exposed), but anything reading
+  `features/routes.py` as a single file path breaks; grepped the whole tree, found and fixed the only
+  two such callers (`audit_features.py`, `test_uiux_fixes.py`).
+- `quick_hash()`'s actual output format (`sha1(size + first 1MB)[:16]`, content-only) is unchanged —
+  only its docstring and self-test coverage grew — so nothing that reads its return value is affected.
+
+### Known, deliberately deferred
+- The existing corpus is not backfilled — barcode capture only grows as pages are naturally re-OCR'd.
+- `pyzbar` (1-D barcode + Data-Matrix, beyond OpenCV's QR-only detector) remains an optional install
+  (see `requirements.txt`) — not installed in this environment, so this change's own regression test
+  ran against the OpenCV-QR backend only.
+- `search()`'s free-text NSN routing (`features/search_feature.py`) was deliberately left untouched —
+  barcode-sourced NSNs are consumed via the `parts` table / `part_lookup()`, the integration point
+  named for this work; wiring them into full-text search too would need a separate design (there's no
+  page body text for a barcode-only value).
+- `camelot_tables()` itself is deliberately NOT wired into `/api/tables_plus` or any ingest step yet —
+  it's a cross-validation pilot, not a replacement for `borderless_tables()`; deciding how (or whether)
+  to surface a three-way extraction disagreement to a route/consumer is separate follow-on work.
+
+---
+
+## [1.14.0] — 2026-08-18 — 50-finding 4-tier audit + UX pass + CI + doc reconciliation
+The largest single effort in this project's history by commit count (12 commits, 2026-08-17 to
+2026-08-18): a full 4-tier code audit (Critical/High/Medium/Low, 50 findings from the original
+manifest), a follow-up UI/UX audit and priority-5 fix pass, this repo's first-ever CI workflow (plus
+a real bug it caught on day one), and the documentation reconciliation finding #41 of the Medium
+tier explicitly deferred until everything else was done. Every tier was implemented, then
+independently xhigh-effort multi-agent code-reviewed, with every real review finding fixed in its
+own follow-up commit before moving to the next tier — the same discipline applied to the review
+findings themselves in the CI-fix and staleness passes.
+
+### Fixed — Critical tier (`08bbb81` → `086aed3`, 8 findings + 13 review findings)
+- An infinite loop in `procedure_feature.py` (wrong loop-index direction on the blank-line branch)
+  hung on virtually any real OCR'd page, backing `GET /api/procedure_full` and exhausting the bounded
+  thread pool one request at a time. `test_procedure.py` (22 tests, previously never wired into
+  `verify_all.py`) now passes instantly instead of hanging.
+- `airgap.py verify()` now fails closed against both a file-existence oracle and a path-traversal
+  escape, instead of probing every listed file even with an invalid signature.
+- `/api/airgap_manifest` and `/api/ingest_scan` now go through the same `VIEWER_INGEST_ROOTS` fence
+  the sibling ingest routes already enforced.
+- A negative `Content-Length` used to sail past the POST body cap and read until EOF; a malformed
+  one desynced keep-alive connections. Both rejected outright now.
+- `GET /api/audit`, `/api/ops`, `/api/status` (and, per the review pass, 4 more: `command_status`,
+  `ingest_status`, `provenance`, `integrity`) now require the same token the POST auth path already
+  enforced in network-exposed mode.
+- `embed.py`'s hash-fallback semantic search used Python's per-process-randomized `hash()` — silently
+  broken across every server restart on the documented zero-download default. Switched to
+  `zlib.crc32`, with a version stamp (`embed.HASH_ALGO_VERSION`) so a stale pre-fix index now reports
+  `ready=False` with a rebuild instruction instead of silently serving broken results.
+- `build_publog.py`'s destructive rebuild (delete-then-rebuild-unprotected) now builds into a temp
+  file and only swaps it in (`safeguard.atomic_replace`) once every table/index has committed.
+- Non-atomic sidecar-cache writes across `vectorize.py`/`schemgraph.py`/`routes.py`'s `?fresh=1`
+  switched to `safeguard.atomic_write`; a real race in that helper's own temp filename (PID-only,
+  unsafe once wired into multi-threaded request handlers) fixed too — verified live with 16 threads,
+  320 racing writes, zero corruption.
+- `verify_all.py`'s test gate was a hardcoded filename allowlist — replaced with glob-based
+  auto-discovery, surfacing 9 previously-never-run test suites (~1,200 lines) in the same change
+  (test_accuracy, test_congruency, test_extraction, test_features_integration,
+  test_features_modules, test_http, test_jobcard, test_newmodules, test_property_fuzz — the commit
+  that shipped this fix said "8," undercounting by one; corrected here against `verify_all.py`'s
+  own source comment, the authoritative, currently-verifiable count).
+
+### Fixed — High tier (`04bd4a5` → `48c7a63`, 12 findings + 15 review findings)
+- `kg.py` now rebuilds into a temp file and atomically swaps in, matching `build_publog.py`'s
+  crash-safe pattern.
+- A SQL condition in `xref.py` matched NULL-`fig_no` rows regardless of the doc filter, leaking a
+  part's loose rows into every other document's sibling-parts list.
+- New `viewer_ingest.py prune` subcommand reconciles documents whose source file was deleted/renamed
+  since the last crawl (rename detection via fingerprint match, cascade-safe cleanup, dry-run by
+  default, missing-fraction abort threshold so an unmounted drive can't look like a mass deletion).
+- `migrate()` now snapshots the DB before applying any pending migration.
+- The NSN regex across `patterns.py`/`core_pillars.py`/`partlocate.py` is now word-boundary-anchored
+  (no longer matches inside invoice/PO numbers).
+- OCR preprocessing (deskew/denoise/binarize) is now actually wired into the OCR path — it existed
+  but was never called.
+- New `ocr_supervisor.py` + `run_ocr_auto.bat`: a heartbeat-staleness watchdog that force-kills and
+  recovers a HUNG (not just crashed) OCR pass, plus a per-page timeout. The review pass caught a real
+  bug in the watchdog itself: a leftover heartbeat from a *prior* session made it kill a brand-new,
+  healthy pass on its very first poll — fixed by tracking the child's own start time as the baseline.
+- The QR-code base URL now comes from a validated allowlist (`safe_public_base`) instead of trusting
+  the raw `Host` header.
+- This repo's first CI workflow (`.github/workflows/ci.yml`) — runs `verify_all.py` on every push/PR.
+- 171 new regression checks across 3 new test files covering 7 previously-zero-coverage feature
+  modules and the Tier-1 corpus-build pipeline.
+
+### Fixed — Medium tier (`0059dc8` → `3590cb2`, 19 of 24 findings + 14 review findings)
+- `xref.py` fabricated a fake NSN from any 13+-digit run instead of rejecting it; now anchored.
+- `dedup.py`'s shingle hashing had the same process-randomized-`hash()` bug as the Critical-tier
+  `embed.py` fix — switched to `zlib.crc32`.
+- A large-format foldout page could rasterize uncapped (a 48×36in page at 200 DPI was ~69MP against a
+  25MP intended ceiling); fixed, and extended to the Poppler fallback render path, which had no cap
+  at all. The review pass caught the ceiling's own 100-DPI floor could itself push a large enough page
+  back *over* the cap — lowered.
+- `masterfile.py build()` rewritten to stream into an incremental aggregator instead of materializing
+  every measurement row into one Python list first — verified byte-for-byte output-equivalent to the
+  original across 10 rounds of randomized data plus a dedicated edge case.
+- `kg.py neighbors()` now tries an indexed exact/prefix lookup before the slow substring scan (every
+  lookup used to force a full table scan). The review pass caught the initial version of this fix
+  silently dropped valid substring matches whenever an exact/prefix match also existed for the same
+  query — both queries now always run, merged and deduped.
+- 8 batch-script hardening fixes (hardcoded personal-machine paths, silent-success anti-patterns,
+  busy-looping retry logic, missing errorlevel checks) across `VERIFY.bat`, `FIRST-RUN.bat`,
+  `RUN-ALL-VERIFY.bat`, `run_indexing.bat`, `RE-RENDER-CAD.bat`, `RUN-CAD-TIERS.bat`,
+  `FIX-PORT.bat`, `KILL-ZOMBIE-ADMIN.bat`.
+- 5 deferred with recorded reasoning (a genuine FTS5-vs-completeness tradeoff in `kg.py`, two
+  duplicated-but-differently-wound CAD mesh builders left unmerged pending visual verification, this
+  doc reconciliation itself), 1 not applicable (an orphaned mockup with no live surface).
+
+### Fixed — Low tier (`aad1709` → `e4f4bd0`, 6 findings + 2 review findings)
+- Removed a stray `.orig` backup file, a dead duplicate module (`crossval.py`, zero external callers),
+  and a superseded batch script still carrying a bug its own successor's header documents fixing.
+- Fixed a `tables.py` short-circuit (`if False`) that always returned 0 regardless of actual content.
+- Fixed an unescaped SQL `LIKE` wildcard in `ocr_diag.py` that double-counted diagnostics into "other".
+- `verifystate.py`'s self-test module roster had drifted ~40% behind `VERIFY.bat`'s actual gate list —
+  fixed, and hardened to cross-check itself against the real gate list going forward so this exact
+  class of silent drift can't recur unnoticed.
+
+### Fixed — Priority-5 UI/UX pass (`71c9c4c`, `a32aee9`; 10 UX findings + 20 review findings)
+A follow-up UI/UX audit (rendering, 3D/CAD, schematics, OCR-facing UX, motion/gestures, scanning)
+surfaced 52 findings; the 10 highest-priority shipped here, each verified live against a running
+instance of the app:
+- `index.html`'s front door was ES6-only with no fallback — added a genuine ES5 capability probe +
+  minimal fallback shell (RPS-Legacy/IE11/old-Firefox support, this app's own stated tier).
+- Interactive 3D and its SVG fallback gained touch-orbit + pinch-zoom (ported from the sibling
+  CAD-rotate tab) plus an always-visible zoom/reset row.
+- The local AI-illustrative 3D model gained an on-canvas watermark on its default tab (R13: AI tiers
+  must never visually pass as authoritative).
+- Circuit Lab wires can now be selected and deleted individually instead of only wiping the canvas.
+- Deep Zoom now falls back to a chip list for OCR-only-page callouts instead of discarding them.
+- Safety callouts (WARNING/CAUTION/DANGER) now propagate their OCR-quality confidence signal to all
+  4 pages and the printed Job Card that render them (2 more caught by the review pass).
+- Kiosk/glove-mode's touch-target minimum now covers `[role=button]` controls and the app-wide footer
+  nav, with a `min-width` fix so circular badges can't distort into ovals.
+- Bin/shelf audit no longer fabricates a fake NIIN from a scan that isn't a clean 9/13-digit NSN.
+- The QR job-packet deep-link now explains itself instead of silently failing under the app's own
+  documented default (loopback-only) deployment.
+- Look-Alike Parts gained an inline cited-figure thumbnail per variant.
+- The review pass caught two severe regressions that re-introduced the exact bugs the fixes above
+  were meant to close (a rejected bin-audit scan could still silently discard the whole in-progress
+  scan list; the NIIN-fabrication fix used `>=13` instead of `===13`, so 14+-digit codes were still
+  fabricated) — both fixed and verified live, along with 18 more real findings (a legacy-fallback
+  redraw path wiping the new 3D zoom bar/watermark, a checkbox-sizing regression, an unintended
+  button-height change, a missed IPv6 deployment case, a blob URL leak, and cleanup).
+- New `engine/tests/test_uiux_fixes.py`: 174 checks.
+
+### Fixed — CI (`7c4a3ba`; 3 root causes + 6 review findings)
+CI's own Autofix flagged `test_http.py` failing on the very first PR this workflow ran against.
+- 8 of 11 failing routes shared one root cause: the test's synthetic DB fixture had drifted from the
+  real `documents` schema (missing `type`/`nsn`/`page_count`) — fixed the fixture, matching this
+  app's own dispatcher philosophy that column drift should stay a loud signal, not get papered over.
+- 3 more were flagged as "non-JSON" but are legitimately binary PDF endpoints by design — the test's
+  blanket JSON assumption was wrong for these (and, latently, 6 more not yet triggered).
+- `/api/search` had one genuinely unguarded query, missing the same guard its sibling already had.
+- Stress-testing beyond CI's own config surfaced 3 more real, unrelated crashes fixed in the same
+  pass: `registry.qint()` had no ceiling against SQLite's 64-bit bind range (`OverflowError` on an
+  oversized numeric param); two routes passed `page` through unvalidated into an unguarded `int()`;
+  a non-ASCII "digit" character surviving a filename filter crashed a PDF response mid-write with a
+  Latin-1 encoding error.
+- The review pass on all of the above caught a genuine concurrency race in one of its own new guards
+  (two threads could pair a valid cache signature with an empty map, permanently) — serialized under
+  a lock and verified with a 64-thread stress test against a live-broken-then-fixed schema.
+
+### Fixed — Staleness pass, Tier 1 (`3054dad`; 6 items + 10 review findings)
+A follow-up full-project staleness audit (dependencies, git hygiene, docs-vs-reality, backlog-vs-
+fixed, dead code, repo bloat — see `docs/audit/` and the Viewer Drift Report artifact from this
+session) found this project's dependency on PyMuPDF's deprecated `fitz` import alias was printing an
+unsuppressible warning on every server start; all 19 (then 3 more, caught by review) call sites
+migrated to `import pymupdf as fitz`. Also fixed: a real test-isolation bug that had already
+contaminated the live, git-tracked `keywords_user.json` sidecar with leftover test data (cleaned);
+two stale, fully-merged git branches; and 6 small hygiene fixes (a 14-release-stale version comment,
+hardcoded personal-machine paths, a dead `.gitattributes` rule, a drifting hardcoded test-file count).
+
+### Verified
+`engine/tests/verify_all.py`: 26/26, ALL GREEN, stable across every run from the CI-fix commit
+onward. Every commit above ran the full suite before and after; the 2-failure baseline
+(`test_http.py`, `safeguard verify`) that held through most of this run was itself eliminated by the
+CI-fix and Tier-1-staleness commits respectively — this is the first point in the project's history
+this file records a fully clean `verify_all.py --snapshot` run.
+
+### Compatibility (R1)
+Every fix above is additive or corrective within its own function/route — no schema change beyond
+the CI-fix commit's test-fixture-only schema correction, no removed public route or changed response
+shape, no breaking config default. The `KEYWORDS_USER_PATH`/`safe_header_token`/`_kill_tree`-style
+refactors extracted shared helpers from existing, already-tested logic rather than introducing new
+behavior.
+
+### Known, deliberately deferred
+- 5 Medium-tier findings and the Medium-tier's own `_box()` mesh-builder duplication (see that
+  tier's entry above) — each documented with explicit reasoning at the commit that deferred it.
+- 3 items surfaced by the Tier-1 staleness review, deliberately not applied: `KEYWORDS_USER_PATH` is
+  never reset after a test run (consistent with the pre-existing, also-unreset `V.DB_PATH` pattern);
+  CI's "tests are self-contained" comment is true by convention, not structural enforcement; 7 launch
+  scripts still probe via the deprecated `fitz` alias but already self-heal.
+- Tiers 2-6 of the Tier-1-staleness Drift Report (the documentation reconciliation this entry partly
+  *is*, dependency-version hardening, and repo-bloat cleanup) — tracked separately, not this entry.
 
 ---
 

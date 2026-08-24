@@ -78,5 +78,5 @@ svg="\n".join(P)
 base="/sessions/beautiful-admiring-dirac/mnt/THE VIEWER/docs/diagrams/33-nsn-sourcing-assessment"
 open(base+".svg","w",encoding="utf-8").write(svg)
 cairosvg.svg2pdf(bytestring=svg.encode("utf-8"), write_to=base+".pdf")
-cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=base+"_preview.png", output_width=1180)
+# (PNG preview removed 2026-08-18: redundant with the .svg above; see docs/diagrams/_common.py render() note)
 print("wrote", os.path.getsize(base+".pdf"),"bytes")

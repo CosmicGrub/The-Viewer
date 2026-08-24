@@ -97,15 +97,36 @@ def run(n=4000):
             assert "text" in s and "page" in s, s
     print("[ask] %d cases OK" % n)
 
-    # hybrid.fuse: merged list never larger than inputs; every item keeps a signal
+    # hybrid.fuse: merged list never larger than inputs; every item keeps a signal.
+    # Field names mirror what the real callers actually emit: core.search() (search_feature._meta_rows)
+    # rows carry the page under "page_number", while embed.search() rows carry it under "page" -- using
+    # "page_number" here (not "page") for the keyword side is what exercises hybrid._key()'s real-world
+    # field-name mismatch instead of masking it (regression coverage for the doc-collapse bug where every
+    # keyword hit on a doc collided onto the same (doc, "") key because _key() only ever read "page").
     for _ in range(n):
-        a = [{"doc_id": str(random.randint(1, 5)), "page": str(random.randint(1, 9))} for _ in range(random.randint(0, 6))]
+        a = [{"doc_id": str(random.randint(1, 5)), "page_number": str(random.randint(1, 9))}
+             for _ in range(random.randint(0, 6))]
         b = [{"doc": str(random.randint(1, 5)), "page": str(random.randint(1, 9))} for _ in range(random.randint(0, 6))]
         f = hybrid.fuse([("keyword", a), ("semantic", b)])
         assert len(f) <= len(a) + len(b)
         for r in f:
             assert r.get("_signals"), r
     print("[hybrid.fuse] %d cases OK" % n)
+
+    # hybrid.fuse: a keyword row and a semantic row on the SAME (doc, page) must merge into one fused row
+    # carrying both signals -- not collapse the keyword row onto a different key (dropping it) nor survive
+    # as two separate rows. This is the exact shape core.search() + embed.search() produce for a real hit.
+    kw = [{"doc_id": "1", "page_number": "1", "title": "Brake Assembly", "snip": "...brake..."},
+          {"doc_id": "1", "page_number": "3", "title": "Brake Assembly", "snip": "...brake pads..."}]
+    sem = [{"doc": "1", "page": "1", "score": 0.9}, {"doc": "1", "page": "3", "score": 0.8}]
+    f = hybrid.fuse([("keyword", kw), ("semantic", sem)])
+    assert len(f) == 2, f                                    # no page silently dropped, no phantom duplicate
+    by_page = {r["page_number"]: r for r in f}
+    assert set(by_page) == {"1", "3"}, f
+    for pg, r in by_page.items():
+        assert r["_signals"] == ["keyword", "semantic"], (pg, r)
+        assert r.get("title") == "Brake Assembly", (pg, r)    # merged row keeps the richer keyword shape
+    print("[hybrid.fuse] doc/page collision merge OK")
 
     # jobpack.build: partial dicts still yield a valid PDF
     if jobpack and jobpack.available():

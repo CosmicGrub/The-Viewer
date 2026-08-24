@@ -12,6 +12,7 @@ import os, sqlite3, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import rpstl_feature as R
+import safeguard
 
 DEFAULT_DB = os.path.join(HERE, "..", "index", "viewer.db")
 RPSTL_LIKE = ("upper(COALESCE(d.tm_number,'')||' '||COALESCE(d.path,'')||' '||COALESCE(d.title,'')) "
@@ -50,12 +51,6 @@ def main():
         print("[ERROR] index not found: %s" % db); return 1
     con = _connect_ro(db)
     out = os.path.join(os.path.dirname(db), "rpstl.db")
-    tmp = out + ".building"
-    if os.path.exists(tmp): os.remove(tmp)
-    w = sqlite3.connect(tmp)
-    w.execute("""CREATE TABLE parts_rows(id INTEGER PRIMARY KEY, pn_norm TEXT, pn_base TEXT, part_no TEXT,
-      item INT, smr TEXT, nsn TEXT, cagec TEXT, nomenclature TEXT, nomen_flis TEXT, qty INT,
-      fig_no TEXT, doc_id INT, page INT, confidence REAL, validated INT DEFAULT 0)""")
 
     has_flis = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ref_nsn'").fetchone() is not None
     rows = con.execute(
@@ -65,33 +60,41 @@ def main():
     if limit: rows = rows[:limit]
     npages = len(rows); nrows = 0; nval = 0; t0 = time.time()
     print("=== Building RPSTL sidecar from %d parts pages (FLIS validate: %s) ===" % (npages, "yes" if has_flis else "no ref_nsn"))
-    batch = []
-    for pi, pr in enumerate(rows, 1):
-        for r in R.parse_page(pr["body"] or "", doc_id=pr["doc_id"], page=pr["page"]):
-            flis = _flis_name(con, r["nsn"]) if (has_flis and r["nsn"]) else None
-            nomen = r["nomenclature"]
-            validated = 0
-            if flis:
-                nomen = flis; validated = 1; nval += 1            # FLIS official name wins
-            batch.append((R.norm_pn(r["part_no"]), R.pn_base(r["part_no"]), r["part_no"], r["item"], r["smr"],
-                          r["nsn"], r["cagec"], nomen, flis, r["qty"], r["fig_no"], r["doc_id"], r["page"],
-                          r["confidence"], validated))
-            nrows += 1
-        if pi % 200 == 0 or pi == npages:
+
+    # Build-to-temp-then-atomic-swap, same crash-safety contract as kg.py/build_publog.py: a transient
+    # antivirus/search-indexer lock on the previous rpstl.db (or a crash mid-build) no longer takes the
+    # whole batch job down with an uncaught PermissionError -- it retries the removal/swap and, on any
+    # failure, leaves the last-good rpstl.db untouched (safeguard.atomic_sqlite_build).
+    with safeguard.atomic_sqlite_build(out) as (w, tmp):
+        w.execute("""CREATE TABLE parts_rows(id INTEGER PRIMARY KEY, pn_norm TEXT, pn_base TEXT, part_no TEXT,
+          item INT, smr TEXT, nsn TEXT, cagec TEXT, nomenclature TEXT, nomen_flis TEXT, qty INT,
+          fig_no TEXT, doc_id INT, page INT, confidence REAL, validated INT DEFAULT 0)""")
+        batch = []
+        for pi, pr in enumerate(rows, 1):
+            for r in R.parse_page(pr["body"] or "", doc_id=pr["doc_id"], page=pr["page"]):
+                flis = _flis_name(con, r["nsn"]) if (has_flis and r["nsn"]) else None
+                nomen = r["nomenclature"]
+                validated = 0
+                if flis:
+                    nomen = flis; validated = 1; nval += 1            # FLIS official name wins
+                batch.append((R.norm_pn(r["part_no"]), R.pn_base(r["part_no"]), r["part_no"], r["item"], r["smr"],
+                              r["nsn"], r["cagec"], nomen, flis, r["qty"], r["fig_no"], r["doc_id"], r["page"],
+                              r["confidence"], validated))
+                nrows += 1
+            if pi % 200 == 0 or pi == npages:
+                w.executemany("INSERT INTO parts_rows(pn_norm,pn_base,part_no,item,smr,nsn,cagec,nomenclature,"
+                              "nomen_flis,qty,fig_no,doc_id,page,confidence,validated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch)
+                w.commit(); batch = []
+                print("  %d/%d pages  %d rows  %d FLIS-validated  %.1f pg/s" %
+                      (pi, npages, nrows, nval, pi / max(0.001, time.time() - t0)))
+        if batch:
             w.executemany("INSERT INTO parts_rows(pn_norm,pn_base,part_no,item,smr,nsn,cagec,nomenclature,"
                           "nomen_flis,qty,fig_no,doc_id,page,confidence,validated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch)
-            w.commit(); batch = []
-            print("  %d/%d pages  %d rows  %d FLIS-validated  %.1f pg/s" %
-                  (pi, npages, nrows, nval, pi / max(0.001, time.time() - t0)))
-    if batch:
-        w.executemany("INSERT INTO parts_rows(pn_norm,pn_base,part_no,item,smr,nsn,cagec,nomenclature,"
-                      "nomen_flis,qty,fig_no,doc_id,page,confidence,validated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch)
-    w.execute("CREATE INDEX ix_pn ON parts_rows(pn_norm)")
-    w.execute("CREATE INDEX ix_base ON parts_rows(pn_base)")
-    w.execute("CREATE INDEX ix_conf ON parts_rows(confidence)")
-    w.commit(); w.close(); con.close()
-    os.replace(tmp, out)
-    low = nrows  # report
+        w.execute("CREATE INDEX ix_pn ON parts_rows(pn_norm)")
+        w.execute("CREATE INDEX ix_base ON parts_rows(pn_base)")
+        w.execute("CREATE INDEX ix_conf ON parts_rows(confidence)")
+        w.commit()
+    con.close()
     print("\nDone: %d rows from %d pages -> %s" % (nrows, npages, out))
     print("  FLIS-validated nomenclature: %d" % nval)
     print("  (low-confidence rows are reviewable in the app: Part-number lookup -> Review)")

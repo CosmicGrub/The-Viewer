@@ -20,6 +20,36 @@
     return Array.prototype.slice.call((root || document).querySelectorAll(sel));
   }
 
+  /* Review finding (UX priority-5 review pass): is kiosk/glove mode on right now? Reads the same
+     'viewer_kiosk' localStorage key palette.js itself owns (sets/toggles) -- this is the READ-ONLY
+     half, safe to call from any page/script regardless of load order, since shared.js is the one file
+     loaded FIRST on every page (before palette.js, before cadview.js/deepzoom.js/threed.html's own
+     inline scripts). Was previously reimplemented independently (and inconsistently -- one copy used a
+     different default) in cadview.js, deepzoom.js, and inline in threed.html; those now call this. */
+  function kioskOn() {
+    try { return window.localStorage.getItem("viewer_kiosk") === "1"; } catch (e) { return false; }
+  }
+
+  /* Recommendations annex #10 (ocr-badge-tooltips): a shared, plain-language confidence-tier
+     bucketer for a raw 0..1 float, so a page doesn't have to reimplement its own thresholds/labels
+     (which had already silently drifted once: index.html's part-match card used "<60" while
+     rpstl_feature.py's own review() queue -- the backend's real, load-bearing "needs review"
+     threshold -- used "<=0.6"). 0.6 here is not a new number: it matches rpstl_feature.py's
+     review(max_conf=0.6) exactly, so a mechanic who taps a low-confidence part number sees the SAME
+     boundary the review queue itself already treats as "needs a second look". Not master.html's own
+     4-tier vocabulary (high/medium/review/low) -- that one is about masterfile.py's provenance-based
+     corroboration (authoritative vs external), a different judgment than a raw RPSTL field-match
+     score, and forcing a fake extra tier onto a score that only ever lands on 0/0.2/0.4/0.6/0.8/1.0
+     would be a distinction without a difference. */
+  function confTier(conf) {
+    var c = (typeof conf === "number" && !isNaN(conf)) ? conf : 0;
+    if (c >= 0.8) return { key: "high", label: "High confidence", note: "" };
+    if (c > 0.6) return { key: "verify", label: "Verify before use",
+      note: "One field didn't match cleanly — confirm nomenclature/CAGEC on the cited page." };
+    return { key: "low", label: "Low confidence — verify on page",
+      note: "This may be an OCR misread. Open the cited page to confirm before ordering." };
+  }
+
   /* GET a JSON endpoint (XHR -- works on every tier; fetch needs a polyfill on legacy). */
   function getJSON(url, cb, errcb) {
     var x = new XMLHttpRequest();
@@ -153,9 +183,10 @@
   }
 
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
-             toast: toast, debounce: debounce, fmtInt: fmtInt };
+             toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;
   if (g.toast === undefined) g.toast = toast;
+  if (g.viewerKioskOn === undefined) g.viewerKioskOn = kioskOn;
 }(typeof window !== "undefined" ? window : this));

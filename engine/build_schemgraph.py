@@ -31,7 +31,7 @@ def _process_doc(task):
     if not path or not str(path).lower().endswith(".pdf") or not os.path.exists(path):
         return (doc_id, rows)
     try:
-        import fitz
+        import pymupdf as fitz
         doc = fitz.open(path); n = doc.page_count; doc.close()
     except Exception:
         return (doc_id, rows)

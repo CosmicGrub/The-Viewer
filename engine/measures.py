@@ -87,7 +87,20 @@ _UNITS = [
 ]
 _UNIT_RE = "|".join("(?:%s)" % u for u, _, _ in _UNITS)
 # number, optional range/tolerance, then a unit
-_NUM = r"[+\-]?(?:\d{1,6}(?:,\d{3})*(?:\.\d+)?|\.\d+)"   # also matches leading-decimal values like .015 / .002
+# v1.13.6: the comma-less digit group used to be capped at \d{1,6}. For an UNBROKEN run longer than that (7+
+# digits, no commas -- garbled OCR or an impossible value like "350000000 ft-lb"), the cap didn't reject the
+# number: re.finditer just backtracked to a start position mid-run and matched that run's OWN trailing 6
+# digits ("350000000" -> "000000" -- v1 starts at digit index 3), silently truncating an impossible value
+# into a wrong-but-plausible one instead of leaving it for validate.py to catch. validate.py already has a
+# purpose-built quarantine path for exactly this (looks_garbled()'s "8+ unbroken digits = almost surely a
+# merge" heuristic, self-tested against a 9-digit torque value and a 10-digit merge) -- it just never got the
+# chance to see the real value, only the truncated one. Uncapping the digit group (plain \d+) fixes the root
+# cause instead of duplicating validate.py's garble detection here: \d+ is greedy and always consumes an
+# entire contiguous run in one shot regardless of which position finditer starts trying from, so this can no
+# longer produce a truncated suffix -- the full, real digit string now always reaches validate.py, which
+# correctly quarantines it ("looks OCR-garbled" / "out of physical range") instead of showing a fabricated
+# near-zero "suspect" reading.
+_NUM = r"[+\-]?(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)"   # also matches leading-decimal values like .015 / .002
 _MEAS = re.compile(
     r"(?P<v1>%s)\s*(?:(?:-|–|to|through)\s*(?P<v2>%s)\s*)?(?:(?:±|\+/-|plus or minus)\s*(?P<tol>%s)\s*)?(?P<unit>%s)\b"
     % (_NUM, _NUM, _NUM, _UNIT_RE), re.I)
@@ -207,6 +220,12 @@ def find_for_query(db_path, q, limit=40):
             if v.get("reason"):
                 m["quality_reason"] = v["reason"]
             m["trust"] = _trust.level(source="corpus", validation_status=v["status"], n_samples=1)
+            # recommendations annex #2 (torque-measures-confidence): measures.html was reading none
+            # of trust/quality/quarantined_count -- all already computed here, just never rendered.
+            # Additive field (m["trust"] above stays a bare level string -- worst() below still needs
+            # that shape) so the UI gets {level,color,label} without re-implementing trust.py's
+            # _COLOR/_LABEL tables client-side.
+            m["trust_badge"] = _trust.badge(source="corpus", validation_status=v["status"], n_samples=1)
             if v["status"] == "quarantine":
                 quarantined.append(m)            # withheld from display by default; never silently dropped
                 continue

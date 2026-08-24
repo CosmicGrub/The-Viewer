@@ -90,7 +90,7 @@ if __name__ == "__main__":
     import tempfile
     d = tempfile.mkdtemp(); db = os.path.join(d, "v.db"); c = sqlite3.connect(db)
     c.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, vehicle TEXT, tm_number TEXT, title TEXT)")
-    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT)")
+    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, ocr_confidence REAL)")
     c.execute("CREATE VIRTUAL TABLE pages_fts USING fts5(body_text, content='pages', content_rowid='id')")
     c.execute("INSERT INTO documents VALUES(1,'HMMWV M998','TM 9-2320-280-10','Operator')")
     c.executemany("INSERT INTO pages(document_id,page_number,body_text) VALUES(?,?,?)", [

@@ -1,5 +1,12 @@
 # THE VIEWER — v1.1 Roadmap
 
+> **historical — superseded, describes the v1.0.0/v1.1.0-era roadmap only.** Every item below (real semantic
+> search, the visual index, hybrid ranking, and the rest) shipped long ago — see `docs/MASTER-RECONCILIATION.md`'s
+> feature inventory. The codebase has since moved through 13+ more versions to **v1.14.0** (2026-08-18, the
+> 50-finding 4-tier audit + UX pass + CI + doc reconciliation). For what's actually shipped and what's still
+> open, read `docs/CHANGELOG.md` (newest entry first) instead of this file. Kept as-is below for historical
+> record — not maintained.
+
 v1.0.0 is cut and verify-green. This is the prioritized next lap: **[UPGRADE]** = new capability, **[EFFICIENCY]** =
 speed/resource win, **[DEBT]** = cleanup that pays down risk. Effort: **S** ≤ half-day · **M** 1–2 days · **L** multi-day.
 
@@ -85,8 +92,17 @@ speed/resource win, **[DEBT]** = cleanup that pays down risk. Effort: **S** ≤ 
 20. **[DEBT] ASCII-safe console output.** The audit/verify logs render `·`/`—`/`⚠` as `?`/`�` in the Windows cp437
     console. Swap to ASCII in the printed lines (keep unicode in the HTML/PDF). Cosmetic but tidies the logs. **[S]**
 
-21. **[EFFICIENCY] Installer size.** The PyInstaller bundle pulls numpy/reportlab/fitz/onnxruntime; add `excludes` for
-    unused submodules and UPX so the shop-floor package is lean. **[S]**
+21. **[EFFICIENCY] Installer size.** ~~The PyInstaller bundle pulls numpy/reportlab/fitz/onnxruntime; add `excludes` for
+    unused submodules and UPX so the shop-floor package is lean.~~ **[S]** — **PARTIALLY ADDRESSED** (`viewer.spec`
+    now sets `excludes=["sentence_transformers", "torch", "torchvision", "torchaudio"]` — the only route into any of
+    those is `engine/embed.py`'s already-optional `sentence_transformers` import, so this is a no-op for the shipped
+    server; UPX was already `True` on both `EXE`/`COLLECT`, not actually missing. `onnxruntime`/`onnxruntime-gpu` were
+    investigated and deliberately left bundled: `engine/sysprobe.py`'s `gpu_info()` is reached from real server-boot
+    code (`viewer_app.main() -> rps_init() -> sysprobe.load_or_build()`), not just OCR-ingest tooling, and feeds the
+    RPS modern/lite/legacy mode pick — excluding it would misdetect GPU hardware on boot, not just shrink the build.
+    numpy/reportlab/fitz are genuine request-serving dependencies and were left alone. Not build-verified in this pass
+    — no PyInstaller run/bundle-size measurement was done, only static import-graph tracing; see `viewer.spec` for the
+    full reasoning.)
 
 ---
 

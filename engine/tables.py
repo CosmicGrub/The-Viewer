@@ -7,7 +7,7 @@ is absent."""
 import os, re
 
 try:
-    import fitz
+    import pymupdf as fitz
     _OK = True
 except Exception:
     fitz = None; _OK = False
@@ -56,18 +56,32 @@ def _units_in(rows):
 
 
 def counts_for_doc(pdf_path, max_pages=2000):
-    """Quick tally: {pages_with_tables, total_tables, spec_tables} -- for coverage reporting."""
+    """Quick tally: {pages_with_tables, total_tables, spec_tables} -- for coverage reporting.
+    Low finding #47 (dead/broken): the extraction call was short-circuited by an `if False` (dead
+    code, never executed) and `spec_tables` was never incremented anywhere in the loop -- this
+    always returned 0 for spec_tables regardless of actual content. Fixed by extracting each
+    table's cells (same as extract_page()) and reusing _units_in() to decide spec-ness, still
+    inside the single fitz.open() session this function already had -- calling extract_page()
+    itself per-page would reopen the PDF up to `max_pages` times, defeating the point of a "quick"
+    tally."""
     if not _OK or not os.path.exists(pdf_path):
         return {"pages_with_tables": 0, "total_tables": 0, "spec_tables": 0}
     pw = tt = st = 0
     try:
         doc = fitz.open(pdf_path)
         for i in range(min(len(doc), max_pages)):
-            tabs = extract_page(pdf_path, i + 1) if False else None
             finder = doc[i].find_tables()
             these = list(getattr(finder, "tables", finder))
             if these:
                 pw += 1; tt += len(these)
+                for t in these:
+                    try:
+                        rows = t.extract()
+                    except Exception:
+                        continue
+                    rows = [[("" if c is None else str(c)).strip() for c in r] for r in rows if r]
+                    if rows and _units_in(rows):
+                        st += 1
         doc.close()
     except Exception:
         pass
@@ -94,5 +108,10 @@ if __name__ == "__main__":
         print("  n_rows=%d n_cols=%d spec=%s units=%s" % (res[0]["n_rows"], res[0]["n_cols"], res[0]["spec"], res[0]["units"]))
         print("  rows:", res[0]["rows"])
     assert res and res[0]["n_rows"] == 3 and res[0]["spec"] and "length" in res[0]["units"], "table/spec detection failed"
+    # Low finding #47: counts_for_doc() used to always return spec_tables=0 (dead `if False` short
+    # circuit, st never incremented) -- the one spec table on this page must now be counted.
+    counts = counts_for_doc(p)
+    print("counts_for_doc:", counts)
+    assert counts == {"pages_with_tables": 1, "total_tables": 1, "spec_tables": 1}, ("counts_for_doc broken", counts)
     print("tables self-test OK")
 # END OF FILE

@@ -114,6 +114,20 @@ def _meta_rows(con, where, args, limit):
 # ---- enhanced keyword search: synonyms + part#/FIG + ANY + offline fuzzy ----
 SYN = {}
 
+# v1.13.6: test override for the live-editable user sidecar. Was previously always ENGINE_DIR/keywords_user.json
+# with no test-injectable seam -- test_hardening.py/test_routes.py POST real tag/keyword data through
+# user_tags_add()/user_keywords_save(), which landed in the actual git-tracked file instead of a fixture
+# copy, occasionally making verify_all.py --snapshot's self-baseline see the file mid-mutation and false-fail
+# (a recurrence of the same class of bug 5e8be64 fixed once already: duplicate entries silently accumulating
+# in this file from repeated local runs). Tests set KEYWORDS_USER_PATH to a tempdir path before serving.
+KEYWORDS_USER_PATH = None
+
+
+def _kw_user_path():
+    # `is not None` (not a truthy check) so a caller accidentally setting KEYWORDS_USER_PATH = "" doesn't
+    # silently fall through to the real tracked sidecar -- the exact isolation this override exists for.
+    return KEYWORDS_USER_PATH if KEYWORDS_USER_PATH is not None else os.path.join(ENGINE_DIR, "keywords_user.json")
+
 
 def _load_synonyms():
     """Load extensible alias groups from synonyms.json + keywords.json (bidirectional). keywords.json holds
@@ -121,10 +135,13 @@ def _load_synonyms():
     functional search still finds the right part. Both are plain JSON, offline; extend with build_keywords.py."""
     global SYN
     m = {}
-    # synonyms.json + keywords.json are curated (code); keywords_user.json is YOUR live-editable additions.
-    for fn in ("synonyms.json", "keywords.json", "keywords_user.json"):
+    # synonyms.json + keywords.json are curated (code, always ENGINE_DIR); keywords_user.json is YOUR
+    # live-editable additions (test-overridable via KEYWORDS_USER_PATH, see _kw_user_path()).
+    for fn, path in (("synonyms.json", os.path.join(ENGINE_DIR, "synonyms.json")),
+                      ("keywords.json", os.path.join(ENGINE_DIR, "keywords.json")),
+                      ("keywords_user.json", _kw_user_path())):
         try:
-            data = json.load(open(os.path.join(ENGINE_DIR, fn), encoding="utf-8"))
+            data = json.load(open(path, encoding="utf-8"))
             for grp in data.get("groups", []):
                 terms = [str(t).lower().strip() for t in grp if str(t).strip()]
                 for t in terms:
@@ -142,10 +159,6 @@ def _load_synonyms():
 
 
 _load_synonyms()
-
-
-def _kw_user_path():
-    return os.path.join(ENGINE_DIR, "keywords_user.json")
 
 
 def user_keywords_list():
@@ -328,6 +341,19 @@ def _alts(con, word, last, use_fuzzy):
     return "(" + " OR ".join(quoted) + ")"
 
 
+def _token_alts(con, toks, use_fuzzy):
+    """Recommendations annex #13 (fuzzy-match-badge): per-token alt-term provenance, reusing exactly
+    the same SYN.get()/fuzzy_terms() calls _alts() above already makes for the FTS expression --
+    this just also keeps the raw alt lists (not folded into a quoted OR-expr string) so search()'s
+    exact-boost pass can tell WHICH alternative actually matched a given result row, not just that
+    build_match() included one. Returns {lowercased token: {"syn": [...], "fuzzy": [...]}}."""
+    out = {}
+    for t in toks:
+        w = t.lower()
+        out[w] = {"syn": SYN.get(w, []), "fuzzy": fuzzy_terms(con, w) if use_fuzzy else []}
+    return out
+
+
 _VEH_CACHE = {"t": 0.0, "v": []}
 
 
@@ -507,10 +533,13 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
         if len((q or "").strip()) < 2:
             con.close(); return []
         like = "%" + q + "%"
-        rows = [dict(r) for r in con.execute(
-            "SELECT d.id AS doc_id,d.vehicle,d.tm_number,d.nsn,d.title,p.page_number,substr(p.body_text,1,200) AS snip,p.source "
-            "FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.body_text LIKE ?" + flt_where + " LIMIT ?",
-            [like] + flt_args + [min(limit, 100)]).fetchall()]
+        try:
+            rows = [dict(r) for r in con.execute(
+                "SELECT d.id AS doc_id,d.vehicle,d.tm_number,d.nsn,d.title,p.page_number,substr(p.body_text,1,200) AS snip,p.source "
+                "FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.body_text LIKE ?" + flt_where + " LIMIT ?",
+                [like] + flt_args + [min(limit, 100)]).fetchall()]
+        except sqlite3.OperationalError:
+            rows = []
     # Nomenclature widening: if the catalog-style query is sparse, also try comma-inverted /
     # abbreviation-expanded variants and append unseen hits (additive — never removes results).
     if len(rows) < 3:
@@ -535,18 +564,43 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
                 exact_nsns.add(r2[0])
         except sqlite3.OperationalError:
             pass
+    # Recommendations annex #13 (fuzzy-match-badge): r["exact"] above was computed but never
+    # threaded through to the UI, so a row that only matched because a query word fuzzy/synonym-
+    # expanded (build_match() AND-combines those into the same query, not an opt-in mode) rendered
+    # identically to a literal keyword hit. FTS5's own snippet() already wraps whichever term
+    # actually matched in <<...>> (_meta_rows()'s SELECT, above) -- compare that against the literal
+    # query tokens vs. their synonym/fuzzy alternatives to tell them apart, for free (no extra query).
+    # Snippet-window blind spot: a match outside the ~12-token snippet excerpt won't be attributable
+    # this way and the row silently reads as literal -- an accepted false-negative, never a false
+    # positive (never wrongly flags a genuinely literal hit as approximate).
+    q_toks = re.findall(r"[A-Za-z0-9]+", q)[:6]
+    token_alts = _token_alts(con, q_toks, use_fuzzy) if q_toks else {}
+    lit_lower = {t.lower() for t in q_toks}
     for r in rows:
         snip = (r.get("snip") or "").lower().replace("<<", "").replace(">>", "")
         if ql and len(ql) >= 4 and ql in snip:
             r["exact"] = True
         if exact_nsns and (r.get("nsn") or "").strip() in exact_nsns:
             r["exact"] = True; r["part_number_match"] = q.strip()
+        if not r.get("exact") and token_alts:
+            hi = [h.lower() for h in re.findall(r"<<(.*?)>>", r.get("snip") or "")]
+            hi_set = set(hi)
+            if hi_set and not (hi_set & lit_lower):
+                for w, alts in token_alts.items():
+                    syn_hit = hi_set & {a.lower() for a in alts["syn"]}
+                    if syn_hit:
+                        r["approx"] = True; r["matched_via"] = "synonym"
+                        r["matched_term"] = next(iter(syn_hit)); break
+                    fuzzy_hit = hi_set & {a.lower() for a in alts["fuzzy"]}
+                    if fuzzy_hit:
+                        r["approx"] = True; r["matched_via"] = "fuzzy"
+                        r["matched_term"] = next(iter(fuzzy_hit)); break
     # Learned ranking: float parts you've successfully requested before to the top (stable).
     pop = core.popular_nsns(con)
     if pop:
         for r in rows:
             if (r.get("nsn") or "").strip() in pop: r["boosted"] = True
-    rows.sort(key=lambda r: (0 if r.get("exact") else 1, 0 if r.get("boosted") else 1))
+    rows.sort(key=lambda r: (0 if r.get("exact") else 1, 1 if r.get("approx") else 0, 0 if r.get("boosted") else 1))
     con.close(); return rows
 
 

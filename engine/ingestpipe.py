@@ -4,10 +4,15 @@ each to detect duplicates already in the corpus, and produces an ingestion PLAN 
 that the host-side ingest + OCR queue then processes. Read-only over the source folder; never touches the corpus
 here (the plan is executed by the existing ingest step).
 
+quick_hash() is a content-ONLY fingerprint (see its own docstring for why it deliberately does NOT reuse
+viewer_ingest.fingerprint(), whose size:mtime:hash format is unsuitable for this module's duplicate-manual
+detection job).
+
 scan_folder() and plan() are pure and unit-testable. The corpus stays read-only (R6)."""
 
 from __future__ import annotations
-import hashlib, os
+import hashlib
+import os
 
 SUPPORTED = (".pdf", ".txt", ".html", ".htm", ".xml", ".csv", ".md", ".tiff", ".tif", ".png", ".jpg", ".jpeg")
 
@@ -17,12 +22,23 @@ def supported(path):
 
 
 def quick_hash(path, head=1 << 20):
-    """A fast content fingerprint: size + sha1 of the first 1 MB. Enough to spot duplicate manuals cheaply."""
+    """A fast CONTENT-ONLY fingerprint -- enough to spot duplicate manuals cheaply, regardless of
+    each copy's mtime.
+
+    This is deliberately NOT viewer_ingest.fingerprint(): that helper's format is size:mtime:MD5(first
+    64KB), built for viewer_ingest.py's change-detection job (has this exact path's file changed since
+    it was last ingested? -- where being mtime-sensitive is correct). This module's job is different:
+    detect byte-identical duplicate manuals across different files/paths, arriving from a folder that
+    may mix sources (re-downloads, archive extractions, network transfers, USB copies, ...). mtime is
+    not a reliable proxy for "same content" across those sources, so quick_hash() hashes size + a
+    leading slice of content only, and never looks at mtime. Two files with identical bytes always
+    produce the same quick_hash() value, no matter when each was last touched -- which is what
+    plan()'s same-scan dedup (`sig = fh or f['path']`) needs to actually catch duplicate manuals."""
     try:
-        size = os.path.getsize(path)
-        h = hashlib.sha1(); h.update(str(size).encode())
-        with open(path, "rb") as f:
-            h.update(f.read(head))
+        st = os.stat(path)
+        h = hashlib.sha1(str(st.st_size).encode("utf-8"))
+        with open(path, "rb") as fh:
+            h.update(fh.read(head))
         return h.hexdigest()[:16]
     except Exception:
         return None
@@ -90,7 +106,16 @@ if __name__ == "__main__":
     open(os.path.join(d, "notes.txt"), "w").write("some notes")
     open(os.path.join(sub, "TM-9-2320-280-20.pdf"), "wb").write(b"%PDF-1.4 fake manual B" + b"\x00" * 100)
     open(os.path.join(d, "photo.gif"), "wb").write(b"GIF89a")           # unsupported -> ignored
-    open(os.path.join(d, "copy.pdf"), "wb").write(b"%PDF-1.4 fake manual A" + b"\x00" * 100)  # dup content of A
+    orig_a = os.path.join(d, "TM-9-2320-280-10.pdf")
+    copy_a = os.path.join(d, "copy.pdf")
+    open(copy_a, "wb").write(b"%PDF-1.4 fake manual A" + b"\x00" * 100)  # dup content of A
+    # deliberately give the duplicate a DIFFERENT mtime than the original -- e.g. a copy re-extracted
+    # from a zip archive, re-downloaded, or pulled off a different drive/source normally will NOT
+    # preserve the original's mtime. quick_hash() is content-only (see its docstring), so this must
+    # still be detected as a duplicate regardless.
+    _st = os.stat(orig_a)
+    os.utime(copy_a, (_st.st_atime + 10000, _st.st_mtime + 10000))
+    assert os.stat(orig_a).st_mtime != os.stat(copy_a).st_mtime
 
     found = scan_folder(d)
     exts = {f["ext"] for f in found}
@@ -98,7 +123,11 @@ if __name__ == "__main__":
     assert len(found) == 4, [f["name"] for f in found]       # 3 pdf + 1 txt (gif excluded)
     print("scan_folder OK -> %d supported files (recursive): %s" % (len(found), sorted(f["name"] for f in found)))
 
-    # nothing known yet -> the two identical PDFs collapse to one 'new'
+    # quick_hash() must NOT care about mtime: identical content, different mtime -> same hash.
+    assert quick_hash(orig_a) == quick_hash(copy_a), (quick_hash(orig_a), quick_hash(copy_a))
+    print("quick_hash() OK -> mtime-independent (content-only) for identical-content files")
+
+    # nothing known yet -> the two identical PDFs collapse to one 'new', even with differing mtimes
     p = plan(found)
     assert p["counts"]["duplicate"] == 1, p["counts"]        # copy.pdf == TM...10 content
     assert p["counts"]["new"] == 3, p["counts"]              # A, B, notes.txt
@@ -110,6 +139,7 @@ if __name__ == "__main__":
     assert p2["counts"]["new"] == 2, p2["counts"]
     print("plan (with known corpus) OK -> new=%d" % p2["counts"]["new"])
     assert scan_folder("/no/such/dir") == []
+
     print("ingestpipe self-test PASS")
 
 # END OF FILE

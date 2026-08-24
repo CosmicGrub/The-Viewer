@@ -183,7 +183,12 @@ def build_pdf(meta, procedures, torque, parts, figure_items, warnings=None):
         p.gap(4); p.line("%s — %s" % (pr.get("kind") or "Procedure", (pr.get("title") or "").strip() or label), "Helvetica-Bold", 11.5, _INK)
         p.line(cite, "Helvetica-Oblique", 8.5, _SUB)
         for ca in (pr.get("cautions") or [])[:8]:
-            p.line("%s: %s" % (ca.get("kind", "NOTE"), ca.get("text", "")), "Helvetica-Bold", 9, _WARN, indent=8)
+            # Review finding (R13 safety-relevant): the Work Order PDF -- explicitly the take-to-the-bay,
+            # away-from-the-screen document per this module's own header -- never showed the OCR-quality
+            # confidence its sibling jobpack.py Job Packet PDF was fixed to show in this same review.
+            conf = ca.get("confidence")
+            qual = "  (OCR quality: %s -- verify on page)" % conf if conf and conf != "clean" else ""
+            p.line("%s: %s%s" % (ca.get("kind", "NOTE"), ca.get("text", ""), qual), "Helvetica-Bold", 9, _WARN, indent=8)
         if pr.get("tools"):
             p.gap(2); p.line("Tools / test equipment:", "Helvetica-Bold", 9.5, _ACC, indent=4)
             for tl in pr["tools"][:20]: p.line("• " + tl, "Helvetica", 9, _INK, indent=14)
@@ -260,7 +265,7 @@ def build_pdf(meta, procedures, torque, parts, figure_items, warnings=None):
 # ---- data gathering -----------------------------------------------------------------------------------
 def _page_image(pdf_path, page, dpi):
     try:
-        import fitz
+        import pymupdf as fitz
         from PIL import Image
         doc = fitz.open(pdf_path); pix = doc[int(page) - 1].get_pixmap(dpi=int(dpi)); img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples); doc.close(); return img
     except Exception:
@@ -310,7 +315,7 @@ def preview(db_path, q, procedures, torque, lookalike=None, max_figs=8):
     """Structured summary of what a Work Order for `q` would contain — powers /api/jobcard_preview and the builder page."""
     intent = _task_intent(q)
     procedures = _order_procs(procedures or [], intent["kind"])
-    label, nsn, count, ndocs, parts, aps = _gather(db_path, q, max_figs)
+    label, nsn, count, ndocs, parts, aps = _gather(db_path, intent["focus"], max_figs)
     dims = _master_dims(db_path, label or q)
     parts = _flag_lookalikes(parts, lookalike)
     warn = _lookalike_warning(lookalike)
@@ -336,7 +341,7 @@ def jobcard(db_path, q, procedures, torque, lookalike=None, dpi=150, max_figs=8)
     """procedures/torque/lookalike are gathered by the route from the live features. Returns PDF bytes or None."""
     intent = _task_intent(q)
     procedures = _order_procs(procedures or [], intent["kind"])
-    label, nsn, count, ndocs, parts, aps = _gather(db_path, q, max_figs)
+    label, nsn, count, ndocs, parts, aps = _gather(db_path, intent["focus"], max_figs)
     parts = _flag_lookalikes(parts, lookalike)
     warn = _lookalike_warning(lookalike)
     dims = _master_dims(db_path, label or q)
@@ -385,7 +390,7 @@ if __name__ == "__main__":
     pdf = build_pdf({"task": "remove alternator", "label": "ALTERNATOR", "nsn": "2920-01-111-1111", "subtitle": "2 appearances", "intent": _task_intent("remove alternator")},
                     ordered, tq, parts, figs, warnings=[_lookalike_warning(la)])
     open("/tmp/jobcard_test.pdf", "wb").write(pdf)
-    import fitz
+    import pymupdf as fitz
     d = fitz.open("/tmp/jobcard_test.pdf")
     print("pdf bytes:", len(pdf), "| valid:", pdf[:5] == b"%PDF-", "| pages:", d.page_count, "| first ordered kind:", ordered[0]["kind"])
     d.close()

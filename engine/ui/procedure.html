@@ -36,9 +36,9 @@ button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:v
 @media print{ .noprint{display:none!important} body{background:#fff;color:#000} .card{border-color:#bbb} .side{display:none} a{color:#000} }
 </style><script src="/rps.js"></script></head><body><div class="wrap">
 <div class="noprint" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
-  <div><h1>How to do it <span class="muted">— reconstituted from the manuals</span></h1>
+  <div><h1>🔧 How to do it <span class="muted">— reconstituted from the manuals</span></h1>
     <div class="muted">A clean, checkable step-by-step rebuilt from the OCR'd text, shown next to the original page so you can verify it. Steps are verbatim; nothing is invented.</div></div>
-  <div><a href="/solve">&#128296; Solve it</a> &nbsp; <a href="/">&larr; back to search</a></div>
+  <div><a href="/solve">🛠 Solve it</a> &nbsp; <a href="/">&larr; back to search</a></div>
 </div>
 <div class="bar noprint">
   <input id="q" placeholder="Part or symptom — e.g. alternator replacement, brake bleed" autocomplete="off">
@@ -66,8 +66,17 @@ function render(d){
   var h='<div class="cols"><div class="steps">';
   h+='<div class="card"><h2 style="font-size:16px;margin:0 0 2px">'+esc(d.title||'Procedure')+' <span class="muted">('+esc(d.kind||'')+')</span></h2>'+
      '<div class="muted">from '+esc(src.tm||src.vehicle||'the manual')+(src.page?(' &middot; p.'+esc(src.page)):'')+' &middot; verbatim, OCR-sourced</div></div>';
-  if(d.warnings&&d.warnings.length){ h+='<div class="card sec"><h2>Warnings &amp; cautions</h2>';
-    for(var w=0;w<d.warnings.length;w++){ var wr=d.warnings[w]; h+='<div class="warn '+esc(wr.level)+'"><b>'+esc(wr.level)+':</b> '+esc(wr.text)+'</div>'; } h+='</div>'; }
+  /* Recommendations annex #11 (cautions-single-page): three distinct states, not one collapsed
+     "nothing to show" -- d.warnings_error (procedure_full()'s own signal, set when the adjacent-page
+     fetch fails) means the extraction may have missed something and must not read the same as a
+     genuine, confirmed-empty result. */
+  if(d.warnings_error){ h+='<div class="card sec"><h2>Warnings &amp; cautions</h2>'+
+    '<div class="warn DANGER"><b>COULD NOT CHECK:</b> safety-callout extraction failed for this lookup ('+esc(d.warnings_error)+'). Do not treat this as "no warnings" — verify against the source page before proceeding.</div></div>'; }
+  else if(d.warnings&&d.warnings.length){ h+='<div class="card sec"><h2>Warnings &amp; cautions</h2>';
+    for(var w=0;w<d.warnings.length;w++){ var wr=d.warnings[w];
+      var wpage=(wr.page&&src.page&&wr.page!==src.page)?(' <span class="muted">(p.'+esc(wr.page)+')</span>'):'';
+      h+='<div class="warn '+esc(wr.level)+'"><b>'+esc(wr.level)+':</b> '+esc(wr.text)+wpage+'</div>'; } h+='</div>'; }
+  else { h+='<div class="card sec"><h2>Warnings &amp; cautions</h2><div class="muted" style="font-size:13px">No WARNING/CAUTION/DANGER text detected on this page or the one before it. This means none was found, not that the check failed.</div></div>'; }
   if(d.tools&&d.tools.length){ h+='<div class="card sec"><h2>Tools &amp; materials</h2><div>';
     for(var t=0;t<d.tools.length;t++){ h+='<span class="tool">'+esc(d.tools[t])+'</span>'; } h+='</div></div>'; }
   h+='<div class="card sec"><h2>Steps <span class="muted">('+d.steps.length+') — tick as you go</span></h2><div id="stepwrap">';

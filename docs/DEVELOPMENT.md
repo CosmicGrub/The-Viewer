@@ -51,7 +51,15 @@ Do this around every change session (it takes seconds):
 2. Note the snapshot id printed (e.g. `SNAP_20260603_044300`).
 
 **After the change**
-3. `VERIFY-ALL.bat` — runs the regression suites **and** `safeguard verify` in one shot.
+3. `VERIFY-ALL.bat` — runs the regression suites **and** `safeguard verify` in one shot. This is
+   the fast, routine check for this loop, not the repo root's `VERIFY.bat` (the full pre-release
+   gate) — the two aren't competing, they're tiered by cost/occasion: use `VERIFY-ALL.bat` here,
+   every time; run `VERIFY.bat` (and `RUN-ALL-VERIFY.bat` for the slower fuzz/mutation passes)
+   before a release or milestone. See the repo root `README.md` for the full verify-script tiering.
+   A fourth tier now runs with no local action needed: every push and PR to `main` triggers GitHub
+   Actions CI (`.github/workflows/ci.yml`), which runs `python tests/verify_all.py --snapshot` on a
+   clean checkout — a backstop gate this loop's local `VERIFY-ALL.bat` doesn't replace, since a
+   change can still be pushed without anyone having run it by hand.
 4. Read the summary line:
    - `ALL GREEN` → suites pass and every protected file matches the vault. Done.
    - Any file shown `TRUNCATED` / `SHRUNK` → the file on disk was damaged; restore it:

@@ -7,7 +7,7 @@ import os, io, time, sqlite3
 
 def _page_image(pdf_path, page, dpi):
     try:
-        import fitz
+        import pymupdf as fitz
         from PIL import Image
         doc = fitz.open(pdf_path); pix = doc[int(page) - 1].get_pixmap(dpi=int(dpi))
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples); doc.close(); return img

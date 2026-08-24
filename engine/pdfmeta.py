@@ -7,7 +7,7 @@ fitz is absent. Read-only on the corpus."""
 import os
 
 try:
-    import fitz
+    import pymupdf as fitz
     _OK = True
 except Exception:
     fitz = None; _OK = False

@@ -60,7 +60,7 @@ if __name__ == "__main__":
     pdf = build_pdf(items, {"unit": "B CO 3-7 CAV", "mechanic": "SPC Solomon", "bumper": "C-12", "tm": "TM 9-2320-280-24P"})
     open("/tmp/partspdf_test.pdf", "wb").write(pdf)
     try:
-        import fitz
+        import pymupdf as fitz
         d = fitz.open("/tmp/partspdf_test.pdf"); pages = d.page_count; txt = d[0].get_text(); d.close()
     except Exception:
         pages = "?"; txt = ""

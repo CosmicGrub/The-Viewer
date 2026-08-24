@@ -86,7 +86,14 @@ echo.
 echo ============================================================
 echo  OCR pass (workers=%W%, dpi=%DPI%, gpu=%GPU%). Resumable. %DATE% %TIME%
 echo ============================================================
-%PY% "%~dp0viewer_ingest.py" ocrall %GPUFLAG% --workers %W% --dpi %DPI% --db "%DB%"
+REM v1.13.x: this used to call viewer_ingest.py ocrall directly and block on it -- if a pass ever
+REM HUNG (as opposed to crashing or finishing early), nothing detected it, nothing restarted it, and
+REM this whole cmd.exe loop sat blocked forever, despite the header banner above claiming
+REM "auto-restarting if it ever crashes." ocr_supervisor.py wraps the same call: it polls
+REM ocr_heartbeat.txt (already written every few pages) and force-kills the pass if progress stalls
+REM for --max-age seconds, so this loop's own "%REMAIN%" != 0 restart logic below picks it back up
+REM the same way it already does for a crash (finding #15).
+%PY% "%~dp0ocr_supervisor.py" --db "%DB%" --max-age 600 --poll 30 -- %PY% "%~dp0viewer_ingest.py" ocrall %GPUFLAG% --workers %W% --dpi %DPI% --db "%DB%"
 for /f "delims=" %%n in ('%PY% "%~dp0ocr_pending.py" --db "%DB%"') do set "REMAIN=%%n"
 if "%REMAIN%"=="-1" ( echo [warn] could not read the index; retrying in 15s & timeout /t 15 /nobreak >nul & goto ocrloop )
 if not "%REMAIN%"=="0" (

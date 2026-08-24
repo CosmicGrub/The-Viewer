@@ -8,7 +8,7 @@ import os
 import statistics
 
 try:
-    import fitz
+    import pymupdf as fitz
     _OK = True
 except Exception:
     fitz = None; _OK = False
@@ -53,14 +53,17 @@ def analyze(pdf_path, page, header_frac=0.08, footer_frac=0.92):
                 continue
             bsize = max((sp.get("size", med) for sp in spans), default=med)
             frac = ymid / ph
-            if frac <= header_frac:
-                typ = "header"
-            elif frac >= footer_frac:
-                typ = "footer"
-            elif bsize >= 1.6 * med and frac < 0.30:
+            # Size-based checks run first so a genuinely large title/heading near the top (or bottom) of
+            # the page is classified by its font size rather than being swallowed by the position-based
+            # header/footer band -- a real running header/footer is small text, not a large one.
+            if bsize >= 1.6 * med and frac < 0.30:
                 typ = "title"
             elif bsize >= 1.25 * med:
                 typ = "heading"
+            elif frac <= header_frac:
+                typ = "header"
+            elif frac >= footer_frac:
+                typ = "footer"
             elif bsize <= 0.85 * med:
                 typ = "caption"
             else:

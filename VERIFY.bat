@@ -86,9 +86,13 @@ echo --- [gate 0] .bat CRLF line-ending check ^(LF-only bats blink-crash on Wind
 %PY% tools\check_crlf.py
 if errorlevel 1 set "FAILED=!FAILED! crlf-check"
 
+echo --- [gate 0b] onboarding menu mentions the corpus folder (annex #16) ---
+%PY% tools\check_onboarding_menu.py
+if errorlevel 1 set "FAILED=!FAILED! onboarding-menu-check"
+
 echo.
 echo --- [gate 1] syntax: shell + features + new modules ---
-%PY% -c "import ast,glob; [ast.parse(open(f,encoding='utf-8').read()) for f in ['viewer_app.py','schemreview.py','build_schemgraph.py','vectorize.py','build_vectorize.py','coverage.py','partlocate.py','doctor.py','figuresheet.py','figureparts.py','jobcard.py','audit_features.py','pmcs.py','build_iteration_snapshot.py','analytics.py','xref.py','partspdf.py','phash.py','embed.py','cut_v1.py','measures.py','tables.py','build_measures.py','build_tables.py','enrich.py','build_enrich.py','masterfile.py','build_masterfile.py','units.py','leadingspecs.py','specparse.py','pdfmeta.py','barcodes.py','cautions.py','textquality.py','acronyms.py','pagetrim.py','tables_plus.py','ietm.py','kg.py','build_kg.py','dimscan.py','ocrprep.py','layout.py','dedup.py','crossval.py','callouts.py','symbols.py','vlm.py','specsheet.py','qrgen.py','publog.py','build_publog.py','hybrid.py','publogdiff.py','dimscad.py','jobpack.py','conflicts.py','faulttree.py','ask.py','validate.py','trust.py','integrity.py','signoff.py','tmrev.py','verifystate.py','serviceability.py','torqueseq.py','bom.py','pinouts.py','training.py','fieldnotes.py','crossmethod.py','rpstl.py','intervals.py','fluidsmatrix.py','commonality.py','handover.py','forms.py','ingestpipe.py','airgap.py','standards.py','nsndecode.py','smrdecode.py','cage.py','harnesstrace.py','macchart.py','safeguard.py','tools/run_timeout.py','tools/check_crlf.py']+glob.glob('features/*.py')]; print('py parse OK')"
+%PY% -c "import ast,glob; [ast.parse(open(f,encoding='utf-8').read()) for f in ['viewer_app.py','schemreview.py','build_schemgraph.py','vectorize.py','build_vectorize.py','coverage.py','partlocate.py','doctor.py','figuresheet.py','figureparts.py','jobcard.py','audit_features.py','pmcs.py','build_iteration_snapshot.py','analytics.py','xref.py','partspdf.py','phash.py','embed.py','cut_v1.py','measures.py','tables.py','build_measures.py','build_tables.py','enrich.py','build_enrich.py','masterfile.py','build_masterfile.py','units.py','leadingspecs.py','specparse.py','pdfmeta.py','barcodes.py','cautions.py','textquality.py','acronyms.py','pagetrim.py','tables_plus.py','ietm.py','kg.py','build_kg.py','dimscan.py','ocrprep.py','layout.py','dedup.py','callouts.py','symbols.py','vlm.py','specsheet.py','qrgen.py','publog.py','build_publog.py','hybrid.py','publogdiff.py','dimscad.py','cad_render.py','make_cad.py','image3d_experiment.py','verify_3d_deps.py','jobpack.py','conflicts.py','faulttree.py','ask.py','validate.py','trust.py','integrity.py','signoff.py','tmrev.py','verifystate.py','serviceability.py','torqueseq.py','bom.py','pinouts.py','training.py','fieldnotes.py','crossmethod.py','rpstl.py','intervals.py','fluidsmatrix.py','commonality.py','handover.py','forms.py','ingestpipe.py','airgap.py','standards.py','nsndecode.py','smrdecode.py','cage.py','harnesstrace.py','macchart.py','safeguard.py','tools/run_timeout.py','tools/check_crlf.py']+glob.glob('features/*.py')]; print('py parse OK')"
 if errorlevel 1 set "FAILED=!FAILED! py-syntax"
 
 echo.
@@ -109,7 +113,7 @@ if errorlevel 1 set "FAILED=!FAILED! notrunc:tests\test_property_fuzz.py"
 if errorlevel 1 set "FAILED=!FAILED! notrunc:tests\test_congruency.py"
 %PY% tools\notrunc\verify_complete.py tests\test_extraction.py --expect-tail "# END OF FILE"
 if errorlevel 1 set "FAILED=!FAILED! notrunc:tests\test_extraction.py"
-for %%F in (jobcard.py figureparts.py vectorize.py audit_features.py tests\test_jobcard.py measures.py tables.py build_measures.py build_tables.py enrich.py build_enrich.py masterfile.py build_masterfile.py units.py leadingspecs.py specparse.py pdfmeta.py barcodes.py cautions.py textquality.py acronyms.py pagetrim.py tables_plus.py ietm.py kg.py build_kg.py dimscan.py ocrprep.py layout.py dedup.py crossval.py callouts.py symbols.py vlm.py specsheet.py qrgen.py publog.py build_publog.py hybrid.py publogdiff.py dimscad.py jobpack.py conflicts.py faulttree.py ask.py validate.py trust.py integrity.py signoff.py tmrev.py verifystate.py serviceability.py torqueseq.py bom.py pinouts.py training.py fieldnotes.py crossmethod.py rpstl.py intervals.py fluidsmatrix.py commonality.py handover.py forms.py ingestpipe.py airgap.py standards.py nsndecode.py smrdecode.py cage.py harnesstrace.py macchart.py features\corpus.py tools\run_timeout.py tools\check_crlf.py) do (
+for %%F in (jobcard.py figureparts.py vectorize.py audit_features.py tests\test_jobcard.py measures.py tables.py build_measures.py build_tables.py enrich.py build_enrich.py masterfile.py build_masterfile.py units.py leadingspecs.py specparse.py pdfmeta.py barcodes.py cautions.py textquality.py acronyms.py pagetrim.py tables_plus.py ietm.py kg.py build_kg.py dimscan.py ocrprep.py layout.py dedup.py callouts.py symbols.py vlm.py specsheet.py qrgen.py publog.py build_publog.py hybrid.py publogdiff.py dimscad.py cad_render.py make_cad.py image3d_experiment.py verify_3d_deps.py jobpack.py conflicts.py faulttree.py ask.py validate.py trust.py integrity.py signoff.py tmrev.py verifystate.py serviceability.py torqueseq.py bom.py pinouts.py training.py fieldnotes.py crossmethod.py rpstl.py intervals.py fluidsmatrix.py commonality.py handover.py forms.py ingestpipe.py airgap.py standards.py nsndecode.py smrdecode.py cage.py harnesstrace.py macchart.py features\corpus.py tools\run_timeout.py tools\check_crlf.py) do (
   %PY% tools\notrunc\verify_complete.py %%F
   if errorlevel 1 set "FAILED=!FAILED! notrunc:%%F"
 )
@@ -120,8 +124,13 @@ echo --- [gate 5] UI inline JS + external scripts ---
 if errorlevel 1 set "FAILED=!FAILED! verify_ui"
 
 echo.
+echo --- [gate 5b] 3-D / CAD dependency check ^(medium finding #31: was orphaned from every entry point^) ---
+%PY% verify_3d_deps.py
+if errorlevel 1 set "FAILED=!FAILED! verify_3d_deps"
+
+echo.
 echo --- [gate 6] module self-tests ^(one loop iteration per module = one exit code each^) ---
-for %%M in (analytics.py xref.py phash.py embed.py measures.py tables.py enrich.py masterfile.py units.py leadingspecs.py specparse.py pdfmeta.py barcodes.py cautions.py textquality.py acronyms.py pagetrim.py tables_plus.py ietm.py kg.py dimscan.py ocrprep.py layout.py dedup.py crossval.py callouts.py symbols.py vlm.py specsheet.py qrgen.py publog.py hybrid.py publogdiff.py dimscad.py conflicts.py faulttree.py ask.py jobpack.py validate.py trust.py integrity.py signoff.py tmrev.py verifystate.py serviceability.py torqueseq.py bom.py pinouts.py training.py fieldnotes.py crossmethod.py rpstl.py intervals.py fluidsmatrix.py commonality.py handover.py forms.py ingestpipe.py airgap.py standards.py nsndecode.py smrdecode.py cage.py harnesstrace.py macchart.py features\corpus.py) do (
+for %%M in (analytics.py xref.py phash.py embed.py measures.py tables.py enrich.py masterfile.py units.py leadingspecs.py specparse.py pdfmeta.py barcodes.py cautions.py textquality.py acronyms.py pagetrim.py tables_plus.py ietm.py kg.py dimscan.py ocrprep.py layout.py dedup.py callouts.py symbols.py vlm.py specsheet.py qrgen.py publog.py hybrid.py publogdiff.py dimscad.py conflicts.py faulttree.py ask.py jobpack.py validate.py trust.py integrity.py signoff.py tmrev.py verifystate.py serviceability.py torqueseq.py bom.py pinouts.py training.py fieldnotes.py crossmethod.py rpstl.py intervals.py fluidsmatrix.py commonality.py handover.py forms.py ingestpipe.py airgap.py standards.py nsndecode.py smrdecode.py cage.py harnesstrace.py macchart.py features\corpus.py office.py flags.py) do (
   %PY% -B %%M
   if errorlevel 1 set "FAILED=!FAILED! selftest:%%M"
 )
@@ -144,6 +153,11 @@ REM test_truncation quick_checks the real 3.65GB index via snapshot()'s default 
 REM hard wall-clock cap so a locked/slow disk can never stall the whole gate (VERIFY-099 lesson).
 %PY% tools\run_timeout.py 900 %PY% tests\test_truncation.py
 if errorlevel 1 set "FAILED=!FAILED! test_truncation"
+REM backup-dr fix (recommendations annex #1): proves safeguard.py's backupdb() end to end (a full
+REM VACUUM INTO backup, disk-space guard, rotation, corrupt-then-recover) -- entirely against a
+REM small synthetic DB in a patched temp ROOT/DB_BACKUP_DIR, never the real index, so no timeout wrap.
+%PY% tests\test_backupdb.py
+if errorlevel 1 set "FAILED=!FAILED! test_backupdb"
 %PY% tests\test_hardening.py
 if errorlevel 1 set "FAILED=!FAILED! test_hardening"
 %PY% tests\test_search_quality.py
@@ -154,8 +168,16 @@ if errorlevel 1 set "FAILED=!FAILED! test_accuracy"
 if errorlevel 1 set "FAILED=!FAILED! test_extraction"
 %PY% tests\test_congruency.py
 if errorlevel 1 set "FAILED=!FAILED! test_congruency"
+%PY% tests\test_uiux_fixes.py
+if errorlevel 1 set "FAILED=!FAILED! test_uiux_fixes"
 %PY% tests\rps_lint.py
 if errorlevel 1 set "FAILED=!FAILED! rps_lint"
+REM rps_lint.py exempts index.html as MODERN_BY_DESIGN (it legitimately uses ES6 throughout) -- but
+REM that means it can't protect the small ES5-only #legacyHome fallback span index.html also carries
+REM (priority-5 UX finding #1). check_es5_fallback.py is the dedicated gate for that one span; without
+REM it wired in here, a regression there would pass a green VERIFY.bat run undetected.
+%PY% tools\check_es5_fallback.py
+if errorlevel 1 set "FAILED=!FAILED! check_es5_fallback"
 
 echo.
 echo --- [gate 8] long-running suites ^(hard wall-clock timeouts via run_timeout.py^) ---

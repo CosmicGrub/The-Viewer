@@ -214,5 +214,5 @@ if __name__ == "__main__":
     here=os.path.dirname(os.path.abspath(__file__)); base=os.path.join(here,"CHANGELOG-VISUAL")
     svg=build(); open(base+".svg","w",encoding="utf-8").write(svg)
     cairosvg.svg2pdf(bytestring=svg.encode("utf-8"), write_to=base+".pdf")
-    cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=base+"_preview.png", output_width=1020)
+    # (PNG preview removed 2026-08-18: redundant with the .svg above; see docs/diagrams/_common.py render() note)
     print("wrote", os.path.getsize(base+".pdf"), "bytes ->", base+".pdf")

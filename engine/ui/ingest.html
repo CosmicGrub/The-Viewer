@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Add documents — THE VIEWER</title>
+<title>Scan &amp; OCR documents — THE VIEWER</title>
 <link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
 <style>
   /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-  header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:17px;margin:0;font-weight:700;white-space:nowrap} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
   .wrap{max-width:840px;margin:0 auto;padding:20px}
   .bar{display:flex;gap:10px;margin:10px 0 6px}
   #path{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:14px;font-family:ui-monospace,Consolas,monospace}
@@ -35,27 +35,76 @@
   .ground{font-size:11.5px;color:var(--sub);margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
   .steps{font-size:13px;color:var(--sub);margin:4px 0 0;padding-left:18px} .steps li{margin:3px 0}
   code{background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px}
+  .stages{display:flex;gap:6px;margin:2px 0 12px;flex-wrap:wrap}
+  .stage{font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--p2);border:1px solid var(--line);color:var(--sub)}
+  .stage.active{background:var(--acc);border-color:var(--acc);color:#06121f;font-weight:700}
+  .stage.done{color:#7fd6a0;border-color:#2d5a3f}
+  .bar2.indet i{width:32%!important;animation:ingest-indet 1.3s ease-in-out infinite}
+  @keyframes ingest-indet{0%{margin-left:0%}50%{margin-left:66%}100%{margin-left:0%}}
+  .current{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-top:8px}
+  .backlog{border-color:#5a4a2d;background:rgba(240,180,80,.06)}
+  .bd{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .bd .row{display:flex;align-items:baseline;gap:9px;padding:5px 0;font-size:13px}
+  .bd .row .ic{font-size:15px;width:20px;text-align:center;flex:none}
+  .bd .row .t{flex:1;color:var(--txt)}
+  .bd .row .t b{color:var(--txt)}
+  .bd .row .go{font-size:12px;color:var(--acc);text-decoration:none;white-space:nowrap}
+  .bd .row .go:hover{text-decoration:underline}
+  .bd .doclist{margin:2px 0 2px 29px;font-size:12px;color:var(--sub)}
+  .bd .doclist div{padding:2px 0}
 </style>
 <script src="/rps.js"></script>
 </head>
 <body>
 <header>
-  <h1>➕ Add documents</h1><span class="muted">index new TMs / PDFs — no command line</span>
+  <h1>➕ Scan &amp; OCR documents</h1><span class="muted">find, index, and OCR new TMs / PDFs — no command line</span>
   <span class="sp"></span><a class="nav" href="/">← Home</a>
 </header>
 <div class="wrap">
-  <p class="muted">Point THE VIEWER at a folder of PDFs on this computer and it indexes the new ones into the searchable corpus. It only <b>adds</b> — your existing data is never changed, a safety snapshot is taken first, and it's resumable if interrupted.</p>
+  <p class="muted">Point THE VIEWER at a folder of PDFs on this computer and it does the whole job in one pass: scans for new documents, indexes them, and OCRs every scanned page so it's searchable too. It only <b>adds</b> — your existing data is never changed, a safety snapshot is taken first, and it's resumable if interrupted.</p>
+  <div id="backlogCard"></div>
   <div class="drop" id="drop">
     <div class="bar">
       <input id="path" placeholder="Folder path on this PC, e.g.  E:\ALL MILITARY TMS\New" spellcheck="false">
       <button class="b" id="prev" onclick="preview()">Preview</button>
+      <button class="b" id="browseBtn" onclick="document.getElementById('fileInput').click()">Browse…</button>
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.bmp,.gif,.txt,.htm,.html,.docx,.xlsx,.pptx,.rtf" style="display:none">
     </div>
-    <div class="dz" id="dz">…or drag a folder of PDFs here to detect it (paste the full path to confirm — browsers can't read absolute paths for security)</div>
+    <div class="dz" id="dz">…or drag a single PDF, image, .txt, .html, .docx, .xlsx, .pptx, or .rtf file here to upload &amp; scan it directly — or drag a whole folder to detect its path (paste the full path to confirm — browsers can't read absolute folder paths for security)</div>
   </div>
   <div id="recent" class="chips"></div>
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
   <div id="out"></div>
-  <div class="ground">How it works: a safeguard snapshot is taken, then the tested <code>crawl</code> pipeline walks the folder, adds new documents, extracts their text, and queues scanned pages for OCR. Nothing is deleted or overwritten (R1/R6). After indexing, run the GPU OCR to make scanned pages searchable.</div>
+  <div class="ground">How it works: a safeguard snapshot is taken, then the tested pipeline walks the folder, adds new documents, extracts embedded text, OCRs every page that needs it, and rebuilds the parts index — one job, start to finish. Nothing is deleted or overwritten (R1/R6).</div>
+
+  <details class="card" id="airgapCard" style="margin-top:18px">
+    <summary style="cursor:pointer;font-weight:700">🔒 Air-gap transfer (advanced)</summary>
+    <p class="muted" style="margin-top:10px">For moving manuals between two disconnected machines with a signed, tamper-evident package — a USB drive, not the network. Everything here runs against files already on THIS computer.</p>
+
+    <div style="margin-top:14px"><b style="font-size:13px">1. Build a signed manifest</b> <span class="muted">(on the sending machine, before copying files to media)</span>
+      <div class="bar"><input id="agFolder" placeholder="Folder of PDFs to send, e.g. E:\Outgoing" spellcheck="false"></div>
+      <div class="bar"><input id="agSecret" type="password" placeholder="Shared secret (agree on this with the receiving unit beforehand)" spellcheck="false"></div>
+      <button class="b" onclick="agBuildManifest()">Build manifest</button>
+      <div id="agManifestOut" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:12px"><b style="font-size:13px">2. Verify a received manifest</b> <span class="muted">(on the receiving machine, after copying files off media)</span>
+      <div class="bar"><textarea id="agManifestIn" placeholder="Paste the manifest JSON you received alongside the files" spellcheck="false" style="flex:1;min-height:70px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace"></textarea></div>
+      <div class="bar"><input id="agVerifyFolder" placeholder="Folder where you copied the received files, e.g. E:\Incoming" spellcheck="false"></div>
+      <div class="bar"><input id="agVerifySecret" type="password" placeholder="Same shared secret the sender used" spellcheck="false"></div>
+      <button class="b" onclick="agVerify()">Verify received files</button>
+      <div id="agVerifyOut" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:12px"><b style="font-size:13px">3. Part-number review decisions</b> <span class="muted">(export yours to send, or import ones you received — never overwrites a disagreement, always shows it to you first)</span>
+      <div class="bar"><input id="agDecSecret" type="password" placeholder="Shared secret" spellcheck="false">
+        <button class="b" onclick="agExportDecisions()">Export mine</button></div>
+      <div id="agExportOut" class="muted" style="margin-top:4px"></div>
+      <div class="bar" style="margin-top:8px"><textarea id="agDecIn" placeholder="Paste a received decisions export JSON here" spellcheck="false" style="flex:1;min-height:70px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace"></textarea></div>
+      <button class="b" onclick="agImportDecisions()">Import (never auto-overwrites a disagreement)</button>
+      <div id="agImportOut" class="muted" style="margin-top:8px"></div>
+    </div>
+  </details>
 </div>
 <script>
 var $=function(s){return document.querySelector(s);};
@@ -77,29 +126,246 @@ function preview(){
     h+='</div>'; $("#out").innerHTML=h;
   }).catch(function(e){ $("#out").innerHTML='<div class="card"><span class="err">Error: '+esc(e.message)+'</span></div>'; });
 }
+var STAGES=[["crawl","Scanning"],["ocr","OCR'ing"],["parts","Extracting parts"],["done","Done"]];
+function progHtml(label){
+  return '<div class="card" id="prog"><div class="muted">'+label+'</div>'
+    +'<div class="stages" id="stages"></div>'
+    +'<div class="bar2 indet" id="pbwrap"><i id="pf"></i></div>'
+    +'<div id="pstat" class="muted">starting…</div>'
+    +'<div class="current" id="pcur" style="display:none"></div>'
+    +'<div class="bd" id="bd" style="display:none"></div></div>';
+}
+/* ---- extraction breakdown: WHERE each bit of parsed data is actually going, live -- not just a
+   stage bar. Reads viewer_ingest.py's 'extracted' tally (ingest_progress.json, via /api/ingest_status)
+   and renders one row per data type this pipeline produces, each pointing at the real place in the
+   app that data feeds -- search, the parts index, the document's own library entry. 'done' (bool)
+   switches from "still counting" language to "here's where it went" with clickable links, once the
+   whole job has actually finished (before that, links would 404 or 200-with-nothing, mid-write). */
+// stage label (viewer_ingest.py's flags.py registry 'stage' field) -> a short, human-readable name
+// for the "disabled" footnote below. Keep in sync with flags.py's scan_toggle() calls.
+var FLAG_STAGE_LABELS={ocr_preprocess:"OCR preprocessing",barcode:"barcode decode",dimensions:"dimensional-data extraction",
+  schematics:"schematic detection",tables:"table extraction",rpstl:"RPSTL parts-list rows",
+  pagetrim:"header/footer stripping",keywords:"keywords.json refresh"};
+function renderBreakdown(extracted, done, flagsOff){
+  var bd=$("#bd"); if(!bd) return;
+  if(!extracted){ bd.style.display="none"; return; }
+  bd.style.display="";
+  var docs=extracted.documents||[];
+  var pagesText=extracted.pages_text||0, ocrDone=extracted.pages_ocr_done||0, ocrFail=extracted.pages_ocr_fail||0;
+  var partsPage=extracted.parts_page||0, partsBar=extracted.parts_barcode||0, parts=partsPage+partsBar;
+  var barcodes=extracted.barcodes_decoded||0;
+  var dims=extracted.dimensions||0;
+  var avgConf=extracted.ocr_conf_n?Math.round(100*extracted.ocr_conf_sum/extracted.ocr_conf_n):null;
+  var h="";
+
+  // documents -> the home page's library / vehicle browser
+  if(docs.length){
+    h+='<div class="row"><span class="ic">📄</span><span class="t">'
+      +(done?'<b>'+docs.length+'</b> document'+(docs.length===1?'':'s')+' added to your library':'Found <b>'+docs.length+'</b> document'+(docs.length===1?'':'s')+'…')
+      +'</span>'+(done?'<a class="go" href="/">Browse →</a>':'')+'</div>';
+    h+='<div class="doclist">';
+    docs.forEach(function(d){
+      var bits=[]; if(d.tm_number) bits.push(esc(d.tm_number)); if(d.vehicle) bits.push(esc(d.vehicle));
+      if(d.page_count) bits.push(d.page_count+" pg");
+      h+='<div>'+(d.title?esc(d.title):esc(d.tm_number||"(untitled)"))+(bits.length?' — '+bits.join(' · '):'')+'</div>';
+    });
+    h+='</div>';
+  }
+
+  // search index
+  if(pagesText || ocrDone || ocrFail){
+    var totalPages=pagesText+ocrDone+ocrFail;
+    h+='<div class="row"><span class="ic">🔎</span><span class="t">'
+      +'<b>'+totalPages+'</b> page'+(totalPages===1?'':'s')+' '+(done?'searchable now':'indexed so far')
+      +(avgConf!==null?' <span class="muted">(OCR confidence avg '+avgConf+'%)</span>':'')
+      +'</span>'+(done?'<a class="go" href="/">Search →</a>':'')+'</div>';
+  }
+
+  // parts index -- links to a real, specific extracted NSN's part page (there's no general
+  // "browse all parts" route in this app; /part?q= is the actual per-part destination).
+  if(parts){
+    var srcBits=[]; if(partsPage) srcBits.push(partsPage+' from text'); if(partsBar) srcBits.push(partsBar+' from barcode');
+    var samples=extracted.nsn_samples||[];
+    var link=samples.length?'<a class="go" href="/part?q='+encodeURIComponent(samples[0])+'">View '+(samples.length>1?'first ':'')+'part →</a>':'';
+    h+='<div class="row"><span class="ic">🧩</span><span class="t">'
+      +'<b>'+parts+'</b> part'+(parts===1?'':'s')+' extracted'+(srcBits.length?' <span class="muted">('+srcBits.join(', ')+')</span>':'')
+      +'</span>'+(done?link:'')+'</div>';
+  }
+
+  // barcodes decoded (informational -- already folded into the parts row above when they carry an
+  // NSN; called out on its own too since "a barcode was read at all" is meaningful even without one)
+  if(barcodes && barcodes>partsBar){
+    h+='<div class="row"><span class="ic">📟</span><span class="t">'
+      +'<b>'+barcodes+'</b> barcode'+(barcodes===1?'':'s')+' decoded'
+      +'</span></div>';
+  }
+
+  // dimensional data -- length/diameter/thread/torque/tolerance/MIL-STD specs, each tied to the
+  // exact page it came from (measures.db's meas table -- never cross-document-aggregated; that's
+  // Masterfile's separate, deliberately-untouched job). Links by TM number/vehicle since /measures
+  // is an FTS-driven lookup, not a per-doc-id route.
+  if(dims){
+    var dimQ=docs.length?(docs[0].tm_number||docs[0].vehicle||""):"";
+    var dimLink=dimQ?'<a class="go" href="/measures?q='+encodeURIComponent(dimQ)+'">View dimensions →</a>':"";
+    h+='<div class="row"><span class="ic">📐</span><span class="t">'
+      +'<b>'+dims+'</b> dimensional value'+(dims===1?'':'s')+' extracted <span class="muted">(length, diameter, thread, torque, tolerance…)</span>'
+      +'</span>'+(done?dimLink:'')+'</div>';
+  }
+
+  // schematics -- page-level detection (vector netlist OR raster/keyword caption). No per-page
+  // deep link exists in the Schematics Library UI today, so this points at the library itself
+  // (schematics_list() now includes documents this detection found, not just filename matches).
+  var schematics=extracted.schematics||0;
+  if(schematics){
+    h+='<div class="row"><span class="ic">🔌</span><span class="t">'
+      +'<b>'+schematics+'</b> schematic page'+(schematics===1?'':'s')+' detected'
+      +'</span>'+(done?'<a class="go" href="/schematics">View →</a>':'')+'</div>';
+  }
+
+  // tables (RPSTL/torque/PMCS/leading-particulars grids) -- informational only, no dedicated
+  // browse page exists yet for this one (unlike parts/dimensions/schematics); /api/tables is the
+  // only current consumer.
+  var tbls=extracted.tables||0;
+  if(tbls){
+    h+='<div class="row"><span class="ic">🗃</span><span class="t">'
+      +'<b>'+tbls+'</b> table'+(tbls===1?'':'s')+' extracted'
+      +'</span></div>';
+  }
+
+  // RPSTL parts-list rows (item/SMR/NSN/CAGEC/part#/nomenclature/qty, FLIS-validated) -- a more
+  // structured, column-aware read of the same parts-list pages than the "parts extracted" row
+  // above; feeds part-number lookup + the RPSTL review queue. No single dedicated browse page
+  // exists for this one either (unlike parts/dimensions/schematics), so informational only.
+  var rpstl=extracted.rpstl||0;
+  if(rpstl){
+    h+='<div class="row"><span class="ic">🧾</span><span class="t">'
+      +'<b>'+rpstl+'</b> RPSTL parts-list row'+(rpstl===1?'':'s')+' extracted <span class="muted">(item/SMR/NSN/CAGEC/part#/nomenclature/qty)</span>'
+      +'</span></div>';
+  }
+
+  // read-only visibility for viewer_ingest.py's extraction-pipeline toggles (flags.py) -- if any
+  // are off (VIEWER_*_SCAN=0 was set before this run started), say so plainly instead of leaving
+  // an operator wondering why e.g. the schematics/RPSTL rows never showed up. Not editable from
+  // here -- these are env-var-set-before-launch, a UI toggle would need a restart to take effect
+  // anyway -- purely so the panel never silently under-reports without explaining why.
+  if(flagsOff&&flagsOff.length){
+    var labels=flagsOff.map(function(s){return FLAG_STAGE_LABELS[s]||s;});
+    h+='<div class="row" style="opacity:.8"><span class="ic">⏸</span><span class="t muted" style="font-size:12px">'
+      +'Disabled for this run: '+esc(labels.join(', '))+' <span class="muted">(env var set before launch — see docs/SYSTEM-REQUIREMENTS.md)</span>'
+      +'</span></div>';
+  }
+
+  bd.innerHTML=h||'<div class="muted" style="font-size:12.5px">Nothing extracted yet…</div>';
+}
 function startRun(){
   var p=$("#path").value.trim(); if(!p)return;
   var btn=$("#run"); if(btn){btn.disabled=true;btn.textContent="Starting…";}
   fetch("/api/ingest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:p})})
     .then(function(r){return r.json();}).then(function(d){
       if(!d.ok){ $("#out").innerHTML+='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t start.")+'</span></div>'; return; }
-      $("#out").innerHTML='<div class="card" id="prog"><div class="muted">Indexing <b>'+esc(p)+'</b>…</div><div class="bar2"><i id="pf"></i></div><div id="pstat" class="muted">starting…</div></div>';
+      $("#out").innerHTML=progHtml("Scanning &amp; OCR'ing <b>"+esc(p)+"</b>…");
+      $("#backlogCard").innerHTML="";   // one job at a time -- hide the backlog offer while this runs
       poll();
     }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent="Index now";} });
+}
+function startBacklog(){
+  var btn=$("#backlogBtn"); if(btn){btn.disabled=true;btn.textContent="Starting…";}
+  fetch("/api/ocr_backlog_start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:true})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ $("#backlogCard").innerHTML+='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t start.")+'</span></div>'; return; }
+      $("#out").innerHTML=progHtml("Finishing the OCR backlog…");
+      $("#backlogCard").innerHTML="";
+      poll();
+    }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="Finish OCR backlog";} });
+}
+function renderStages(activeStage){
+  var idx=-1;
+  for(var si=0;si<STAGES.length;si++){ if(STAGES[si][0]===activeStage){ idx=si; break; } }
+  var h="";
+  STAGES.forEach(function(s,i){
+    var cls="stage"+(s[0]===activeStage?" active":(idx>=0&&i<idx?" done":""));
+    h+='<span class="'+cls+'">'+(idx>=0&&i<idx?"✓ ":"")+s[1]+"</span>";
+  });
+  var st=$("#stages"); if(st) st.innerHTML=h;
+}
+/* Renders the live "where" line for whichever stage is active — a filename for crawl/parts, a
+   document+page pair for ocr (the literal "where and how it is parsed/scanned" ask: which file,
+   which page, right now — not just an aggregate count). */
+function renderCurrent(progress){
+  var cur=$("#pcur"); if(!cur) return;
+  if(!progress || !progress.current){ cur.style.display="none"; return; }
+  var c=progress.current, txt="";
+  if(typeof c==="string") txt="Scanning: "+esc(c);
+  else if(c && c.doc) txt="OCR’ing: "+esc(c.doc)+(c.page?" — page "+c.page:"");
+  if(!txt){ cur.style.display="none"; return; }
+  cur.style.display=""; cur.innerHTML=txt;
 }
 function poll(){
   clearTimeout(pollTimer);
   fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
-    var st=$("#pstat"); if(!st)return; var run=d.run||{};
-    var msg="seen "+(run.files_seen||0)+" files · added "+(run.new_docs||0)+" docs · "+(run.pages_indexed||0)+" pages of text · "+(run.ocr_queued||0)+" pages queued for OCR";
+    var st=$("#pstat"); if(!st)return; var run=d.run||{}, progress=d.progress||null;
+    var stage=progress?progress.stage:null;
+    renderStages(d.running?stage:"done");
+    renderCurrent(progress);
+    var pf=$("#pf"), wrap=$("#pbwrap");
+    if(progress && progress.total){
+      // real per-item progress (OCR pages, mostly) — a genuine percentage, not the old heuristic.
+      var pct=Math.max(2,Math.min(100, Math.round(100*((progress.done||0)+(progress.fail||0))/progress.total)));
+      if(wrap) wrap.classList.remove("indet");
+      if(pf) pf.style.width=pct+"%";
+    } else if(pf && wrap){
+      wrap.classList.add("indet");   // crawl/parts: no known total ahead of time — pulse instead of fake %
+    }
+    var msg;
+    if(stage==="ocr" && progress) msg="OCR: "+(progress.done||0)+" done"+(progress.fail?", "+progress.fail+" failed":"")+" of "+(progress.total||0)+" pages";
+    else msg="seen "+(run.files_seen||0)+" files · added "+(run.new_docs||0)+" docs · "+(run.pages_indexed||0)+" pages of text";
     st.innerHTML=msg+'  <span class="muted">('+(d.elapsed||0)+'s)</span>';
-    var pf=$("#pf"); if(pf){ var tot=Math.max(1,(run.new_docs||0)); pf.style.width=(d.running? Math.min(95, 10+(run.new_docs||0)) : 100)+"%"; }
-    if(d.running){ pollTimer=setTimeout(poll,2000); }
-    else { st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.<ul class="steps"><li>New documents are searchable now (text pages immediately).</li><li>Scanned pages were queued for OCR — run the GPU OCR (<code>START-OCR-NOW.bat</code>) to make them searchable too.</li></ul>';
-      if(pf)pf.style.width="100%"; }
+    // Live "where is my data going" breakdown -- not just a stage bar. Updates every poll while
+    // running (counts climbing); switches to link-bearing "here's where it went" language once done.
+    renderBreakdown(progress?progress.extracted:null, !d.running, progress?progress.flags_off:null);
+    if(d.running){ pollTimer=setTimeout(poll,1500); }
+    else {
+      renderStages("done"); renderCurrent(null);
+      st.innerHTML='<span class="ok">✓ Done.</span> '+msg+'.';
+      if(pf)pf.style.width="100%"; if(wrap)wrap.classList.remove("indet");
+      checkBacklog();
+    }
   }).catch(function(){ pollTimer=setTimeout(poll,3000); });
 }
+/* ---- OCR backlog: pages queued before this feature existed, or from an interrupted run ---- */
+function renderBacklog(n){
+  var box=$("#backlogCard"); if(!box) return;
+  if(!n){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="card backlog"><div class="muted">'+n+' page'+(n===1?'':'s')+' from earlier imports '
+    +''+(n===1?'is':'are')+' still waiting on OCR.</div>'
+    +'<div style="margin-top:10px"><button class="b go" id="backlogBtn" onclick="startBacklog()">Finish OCR backlog</button></div></div>';
+}
+function checkBacklog(){
+  fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
+    if(d.running) return;   // a job is active (possibly the one we just polled to completion) — its own panel is showing
+    renderBacklog(d.ocr_pending||0);
+  }).catch(function(){});
+}
+/* ---- on load: if a scan/OCR job is already running (e.g. this tab was reloaded mid-run), resume
+   watching it instead of showing an idle form; otherwise offer the backlog if one exists. ---- */
+(function(){
+  fetch("/api/ingest_status").then(function(r){return r.json();}).then(function(d){
+    if(d.running){
+      var label=(d.kind==="ocr_backlog")?"Finishing the OCR backlog…":"Scanning &amp; OCR'ing <b>"+esc(d.path||"")+"</b>…";
+      $("#out").innerHTML=progHtml(label); poll();
+    } else {
+      renderBacklog(d.ocr_pending||0);
+    }
+  }).catch(function(){});
+})();
 $("#path").addEventListener("keydown",function(e){if(e.key==="Enter")preview();});
+/* Browse… button: same uploadFile() path as a drag-and-drop, just via a native file picker --
+   the standard, expected complement to any drop zone (not everyone drags). */
+$("#fileInput").addEventListener("change",function(){
+  var f=this.files&&this.files[0];
+  this.value="";   // reset now so picking the SAME file again still fires 'change' next time
+  if(f) uploadFile(f);
+});
 
 /* ---- Recent ingest paths (localStorage) — one-click re-index of a folder you've used before ---- */
 function getRecent(){ try{ return JSON.parse(window.localStorage.getItem("viewer_ingest_recent")||"[]"); }catch(e){ return []; } }
@@ -117,17 +383,65 @@ function renderRecent(){
   };});
 }
 
-/* ---- drag-drop: detect a dropped folder's name; auto-preview if it matches a Recent path ---- */
+/* ---- single-file upload: a real dropped PDF's BYTES are readable by the browser (unlike a
+   folder, where only entry names are exposed for security) -- read it, base64-encode it, and POST
+   straight to /api/ingest_upload, which saves it server-side and runs the same scan+OCR job as a
+   folder scan. One file at a time by design (multi-file batch upload is a different, bigger
+   feature -- not this one). ---- */
+/* Discovery Engine: viewer_ingest.py's index_other() genuinely extracts images (OCR'd)/.txt/.html
+   (read directly)/.docx/.xlsx/.pptx/.rtf (office.py) alongside PDFs -- matches ingest_upload()'s
+   own accepted-extension list (features/ingest_feature.py) so drag-and-drop never supports less
+   than a folder scan already does. */
+var UPLOAD_EXT_RE=/\.(pdf|jpg|jpeg|png|tif|tiff|bmp|gif|txt|htm|html|docx|xlsx|pptx|rtf)$/i;
+function uploadFile(file){
+  if(!file) return;
+  if(!UPLOAD_EXT_RE.test(file.name)){
+    $("#dz").innerHTML='<span class="err">Unsupported file type — PDF, image (jpg/png/tif/bmp/gif), .txt, .html, .docx, .xlsx, .pptx, or .rtf only. Drop a folder instead for other formats.</span>';
+    return;
+  }
+  $("#dz").textContent="Reading "+file.name+"…";
+  var reader=new FileReader();
+  reader.onerror=function(){ $("#dz").innerHTML='<span class="err">Couldn\u2019t read that file.</span>'; };
+  reader.onload=function(){
+    $("#dz").textContent="Uploading "+file.name+" ("+Math.round(file.size/1024)+" KB)…";
+    fetch("/api/ingest_upload",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({filename:file.name,data:reader.result})})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d.ok){ $("#dz").innerHTML='<span class="err">'+esc(d.error||"Upload failed.")+'</span>'; return; }
+        $("#dz").innerHTML="…or drag a single PDF, image, .txt, .html, .docx, .xlsx, .pptx, or .rtf file here to upload &amp; scan it directly — or drag a whole folder to detect its path";
+        $("#out").innerHTML=progHtml("Scanning &amp; OCR'ing the uploaded <b>"+esc(d.filename||file.name)+"</b>…");
+        $("#backlogCard").innerHTML="";
+        poll();
+      }).catch(function(e){ $("#dz").innerHTML='<span class="err">Upload error: '+esc(e.message)+'</span>'; });
+  };
+  reader.readAsDataURL(file);
+}
+/* ---- drag-drop: a real FILE is uploaded directly (above); a FOLDER's name is detected and the
+   user is asked to confirm its full path (browsers never expose a dropped folder's real absolute
+   path, for security) -- auto-previewing if it matches a Recent path. ---- */
 (function(){
   var dz=$("#drop"); if(!dz)return;
   function stop(e){ e.preventDefault(); e.stopPropagation(); }
   ["dragenter","dragover"].forEach(function(ev){ dz.addEventListener(ev,function(e){ stop(e); dz.classList.add("over"); }); });
   ["dragleave","drop"].forEach(function(ev){ dz.addEventListener(ev,function(e){ stop(e); dz.classList.remove("over"); }); });
   dz.addEventListener("drop",function(e){
-    var name="", items=e.dataTransfer&&e.dataTransfer.items;
-    try{
-      if(items&&items.length&&items[0].webkitGetAsEntry){ var en=items[0].webkitGetAsEntry(); if(en){ name=en.name; } }
-    }catch(_){}
+    var items=e.dataTransfer&&e.dataTransfer.items;
+    if(items&&items.length>1){
+      $("#dz").textContent="Drop one file (or one folder) at a time.";
+      return;
+    }
+    var entry=null;
+    try{ if(items&&items.length&&items[0].webkitGetAsEntry){ entry=items[0].webkitGetAsEntry(); } }catch(_){}
+    // webkitGetAsEntry() is WebKit/Chromium-only (no Firefox support) and isn't reliably populated
+    // for every real drop even where it exists -- so isFile:true is trusted when present, but its
+    // ABSENCE doesn't mean "not a file": fall back to the file's own .size, which every browser
+    // reports accurately for a real dropped file (a dropped folder never produces a File with real
+    // byte content, size 0 or missing entirely) -- this also happens to be what makes automated
+    // testing of this exact path possible at all.
+    var singleFile=e.dataTransfer.files&&e.dataTransfer.files.length===1?e.dataTransfer.files[0]:null;
+    var looksLikeFile=(entry&&entry.isFile) || (!entry && singleFile && singleFile.size>0);
+    if(looksLikeFile && singleFile){ uploadFile(singleFile); return; }
+    var name=entry?entry.name:"";
     if(!name && e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){ name=e.dataTransfer.files[0].name; }
     if(!name){ $("#dz").textContent="Couldn't read the drop — paste the full folder path instead."; return; }
     // if a Recent path ends with this folder name, use it directly
@@ -137,6 +451,78 @@ function renderRecent(){
   });
 })();
 renderRecent();
+
+/* ---- Air-gap transfer (recommendations annex #17: airgap-multiunit) — a thin UI over the
+   existing signed-manifest routes, plus the new decisions export/import pair. Deliberately does
+   NOT try to transfer the built sidecars (viewer.db/kg.db/dedup.db/masterfile.db) themselves —
+   see airgap.py's export_decisions() docstring for why those are treated as separate per-unit
+   build outputs, not something to sync. ---- */
+function agBuildManifest(){
+  var folder=$("#agFolder").value.trim(), secret=$("#agSecret").value;
+  var out=$("#agManifestOut");
+  if(!folder||!secret){ out.innerHTML='<span class="err">Folder and secret are both required.</span>'; return; }
+  out.textContent="Building…";
+  fetch("/api/airgap_manifest",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({folder:folder,secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ out.innerHTML='<span class="err">'+esc(d.error||"Couldn't build a manifest.")+'</span>'; return; }
+      var json=JSON.stringify(d.manifest);
+      out.innerHTML='<span class="ok">✓ '+d.manifest.count+' file(s) signed.</span> Copy this manifest (and the files themselves) to media, and give both to the receiving unit:'
+        +'<textarea readonly style="width:100%;min-height:70px;margin-top:6px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace" onclick="this.select()">'+esc(json)+'</textarea>';
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
+function agVerify(){
+  var raw=$("#agManifestIn").value.trim(), folder=$("#agVerifyFolder").value.trim(), secret=$("#agVerifySecret").value;
+  var out=$("#agVerifyOut");
+  if(!raw||!folder||!secret){ out.innerHTML='<span class="err">Manifest, folder, and secret are all required.</span>'; return; }
+  var manifest;
+  try{ manifest=JSON.parse(raw); }catch(e){ out.innerHTML='<span class="err">That doesn’t look like valid manifest JSON.</span>'; return; }
+  out.textContent="Verifying…";
+  fetch("/api/airgap_verify",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({manifest:manifest,folder:folder,secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      var res=(d&&d.result)||{};
+      if(res.verdict==="ACCEPT"){ out.innerHTML='<span class="ok">✓ ACCEPT — every file present and matches. Safe to ingest normally from '+esc(folder)+'.</span>'; return; }
+      var lines=[];
+      if(!res.signature_valid) lines.push("signature invalid — wrong secret, or the manifest/files were altered");
+      if(res.missing&&res.missing.length) lines.push(res.missing.length+" file(s) missing: "+res.missing.join(", "));
+      if(res.tampered&&res.tampered.length) lines.push(res.tampered.length+" file(s) don't match (tampered or corrupted in transit): "+res.tampered.join(", "));
+      out.innerHTML='<span class="err">✗ REJECT — do not trust this transfer.</span><br>'+esc(lines.join(" · ")||d.error||"verification failed");
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
+function agExportDecisions(){
+  var secret=$("#agDecSecret").value, out=$("#agExportOut");
+  if(!secret){ out.innerHTML='<span class="err">Shared secret required.</span>'; return; }
+  out.textContent="Exporting…";
+  fetch("/api/airgap_export_decisions",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ out.innerHTML='<span class="err">'+esc(d.error||"Couldn't export.")+'</span>'; return; }
+      var json=JSON.stringify(d.manifest);
+      out.innerHTML='<span class="ok">✓ '+d.manifest.count+' decision(s) signed.</span> '
+        +'<textarea readonly style="width:100%;min-height:60px;margin-top:6px;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace" onclick="this.select()">'+esc(json)+'</textarea>';
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
+function agImportDecisions(){
+  var raw=$("#agDecIn").value.trim(), secret=$("#agDecSecret").value, out=$("#agImportOut");
+  if(!raw||!secret){ out.innerHTML='<span class="err">Paste a decisions export and enter the shared secret.</span>'; return; }
+  var manifest;
+  try{ manifest=JSON.parse(raw); }catch(e){ out.innerHTML='<span class="err">That doesn’t look like valid JSON.</span>'; return; }
+  out.textContent="Importing…";
+  fetch("/api/airgap_import_decisions",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({manifest:manifest,secret:secret})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ out.innerHTML='<span class="err">'+esc(d.error||"Import failed — check the secret matches.")+'</span>'; return; }
+      var h='<span class="ok">✓ '+(d.imported||0)+' new decision(s) merged.</span>';
+      if(d.skipped_invalid&&d.skipped_invalid.length) h+=' <span class="muted">('+d.skipped_invalid.length+' skipped — invalid NIIN/decision)</span>';
+      if(d.conflicts&&d.conflicts.length){
+        h+='<div style="margin-top:6px;color:#f0a6a6">⚠ '+d.conflicts.length+' NIIN(s) disagree with what you already have — NOT imported, review manually:</div><div style="font-size:11.5px;margin-top:4px">';
+        d.conflicts.forEach(function(c){ h+='<div>NIIN '+esc(c.niin)+': you have "'+esc(c.local&&c.local.decision||"")+'", they sent "'+esc(c.incoming&&c.incoming.decision||"")+'"</div>'; });
+        h+='</div>';
+      }
+      out.innerHTML=h;
+    }).catch(function(e){ out.innerHTML='<span class="err">Error: '+esc(e.message)+'</span>'; });
+}
 </script>
 <script src="/palette.js"></script>
 </body></html>

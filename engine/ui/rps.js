@@ -36,13 +36,24 @@
   }
 
   // ---- 2. mode bootstrap ----
-  var RPS={mode:"modern",flags:{},dpi:150};
+  var RPS={mode:"modern",flags:{},dpi:150,premium:false};
   window.RPS=RPS;
   function applyMode(m,flags){
     RPS.mode=m||"modern"; RPS.flags=flags||{}; RPS.dpi=(flags&&flags.default_dpi)||150;
+    // premium: an ADDITIVE, opt-in visual-effects layer (base.css's .rps-premium rules) -- distinct from
+    // the mode classes above, which are mutually exclusive tiers. Only ever true when flags.premium_ui
+    // is true, which the server only ever sets when mode is already "modern" (rps.py's feature_flags()/
+    // premium_active()) -- so this can never end up applied alongside rps-lite/rps-legacy.
+    RPS.premium=!!(flags&&flags.premium_ui);
     var b=document.body||document.getElementsByTagName("body")[0]; if(!b)return;
-    b.className=(b.className||"").replace(/\brps-(modern|lite|legacy)\b/g,"").replace(/\s+$/,"")+" rps-"+RPS.mode;
-    if(RPS.mode!=="modern"){
+    var cls=(b.className||"").replace(/\brps-(modern|lite|legacy|premium)\b/g,"").replace(/\s+$/,"")+" rps-"+RPS.mode;
+    if(RPS.premium) cls+=" rps-premium";
+    b.className=cls;
+    // Read flags.animations (single source of truth: rps.py's feature_flags()) rather than re-deriving
+    // "not modern" here -- flags.animations is False on every non-modern tier today, so this is a pure
+    // refactor, not a behavior change; see the two network-failure applyMode fallbacks below, which set
+    // animations:true explicitly so a network failure still lands on the same full-effects default.
+    if(!RPS.flags.animations){
       var st=document.getElementById("rps-lite-style");
       if(!st){st=document.createElement("style");st.id="rps-lite-style";
         st.textContent=".rps-lite *,.rps-legacy *{animation:none!important;transition:none!important;}"+
@@ -51,7 +62,7 @@
     }
     if(typeof window.onRpsMode==="function"){try{window.onRpsMode(RPS);}catch(e){}}
   }
-  RPS.MODES=["auto","modern","lite","legacy"];
+  RPS.MODES=["auto","modern","lite","legacy","premium"];
   function savedOverride(){                       // ?mode= wins for the request; else the user's saved choice
     var qp=null; try{qp=new URLSearchParams(window.location.search).get("mode");}catch(e){}
     if(qp) return qp;
@@ -63,8 +74,8 @@
     try{
       window.fetch("/api/rps"+(ov?("?mode="+encodeURIComponent(ov)):"")).then(function(r){return r.json();}).then(function(d){
         applyMode(d&&d.mode,d&&d.flags); RPS.serverMode=d&&d.reason;
-      })["catch"](function(){applyMode("modern",{default_dpi:150});});
-    }catch(e){applyMode("modern",{default_dpi:150});}
+      })["catch"](function(){applyMode("modern",{default_dpi:150,animations:true});});
+    }catch(e){applyMode("modern",{default_dpi:150,animations:true});}
   }
   RPS.getOverride=function(){try{return (window.localStorage&&localStorage.getItem("rps.mode"))||"auto";}catch(e){return "auto";}};
   RPS.setMode=function(m){                         // persist the user's choice and re-apply without a reload

@@ -31,6 +31,19 @@ ul{margin:6px 0 6px 0;padding-left:20px}li{margin:3px 0}
 @media print{body{background:#fff;color:#000}.card{border-color:#bbb}a{color:#000}h2{border-color:#ccc}}
 </style></head><body><div class="wrap">
 
+<div class="card l-high" style="border:2px solid var(--red);background:rgba(224,86,79,.09)">
+<h3 style="margin-top:0"><span class="tag high">HISTORICAL</span> This report is stale — superseded 2026-08-18</h3>
+<p>Everything below this notice is the original <b>v0.72.3</b> report from <b>2026-06-03</b> (9 findings: 5 fixed,
+3 flagged, 0 critical left open), left exactly as it was written. The app has since moved to <b>v1.14.0</b>. Between
+2026-08-17 and 2026-08-18 a much larger 4-tier audit closed <b>8 Critical + 12 High + 24 Medium + 6 Low</b> findings
+(commits <code>08bbb81</code>..<code>276790e</code>), followed by a priority-5 UI/UX pass (10 findings,
+<code>71c9c4c</code>/<code>a32aee9</code>), a CI-fix pass (<code>7c4a3ba</code>), and a Tier-1 staleness pass
+(<code>3054dad</code>). For the full commit-by-commit summary, see the <code>[1.14.0]</code> entry in
+<code>docs/CHANGELOG.md</code>. No newer <code>AUDIT-REPORT.html</code>/<code>findings.json</code> pair exists yet for
+that audit — these two files are hand-authored one-off deliverables from the 2026-06-03 session, not the output of a
+generator script, so there was nothing to re-run; <code>findings.json</code> carries the same notice in a
+<code>superseded_by</code> field.</p></div>
+
 <h1>THE VIEWER — Top-to-Bottom Audit &amp; Mutation Testing</h1>
 <div class="muted">Code audit + automated mutation testing · audited at <b>v0.72.3</b> · 2026-06-03</div>
 

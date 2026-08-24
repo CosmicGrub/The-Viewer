@@ -58,9 +58,17 @@ def panel(x, y, w, h, ic, title, color, rows, metric):
     return "".join(out)
 
 def render(svg, base):
-    """Write base.svg + base.pdf + base_preview.png. Returns the PDF byte size."""
+    """Write base.svg + base.pdf. Returns the PDF byte size.
+
+    Historically this also wrote base_preview.png (a PNG rendition of the same
+    diagram, purely for a since-removed convenience viewer). The PNGs were an
+    unreferenced, redundant byproduct: every diagram already ships as this
+    .svg (displays natively in any browser or on GitHub, no rendering step
+    needed) plus this .pdf, and nothing in the repo linked the PNG
+    specifically. Removed 2026-08-18 (docs/diagrams bloat cleanup) to stop
+    ~14MB of duplicate PNGs from regrowing on every regeneration.
+    """
     import cairosvg
     open(base + ".svg", "w", encoding="utf-8").write(svg)
     cairosvg.svg2pdf(bytestring=svg.encode("utf-8"), write_to=base + ".pdf")
-    cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=base + "_preview.png", output_width=1180)
     return os.path.getsize(base + ".pdf")

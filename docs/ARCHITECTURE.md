@@ -131,8 +131,8 @@ The index is a single SQLite file, `viewer.db`. SQLite is chosen partly *because
 
 - A `schema_meta` table records `schema_version` and a full migration history (when, from, to, notes).
 - All schema changes are **additive and migrated**: new columns are added as nullable/defaulted; old columns are never repurposed or dropped destructively. Old readers keep working.
-- Each migration is a numbered, reversible script (`migrations/0001_init.sql`, `0002_*.sql`, …). Every migration has a documented rollback.
-- Before any migration, the engine snapshots `viewer.db` to `viewer.db.bak-<version>-<date>` so a rollback is always one file-copy away.
+- Each migration is a numbered, additive-only script (`migrations/0001_init.sql`, `0002_*.sql`, …) — `ADD COLUMN`/`CREATE TABLE IF NOT EXISTS`, never a destructive `ALTER`/`DROP`. SQLite has no clean per-migration undo for that shape of change, so the practical rollback mechanism is the whole-DB snapshot below, not a per-file down-script.
+- Before applying any *pending* migration, `viewer_ingest.py migrate()` backs up `viewer.db` via `safeguard.backupdb()` (a consistent `VACUUM INTO` copy, integrity-checked, written to `backups/db/viewer-YYYYMMDD-HHMM.db`) — so a rollback is always one file-copy away. Gated on there actually being pending migrations, so the common case (nothing to migrate) doesn't pay a multi-GB backup cost on every CLI invocation; a backup failure aborts the migration rather than proceeding with no rollback path.
 - The corpus itself is never written to, so the original documents are an untouchable backstop.
 
 ### 5.2 Core tables (conceptual)
@@ -194,7 +194,7 @@ Each future graphics feature ships with its own data-flow diagram per the standi
 
 ## 9. Diagrams (this delivery)
 
-Version-controlled diagram sources live in `docs/diagrams/` as Mermaid text (`.mmd`) — text so they diff cleanly and render anywhere, forever (backwards-compatible by design). An offline viewer, `docs/diagrams/viewer.html`, renders all of them with no internet.
+Version-controlled diagram sources live in `docs/diagrams/` as Mermaid text (`.mmd`) — text so they diff cleanly and render anywhere, forever (backwards-compatible by design). They also ship pre-rendered as static SVG/PDF (`00-architecture-darkset.svg`/`.pdf`, consolidating all four below — see `docs/DECISIONS.md`), which displays natively in any browser or on GitHub with no viewer, no internet, and no JS required. (The `docs/diagrams/viewer.html` + bundled `mermaid.min.js` convenience pair that used to live-render these was removed 2026-08-18 as redundant repo bloat — the static SVGs already cover the same ground.)
 
 | File | Shows |
 |---|---|
@@ -269,6 +269,22 @@ checkpoints the WAL. Binds 127.0.0.1 unless `--host` says otherwise.
 
 ### Gates (run with every change)
 
-`tests/verify_all.py` (= `VERIFY-ALL.bat`) now runs: test_pillars · test_features · test_patterns ·
-test_routes (59-route live smoke) · test_truncation · **test_hardening (12 defense checks)** ·
-**rps_lint (the ES5/legacy gate — all 31 UI files classified)** · safeguard verify.
+`tests/verify_all.py` (= `VERIFY-ALL.bat`) no longer runs a fixed, hand-maintained list of suites —
+it **auto-discovers every `test_*.py` file** in `engine/tests/` via `glob.glob(os.path.join(HERE,
+"test_*.py"))`, runs each as its own subprocess (900s timeout each, so a hang fails loudly instead
+of blocking the gate forever), then runs `rps_lint.py` (the ES5/legacy gate — all 31 UI files
+classified) and `safeguard verify`. This replaced an earlier hardcoded tuple of suite names after
+that tuple let `test_procedure.py` — the one suite that would have caught `procedure_feature.py`'s
+`i -= 1` infinite-loop typo — go silently unexecuted; at the same time 9 *other* real `test_*.py`
+files (~1,200 lines combined) were also never run here, for the identical reason. See
+`verify_all.py`'s own comment above its `glob.glob()` call for the full incident writeup. There are
+23 `test_*.py` files today, and a new one joins the gate automatically the moment it's added —
+nothing else to remember, and nothing here to go stale again.
+
+Pushes and PRs to `main` now also run `tests/verify_all.py --snapshot` automatically, via GitHub
+Actions (`.github/workflows/ci.yml`) — the project's first CI of any kind. Two jobs: `test-ubuntu`
+(a 3.12/3.13/3.14 matrix) and `test-windows` (a single leg on the actual OS this project targets —
+see `docs/SYSTEM-REQUIREMENTS.md` — added specifically to exercise `ocr_supervisor.py`'s `taskkill
+/F /T` branch, which a Linux-only runner can never reach; `test_ocr_supervisor.py` now spawns a
+real parent+grandchild process pair and asserts `_kill_tree()` actually terminates both, not just
+that `supervise()` returns the expected code).

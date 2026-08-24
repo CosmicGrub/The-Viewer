@@ -12,7 +12,7 @@ import os
 
 def _fitz():
     try:
-        import fitz; return fitz
+        import pymupdf as fitz; return fitz
     except Exception:
         return None
 

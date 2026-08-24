@@ -17,7 +17,7 @@ import re, sqlite3
 core = None          # injected by viewer_app at startup; None when used standalone (tests/CLI)
 
 _SQL = ("SELECT d.id AS doc_id, d.vehicle, d.tm_number, d.title, "
-        "p.page_number, p.body_text AS body "
+        "p.page_number, p.body_text AS body, p.ocr_confidence "
         "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid "
         "JOIN documents d ON d.id=p.document_id "
         "WHERE pages_fts MATCH ?%s ORDER BY rank LIMIT ?")
@@ -59,7 +59,12 @@ def fts_pages(match, limit=20, vehicle=None, with_body=False, db_path=None):
     out = []
     for r in rows:
         rec = {"doc_id": r["doc_id"], "vehicle": r["vehicle"], "tm_number": r["tm_number"],
-               "title": r["title"], "page_number": r["page_number"], "source": "corpus"}
+               "title": r["title"], "page_number": r["page_number"], "source": "corpus",
+               # real, engine-reported per-page OCR confidence (migration 0009; RapidOCR only --
+               # NULL for Tesseract-fallback/native-text pages). Additive: existing consumers that
+               # don't read this key are completely unaffected. See textquality.annotate()'s
+               # real_confidence param -- this is what feeds it.
+               "ocr_confidence": r["ocr_confidence"]}
         if with_body:
             rec["body_text"] = r["body"]
         else:
@@ -75,7 +80,7 @@ if __name__ == "__main__":
     import os, tempfile
     d = tempfile.mkdtemp(); db = os.path.join(d, "c.db"); c = sqlite3.connect(db)
     c.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, vehicle TEXT, tm_number TEXT, title TEXT)")
-    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT)")
+    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, ocr_confidence REAL)")
     c.execute("CREATE VIRTUAL TABLE pages_fts USING fts5(body_text, content='pages', content_rowid='id')")
     c.execute("INSERT INTO documents VALUES(1,'HMMWV M998','TM 9-2320-280-10','Operator')")
     c.execute("INSERT INTO pages(document_id,page_number,body_text) VALUES(1,44,'Bleed the CTIS lines at each wheel valve.')")

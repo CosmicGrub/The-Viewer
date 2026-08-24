@@ -24,7 +24,8 @@ CLI:
                                                       # --auto also runs gc --keep 10 afterwards.
   python safeguard.py dbcheck  [--db PATH]            # SQLite integrity_check
 """
-import argparse, hashlib, json, os, shutil, sqlite3, sys, time, fnmatch
+import argparse, hashlib, json, os, shutil, sqlite3, sys, time, fnmatch, threading
+from contextlib import contextmanager
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)                                   # project root (THE VIEWER)
@@ -98,21 +99,106 @@ def _replace_retry(tmp, path, tries=6):
                 raise
             time.sleep(0.15 * (i + 1))
 
+def remove_retry(path, tries=6):
+    """os.remove, retried on Windows PermissionError -- the same transient-lock scenario
+    _replace_retry exists for (antivirus/search-indexer scanning the file), for callers that need
+    to delete rather than swap. A no-op if `path` doesn't exist. Public: intended for cleaning up
+    a stale temp/scratch file left behind by an interrupted build, e.g. build_publog.py's
+    `.building-<pid>` file from a prior crashed run -- exactly the kind of leftover large file
+    AV/an indexer is likely to be scanning right when the next run tries to clear it."""
+    if not os.path.exists(path):
+        return
+    import time
+    for i in range(tries):
+        try:
+            os.remove(path); return
+        except PermissionError:
+            if i == tries - 1:
+                raise
+            time.sleep(0.15 * (i + 1))
+
+def _tmp_name(d, basename):
+    """Temp filename for an atomic write, unique per (process, thread) -- not just per-process.
+    PID alone used to be the whole key: fine for single-threaded callers, but this module is also
+    called from viewer_app.py's ThreadingHTTPServer request handlers (schemgraph.py/vectorize.py's
+    ensure(), keyed by doc/page), where two threads of the SAME process can legitimately race on
+    the identical destination path (two browser tabs requesting the same not-yet-cached page).
+    Two threads sharing one PID would previously collide on the exact same temp filename and could
+    corrupt each other's write before either's os.replace() ran -- the same "truncated file served
+    forever" failure class atomic_write exists to prevent, just reached via a race instead of a
+    crash. threading.get_ident() makes the temp path unique per writer as well as per process."""
+    return os.path.join(d, ".tmp_%s_%d_%d" % (basename, os.getpid(), threading.get_ident()))
+
 def atomic_write(path, data, mode="wb"):
     """Write to a temp file in the same dir, flush+fsync, then os.replace (atomic on Win+POSIX).
     A crash leaves either the old file or the new file intact — never a half-written one."""
     d = os.path.dirname(os.path.abspath(path)) or "."
     os.makedirs(d, exist_ok=True)
-    tmp = os.path.join(d, ".tmp_%s_%d" % (os.path.basename(path), os.getpid()))
+    tmp = _tmp_name(d, os.path.basename(path))
     if isinstance(data, str): data = data.encode("utf-8")
     with open(tmp, "wb") as f:
         f.write(data); f.flush(); os.fsync(f.fileno())
     _replace_retry(tmp, path)
 
+def atomic_replace(tmp, dst):
+    """Swap an already-built file into place atomically (retried on a transient Windows lock).
+    For callers that build a large file themselves (e.g. a multi-GB SQLite database written
+    directly via sqlite3.connect(tmp_path), not through atomic_write's in-memory `data` argument)
+    and just need the final rename-into-place step to be crash-safe: `dst` is never deleted ahead
+    of time, so a crash mid-build leaves the last-good `dst` untouched and only `tmp` is garbage.
+    Creates dst's directory first, matching atomic_write/atomic_copy -- both of those tolerate a
+    not-yet-existing destination directory; this used to be the one atomic_* helper that didn't."""
+    d = os.path.dirname(os.path.abspath(dst)) or "."
+    os.makedirs(d, exist_ok=True)
+    _replace_retry(tmp, dst)
+
+@contextmanager
+def atomic_sqlite_build(dst_path):
+    """Build-to-temp-then-atomic-swap scaffold for a SQLite sidecar, shared by kg.py's build() and
+    build_publog.py's build() -- previously two near-identical ~20-line copies of this same
+    remove_retry/connect/try/except-BaseException/atomic_replace orchestration around calls that were
+    already delegating the actually safety-critical bits (remove_retry, atomic_replace) to this module.
+
+    Yields (con, tmp_path): `con` is a fresh sqlite3.Connection open on a temp file next to `dst_path`
+    (named "<dst_path>.building-<pid>"), for the caller's build body to populate + commit against.
+    `dst_path` itself is NEVER touched until the `with` block exits cleanly -- only then is `con` closed
+    and `tmp_path` swapped into `dst_path` via atomic_replace(). Any exception raised anywhere inside the
+    `with` block instead closes `con` best-effort, removes the orphaned `tmp_path` best-effort, and
+    re-raises the ORIGINAL exception unchanged -- `dst_path` is never even approached on that path, so
+    the last-good file already on disk is left exactly as it was; only the `.building-<pid>` temp file is
+    orphaned (and cleaned up here, best-effort).
+
+    Callers that need PRAGMAs in effect for the whole build (e.g. build_publog.py's
+    journal_mode=OFF / synchronous=OFF -- kg.py's kg.db is small enough it doesn't bother) should set
+    them on `con` first, right after entering the `with` block, before doing real work.
+
+    Callers with a best-effort, non-fatal step that must run AFTER the main body but must NOT trigger
+    this scaffold's failure-cleanup if it errors (e.g. build_publog.py's trailing `PRAGMA optimize` --
+    query-planner statistics only; a transient failure there must not discard an otherwise valid,
+    already-committed build) should wrap just that step in their OWN try/except, still inside the `with`
+    block, after the main body. This scaffold's cleanup only fires for exceptions that escape the
+    caller's own handling and reach here -- exactly matching the pre-refactor behavior in both files.
+    """
+    tmp_path = dst_path + ".building-%d" % os.getpid()
+    remove_retry(tmp_path)   # stale leftover from a prior crashed run -- just scratch space
+    con = None
+    try:
+        con = sqlite3.connect(tmp_path)
+        yield con, tmp_path
+        con.close()
+    except BaseException:
+        try: con.close()
+        except Exception: pass
+        try: remove_retry(tmp_path)
+        except OSError: pass
+        raise
+
+    atomic_replace(tmp_path, dst_path)   # only now does the new build become the live file
+
 def atomic_copy(src, dst):
     d = os.path.dirname(os.path.abspath(dst)) or "."
     os.makedirs(d, exist_ok=True)
-    tmp = os.path.join(d, ".tmp_%s_%d" % (os.path.basename(dst), os.getpid()))
+    tmp = _tmp_name(d, os.path.basename(dst))
     with open(src, "rb") as fi, open(tmp, "wb") as fo:
         for chunk in iter(lambda: fi.read(CHUNK), b""): fo.write(chunk)
         fo.flush(); os.fsync(fo.fileno())

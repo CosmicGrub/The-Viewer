@@ -15,7 +15,7 @@ core = None   # injected by viewer_app: _pf.core = sys.modules[__name__]
 try:
     from patterns import NSN_RE, FIG_RE, PN_RE, norm_nsn, nsn_fts_phrase
 except Exception:                      # standalone/test fallback
-    NSN_RE = re.compile(r"(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})")
+    NSN_RE = re.compile(r"\b(\d{4})-?(\d{2})-?(\d{3})-?(\d{4})\b")   # \b-anchored -- see patterns.py's NSN_RE
     FIG_RE = re.compile(r"\bFIG(?:URE)?\.?\s*([0-9]+(?:-[0-9]+)?)", re.I)
     PN_RE  = re.compile(r"\b(?:P/N|PART\s*N[O0]\.?|PART\s*NUMBER)\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-]{3,16})", re.I)
     def norm_nsn(s):
@@ -55,7 +55,7 @@ def parse_procedure(text, title=""):
     cur = None; in_tools = False; i = 0
     while i < len(lines):
         ln = lines[i]; s = ln.strip()
-        if not s: in_tools = False; i -= 1; continue
+        if not s: in_tools = False; i += 1; continue
         wm = _WARN_RE.match(ln)
         if wm:
             body = wm.group(2).strip()
@@ -127,10 +127,36 @@ def procedure_full(query, limit=6):
     if not best or best[0] <= 0:
         return out
     score, r, pr = best
+    # Recommendations annex #11 (cautions-single-page): a TM's WARNING/CAUTION/DANGER box commonly
+    # precedes the steps it gates, printed at the bottom of the PRECEDING page -- procedure_full()
+    # only ever parsed the single best-matched page, so that callout was silently absent. Look back
+    # exactly ONE page (not further -- a warning further back risks belonging to a different work
+    # package entirely, and this app has no reliable WP-boundary signal to check against), scoped to
+    # just the tail (~12 non-blank-ish lines) so unrelated body text from that prior page isn't
+    # dragged in as if it were part of this procedure. Every warning is tagged with the page it
+    # actually came from (mirrors cautions.py's own per-callout page tagging) so the UI can cite it
+    # correctly rather than implying every warning is on the matched page.
+    warnings = [dict(w, page=r["page_number"]) for w in pr["warnings"]]
+    try:
+        con2 = core.db()
+        try:
+            prev = con2.execute(
+                "SELECT body_text FROM pages WHERE document_id=? AND page_number=?",
+                (r["doc_id"], r["page_number"] - 1)).fetchone()
+        finally:
+            con2.close()
+        if prev and prev["body_text"]:
+            tail_lines = [l for l in prev["body_text"].splitlines() if l.strip()][-12:]
+            if tail_lines:
+                lead_pr = parse_procedure("\n".join(tail_lines), title=q)
+                lead = [dict(w, page=r["page_number"] - 1) for w in lead_pr["warnings"]]
+                warnings = (lead + warnings)[:12]
+    except Exception as e:
+        out["warnings_error"] = str(e)
     nsns = sorted({n for st in pr["steps"] for n in st.get("nsns", [])})
     out.update({"found": True, "title": q, "kind": pr["kind"],
                 "source": {"doc_id": r["doc_id"], "page": r["page_number"], "tm": r["tm_number"], "vehicle": r["vehicle"]},
-                "tools": pr["tools"], "warnings": pr["warnings"], "steps": pr["steps"],
+                "tools": pr["tools"], "warnings": warnings, "steps": pr["steps"],
                 "parts": [{"nsn": n} for n in nsns],
                 "fault_terms": re.findall(r"[A-Za-z0-9]{3,}", q)[:6]})
     return out

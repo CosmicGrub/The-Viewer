@@ -14,7 +14,7 @@ Exit 0 if the REQUIRED ones are present, else 1.
 import importlib, shutil, sys
 
 CHECKS = [
-    ("fitz", "PyMuPDF", True, "render + crop the cited figure (breakdown image)"),
+    ("pymupdf", "PyMuPDF", True, "render + crop the cited figure (breakdown image)"),
     ("PIL", "Pillow", True, "image handling for crops + OCR"),
     ("numpy", "numpy", False, "row ink-density fallback for scanned-page crops"),
     ("pytesseract", "pytesseract", False, "OCR word-boxes for the precise caption / callout crop"),

@@ -9,7 +9,7 @@ consolidated PASS/FAIL, so after any change you have one button that says "every
   py engine\\tests\\verify_all.py --snapshot  # take a fresh safeguard snapshot first, then verify
 
 Exit code 0 = all green; non-zero = something failed (see the FAILED list)."""
-import os, sys, subprocess, time
+import glob, os, sys, subprocess, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.dirname(HERE)
@@ -43,10 +43,28 @@ def main():
     # regression suites (import viewer_app directly -> a passing run proves the module compiles whole)
     # v0.96.0 (backlog K71/K73/K77): rps_lint (the ES5/legacy gate) + test_hardening (B/J defenses)
     # run with every verify.
-    for fn in ("test_pillars.py", "test_features.py", "test_patterns.py", "test_routes.py", "test_truncation.py", "test_hardening.py", "test_search_quality.py", "rps_lint.py"):
-        p = os.path.join(HERE, fn)
-        if os.path.exists(p):
-            results.append((fn, _run(fn, [p])))
+    #
+    # Auto-discovered (glob), NOT a hand-maintained list of names: this used to be a hardcoded
+    # tuple, and test_procedure.py -- the one suite that would have caught procedure_feature.py's
+    # i -= 1 infinite-loop typo -- was simply never added to it, so "the one authoritative gate"
+    # never ran it and the bug shipped undetected. Adding that one filename to the same hardcoded
+    # tuple would have "fixed" only that one instance of the pattern: at the time of that fix, 9
+    # OTHER real test_*.py files in this directory (test_accuracy.py, test_congruency.py,
+    # test_extraction.py, test_features_integration.py, test_features_modules.py, test_http.py,
+    # test_jobcard.py, test_newmodules.py, test_property_fuzz.py -- ~1,200 lines combined) were
+    # ALSO silently never run here, for the identical reason. Every test_*.py file in this
+    # directory now runs automatically; a new test file joins the gate the moment it's added, with
+    # nothing else to remember. The _run() subprocess timeout (900s per suite) means a hang in any
+    # of them (the same failure mode test_procedure.py's bug caused) now fails loudly instead of
+    # blocking the gate forever.
+    test_files = sorted(
+        os.path.basename(p) for p in glob.glob(os.path.join(HERE, "test_*.py"))
+    )
+    for fn in test_files:
+        results.append((fn, _run(fn, [os.path.join(HERE, fn)])))
+    rps_lint = os.path.join(HERE, "rps_lint.py")
+    if os.path.exists(rps_lint):
+        results.append(("rps_lint.py", _run("rps_lint.py", [rps_lint])))
     # safeguard verify: classifies any TRUNCATED / SHRUNK / CORRUPTED / MISSING file vs the last snapshot.
     # (exit 2 if damage found, 1 if no snapshot yet -> both count as not-OK here.)
     results.append(("safeguard verify",

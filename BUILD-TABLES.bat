@@ -7,7 +7,7 @@ REM  is paused. Needs PyMuPDF (already a project dependency). No internet needed
 REM ============================================================================================
 cd /d "%~dp0engine"
 where py >nul 2>nul && (set "PY=py") || (set "PY=python")
-%PY% -c "import fitz" 2>nul || (echo PyMuPDF not installed -- run FIRST-RUN.bat first. & pause & exit /b 1)
+%PY% -c "import fitz" 2>nul || %PY% -m pip install --user pymupdf 2>nul || (echo PyMuPDF not installed -- run FIRST-RUN.bat first. & pause & exit /b 1)
 echo Scanning every PDF page for structured tables (slower than OCR; grab a coffee)...
 %PY% -B build_tables.py
 echo.

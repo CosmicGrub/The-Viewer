@@ -1,17 +1,25 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
-**Compiled 2026-08-08, updated 2026-08-09.** This document exists because the project's own canonical docs had
-drifted out of sync with each other across sessions. As of this update, `CHANGELOG.md`, `ITERATION-SNAPSHOTS.md`,
-`HANDOFF-NOTE.md`, `PROJECT-SUMMARY.md`, and this file all agree on **v1.13.4**. This file is the reconciled,
-single-source feature record, cross-checked against the actual files on disk (not just memory). It supplements —
-does not replace — `CHANGELOG.md` (the full 217-entry per-change log) and `HANDOFF-NOTE.md` (the living session
-hand-off). Treat all four as canonical going forward; keep them in sync.
+**Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18.** This document exists because the
+project's own canonical docs had drifted out of sync with each other across sessions — including, at the
+2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs agreed on the same day
+`CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. This file is the reconciled, single-source
+feature record, cross-checked against the actual files on disk (not just memory). It supplements — does not
+replace — `CHANGELOG.md` (now a 219-entry per-change log) and `HANDOFF-NOTE.md` (the living session hand-off).
+Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.13.4, shipped 2026-08-08.** Nothing has shipped between 2026-08-08 and today (2026-08-09)
-— confirmed by CHANGELOG.md's newest entry. v1.13.4 was a full live-driving pass (every core feature exercised in
-the actual running app) + a parallel static audit, together finding and fixing **36 real bugs** — see §6 for what
-that closed out and §5 for the version-timeline entry. v1.13.3 (the point release just before it) was VERIFY.bat's
-first-ever confirmed-green run on an actual host.
+**True current state: v1.14.0, shipped 2026-08-18, `main` @ `3054dad`.** Everything between the 2026-08-09
+update and today shipped as this project's largest single effort by commit count (12 commits, 2026-08-17 to
+2026-08-18) — see `CHANGELOG.md`'s `[1.14.0]` entry for the authoritative commit-by-commit summary; §4 below
+reconciles this file's feature inventory against it, and §5's version-timeline entry summarizes it. In order: a
+full 4-tier code audit off the original 50-finding manifest — **Critical** (8 findings, `08bbb81`→`086aed3`),
+**High** (12 findings, `04bd4a5`→`48c7a63`), **Medium** (19 of 24 findings, `0059dc8`→`3590cb2`), **Low** (6
+findings, `aad1709`→`e4f4bd0`) — each tier independently xhigh-effort multi-agent code-reviewed with every real
+review finding fixed before the next tier began; a follow-up priority-5 **UI/UX pass** (10 findings,
+`71c9c4c`/`a32aee9`); this repo's **first-ever CI workflow** (`.github/workflows/ci.yml`) plus the real bug it
+caught on day one (`7c4a3ba`); and a Tier-1 pass off a separate full-project staleness audit (`3054dad`).
+`engine/tests/verify_all.py` is now **26/26, ALL GREEN** — the first point in the project's history the suite
+has run fully clean.
 
 ---
 
@@ -148,7 +156,10 @@ palette command (added 1.12.9 after being found unreachable in audit).
 
 ### Fleet readiness & training
 Per-system fluids/capacities (`fluidsmatrix.py`) + service intervals (`intervals.py`) + `/readiness` page (1.11.0)
-· bulk folder ingestion (`ingestpipe.py` + `BULK-INGEST.bat`, 1.11.3) · cited multiple-choice **learn mode**
+· bulk folder ingestion (`ingestpipe.py` + `BULK-INGEST.bat`, 1.11.3) · new **`viewer_ingest.py prune`**
+subcommand — reconciles documents whose source file was deleted/renamed since the last crawl (rename detection
+via fingerprint match, cascade-safe cleanup, dry-run by default, missing-fraction abort threshold so an
+unmounted drive can't look like a mass deletion, 1.14.0) · cited multiple-choice **learn mode**
 (`training.py`, `/learn`, `/api/quiz`, 1.9.0) · append-only **field notes** w/ SME endorsement (`fieldnotes.py`,
 `/api/notes`, 1.9.0) · interactive demo/tour doubling as onboarding → hands off to the side chooser (0.83.x).
 
@@ -166,30 +177,52 @@ corpus+external into one congruent `index/masterfile.db`, RAW+FILTERED layers, n
 Kiosk mode (bigger text, ≥44px targets, 1.4.0) · deep-zoom + callout hotspots (0.99.3/0.99.8) · palette
 aria-modal + focus trap, `role=dialog` modals, `esc()`/`toast()` dedup across all 29 pages, `alert()`→`toast()`
 app-wide, shared footer nav injector (1.13.0) · offline QR deep-link from `/packet` to a part's dossier, LAN-scannable
-(`qrgen.py`, 1.4.0) · Masterfile spec-sheet PDF + `/mastercov` least-covered-first coverage dashboard (1.4.0) ·
-Tools "Diagnose & decode" menu group (1.13.0).
+(`qrgen.py`, 1.4.0; base URL now resolved through a validated-allowlist **`safe_public_base()`** instead of
+trusting the raw `Host` header, 1.14.0) · Masterfile spec-sheet PDF + `/mastercov` least-covered-first coverage
+dashboard (1.4.0) · Tools "Diagnose & decode" menu group (1.13.0).
 
 ### Performance, RPS & stability
 gzip+keep-alive (0.46) · fitz LRU + thread-local conns + NOCASE indexes + ETag/304 (0.56–0.58) · RPS legacy mode
 w/ Poppler/Tesseract fallback + warmup (0.45/0.26) · parallel CAD batch, 2.9× measured (0.95) · GPU-tier OCR
 (RapidOCR/onnxruntime, 8–12 workers) · preflight gate, disk guard, off-disk backup mirror, server/OCR watchdogs
-(0.63) · custom mutation-testing harness (0.72.3) · **`corpus.py`** unified FTS retrieval used by every consumer,
+(0.63) · **`ocr_supervisor.py`** — heartbeat-staleness watchdog that force-kills and recovers a HUNG (not just
+crashed) OCR pass, plus a per-page OCR timeout (`VIEWER_OCR_PAGE_TIMEOUT`), `run_ocr_auto.bat` (1.14.0) · custom
+mutation-testing harness (0.72.3) · **`corpus.py`** unified FTS retrieval used by every consumer,
 pooled `doc_path()`, startup auto-optimizer (WAL + bg indexes), bounded worker pool, `safeguard.atomic_write`
 everywhere (1.13.0 groundwork) · **persisted RPS run-mode** — Auto/Performance/Retroactive-Post-Support saved to
-Settings, `/api/rps_mode` (1.13.2, the current latest).
+Settings, `/api/rps_mode` (1.13.2).
 
 ### Dev / verify / ops tooling
 Route smoke tests, static audits, end-to-end demo/test suite, the VERIFY-*.bat family · root **`VERIFY.bat`** —
 the single authoritative gate: exit-code truth, `run_timeout.py` wall-clock guards (no step can hang for
-hours), unions audit + GET/POST route sweeps (**281 routes green**) + all regression suites + `rps_lint` +
-`verify_ui` + `check_crlf` + module self-tests + no-truncation completeness (1.13.0, hang-proofed 1.12.7) —
-**confirmed GREEN on an actual host for the first time in 1.13.3**, and again after the larger 1.13.4 hardening
-pass (563 PASS / 0 FAIL, 658/658 files intact both times) · `engine/tools/check_crlf.py` — repo-wide CRLF gate
-for `.bat` files (83 verified, 1.13.0) · `safeguard.py backupdb` — VACUUM INTO + disk guard + keep-2, manual
-(1.13.0; still never actually run — see §6) · **resource-leak hardening** (1.13.3/1.13.4) — 13 sites across 11
-modules where a query throwing after a lazy-validated `sqlite3.connect()` skipped `close()`, leaking a Windows
-file handle; all now `con=None` + `finally` · **two uncached multi-second aggregate endpoints** TTL-cached
-(`/command`, `/coverage` share one cache; `/verify`'s integrity check separately, 300s + `?force=1`) (1.13.4).
+hours), unions audit + GET/POST route sweeps + all regression suites + `rps_lint` + `verify_ui` + `check_crlf`
++ module self-tests + no-truncation completeness (1.13.0, hang-proofed 1.12.7) — **confirmed GREEN on an actual
+host for the first time in 1.13.3**, again after the 1.13.4 hardening pass (563 PASS / 0 FAIL, 658/658 files
+intact both times), and — once the 1.14.0 audit's CI-fix and Tier-1-staleness commits eliminated the two
+open failures (`test_http.py`, `safeguard verify`) that had held since — **fully clean for the first time in
+the project's history**: `engine/tests/verify_all.py` now runs **26/26, ALL GREEN**. **`verify_all.py`'s test
+gate is now glob-based auto-discovery** of every `engine/tests/test_*.py` file (1.14.0 Critical-tier fix)
+instead of a hardcoded filename list — the old list had silently never run 8 real suites (~1,200 lines),
+including `test_procedure.py` (22 tests), the one suite that would have caught that same tier's own headline
+infinite-loop bug. `engine/tests/` now holds **23 `test_*.py` files** total, all auto-discovered, no hardcoded
+list — 6 new/extended this run: `test_seven_modules.py` (105 checks), `test_build_pipeline.py` (44),
+`test_prune.py` (22), `test_medium_fixes.py` (29), `test_uiux_fixes.py` (174), `test_ocr_supervisor.py` (11) ·
+GET/POST route sweep re-verified live against the running registry at **265 routes green** (244 GET + 21 POST,
+`engine/features/registry.py`) — supersedes the "281 routes" figure this section previously carried, which no
+longer matches the current route set · this repo's **first-ever CI workflow** — `.github/workflows/ci.yml`,
+runs `verify_all.py --snapshot` on every push/PR to `main` — caught a real bug on day one: `test_http.py`'s 29
+failures across 11 routes, traced to a drifted DB-fixture schema (`7c4a3ba`, 1.14.0) · **build-to-temp-then-swap**
+atomicity extended from `safeguard.atomic_write` to full destructive rebuilds — `kg.py` and `build_publog.py`
+now build into a temp file and only swap it in (`safeguard.atomic_replace`) once every table/index has
+committed, instead of delete-then-rebuild-unprotected (1.14.0) · `registry.safe_header_token()` shared-helper
+extraction + `registry.qint()`'s new SQLite 64-bit bind-range guard — closes an `OverflowError` an oversized
+numeric query param used to trigger, found stress-testing beyond CI's own config (1.14.0) ·
+`engine/tools/check_crlf.py` — repo-wide CRLF gate for `.bat` files (83 verified, 1.13.0) ·
+`safeguard.py backupdb` — VACUUM INTO + disk guard + keep-2, manual (1.13.0; still never actually run —
+see §6) · **resource-leak hardening** (1.13.3/1.13.4) — 13 sites across 11 modules where a query throwing
+after a lazy-validated `sqlite3.connect()` skipped `close()`, leaking a Windows file handle; all now `con=None`
++ `finally` · **two uncached multi-second aggregate endpoints** TTL-cached (`/command`, `/coverage` share one
+cache; `/verify`'s integrity check separately, 300s + `?force=1`) (1.13.4).
 
 ## 5 · Version timeline — the major cuts
 
@@ -208,7 +241,9 @@ file handle; all now `con=None` + `finally` · **two uncached multi-second aggre
 | v1.13.1 | AI-generated 3-D illustrative tier (Meshy import lane) |
 | v1.13.2 | RPS run-mode becomes a persisted Settings choice |
 | v1.13.3 | `VERIFY.bat` confirmed GREEN on an actual host for the first time — 2 real bugs found doing it (a resource leak, a duplicate-append bug) |
-| **v1.13.4 (current)** | Full live-driving pass (every core feature exercised live, not just automated suites) + a parallel static audit → **36 real bugs found and fixed**: 12 resource leaks (13 combined with v1.13.3's), 3 dedup/caching issues, 10 regex/classification bugs (incl. two that violated the app's own "never fabricate" R13 discipline), 2 misc, plus the `verifystate.py`/`/verify` chain that had silently found nothing since the v0.96.0 restructure |
+| v1.13.4 | Full live-driving pass (every core feature exercised live, not just automated suites) + a parallel static audit → **36 real bugs found and fixed**: 12 resource leaks (13 combined with v1.13.3's), 3 dedup/caching issues, 10 regex/classification bugs (incl. two that violated the app's own "never fabricate" R13 discipline), 2 misc, plus the `verifystate.py`/`/verify` chain that had silently found nothing since the v0.96.0 restructure |
+| v1.13.5 | OCR quality signal (per-page `ocr_confidence` captured from RapidOCR, no longer discarded) + a bare-F/C temperature-extraction gap fix — `test_accuracy.py` recall 80%→100% |
+| **v1.14.0 (current)** | 50-finding 4-tier code audit (Critical→High→Medium→Low) + a follow-up priority-5 UI/UX pass + this repo's first-ever CI workflow (plus the real bug it caught on day one) + a Tier-1 pass off a separate full-project staleness audit — see §1 for the commit-range breakdown and `CHANGELOG.md`'s `[1.14.0]` entry for full detail; `verify_all.py` reaches 26/26 ALL GREEN for the first time |
 
 ## 6 · Known outstanding items (host-side, still owed as of today)
 
@@ -247,10 +282,10 @@ fixed (36 of them, v1.13.4) — though see item 3 below for the one deliberately
 - **`docs/diagrams/`** — 185 dark-theme diagram PDFs (+ matching SVGs, several with PNG previews and `.mmd`
   sources), one pair per addition per R2/R3, numbered roughly 00→113+ plus named ones (`CHANGELOG-VISUAL.pdf`,
   `CHANGELOG-DUALTRACK.pdf`).
-- **`docs/CHANGELOG.md`** (217 entries) / **`docs/CHANGELOG-LEGACY.md`** (141 entries, dual-track parity per R7).
+- **`docs/CHANGELOG.md`** (219 entries, as of `[1.14.0]`) / **`docs/CHANGELOG-LEGACY.md`** (143 entries, dual-track parity per R7).
 - **`docs/ITERATION-SNAPSHOTS.md`** + **`docs/ITERATION-DASHBOARD.html`** — the tagged FEATURE/UPGRADE/POLISH/FIX
-  index (217 iterations, 139 legacy-tracked), regenerable via `engine/build_iteration_snapshot.py`.
-- **`docs/HANDOFF-NOTE.md`** — the living session hand-off (reconciled to v1.13.4).
+  index (219 iterations, 139 legacy-tracked), regenerable via `engine/build_iteration_snapshot.py`.
+- **`docs/HANDOFF-NOTE.md`** — the living session hand-off (reconciled to v1.14.0).
 - **`docs/ocr_example_before_after.pdf`** — OCR quality proof.
 - **`docs/RELEASE-NOTES-1.0.md`** — the v1.0.0 release notes.
 - This file, **`docs/MASTER-RECONCILIATION.md`**.

@@ -6,12 +6,20 @@ serviceability, kit/BOM, pinouts, training, field notes, etc.). Organized into 1
 **R13 (above military grade)**: accuracy sacred, fail-loud/degrade-safe, verify like lives depend on it,
 completeness a duty. Pick any line or any theme and I'll turn it into a verified build wave.
 
-Legend: ★ = high leverage · ⚑ = safety-critical · ⧗ = previously deferred follow-up.
+Legend: ★ = high leverage · ⚑ = safety-critical · ⧗ = previously deferred follow-up ·
+✅ = shipped (see `docs/CHANGELOG.md`) · 🔧 = in progress.
+
+Items are unmarked until shipped; annotate inline (going forward) rather than maintaining a
+separate tracker — no scheduled re-audit of this list is implied. (Medium finding #42: this list
+previously had no completion tracking of any kind across its 100 items; `docs/ITERATION-
+SNAPSHOTS.md` independently notes ~190 backlog items remain across both idea files. The two items
+below already had verifiable shipped evidence in CHANGELOG.md/module docstrings — the rest are not
+individually re-audited here.)
 
 ---
 
 ## A. Structured extraction & data completeness (deepen R11/R12)
-1. ★ Full **RPSTL** structured import — figure ↔ item-number ↔ NSN ↔ qty ↔ UOC, per manual.
+1. ★ Full **RPSTL** structured import — figure ↔ item-number ↔ NSN ↔ qty ↔ UOC, per manual. — ✅ Shipped (see `engine/rpstl.py`, `docs/CHANGELOG.md`).
 2. **Maintenance Allocation Chart (MAC)** parse — which task is authorized at which level (C/O/F/H/D).
 3. **Lubrication Order (LO)** full parse — every lube point, interval, and lubricant type, structured.
 4. ⚑ Expendable/durable **supplies lists** (appendix) → structured consumables per manual.
@@ -107,7 +115,7 @@ Legend: ★ = high leverage · ⚑ = safety-critical · ⧗ = previously deferre
 80. ★ **Local stock cross-reference** — import a unit's on-hand list, mark what's in stock.
 
 ## I. Trust, verification & QA (R13)
-81. ⧗ ★ **Cross-method agreement** — measures vs spec-tables vs PUBLOG for the same fact; require concurrence.
+81. ⧗ ★ **Cross-method agreement** — measures vs spec-tables vs PUBLOG for the same fact; require concurrence. — ✅ Shipped (see `engine/crossmethod.py`, `docs/CHANGELOG.md`).
 82. **Confidence heatmap** per manual — where OCR / extraction is weak and needs a human.
 83. **Human-verified %** dashboard — how much data carries an SME sign-off.
 84. ⚑ **Golden-record locking** — approved values become immutable + versioned.

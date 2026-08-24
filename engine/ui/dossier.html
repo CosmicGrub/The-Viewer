@@ -9,6 +9,7 @@
   body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
   header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
   header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;cursor:pointer;font-size:13.5px;display:inline-block}
   .wrap{max-width:1060px;margin:0 auto;padding:20px}
   .bar{display:flex;gap:10px;margin-bottom:8px}
   #q{flex:1;background:var(--p2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 14px;font-size:15px;font-family:ui-monospace,Consolas,monospace}
@@ -38,7 +39,7 @@
 <header>
   <h1>📋 Part dossier</h1><span class="muted">everything we know about one part, in one place</span>
   <span class="sp"></span>
-  <a class="nav" href="/solve">🛠 Solve it</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
+  <a class="btn" href="/solve">🛠 Solve it</a>&nbsp;&nbsp;<a class="btn" href="/">← Home</a>
 </header>
 <div class="wrap">
   <!-- v1.13.0 UI coherence: cross-link to the canonical one-pane part hub (additive; nothing removed) -->
@@ -75,6 +76,17 @@ function render(q, part, ref, pd, pr){
   (pd.variants||[]).forEach(function(v){ if(!vehicle&&v.vehicles&&v.vehicles.length) vehicle=v.vehicles[0]; });
   (pr.procedures||[]).forEach(function(p){ if(!vehicle&&p.vehicle) vehicle=p.vehicle; });
   var h='<div class="head"><span class="nom">'+esc(nom)+'</span>'+(nsn?'<span class="nsn">'+esc(nsn)+'</span>':'')+'</div>';
+  // Recommendations annex #14 (barcode-ocr-conflict): part_lookup()'s part.conflicts (already fetched
+  // above via nsnP) surfaced up top, before the action links -- the same "don't silently pick a
+  // reading" treatment index.html's cart panel gives this. Barcode is machine-decoded (more
+  // reliable) but the disagreement itself is the point: never auto-resolved.
+  if(part&&part.conflicts&&part.conflicts.length){
+    h+='<div class="head-conflict" style="background:rgba(224,86,79,.1);border:1px solid var(--red,#e0564f);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:13px">';
+    part.conflicts.slice(0,3).forEach(function(cf){
+      h+='<div>⚠ Barcode on p.'+esc(cf.page)+' reads <b>'+esc(cf.barcode_nsn)+'</b> — the page text there reads <b>'+esc(cf.page_nsn)+'</b>. Barcode is machine-decoded (more reliable), but verify against the physical part before ordering.</div>';
+    });
+    h+='</div>';
+  }
   h+='<div class="actions">';
   h+='<a href="/packet?q='+encodeURIComponent(q)+'" target="_blank">🖨 Job packet</a>';
   h+='<a href="/procedure?q='+encodeURIComponent(nom)+'" target="_blank">🔧 How to do it</a>';
@@ -204,12 +216,24 @@ function render(q, part, ref, pd, pr){
   });
   // safety callouts (severity-ranked, cited)
   gj("/api/cautions?q="+encodeURIComponent(nom)).then(function(cj){ var box=$("#cautb"); if(!box)return;
-    var r=(cj&&cj.results)||[];
+    // Recommendations annex #11 (cautions-single-page): cj===null (gj()'s own fetch/parse-error
+    // catch) and cj.error (find_for_query()'s own retrieval-failure signal, already computed and
+    // returned, just never checked here) both used to render the exact same "No safety callouts
+    // parsed for this part yet" text as a GENUINE empty result -- a mechanic could not tell "this
+    // part really has none" from "the lookup silently failed". Three distinct states now.
+    if(cj===null||cj.error){ box.className=""; box.innerHTML='<span class="empty" style="color:var(--amb,#e8a06a)">⚠ Safety-callout lookup failed'+(cj&&cj.error?(': '+esc(cj.error)):'')+' — do not treat this as "no hazards found." Check the manual page directly.</span>'; return; }
+    var r=cj.results||[];
     if(r.length){ var col={DANGER:"#f26d6d",WARNING:"#e8a06a",CAUTION:"#e8c07a",NOTE:"#8fbfe0"}; var hh="";
+      // UX finding #6 (priority 5, R13 safety-relevant): cautions.find_for_query() already computes
+      // c.confidence ('clean'/'suspect'/'poor') via textquality.annotate() -- it was fetched but never
+      // shown, so a DANGER callout pulled from a badly garbled scan displayed with identical visual
+      // weight to one from a pristine page. Flag anything less than 'clean' so a mechanic knows to
+      // verify on the actual page rather than trust the OCR text as-is.
       r.slice(0,10).forEach(function(c){
-        hh+='<div class="hit"><b style="color:'+(col[c.severity]||"#ccc")+'">'+esc(c.severity)+'</b> <span class="muted">'+esc((c.text||"").slice(0,150))+'</span> <a href="'+esc(c.page_url)+'" target="_blank" style="color:var(--acc);text-decoration:none">p.'+esc(c.page)+' ↗</a></div>';});
+        var qual=(c.confidence&&c.confidence!=="clean")?(' <span style="color:var(--amb)" title="OCR text quality: '+esc(c.confidence)+'">⚠ verify on page — OCR quality: '+esc(c.confidence)+'</span>'):"";
+        hh+='<div class="hit"><b style="color:'+(col[c.severity]||"#ccc")+'">'+esc(c.severity)+'</b> <span class="muted">'+esc((c.text||"").slice(0,150))+'</span>'+qual+' <a href="'+esc(c.page_url)+'" target="_blank" style="color:var(--acc);text-decoration:none">p.'+esc(c.page)+' ↗</a></div>';});
       box.className=""; box.innerHTML=hh;
-    } else box.innerHTML='<span class="empty">No safety callouts parsed for this part yet (grows with OCR).</span>';
+    } else box.innerHTML='<span class="empty">No WARNING/CAUTION/DANGER text detected for this part yet (grows with OCR) — this means none was found, not that the lookup failed.</span>';
   });
   // 3d
   gj("/api/threed?q="+encodeURIComponent(nom)+"&limit=3").then(function(s){ var box=$("#d3b"); if(!box)return;

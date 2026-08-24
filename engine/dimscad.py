@@ -12,6 +12,8 @@ the cited figure. Pure-python (math only), offline, no deps. Read-only."""
 from __future__ import annotations
 import math, re
 
+import cad_mesh
+
 _NUM = re.compile(r"[-+]?(?:\d{1,6}(?:,\d{3})*(?:\.\d+)?|\.\d+)")
 _UNIT_TO_IN = {"in": 1.0, "inch": 1.0, "inches": 1.0, '"': 1.0, "ft": 12.0, "foot": 12.0, "feet": 12.0,
                "mm": 1 / 25.4, "cm": 1 / 2.54, "m": 39.3701}
@@ -100,10 +102,11 @@ def _cylinder(d, h, seg=24):
 
 
 def _box(l, w, h):
+    # NOTE the axis-mapping gotcha inherited from the original hand-rolled version: the second positional
+    # arg here is 'w' (width) but it maps to the mesh's sz (its 3rd axis) below, NOT sy -- 'h' (height) is
+    # what maps to sy. Callers (build_obj) rely on this exact l/w/h -> sx/sy/sz assignment.
     l = max(l, 0.05); w = max(w, 0.05); h = max(h, 0.05)
-    V = [(0, 0, 0), (l, 0, 0), (l, 0, w), (0, 0, w), (0, h, 0), (l, h, 0), (l, h, w), (0, h, w)]
-    F = [(1, 2, 3, 4), (5, 8, 7, 6), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 8, 4), (4, 8, 5, 1)]
-    return V, F
+    return cad_mesh.box_mesh(l, h, w, origin="corner")
 
 
 def _washer(od, idd, th, seg=24):
@@ -129,16 +132,26 @@ def _hex(af, h):
 
 def build_obj(primitive, dims):
     d = dims
+    # _cylinder / _washer / _hex hand-roll their own literal 1-based F tuples (offsets baked into the
+    # index arithmetic, e.g. `2 * i + 1`). _box() alone delegates to the shared cad_mesh.box_mesh(),
+    # which -- like cad_render.py's meshes -- returns 0-based indices; the +1 conversion to match the
+    # other three primitives' convention happens right here, at each _box() call site, rather than via
+    # a zero_based flag threaded through this function's branches AND its emission loop (that used to
+    # mean remembering to update three separate spots for one geometry call -- an easy thing to miss on
+    # the next primitive migrated onto cad_mesh). Converting locally, where the 0-based data is produced,
+    # keeps the emission loop below a single unconditional path again.
     if primitive == "cylinder":
         V, F = _cylinder(d.get("diameter", d.get("width", 1.0)), d.get("length", d.get("height", 2.0)))
     elif primitive == "box":
         V, F = _box(d.get("length", 2.0), d.get("width", 1.0), d.get("height", 0.5))
+        F = [tuple(i + 1 for i in f) for f in F]
     elif primitive == "washer":
         V, F = _washer(d.get("diameter", 1.0), d.get("inside_diameter", 0.5), d.get("height", 0.1))
     elif primitive == "hex":
         V, F = _hex(d.get("width", d.get("diameter", 0.75)), d.get("height", d.get("length", 0.5)))
     else:
         V, F = _box(2.0, 1.0, 0.5)
+        F = [tuple(i + 1 for i in f) for f in F]
     out = ["# THE VIEWER - approximate parametric model from dimensions (dimscad.py)",
            "# primitive=%s  dims_in=%s" % (primitive, {k: d[k] for k in d})]
     for (x, y, z) in V:

@@ -17,12 +17,61 @@
    `display:` class can never leave a `hidden` element on screen again. (verify_ui.py guards this.) */
 [hidden]{display:none !important}
 /* KIOSK / GLOVE MODE (bay-floor tablet): bigger text, larger touch targets, higher contrast.
-   Toggled from the command palette ("Toggle kiosk mode"); persisted in localStorage; applied app-wide. */
+   Toggled from the command palette ("Toggle kiosk mode"); persisted in localStorage; applied app-wide.
+   Review finding: an earlier draft also introduced a --kiosk-min CSS var for script-driven controls to
+   read, but it turned out unreadable at the time those scripts actually needed it (deepzoom.js mounts
+   before palette.js applies body.kiosk-mode on its page) -- every consumer ended up reading
+   window.viewerKioskOn() (shared.js/palette.js) directly instead, leaving the var itself unused
+   everywhere including this very rule. Removed rather than left as dead, misleading "single source of
+   truth" that nothing actually reads. */
 body.kiosk-mode{font-size:16px; --sub:#c3cede; --mut:#8c99a8}
-body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{
+/* UX finding #7 (priority 5): the original selector list missed three real interactive-control
+   categories -- palette.js's #cmdk-pill/#bench-pill (role="button" DIVs, the only way to open the
+   command palette or pin-to-bench on a keyboardless touchscreen), shared.js's #vw-footer Back/Home nav
+   (injected on every non-home page, bare <a> tags), and any other ARIA role="button" control. Also adds
+   min-width alongside the existing min-height -- without it, script-sized square/circular controls
+   (deepzoom.js's 22px callout badges, cadview.js's 30px zoom buttons) only grew taller, not wider,
+   which would visibly distort a circular badge into an oval.
+   Review finding: min-width must NOT apply to checkbox/radio inputs -- the original (pre-existing,
+   unchanged) rule already gave text inputs/selects min-height, and this diff's min-width addition
+   landed on the SAME shared "input" selector, inflating every checkbox/radio app-wide (e.g.
+   procedure.html's step-tick checklist, collections.html's pin checkbox) into a distorted 44x44 square.
+   Scoped out here; they keep their original min-height-only sizing. */
+body.kiosk-mode button,body.kiosk-mode a.btn,body.kiosk-mode .chip,
+body.kiosk-mode input:not([type="checkbox"]):not([type="radio"]),body.kiosk-mode select,
+body.kiosk-mode [role="button"],body.kiosk-mode #vw-footer a,
+body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{
+  min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
+body.kiosk-mode input[type="checkbox"],body.kiosk-mode input[type="radio"]{
   min-height:44px; padding-top:11px; padding-bottom:11px; font-size:15px}
 body.kiosk-mode a{text-decoration:underline}
 body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
+/* the discoverability pills and footer nav are compact pill/text controls, not boxy buttons -- keep
+   their own padding/shape but still guarantee the 44px minimum footprint via min-height/min-width above */
+body.kiosk-mode #vw-footer a{padding:9px 10px;display:inline-flex;align-items:center;justify-content:center}
+body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{padding:11px 16px;font-size:13px}
+/* Recommendations annex #7 (touch-target-consistency): a @media(pointer:coarse) touch-sizing rule
+   used to exist ONLY in index.html's own <style> block -- the home page auto-enlarged its tap
+   targets on a touchscreen, but every OTHER page (torque.html, procedure.html, part.html, the
+   whole app) reverted to desktop-mouse sizing the moment a mechanic navigated off the home page,
+   unless they separately discovered and toggled kiosk mode. This generalizes that rule here, app-
+   wide, reusing the exact same selector list kiosk-mode's own rule above already maintains (so the
+   two stay in lockstep instead of drifting into two different "which controls count as touch
+   targets" lists). Independent of kiosk-mode: a touchscreen gets sane tap targets by default,
+   whether or not kiosk-mode (bigger text/contrast, a separate opt-in choice) is also on.
+   Checkbox/radio scoped out for the same reason kiosk-mode's rule above scopes them out (min-width
+   would distort them into a square); dense script-driven toolbars (index.html's in-viewer zoom/
+   contrast/tilt row) opt out via .pgctl, sized separately below -- an unscoped 44px min here would
+   blow out that row's height on the one page dense enough to need it compact. */
+@media (pointer:coarse){
+  button,a.btn,.chip,input:not([type="checkbox"]):not([type="radio"]),select,
+  [role="button"],#vw-footer a,#cmdk-pill,#bench-pill{
+    min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px;
+  }
+  input[type="checkbox"],input[type="radio"]{ min-height:24px; min-width:24px; }
+  .pgctl,.pgctl *{ min-height:0; min-width:0; }
+  .pgctl button{ min-height:32px; padding:6px 8px; }
+}
 body{margin:0;background:var(--bg);color:var(--txt);
   font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
 a{color:var(--acc)}
@@ -51,3 +100,66 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
 }
+
+/* ============================================================================================
+   PREMIUM MODE -- opt-in, hardware-gated visual-effects layer on top of "Performance"/"modern".
+   See engine/rps.py's mode_for_setting()/premium_active(): the server only ever sets flags.premium_ui
+   (and rps.js only ever adds this body class) when the hardware probe independently agrees the
+   machine is already capable of "modern" -- never forced onto weaker hardware, never auto-selected,
+   only reachable via an explicit Settings-panel choice (/status).
+
+   PURELY ADDITIVE: every rule below is scoped under body.rps-premium, so auto/performance/retro (the
+   entire app as it existed before this) render byte-identical -- nothing here changes any selector,
+   token, or layout outside this scope. Specificity (`body.rps-premium .card` beats a bare `.card`)
+   lets these override the common per-page conventions already used across this app's page family
+   (.card/.panel/.chip/.btn/button.go -- seen in threed.html, schematics.html, collections.html,
+   stepflow.html, and others) without needing to edit every page individually.
+   Already covered, not duplicated here: prefers-reduced-motion (the media query directly above this
+   block already forces every animation/transition duration to ~0, premium's included); WCAG focus
+   rings (:focus-visible above stays the authoritative accessibility outline -- premium's input glow
+   is a purely decorative addition alongside it, never a replacement); kiosk-mode's 44px touch targets
+   (orthogonal to premium -- a user can have both active; premium only adds depth/motion, never changes
+   any size/spacing kiosk-mode depends on).
+   ============================================================================================ */
+body.rps-premium{
+  --shadow-1:0 1px 2px rgba(0,0,0,.3),0 1px 1px rgba(0,0,0,.22);
+  --shadow-2:0 6px 16px rgba(0,0,0,.38),0 2px 6px rgba(0,0,0,.26);
+  --shadow-3:0 16px 40px rgba(0,0,0,.5),0 6px 14px rgba(0,0,0,.32);
+  --ease:cubic-bezier(.2,.8,.2,1); --dur-fast:.12s; --dur-med:.2s;
+}
+/* a brief, subtle settle on load -- opacity+translate only (never affects layout/measurement, so
+   scripts reading getBoundingClientRect() on mount are unaffected); reduced-motion collapses it to
+   effectively instant via the media query above, same mechanism as everything else on this page */
+body.rps-premium{animation:vw-settle .28s var(--ease) both}
+@keyframes vw-settle{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+/* panels/cards: real depth instead of a flat border, with a lift on hover for anything the page
+   already marked interactive (cursor:pointer is how this app's card-grid pages already signal
+   clickability) */
+body.rps-premium .card,body.rps-premium .panel,body.rps-premium .sec.card{
+  box-shadow:var(--shadow-1);
+  transition:box-shadow var(--dur-med) var(--ease),transform var(--dur-med) var(--ease),border-color var(--dur-fast) var(--ease)
+}
+body.rps-premium .card:hover{box-shadow:var(--shadow-2);transform:translateY(-2px);border-color:var(--acc)}
+body.rps-premium .card:active{transform:translateY(0);box-shadow:var(--shadow-1)}
+/* buttons/chips: a real pressed state and a softer lift than the flat border-color swap they use today */
+body.rps-premium button,body.rps-premium a.btn,body.rps-premium .chip{
+  transition:box-shadow var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)
+}
+body.rps-premium button:hover:not(:disabled),body.rps-premium a.btn:hover{box-shadow:var(--shadow-1);transform:translateY(-1px)}
+body.rps-premium button:active:not(:disabled),body.rps-premium a.btn:active{transform:translateY(0);box-shadow:none}
+/* primary/accent action buttons (button.go, .primary) get a soft glow keyed to the existing --acc
+   hue, not a new color */
+body.rps-premium button.go,body.rps-premium .primary{box-shadow:0 2px 10px rgba(79,157,255,.25)}
+body.rps-premium button.go:hover,body.rps-premium .primary:hover{box-shadow:0 4px 18px rgba(79,157,255,.4);transform:translateY(-1px)}
+/* the shared toast/footer-nav chrome (both already defined above) get the same elevation scale so
+   the whole app reads as one consistent depth system, not just card grids */
+body.rps-premium #vw-toast{box-shadow:var(--shadow-3)}
+body.rps-premium #vw-footer{box-shadow:var(--shadow-2);transition:opacity var(--dur-med) var(--ease),box-shadow var(--dur-med) var(--ease)}
+body.rps-premium #vw-footer:hover{box-shadow:var(--shadow-3)}
+/* inputs: a soft focus glow alongside (never instead of) the WCAG focus-visible outline above */
+body.rps-premium input:focus,body.rps-premium select:focus,body.rps-premium textarea:focus{
+  box-shadow:0 0 0 3px rgba(79,157,255,.18);transition:box-shadow var(--dur-fast) var(--ease)
+}
+/* a touch more type presence on page titles -- weight/spacing only, never font-size (several pages
+   size their h1 against a fixed-height flex header row) */
+body.rps-premium h1{letter-spacing:-.01em}

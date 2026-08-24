@@ -95,10 +95,16 @@ def backup(db_path, dest_path):
 
 
 def status(paths):
-    """One-call health for the command center / integrity route: per-file present/size/integrity + a roll-up."""
+    """One-call health for the command center / integrity route: per-file present/size/integrity + a roll-up.
+
+    databases_ok is computed over every *expected* database path (anything ending in .db/.sqlite/.sqlite3),
+    present or not -- a missing sidecar counts as NOT ok. Silently dropping absent files before the all()
+    check (as an earlier version did) let a corpus missing every sidecar but the tiny main index still read
+    as "all databases intact"."""
     m = manifest(paths)
-    dbs = {p: e for p, e in m.items() if e.get("present") and "integrity" in e}
-    all_ok = all(e.get("integrity") for e in dbs.values()) if dbs else None
+    db_exts = (".db", ".sqlite", ".sqlite3")
+    dbs = {p: e for p, e in m.items() if p.lower().endswith(db_exts)}
+    all_ok = all(e.get("present") and e.get("integrity") for e in dbs.values()) if dbs else None
     return {"files": m, "databases_ok": all_ok, "n_files": sum(1 for e in m.values() if e.get("present"))}
 
 
@@ -139,6 +145,26 @@ if __name__ == "__main__":
     vm = verify_manifest(saved, [db2])
     assert (db2 in vm["changed"]) or (db2 in vm["corrupt"]), vm
     print("verify_manifest catches tampering OK ->", "corrupt" if vm["corrupt"] else "changed")
+
+    # status(): all listed DBs present & intact -> databases_ok True
+    st_ok = status([db])
+    assert st_ok["databases_ok"] is True, st_ok
+    print("status OK -> all present databases intact")
+
+    # status(): a listed DB is MISSING -> databases_ok must be False, not vacuously True.
+    # (regression check: an earlier version filtered missing files out before the all() check, so a
+    # corpus missing every sidecar but the tiny main index still reported "all databases intact")
+    missing_db = os.path.join(d, "nope.db")
+    st_missing = status([db, missing_db])
+    assert st_missing["databases_ok"] is False, st_missing
+    assert st_missing["files"][missing_db]["present"] is False
+    print("status OK -> missing sidecar correctly flips databases_ok to False")
+
+    # status(): no paths supplied at all -> databases_ok is None (nothing to assert about)
+    st_empty = status([])
+    assert st_empty["databases_ok"] is None, st_empty
+    print("status OK -> empty path list -> databases_ok None")
+
     print("integrity self-test PASS")
 
 # END OF FILE

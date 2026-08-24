@@ -8,6 +8,71 @@ modern track lives in `CHANGELOG.md`.
 
 ---
 
+## [1.14.0-legacy] — 2026-08-18 — 50-finding 4-tier audit + UX pass + CI + doc reconciliation ........ ~ adapted
+- Critical tier (8 findings): `procedure_feature.py` infinite-loop fix, `airgap.py` fail-closed validation,
+  ingest-route `VIEWER_INGEST_ROOTS` fencing, `Content-Length` guards, GET-route auth parity, `embed.py`
+  hash-fallback → `zlib.crc32`, `build_publog.py` atomic temp-then-swap rebuild, atomic sidecar-cache writes,
+  `verify_all.py` glob auto-discovery — pure stdlib/regex/SQL logic, no GPU/rendering dependency ........... ✓ same
+- High tier (12 findings): `kg.py` atomic rebuild, `xref.py` NULL-`fig_no` fix, new `viewer_ingest.py prune`
+  subcommand, `migrate()` pre-migration snapshot, word-boundary NSN regex (`patterns.py`/`core_pillars.py`/
+  `partlocate.py`), `safe_public_base()` QR allowlist, this repo's first CI workflow, 171 new regression checks
+  — pure stdlib, identical on both tracks ..................................................................... ✓ same
+- High tier, OCR-pipeline items: OCR preprocessing (deskew/denoise, **+ binarize for the Tesseract fallback**)
+  is now actually wired into the OCR path — the binarize step exists specifically FOR the engine this track
+  uses, so legacy benefits directly here, not just by parity (same `ocrprep.py` module already noted ✓ same at
+  1.3.2-legacy). New `ocr_supervisor.py` heartbeat-staleness watchdog wraps whichever `ocrall` pass is running
+  (GPU/RapidOCR or CPU/Tesseract) via the same `ocr_heartbeat.txt` file either engine writes — pure stdlib
+  process supervision, no OCR-engine dependency of its own ................................................... ✓ same
+- Medium tier (19 of 24 findings): `xref.py` NSN-fabrication guard, `dedup.py` hash() → `zlib.crc32`,
+  `masterfile.py` streaming build, `kg.py neighbors()` indexed lookup, 8 batch-script hardening fixes
+  (`VERIFY.bat` + 7 others) — pure stdlib/CMD, identical on both tracks ...................................... ✓ same
+- Medium tier, render-path item: the large-foldout-page DPI cap was extended to the **Poppler fallback render
+  path** — Poppler IS this track's own renderer (no PyMuPDF needed) — so this closes a real uncapped-rasterize
+  gap on legacy directly, the same "helps legacy most" shape as the 0.56–0.58-legacy speed passes ........... ✓ same
+- Low tier (6 findings): dead-file/module cleanup, `tables.py counts_for_doc()` short-circuit fix (same
+  fitz-gated degrade-to-`[]` behavior already noted at 1.1.1-legacy — fixed where PyMuPDF is present, a no-op
+  where it's absent), `ocr_diag.py` SQL wildcard fix, `verifystate.py` self-test roster drift fix — engine-layer,
+  pure stdlib .................................................................................................. ~ adapted
+- Priority-5 UI/UX pass — `index.html`'s ES6-only front door (the exact gap RPS-Legacy exists to close) now
+  boots a genuine ES5 capability probe + `#legacyHome` fallback shell (search + side chooser + toolset nav)
+  when the engine can't run the rest of the page ................................ ✓ FIXED (was broken on legacy)
+- Interactive 3-D's **SVG fallback** (this track's own no-WebGL render path) gained the same touch-orbit +
+  pinch-zoom + zoom/reset row as the WebGL path, ported from `cadview.js`; the AI-illustrative-model watermark
+  now survives the SVG-fallback's own redraw path too — a review-pass fix explicitly named for "the legacy/
+  no-WebGL path" ............................................................................................... ✓ same
+- Kiosk/glove touch-target fix (min-width, `[role=button]`, footer nav) touches `cadview.js`/`deepzoom.js` —
+  both already-legacy-parity files; Deep Zoom's OCR-only-page chip-list fallback, bin/shelf-audit NIIN-
+  fabrication guard, QR job-packet self-explaining banner + blob-URL fix, and Look-Alike Parts' inline figure
+  thumbnail are all plain DOM/server logic, identical on both tracks .......................................... ✓ same
+- Safety-callout confidence flag (dossier/packet/solve/stepflow + Job Card PDF) reuses `textquality.py`'s
+  existing garbled-text heuristic (already ✓ same at 1.2.2-legacy) — **not** the RapidOCR-only
+  `pages.ocr_confidence` signal from 1.13.5-legacy — so it renders identically over Tesseract-sourced text too . ✓ same
+- Circuit Lab wire selection/deletion lives entirely in `circuitlab.html`'s live-simulation canvas, which this
+  track has never mounted (0.42.0-legacy/0.44.0-legacy: live MNA sim needs a modern JS engine) .................. – N/A
+- `gl3d.js`'s pinch-should-pause-autorotate fix is WebGL-only; a no-WebGL legacy box uses the SVG-fallback's
+  own pinch path instead, unaffected by this specific bug ..................................................... ~ adapted
+- CI-fix pass and the Tier-1 staleness pass (incl. the 19+3-file `fitz`→`pymupdf` alias migration — an
+  import-statement swap only; every existing `fitz.*` call site keeps working unchanged wherever PyMuPDF is
+  present on either track) — pure stdlib/CMD fixes, no runtime behavior change ............................... ✓ same
+- `verify_all.py` is now 26/26 ALL GREEN — the same gate `VERIFY.bat`'s union already runs; the first fully
+  clean run in the project's history, on the one shared engine both tracks execute ........................... ✓ same
+
+---
+
+## [1.13.5-legacy] — 2026-08-09 — OCR confidence capture + temperature extraction gap ................. ~ adapted
+- Temperature bare-F/C fix: `measures.extract()`'s new regex alternative + the designator/C-rate collision
+  guards are pure stdlib `re` over already-OCR'd text — no rendering/OCR-engine dependency, so it applies
+  identically on both tracks (same 100% recall result on `test_accuracy.py` as the modern entry reports) ... ✓ same
+- OCR confidence capture is a RapidOCR-only signal: `ocr_one()`'s new per-line-average confidence score only
+  exists on the modern engine's code path; the Tesseract-fallback legacy path returns `confidence=None` exactly
+  as the modern entry itself documents, so `coverage.overview()`'s new `avg_confidence`/`low_confidence_pages`
+  fields simply report zero scored pages on an all-Tesseract legacy corpus, not an error .. – N/A (GPU-only,
+  not a feature)
+- Migration `0009_ocr_confidence.sql` (additive, nullable) is pure stdlib SQLite DDL — applies to both tracks'
+  schema identically even though only the RapidOCR path ever writes a non-NULL value ......................... ✓ same
+
+---
+
 ## [1.13.4-legacy] — 2026-08-08 — Live-driving pass + parallel audit: 36 bugs fixed .................... ✓ same
 - 12 resource leaks across 10 pure-stdlib `sqlite3` modules (con=None + finally) — no GPU/WebGL/UI involved ..... ✓ same
 - Search side-filter starvation, did-you-mean ranking, fault-tree/procedure duplicate-doc dedup, 2 uncached

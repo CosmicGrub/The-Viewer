@@ -17,8 +17,11 @@ where %PY% >nul 2>&1 || (
 )
 
 REM  Default PUBLOG source folder. Override by passing a path:  BUILD-PUBLOG.bat "D:\path\to\publog"
+REM  (medium finding #34: old default was the original developer's own C:\Users\User\Desktop --
+REM  meaningless on any other machine. %~dp0 is this .bat file's own directory regardless of the
+REM  cd above, so this resolves to a project-relative "publog" folder next to this script.)
 set "SRC=%~1"
-if "%SRC%"=="" set "SRC=C:\Users\User\Desktop\publog"
+if "%SRC%"=="" set "SRC=%~dp0publog"
 if not exist "%SRC%\" (
   echo [ERROR] PUBLOG source folder not found: %SRC%
   echo         Pass the folder that holds P_FLIS_NSN.CSV etc:  BUILD-PUBLOG.bat "D:\path\to\publog"

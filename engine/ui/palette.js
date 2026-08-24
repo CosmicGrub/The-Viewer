@@ -13,6 +13,11 @@
   function toggleKiosk(){ var on=!kioskOn(); try{ window.localStorage.setItem("viewer_kiosk", on?"1":"0"); }catch(e){}
       applyKiosk(on); if(typeof window.toast==="function") window.toast(on?"Kiosk mode ON — big touch targets":"Kiosk mode off"); return on; }
   window.viewerToggleKiosk=toggleKiosk;
+  // Review finding: cadview.js/deepzoom.js/threed.html each independently reimplemented this exact
+  // read (one inconsistently). Export it so they can share one implementation instead. Guarded so
+  // whichever of shared.js/palette.js happens to load first on a given page wins -- most pages load
+  // both, but circuitlab.html/scan.html load only palette.js, so this can't only live in shared.js.
+  if(window.viewerKioskOn===undefined) window.viewerKioskOn=kioskOn;
   (function(){ var apply=function(){ applyKiosk(kioskOn()); };
     if(document.body) apply(); else document.addEventListener("DOMContentLoaded",apply); })();
 
@@ -22,7 +27,7 @@
     {ic:"🛠",label:"Solve it (symptom → fix)",hint:"workflow hub",url:"/solve"},
     {ic:"🌳",label:"Guided troubleshooting",hint:"symptom → checks → corrective action (fault tree)",url:"/troubleshoot"},
     {ic:"🔧",label:"How to do it (procedure)",hint:"steps · tools · cautions",url:"/procedure"},
-    {ic:"📐",label:"Visual steps",hint:"follow-along flow",url:"/stepflow"},
+    {ic:"🎞",label:"Visual steps",hint:"follow-along flow",url:"/stepflow"},
     {ic:"🖨",label:"Job packet",hint:"printable take-to-the-bay sheet",url:"/packet"},
     {ic:"📋",label:"Part dossier",hint:"everything about one part",url:"/dossier"},
     {ic:"🧾",label:"Work Order",hint:"procedures + torque + parts + figures",url:"/jobcard"},
@@ -31,26 +36,28 @@
     {ic:"🔣",label:"Decode a code (NSN/SMR/CAGE/MS)",hint:"paste any code off a page — says what it means",url:"/decode"},
     {ic:"📐",label:"Measurements & dimensions",hint:"every measured value for a part/vehicle, cited",url:"/measures"},
     {ic:"🗂",label:"Masterfile",hint:"consolidated dimensional data: authoritative + external",url:"/master"},
-    {ic:"📊",label:"Masterfile coverage",hint:"dimension gaps by subject; spec-sheet PDFs",url:"/mastercov"},
+    {ic:"📑",label:"Masterfile coverage",hint:"dimension gaps by subject; spec-sheet PDFs",url:"/mastercov"},
     {ic:"🗄",label:"Federal catalog (PUBLOG)",hint:"authoritative NSN/part# · characteristics · CAGE",url:"/publog"},
     {ic:"📷",label:"Scan a part",hint:"hand scanner or camera → NSN/part# lookup",url:"/scan"},
     {ic:"🧩",label:"Exploded / assembly view",hint:"figure hotspots + step-through assembly order",url:"/exploded"},
     {ic:"📦",label:"Bin / shelf audit",hint:"scan NSNs → flag look-alikes & superseded",url:"/binaudit"},
     {ic:"🪪",label:"Part page (everything)",hint:"one authoritative pane + complete job-package PDF",url:"/part"},
-    {ic:"🔎",label:"Provenance audit",hint:"internal: external sources + Wayback links",url:"/audit"},
-    {ic:"🔧",label:"Fastener reference",hint:"thread sizes: dia, TPI/pitch",url:"/fastener"},
+    {ic:"📜",label:"Provenance audit",hint:"internal: external sources + Wayback links",url:"/audit"},
+    {ic:"🪛",label:"Fastener reference",hint:"thread sizes: dia, TPI/pitch",url:"/fastener"},
     {ic:"🗓",label:"PMCS finder",hint:"maintenance-check tables by vehicle",url:"/pmcs"},
     {ic:"🛢",label:"Readiness (fluids · intervals)",hint:"fluids matrix + service intervals by vehicle",url:"/readiness"},
     {ic:"🧠",label:"Semantic search",hint:"search by meaning, not keywords",url:"/semantic"},
-    {ic:"🧩",label:"Related parts & assemblies",hint:"what a part sits inside / ships with",url:"/related"},
-    {ic:"📷",label:"Visual part search",hint:"photo → closest figure crops",url:"/visual"},
+    {ic:"🔗",label:"Related parts & assemblies",hint:"what a part sits inside / ships with",url:"/related"},
+    {ic:"🖼",label:"Visual part search",hint:"photo → closest figure crops",url:"/visual"},
     {ic:"🔍",label:"Look-Alike Parts",hint:"tell apart same-name parts",url:"/partdiff"},
     {ic:"📈",label:"Coverage",hint:"OCR · CAD · vectorized · netlists",url:"/coverage"},
     {ic:"⚡",label:"Circuit Lab",hint:"overlay editor + simulator",url:"/circuitlab"},
     {ic:"🧊",label:"3-D Library",hint:"representative 3-D parts",url:"/3d"},
-    {ic:"📐",label:"Schematics Library",hint:"wiring & schematic sheets",url:"/schematics"},
-    {ic:"🗂",label:"Smart Collections",hint:"living groups that auto-fill from OCR",url:"/collections"},
-    {ic:"➕",label:"Add documents",hint:"index new TMs / PDFs",url:"/ingest"},
+    {ic:"🔌",label:"Schematics Library",hint:"wiring & schematic sheets",url:"/schematics"},
+    {ic:"🏷",label:"Smart Collections",hint:"living groups that auto-fill from OCR",url:"/collections"},
+    {ic:"🔖",label:"Keywords & synonyms",hint:"teach the search your slang, nicknames & abbreviations",url:"/keywords"},
+    {ic:"🕸",label:"Knowledge graph",hint:"everything one hop from a part, figure, vehicle, procedure, or spec",url:"/kg"},
+    {ic:"➕",label:"Add documents",hint:"scan, index & OCR new TMs / PDFs",url:"/ingest"},
     {ic:"📊",label:"Ops dashboard",hint:"health · cache · runs · audit",url:"/ops"},
     {ic:"🛰",label:"Command center",hint:"are-we-complete: OCR% · coverage · PUBLOG · gaps",url:"/command"},
     {ic:"✅",label:"Verification cockpit",hint:"proof state: tests · last verify · sidecars",url:"/verify"},
@@ -219,10 +226,17 @@
   // ---- QoL: record this page for the Recent list + a discoverability pill on every page ----
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",recordCurrent); else recordCurrent();
   try{
-    var pcss="#cmdk-pill,#bench-pill{position:fixed;bottom:12px;z-index:9998;background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;padding:6px 12px;font:11px/1 -apple-system,Segoe UI,Arial,sans-serif;cursor:pointer;opacity:.7;user-select:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}#cmdk-pill{right:12px}#bench-pill{right:104px}#cmdk-pill:hover,#bench-pill:hover{opacity:1;color:#e6e9ee}@media print{#cmdk-pill,#bench-pill{display:none}}";
+    // Recommendations annex #9 (palette-discoverability): "⌘K jump" read as a keyboard-shortcut
+    // reminder for an audience with no reason to know that convention, and was unusable on a touch
+    // tablet with no physical keyboard anyway -- the ONLY entry point there was this pill, at
+    // 11px/opacity .7, competing with the equally tiny bench-pill next to it, sized BELOW the
+    // 44px touch target base.css's own kiosk-mode/pointer:coarse rules use everywhere else. Relabel
+    // to a verb-first description of what it DOES, and size for touch unconditionally -- not gated
+    // behind kiosk mode, which a first-touch tablet user has no way to have already discovered.
+    var pcss="#cmdk-pill,#bench-pill{position:fixed;bottom:12px;z-index:9998;background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;padding:10px 16px;font:13px/1 -apple-system,Segoe UI,Arial,sans-serif;cursor:pointer;opacity:.85;user-select:none;box-shadow:0 4px 14px rgba(0,0,0,.35);min-height:44px;display:flex;align-items:center;box-sizing:border-box}#cmdk-pill{right:12px}#bench-pill{right:150px}#cmdk-pill:hover,#bench-pill:hover{opacity:1;color:#e6e9ee}@media print{#cmdk-pill,#bench-pill{display:none}}";
     var ps=document.createElement("style"); ps.textContent=pcss; (document.head||document.documentElement).appendChild(ps);
-    var pill=document.createElement("div"); pill.id="cmdk-pill"; pill.textContent="⌘K jump"; pill.title="Jump to any tool or part — command palette (Ctrl/Cmd+K)";
-    pill.setAttribute("role","button"); pill.setAttribute("tabindex","0"); pill.setAttribute("aria-label","Open command palette (Ctrl or Cmd + K)");
+    var pill=document.createElement("div"); pill.id="cmdk-pill"; pill.textContent="🔍 Jump to anything"; pill.title="Search everything — any tool, part, or procedure (or press Ctrl/Cmd+K)";
+    pill.setAttribute("role","button"); pill.setAttribute("tabindex","0"); pill.setAttribute("aria-label","Search everything — any tool, part, or procedure");
     pill.onclick=function(){ open(); };
     pill.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } };
     var bpill=null;

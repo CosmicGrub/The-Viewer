@@ -52,7 +52,7 @@
   </div>
   <div id="head" class="muted"></div>
   <div id="results"></div>
-  <div class="warn">⚠ Always confirm on the cited page — values are parsed from OCR/manual text. Torque to the spec and sequence in the actual TM.</div>
+  <div class="warn">⚠ Always confirm on the cited page — values are parsed from OCR/manual text. A "verify on page" flag catches garbled/rough OCR, but a clean-looking single-digit misread (35 read as 85) can pass with no flag at all. Torque to the spec and sequence in the actual TM.</div>
 </div>
 <script>
 (function(){
@@ -101,7 +101,13 @@
         var p=parseTorque(s.value||''); var cv=p?convLabel(p):'';
         var cite=esc((s.vehicle||'?')+' · '+(s.tm_number||'')+' · p.'+(s.page||'?'));
         var link=(s.doc_id&&s.page)?(' <a href="/deepzoom?doc='+encodeURIComponent(s.doc_id)+'&page='+encodeURIComponent(s.page)+'" target="_blank" title="Open the cited page">view page ↗</a>'):'';
-        h+='<div class="spec"><span class="val">'+esc(s.value||'?')+'</span>'+(cv?('<span class="cv">= '+esc(cv)+'</span>'):'')+
+        /* recommendations annex #2: same pattern part.html/dossier.html already use for cautions --
+           s.confidence now comes from torque_specs() threading pages.ocr_confidence through
+           textquality.annotate(). This flags OCR garble (garbage characters, vowel-less tokens); it
+           CANNOT catch a single clean-looking digit swap (35 read as 85) inside otherwise well-formed
+           text -- the badge means "the OCR looked rough here", never "these digits are verified". */
+        var qual=(s.confidence&&s.confidence!=="clean")?(' <span style="color:var(--amb,#e8a06a)" title="OCR text quality: '+esc(s.confidence)+' — this flags garbled text, not a wrong digit in otherwise clean text">⚠ verify on page — OCR quality: '+esc(s.confidence)+'</span>'):"";
+        h+='<div class="spec"><span class="val">'+esc(s.value||'?')+'</span>'+(cv?('<span class="cv">= '+esc(cv)+'</span>'):'')+qual+
            '<div class="ctx">'+esc((s.context||'').trim())+'</div>'+
            '<div class="cite">'+cite+link+'</div></div>';
       });

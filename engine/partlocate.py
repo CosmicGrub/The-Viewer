@@ -4,7 +4,9 @@ or name, find every FIGURE / page in the corpus that calls it out (from the part
 deep-zoom, vectorize, and open the page. Read-only on the index (R1). db_path passed explicitly."""
 import os, sqlite3, re
 
-_NSN = re.compile(r"\d{4}-?\d{2}-?\d{3}-?\d{4}")
+# \b-anchored -- see patterns.py's NSN_RE for why (unanchored, this misreads the first 13 digits
+# of any longer digit run -- an invoice/tracking/PO number typed into the search box -- as an NSN).
+_NSN = re.compile(r"\b\d{4}-?\d{2}-?\d{3}-?\d{4}\b")
 
 
 def _db(db_path):

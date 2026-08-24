@@ -44,10 +44,26 @@ def flag(text):
     return "clean" if q >= 0.75 else ("suspect" if q >= 0.5 else "poor")
 
 
-def annotate(record, context_key="context"):
+def annotate(record, context_key="context", real_confidence=None):
     """Attach {'quality': float, 'confidence': flag} to an extraction record based on its context snippet. Returns the
-    same dict (mutated) so it can be mapped over measures/specs/leadingspecs output before it reaches the Masterfile."""
+    same dict (mutated) so it can be mapped over measures/specs/leadingspecs output before it reaches the Masterfile.
+
+    `real_confidence`: optional 0..1 engine-reported OCR confidence for the record's source page (e.g.
+    pages.ocr_confidence, RapidOCR's own per-line average -- see features/corpus.py's fts_pages()). When
+    given, blends CONSERVATIVELY: it can only pull the text-heuristic score DOWN, never raise it above what
+    the heuristic already found. A confidently-wrong OCR read (garbled-but-plausible-looking digits) is
+    exactly the failure mode this module exists to catch, so a high real_confidence must never override a
+    heuristic 'poor' call; but a low real_confidence CAN catch garble the text heuristic alone reads as
+    clean (e.g. a single swapped digit in an otherwise well-formed sentence). None/out-of-range/unparsable
+    values are ignored -- the heuristic-only score is the safe default, unchanged from before this existed."""
     q = score(record.get(context_key) or record.get("raw") or "")
+    if real_confidence is not None:
+        try:
+            rc = float(real_confidence)
+            if 0.0 <= rc <= 1.0:
+                q = min(q, rc)
+        except (TypeError, ValueError):
+            pass
     record["quality"] = q
     record["confidence"] = "clean" if q >= 0.75 else ("suspect" if q >= 0.5 else "poor")
     return record

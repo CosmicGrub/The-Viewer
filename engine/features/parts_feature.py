@@ -10,6 +10,9 @@ import sqlite3
 import time
 
 from patterns import norm_nsn, NSN_RE  # noqa: F401  (canonical patterns, A6)
+import measures   # dimensional-value comparison for part_differences() -- pure stdlib regex, no
+                   # sidecar dependency (same "live, on-demand, no prebuilt index required"
+                   # philosophy /api/measures itself already uses -- see measures.find_for_query()).
 
 core = None          # injected by viewer_app at startup
 
@@ -75,7 +78,7 @@ def _reviews_con():
 
 
 def record_niin_decision(niin, decision, canonical_nsn="", note="", by=""):
-    niin = re.sub(r"\D", "", niin or "")
+    niin = re.sub(r"\D", "", str(niin) if niin is not None else "")
     decision = (decision or "").strip().lower()
     if len(niin) < 9 or decision not in VALID_NIIN_DECISIONS:
         return {"ok": False, "error": "need a 9-digit NIIN and a decision in %s" % sorted(VALID_NIIN_DECISIONS)}
@@ -99,6 +102,76 @@ def _latest_decisions():
                             "note": r["note"], "decided_at": r["decided_at"]} for r in rows}
     except Exception:
         return {}
+
+
+def all_decisions():
+    """Every decision row ever recorded (full history, not just latest-per-NIIN) -- the export side
+    of airgap.py's export_decisions()/import_decisions() (recommendations annex #17:
+    airgap-multiunit). [] if reviews.db doesn't exist yet."""
+    if not os.path.exists(_reviews_path()):
+        return []
+    try:
+        con = _reviews_con()
+        rows = con.execute("SELECT niin, decision, canonical_nsn, note, decided_by, decided_at "
+                           "FROM niin_decisions ORDER BY id").fetchall()
+        con.close()
+        return [{"niin": r["niin"], "decision": r["decision"], "canonical_nsn": r["canonical_nsn"],
+                "note": r["note"], "decided_by": r["decided_by"], "decided_at": r["decided_at"]}
+                for r in rows]
+    except Exception:
+        return []
+
+
+def apply_imported_decisions(decisions):
+    """Merge a batch of decision dicts from another unit's signed export (already
+    signature-verified by airgap.import_decisions() before this is ever called -- this function
+    does NOT check a signature, only content). Each candidate is validated the same way
+    record_niin_decision() validates one (9-digit NIIN, decision in VALID_NIIN_DECISIONS);
+    invalid entries are skipped, not raised. An import identical to an EXISTING row (same
+    niin/decision/canonical_nsn/decided_by/decided_at) is a no-op -- not re-inserted, not a
+    conflict. A NIIN whose LATEST decision here disagrees with the incoming latest-for-that-niin
+    is surfaced as a conflict and NOT inserted -- this module's decisions are append-only/human-
+    authored by design (record_niin_decision()'s own docstring), so reconciling a genuine
+    disagreement is a human call, not something this function silently resolves by timestamp or
+    "last write wins". Returns {imported, skipped_invalid, conflicts}."""
+    existing = all_decisions()
+    existing_set = {(r["niin"], r["decision"], r["canonical_nsn"], r["decided_by"], r["decided_at"])
+                     for r in existing}
+    latest = _latest_decisions()   # niin -> latest local decision dict
+
+    imported, skipped_invalid, conflicts = [], [], []
+    con = None
+    for d in decisions if isinstance(decisions, list) else []:
+        if not isinstance(d, dict):
+            skipped_invalid.append(d); continue
+        niin = re.sub(r"\D", "", str(d.get("niin", "")))
+        decision = (d.get("decision") or "").strip().lower()
+        if len(niin) != 9 or decision not in VALID_NIIN_DECISIONS:
+            skipped_invalid.append(d.get("niin", d)); continue
+        canonical_nsn = (d.get("canonical_nsn") or "").strip()
+        note = (d.get("note") or "").strip()[:500]
+        decided_by = (d.get("decided_by") or "").strip()[:80]
+        decided_at = (d.get("decided_at") or "").strip()
+        key = (niin, decision, canonical_nsn, decided_by, decided_at)
+        if key in existing_set:
+            continue   # byte-identical to a row we already have -- silent no-op, not a conflict
+        local_latest = latest.get(niin)
+        if local_latest and (local_latest["decision"] != decision
+                              or local_latest["canonical_nsn"] != canonical_nsn):
+            conflicts.append({"niin": niin, "local": local_latest,
+                              "incoming": {"decision": decision, "canonical_nsn": canonical_nsn,
+                                          "decided_by": decided_by, "decided_at": decided_at}})
+            continue
+        if con is None:
+            con = _reviews_con()
+        con.execute("INSERT INTO niin_decisions(niin,decision,canonical_nsn,note,decided_by,decided_at) "
+                   "VALUES(?,?,?,?,?,COALESCE(NULLIF(?,''),datetime('now')))",
+                   (niin, decision, canonical_nsn, note, decided_by, decided_at))
+        imported.append(niin)
+    if con is not None:
+        con.commit(); con.close()
+    return {"imported": len(imported), "imported_niins": imported,
+            "skipped_invalid": skipped_invalid, "conflicts": conflicts}
 
 
 def nsn_aliases(nsn):
@@ -311,9 +384,15 @@ def tech_status_suggest(vehicle, fault, parts=""):
 
 def part_lookup(nsn):
     """Cited catalog references for an NSN: which figure(s)/page(s)/vehicle(s) it appears in (RPSTL).
-    Grounded and verifiable — every ref points at a real page. Does not assert an exact part#."""
+    Grounded and verifiable — every ref points at a real page. Does not assert an exact part#.
+
+    Recommendations annex #14 (barcode-ocr-conflict): also surfaces any recorded barcode-vs-OCR
+    disagreement touching this NSN (viewer_ingest.extract_parts()'s parts_conflicts table, migration
+    0012) -- on EITHER side (this NSN could be what the barcode decoded, or what the page's OCR text
+    read, in a given conflict row). Read-only, degrades to [] on an older DB without the table."""
     nsn = (nsn or "").strip()
     if not nsn: return {"nsn": "", "found": False, "refs": []}
+    nsn = norm_nsn(nsn) or nsn   # canonical dashed form -- parts.nsn is always stored dashed (A6)
     con = core.db()
     try:
         refs = [dict(r) for r in con.execute(
@@ -322,9 +401,15 @@ def part_lookup(nsn):
             "GROUP BY vehicle, fig_no, fig_title ORDER BY n DESC, vehicle LIMIT 20", (nsn,)).fetchall()]
     except sqlite3.OperationalError:
         refs = []
+    try:
+        conflicts = [dict(r) for r in con.execute(
+            "SELECT document_id, page, vehicle, barcode_nsn, page_nsn FROM parts_conflicts "
+            "WHERE barcode_nsn=? OR page_nsn=? LIMIT 10", (nsn, nsn)).fetchall()]
+    except sqlite3.OperationalError:
+        conflicts = []   # pre-migration-0012 DB -- no conflicts table yet
     con.close()
     nomen = next((r["fig_title"] for r in refs if r.get("fig_title")), None)
-    return {"nsn": nsn, "found": bool(refs), "nomenclature": nomen, "refs": refs}
+    return {"nsn": nsn, "found": bool(refs), "nomenclature": nomen, "refs": refs, "conflicts": conflicts}
 
 
 def part_differences(query, limit=80):
@@ -371,6 +456,37 @@ def part_differences(query, limit=80):
         if len(v["refs"]) < 6:
             v["refs"].append({"vehicle": r["vehicle"], "fig_no": r["fig_no"], "fig_title": r["fig_title"],
                               "page": r["page"], "document_id": r["document_id"]})
+    # Dimensional data per variant -- length/diameter/thread/torque/etc., read LIVE off each
+    # variant's own cited page(s) (measures.extract() over pages.body_text -- same on-demand, no-
+    # sidecar-required approach /api/measures itself already uses), never merged/averaged across
+    # variants (each variant's dimensions come only from ITS OWN cited document+page -- matching
+    # the "no cross-referencing" constraint this whole recognizer already follows for NSN/UOC/CAGEC).
+    # One batched query for every (document_id, page) any variant cites, not one query per variant.
+    _dim_pairs = {(v2["refs"][0]["document_id"], v2["refs"][0]["page"])
+                  for v2 in variants.values() if v2["refs"] and v2["refs"][0]["document_id"] and v2["refs"][0]["page"]}
+    _dim_text = {}
+    if _dim_pairs:
+        try:
+            con2 = core.db()
+            for doc_id, page in _dim_pairs:
+                pr = con2.execute("SELECT body_text FROM pages WHERE document_id=? AND page_number=?",
+                                  (doc_id, page)).fetchone()
+                _dim_text[(doc_id, page)] = (pr["body_text"] if pr else "") or ""
+            con2.close()
+        except Exception:
+            _dim_text = {}
+    for v2 in variants.values():
+        dims = []
+        if v2["refs"]:
+            r0 = v2["refs"][0]
+            body = _dim_text.get((r0["document_id"], r0["page"]), "")
+            if body:
+                try:
+                    for m in measures.extract(body, page=r0["page"], cap=20):
+                        dims.append("%s %s%s" % (m["type"], m["value"], (" " + m["unit"]) if m.get("unit") else ""))
+                except Exception:
+                    pass
+        v2["dimensions"] = dims
     if not variants:
         empty["nomenclature"] = nom; return empty
     distinct = list(variants.values())
@@ -385,6 +501,8 @@ def part_differences(query, limit=80):
     if len(union("cagec")) > 1: disc.append(("CAGEC", "different manufacturer source code"))
     if len(union("smr")) > 1: disc.append(("SMR", "different source / maintenance / recoverability handling"))
     if len(union("part_numbers")) > 1: disc.append(("part #", "different manufacturer part numbers"))
+    if len({tuple(sorted(v["dimensions"])) for v in distinct if v["dimensions"]}) > 1:
+        disc.append(("dimensions", "different measured dimensions on the cited page -- may be a physically different size/variant, not just a catalog-format difference"))
     ref = variants.get(ref_nsn) or distinct[0]; ref_niin = ref["niin"]
     for v in distinct:
         tells = []
@@ -402,6 +520,9 @@ def part_differences(query, limit=80):
                 tells.append("Different manufacturer (CAGEC %s vs %s)." % (", ".join(sorted(v["cagec"])), ", ".join(sorted(ref["cagec"]))))
             if v["part_numbers"] and ref["part_numbers"] and v["part_numbers"] != ref["part_numbers"]:
                 tells.append("Different manufacturer part number.")
+            if v["dimensions"] and ref["dimensions"] and set(v["dimensions"]) != set(ref["dimensions"]):
+                tells.append("Different measured dimensions: [%s] vs reference [%s] -- check size/fit before ordering."
+                             % (", ".join(v["dimensions"][:4]), ", ".join(ref["dimensions"][:4])))
         corr = correlations_for(v["nsn"]) or {}
         if corr.get("interchangeable"):
             v["interchangeable_across"] = corr["interchangeable"].get("vehicles", [])
@@ -420,6 +541,7 @@ def reference_for(nsn=None, size=None):
     con = core.db(); out = {}
     if nsn:
         nsn = nsn.strip()
+        nsn = norm_nsn(nsn) or nsn   # canonical dashed form -- ref_nsn.nsn is always stored dashed (A6)
         try:
             try:
                 r = con.execute("SELECT nsn,item_name,description,gsa_price,part_no,cagec,characteristics,aac,substitutes,data_date,superseded,alt_parts,source,source_url,fetched_at FROM ref_nsn WHERE nsn=?", (nsn,)).fetchone()

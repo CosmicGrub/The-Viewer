@@ -137,11 +137,15 @@ def build_profile():
     else:                 cap = 2                  # legacy / low
     workers = max(1, min(cores, by_ram, cap))
 
-    # render DPI for OCR + the viewer's full-page HD ceiling, scaled to capability
-    if use_gpu:           ocr_dpi, hd_cap = 220, 400
-    elif cores >= 8 and ram_gb >= 16: ocr_dpi, hd_cap = 200, 360
-    elif cores >= 4 and ram_gb >= 8:  ocr_dpi, hd_cap = 165, 300
-    else:                 ocr_dpi, hd_cap = 130, 240
+    # render DPI for OCR, scaled to capability. (The viewer's full-page HD render ceiling is NOT
+    # decided here — it comes from rps.py's tier-keyed render_dpi_cap via RPS_FLAGS, which is the
+    # single source of truth the page-render route actually consumes. This module used to compute
+    # its own disagreeing hd_render_cap; it was dead — nothing but this file's own print statement
+    # ever read it — so it's gone rather than left as a second, conflicting cap.)
+    if use_gpu:           ocr_dpi = 220
+    elif cores >= 8 and ram_gb >= 16: ocr_dpi = 200
+    elif cores >= 4 and ram_gb >= 8:  ocr_dpi = 165
+    else:                 ocr_dpi = 130
 
     # Laptop / battery awareness: leave thermal headroom on gaming laptops (GPU is the OCR bottleneck,
     # so fewer CPU feeder workers keeps it cool and stable); ease off further on battery.
@@ -166,7 +170,7 @@ def build_profile():
     else: tier = "Legacy / low-power"
 
     # Available engines / tools — THE VIEWER substitutes per OS so every FEATURE works back to Vista.
-    has_pymupdf = _have_module("fitz")
+    has_pymupdf = _have_module("pymupdf")
     has_pillow = _have_module("PIL")
     has_rapid = _have_module("rapidocr") or _have_module("rapidocr_onnxruntime")
     has_tesseract = bool(shutil.which("tesseract"))
@@ -231,7 +235,7 @@ def build_profile():
         "cpu_cores": cores, "ram_gb": ram_gb, "free_disk_gb": disk,
         "is_laptop": bool(is_laptop), "on_battery": bool(on_battery),
         "gpu": gpu, "strong_gpu": strong_gpu, "tier": tier, "performance_mode": perf,
-        "use_gpu": use_gpu, "ocr_workers": workers, "ocr_dpi": ocr_dpi, "hd_render_cap": hd_cap,
+        "use_gpu": use_gpu, "ocr_workers": workers, "ocr_dpi": ocr_dpi,
         "render_backend": render_backend, "ocr_backend": ocr_backend,
         "features": features, "warnings": warnings,
     }
@@ -283,7 +287,6 @@ def main():
     print("TIER          :", p["tier"])
     print("Render engine :", p["render_backend"], " OCR engine:", p["ocr_backend"])
     print("OCR           :", ("GPU" if p["use_gpu"] else "CPU"), "·", p["ocr_workers"], "workers ·", p["ocr_dpi"], "dpi")
-    print("Viewer HD cap :", p["hd_render_cap"], "dpi")
     print("Compatibility : COMPLETE core features Windows 11 -> Vista (GPU acceleration is the only Win10+ extra)")
     if p.get("recommended_run_mode"):
         _lbl = "Performance" if p.get("run_mode_ui") == "performance" else "Retroactive Post-Support"

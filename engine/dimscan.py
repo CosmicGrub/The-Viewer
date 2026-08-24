@@ -42,8 +42,12 @@ def detect_dimension_lines(image, min_len=40, max_lines=400):
         out = []
         if lines is None:
             return out
+        # cv2.HoughLinesP's output shape differs across OpenCV versions: pre-5.x returns
+        # (N, 1, 4) (each line nested one level deep), while opencv-python 5.x returns
+        # (N, 4) directly. Normalize to (N, 4) so indexing works on either.
+        lines = lines.reshape(-1, 4)
         for ln in lines[:max_lines]:
-            x1, y1, x2, y2 = (int(v) for v in ln[0])
+            x1, y1, x2, y2 = (int(v) for v in ln)
             length = round(math.hypot(x2 - x1, y2 - y1), 1)
             if length < min_len:
                 continue

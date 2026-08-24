@@ -164,7 +164,7 @@ def _loc_db():
     d = tempfile.mkdtemp(prefix="loc_"); db = os.path.join(d, "v.db"); c = sqlite3.connect(db)
     c.execute("CREATE TABLE documents(id INTEGER PRIMARY KEY, path TEXT, vehicle TEXT, tm_number TEXT, title TEXT)")
     c.execute("CREATE TABLE parts(id INTEGER PRIMARY KEY, document_id INT, page INT, nsn TEXT, part_number TEXT, name TEXT, nomenclature TEXT, cagec TEXT, smr TEXT, uoc TEXT, fig_no TEXT, fig_title TEXT)")
-    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT)")
+    c.execute("CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT, char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT, ocr_confidence REAL)")
     rng = random.Random(5)
     for i in range(1, 6):
         c.execute("INSERT INTO documents VALUES(?,?,?,?,?)", (i, "/x/%d.pdf" % i, "HMMWV", "TM 9-%d" % i, "T"))

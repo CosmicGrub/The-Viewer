@@ -29,6 +29,19 @@
   body.kiosk-mode button,body.kiosk-mode a.ghost,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{min-height:44px;padding-top:11px;padding-bottom:11px;font-size:15px}
   body.kiosk-mode a{text-decoration:underline}
   body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
+  /* Recommendations annex #7 (touch-target-consistency): base.css now carries a generic
+     @media(pointer:coarse) touch-sizing rule -- but per the SAME "doesn't load base.css" gap the
+     comment above already fixed once for kiosk-mode/focus-visible, this page never inherits it
+     either. Inlined here for the identical reason: without this, the fix that made every OTHER
+     page touch-friendly by default would have left the app's own front door as the one page still
+     reverted to desktop-mouse sizing on a bare touchscreen (no kiosk-mode toggle needed). */
+  @media (pointer:coarse){
+    button,a.ghost,.chip,input:not([type="checkbox"]):not([type="radio"]),select,[role="button"]{
+      min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px;
+    }
+    .pgctl,.pgctl *{ min-height:0; min-width:0; }
+    .pgctl button{ min-height:32px; padding:6px 8px; }
+  }
   .menuwrap{position:relative;display:inline-flex}
   .menupop{position:absolute;right:0;top:calc(100% + 6px);min-width:228px;background:var(--panel);
     border:1px solid var(--line);border-radius:10px;padding:6px;z-index:60;display:flex;flex-direction:column;
@@ -69,6 +82,8 @@
   .badge{background:#22314a;color:#bcd4ff;border-radius:5px;padding:1px 7px;font-size:11px}
   .badge.tm{background:#2a3a2c;color:#bfe6c5}.badge.pg{background:#3a3326;color:#e8d5a6}
   .badge.ocr{background:#3a2a3a;color:#e6bce6}.badge.ty{background:#2c2f3a;color:#cdd3e0}
+  .badge.approx{background:#2f3a2a;color:#c9e6a0}
+  .conf.high{background:#1e3324;color:#7fd6a0}.conf.verify{background:#3a301a;color:#e8c07a}.conf.low{background:#3a2020;color:#e6a0a0}
   .badge.fav{background:#3a3320;color:#ecdca0}
   .snip{color:#cfd6df;font-size:13px;line-height:1.45}
   .snip mark{background:var(--mark);color:#ffe9a8;padding:0 2px;border-radius:2px}
@@ -207,12 +222,36 @@
     .vside{width:100%;min-width:0;border-left:none;border-top:1px solid var(--line)}
     .vthumbs{display:none !important}
   }
+  /* Recommendations annex #7 (touch-target-consistency): the button-sizing half of this rule moved
+     to base.css so every page gets it, not just this one -- see base.css's own comment for why.
+     These three stay HERE: .vehcard/.result/.searchbar input are index.html-specific class names
+     (page content density, not generic touch-target sizing), so they don't belong in the shared
+     token sheet. */
   @media (pointer:coarse){
-    button{padding:11px 15px}
     .vehcard{padding:12px}
     .result{padding:14px 16px}
     .searchbar input{padding:13px}
   }
+  /* UX finding #1 (priority 5): this file's main script (below) is ES6 syntax throughout and is
+     intentionally MODERN_BY_DESIGN (rps_lint.py) -- on a true ES5 engine (IE11, old Firefox on
+     Win7/Vista, exactly what RPS-Legacy targets) that whole script fails to parse and NOTHING in it
+     runs, including its ES5-style search/sidegate functions. #legacyHome is a small, independently
+     ES5-safe fallback (own script block, checked separately by tools/check_es5_fallback.py) that a tiny
+     capability probe reveals only when the main script can't run, so legacy hardware still gets a
+     working search + side chooser instead of a dead page.
+  */
+  #legacyHome{display:none}
+  html.viewer-legacy-fallback #legacyHome{display:block}
+  html.viewer-legacy-fallback main{display:none}
+  #legacyHome{max-width:640px;margin:24px auto;padding:0 20px 40px}
+  #legacyHome h2{font-size:15px;margin:26px 0 10px}
+  #legacyHome ul{margin:0;padding-left:20px;line-height:1.9}
+  #legacyHome .note{font-size:12.5px;color:var(--sub)}
+  #legacyHome input[type=text]{width:100%;padding:11px;font-size:15px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:6px;color:var(--txt)}
+  #legacyHome .lresult{padding:10px 0;border-bottom:1px solid var(--line)}
+  #legacyHome .lresult a{color:var(--accent);text-decoration:none;font-weight:600}
+  #legacyHome button.go,#legacyHome button.ghost{min-height:44px}
 </style>
 <script src="/rps.js"></script>
 <script src="/palette.js"></script>
@@ -229,22 +268,23 @@
   <div class="tg">
     <!-- v0.98.0 nav consolidation: Schematics + 3D Library live INSIDE Collections now; the
          mechanic tools + admin pages live behind ONE Tools menu. Every old route still works. -->
-    <a class="ghost" href="/collections" title="Smart Collections + the Schematics & 3D libraries" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">🗂 Collections</a>
+    <a class="ghost" href="/collections" title="Smart Collections + the Schematics & 3D libraries" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">🏷 Collections</a>
     <div class="menuwrap">
       <button class="ghost" id="toolsBtn" aria-haspopup="true" aria-expanded="false" title="All mechanic tools + admin pages">🧰 Tools ▾</button>
       <div class="menupop" id="toolsPop" hidden>
         <a href="/solve" title="Symptom → parts → how-to → tools → schematic, in one place">🛠 Solve it</a>
         <a href="/semantic" title="Search by meaning, not just keywords (offline)">🧠 Semantic search</a>
-        <a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🧩 Related parts</a>
-        <a href="/visual" title="Photo of a part → closest figure crops (offline)">📷 Visual search</a>
+        <a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🔗 Related parts</a>
+        <a href="/kg" title="Explore the part↔figure↔vehicle↔procedure↔spec knowledge graph, one hop at a time (offline)">🕸 Knowledge graph</a>
+        <a href="/visual" title="Photo of a part → closest figure crops (offline)">🖼 Visual search</a>
         <a href="/bench" title="Your pinned parts / procedures / pages">★ My Bench</a>
         <a href="/dossier" title="Everything about one part, in one page">📋 Part dossier</a>
-        <a href="/part" title="One fast pane per part: identity + dims + torque + procedure + cautions, all cited">📄 Part page (fast)</a>
+        <a href="/part" title="One fast pane per part: identity + dims + torque + procedure + cautions, all cited">🪪 Part page (fast)</a>
         <a href="/measures" title="Every measured value for a part/vehicle — dimensions, torque, pressure — each cited">📐 Measurements &amp; dimensions</a>
-        <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📸 Scan (camera)</a>
+        <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📷 Scan (camera)</a>
         <a href="/procedure" title="Step-by-step remove/install, tools & cautions from the manuals">🔧 How to do it</a>
         <a href="/torque" title="Cited torque values for a part + ft-lb / in-lb / N·m converter">🔩 Torque quick-ref</a>
-        <a href="/fastener" title="Thread sizes: major dia, TPI/pitch, class — UNC/UNF/metric">🔧 Fastener reference</a>
+        <a href="/fastener" title="Thread sizes: major dia, TPI/pitch, class — UNC/UNF/metric">🪛 Fastener reference</a>
         <a href="/pmcs" title="Find Preventive Maintenance Checks &amp; Services tables by vehicle">🗓 PMCS finder</a>
         <a href="/partdiff" title="Tell apart parts that look identical but aren't">🔍 Look-Alike Parts</a>
         <a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a>
@@ -261,12 +301,12 @@
         <a href="/binaudit" title="Scan bin/shelf NSNs → flag look-alikes &amp; superseded stock">📦 Bin / shelf audit</a>
         <a href="/learn" title="Cited multiple-choice quiz built from the manuals">🎓 Learn / quiz mode</a>
         <div class="msep" role="separator"></div>
-        <a href="/ingest" title="Index new TMs / PDFs — no command line">➕ Add documents</a>
+        <a href="/ingest" title="Scan, index, and OCR new TMs / PDFs — no command line">➕ Add documents</a>
         <a href="/ops" title="Ops dashboard — mode, cache, runs, coverage, file audit">📊 Ops</a>
         <a href="/status" title="OCR status">🔤 OCR status</a>
         <a href="/verify" title="Verification cockpit — proof state: tests · last verify · sidecars (admin)">✅ Verification cockpit</a>
         <a href="/command" title="Command center — are-we-complete: OCR% · coverage · PUBLOG · gaps (admin)">🛰 Command center</a>
-        <button id="pnReviewBtn" title="Review &amp; fix low-confidence part-number rows (OCR-noisy)">🔧 Part# review</button>
+        <button id="pnReviewBtn" title="Review &amp; fix low-confidence part-number rows (OCR-noisy)">✎ Part# review</button>
       </div>
     </div>
     <a class="ghost" href="/help" title="Help & feature guide — or press Ctrl+K anywhere" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">❔ Help</a>
@@ -276,12 +316,127 @@
   </div>
 </header>
 <script>
+/* UX finding #1 (priority 5): ES5-only capability probe. Must be the FIRST script after <header> and
+   must itself never use ES6 syntax (checked by engine/tools/check_es5_fallback.py, same PATTERNS as
+   rps_lint.py). Detects whether this engine can even parse the ES6 syntax the giant script further
+   down this page (MODERN_BY_DESIGN, intentionally not ES5-safe) actually uses; if not, that script
+   will fail to parse and never run at all -- so we reveal the #legacyHome fallback instead of leaving
+   a dead page.
+   Review finding: the first draft only tested arrow-function support -- an engine supporting arrows
+   but not async/await (a real, non-hypothetical gap; e.g. Firefox ~22-51) would pass the probe and
+   still get a fully broken page, since the guarded script below uses async/await ~10 times. This now
+   exercises every ES6 construct rps_lint.py's own PATTERNS list checks for (the same constructs known
+   to appear SOMEWHERE in the guarded script), all inside one Function(...) constructor call -- syntax
+   errors are caught at CONSTRUCTION time, before the function body would ever need to run, so none of
+   this is actually executed on any engine. */
+var VIEWER_LEGACY = false;
+try {
+  Function("const c=1; let l=2; var f=(a)=>a; var t=`x`; for (var i of [1]) {} var s=[...[1]];" +
+           "class C {} async function g(){ await 1; }");
+} catch (probeErr) { VIEWER_LEGACY = true; }
+if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallback"; }
+</script>
+
+<div id="legacyHome">
+  <p class="note">Running in compatibility mode for this browser — <a href="/help">full guide</a></p>
+  <h2>Search — part #, NSN, material #, or key term</h2>
+  <form id="lgSearchForm">
+    <input id="lgQ" type="text" placeholder="Search a part…" autocomplete="off">
+    <button type="submit" class="go" style="margin-top:8px">Search</button>
+  </form>
+  <div id="lgResults"></div>
+
+  <h2>Choose your side of the house</h2>
+  <button id="lgOperator" class="ghost">Operator (10-level)</button>
+  <button id="lgMechanic" class="ghost" style="margin-left:8px">Mechanic (20-level)</button>
+  <p id="lgSideNote" class="note"></p>
+
+  <h2>Tools</h2>
+  <ul>
+    <li><a href="/torque">Torque &amp; fastener reference</a></li>
+    <li><a href="/procedure">Procedures</a></li>
+    <li><a href="/collections">Smart Collections</a></li>
+    <li><a href="/pmcs">PMCS worksheet</a></li>
+    <li><a href="/decode">Decoders (standards / NSN / SMR / CAGE)</a></li>
+    <li><a href="/status">System status</a></li>
+    <li><a href="/help">Help &amp; feature guide</a></li>
+  </ul>
+</div>
+<script>
+/* UX finding #1: the fallback's own logic -- kept ES5-only (checked by
+   engine/tools/check_es5_fallback.py) and deliberately independent of the main script below (which
+   never runs on the engines this code exists for). Reuses the SAME localStorage key + body-class
+   convention as chooseSide()/saveSide() further down this file, so a side chosen here is honored the
+   same way if the user later opens the app on a modern machine, and vice versa. */
+(function () {
+  function $(sel) { return document.querySelector(sel); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function saveSide(side) {
+    try { localStorage.setItem("viewer_side", side); } catch (e) {}
+    try {
+      document.body.className = (document.body.className || "").replace(/\bviewer-(operator|mechanic)\b/g, "").trim() + " viewer-" + side;
+    } catch (e) {}
+    var note = $("#lgSideNote");
+    if (note) { note.textContent = "Side set to " + (side === "operator" ? "Operator (10-level)" : "Mechanic (20-level)") + "."; }
+  }
+  var opBtn = $("#lgOperator"), mechBtn = $("#lgMechanic");
+  if (opBtn) { opBtn.onclick = function () { saveSide("operator"); }; }
+  if (mechBtn) { mechBtn.onclick = function () { saveSide("mechanic"); }; }
+
+  function renderResults(list) {
+    var box = $("#lgResults");
+    if (!box) return;
+    if (!list || !list.length) { box.innerHTML = '<p class="note">No matches.</p>'; return; }
+    var html = "";
+    for (var i = 0; i < list.length && i < 30; i++) {
+      var r = list[i];
+      var href = "/page?doc=" + encodeURIComponent(r.doc_id) + "&page=" + encodeURIComponent(r.page_number || 1) + "&dpi=150";
+      html += '<div class="lresult"><a href="' + href + '" target="_blank" rel="noopener">' +
+        esc(r.tm_number || r.title || ("document " + r.doc_id)) + " — p." + (r.page_number || "?") + "</a>" +
+        (r.vehicle ? (" <span class=\"note\">" + esc(r.vehicle) + "</span>") : "") + "</div>";
+    }
+    box.innerHTML = html;
+  }
+  var form = $("#lgSearchForm");
+  if (form) {
+    form.onsubmit = function (ev) {
+      ev.preventDefault();
+      var q = ($("#lgQ") || {}).value || "";
+      if (!q.replace(/^\s+|\s+$/g, "")) return;
+      var box = $("#lgResults");
+      if (box) box.innerHTML = '<p class="note">Searching…</p>';
+      fetch("/api/search?limit=30&q=" + encodeURIComponent(q)).then(function (r) { return r.json(); })
+        .then(function (d) { renderResults((d && d.results) || []); })
+        .catch(function () { if (box) box.innerHTML = '<p class="note">Search error.</p>'; });
+    };
+  }
+})();
+</script>
+
+<script>
 /* v0.98.0: Tools menu — accessible toggle (Esc + outside-click close, aria-expanded synced). */
 (function(){
   var b=document.getElementById("toolsBtn"), p=document.getElementById("toolsPop");
   if(!b||!p) return;
   function close(){ p.hidden=true; b.setAttribute("aria-expanded","false"); }
-  function open_(){ p.hidden=false; b.setAttribute("aria-expanded","true"); }
+  // recommendations annex #6 (search-torque-routing): every destination page already reads ?q= off
+  // its own URL and prefills/auto-runs (torque.html/measures.html/part.html/dossier.html etc. all
+  // do this) -- but nothing here ever SET it, so opening a tool from the menu silently dropped
+  // whatever the mechanic had just typed/searched, forcing a retype. Threaded through on every open,
+  // not baked into each link's static href (the current query changes on every search).
+  function threadQuery(){
+    var qEl=document.getElementById("q");
+    var q=((qEl&&qEl.value)||(typeof LAST_QUERY!=="undefined"?LAST_QUERY:"")||"").trim();
+    var links=p.querySelectorAll('a[href^="/"]');
+    for(var i=0;i<links.length;i++){
+      var href=links[i].getAttribute("href");
+      var base=href.split("?")[0];
+      links[i].setAttribute("href", q ? (base+"?q="+encodeURIComponent(q)) : base);
+    }
+  }
+  function open_(){ threadQuery(); p.hidden=false; b.setAttribute("aria-expanded","true"); }
   b.addEventListener("click",function(ev){ ev.stopPropagation(); p.hidden?open_():close(); });
   document.addEventListener("click",function(ev){ if(!p.hidden && !p.contains(ev.target) && ev.target!==b) close(); });
   document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && !p.hidden){ close(); b.focus(); } });
@@ -582,9 +737,17 @@
 
 <script>
 const $=s=>document.querySelector(s);
-let SESSION={}, CART=[], VIEW={doc:null,page:1,pages:1,meta:null,zi:2,hl:true,thumbs:false}, LAST_QUERY="", BROWSE_ONLY=false;
-let ALL=[], DYM=[], FILTER={vehicle:null,type:null,source:null}, VEHICLES=null, THUMB={lo:0,hi:0};   // DYM: v0.97.0 did-you-mean (C20)
 const DPIS=[90,120,150,200,260,340];
+// Tier-aware default zoom index: rps.js sets window.RPS.dpi to the server's tiered default_dpi (150
+// modern / 120 lite / 100 legacy -- rps.py's feature_flags()) once /api/rps resolves. Map it to the
+// nearest DPIS slot instead of assuming index 2 (150) on every tier, so weak hardware actually gets
+// the lighter initial page render the server already computed for it.
+function dpiIndexFor(dpi){ var best=2, bestDiff=Infinity;
+  for(var i=0;i<DPIS.length;i++){ var d=Math.abs(DPIS[i]-dpi); if(d<bestDiff){ bestDiff=d; best=i; } }
+  return best; }
+function defaultZi(){ return dpiIndexFor((window.RPS&&window.RPS.dpi)||150); }
+let SESSION={}, CART=[], VIEW={doc:null,page:1,pages:1,meta:null,zi:defaultZi(),hl:true,thumbs:false}, LAST_QUERY="", BROWSE_ONLY=false;
+let ALL=[], DYM=[], FILTER={vehicle:null,type:null,source:null}, VEHICLES=null, THUMB={lo:0,hi:0};   // DYM: v0.97.0 did-you-mean (C20)
 
 // ---- Settings & layout presets (presentation only; never touches data/search/request) ----
 const SET_DEFAULTS={size:"normal",density:"comfortable",fields:"advanced",match:"all",vthumbs:false,vhl:true};
@@ -690,6 +853,12 @@ function chooseSide(side){
   if(side==="operator"){            // operator -> straight to the browser, skip the parts-request sheet
     BROWSE_ONLY=true; $("#overlay").style.display="none"; $("#editBtn").style.display="none";
     renderCtx(); loadHome(); var qq=$("#q"); if(qq) qq.focus();
+  } else if(browseSavedFresh()){    // recommendations annex #5 (mechanic-regate): a mechanic who
+    // already chose "just let me browse" this shift shouldn't re-clear the same modal every single
+    // cold start -- only re-prompt once the choice has expired (or a real session is later started,
+    // which clearBrowseOnly() below re-arms).
+    BROWSE_ONLY=true; $("#editBtn").style.display=""; $("#overlay").style.display="none";
+    renderCtx(); loadHome(); var qq2=$("#q"); if(qq2) qq2.focus();
   } else {                          // mechanic -> the parts-request sheet onboarding
     BROWSE_ONLY=false; $("#editBtn").style.display="";
     $("#overlay").style.display="flex"; if(typeof updateSheetPrev==="function") updateSheetPrev();
@@ -747,9 +916,22 @@ if($("#watchTourBtn")) $("#watchTourBtn").onclick=function(){ $("#sidegate").sty
 
 // ---- skip straight to browsing (no tour, no side commitment — pure repository) ----
 function browseSaved(){ try{ return localStorage.getItem("viewer_browse_only")==="1"; }catch(e){ return false; } }
+// recommendations annex #5 (mechanic-regate): time-box the "just let me browse" preference to one
+// duty shift (12h) rather than forever -- a stale bumper#/fault-adjacent skip shouldn't silently
+// persist for days on a shared kiosk laptop. One source of truth for setting/clearing it, used by
+// skipToBrowsing(), the #browseBtn overlay handler, and chooseSide()'s mechanic-side check above.
+function browseSavedFresh(){
+  if(!browseSaved()) return false;
+  try{ var ts=parseInt(localStorage.getItem("viewer_browse_only_ts")||"0",10);
+       return ts>0 && (Date.now()-ts) < 12*60*60*1000; }catch(e){ return true; }
+}
+function setBrowseOnly(){ try{ localStorage.setItem("viewer_browse_only","1");
+  localStorage.setItem("viewer_browse_only_ts", String(Date.now())); }catch(e){} }
+function clearBrowseOnly(){ try{ localStorage.removeItem("viewer_browse_only");
+  localStorage.removeItem("viewer_browse_only_ts"); }catch(e){} }
 function skipToBrowsing(){
   setDemoSeen();
-  try{ localStorage.setItem("viewer_browse_only","1"); }catch(e){}
+  setBrowseOnly();
   var g=$("#demogate"); if(g) g.style.display="none"; var f=$("#demoFrame"); if(f) f.src="about:blank";
   $("#sidegate").style.display="none";
   SIDE=null; updateSideLbl();                 // no side filter -> search spans the whole repository
@@ -776,6 +958,7 @@ $("#startBtn").onclick=()=>{
   if(!b||!f){toast("Bumper # and Fault are required.");return;}
   SESSION={mechanic:$("#m_mechanic").value.trim(),bumper:b,fault:f,tm:$("#m_tm").value.trim(),
            uoc:$("#m_uoc").value.trim(),tech_status:$("#m_tech").value.trim(),motor_sergeant:$("#m_motor").value.trim()};
+  clearBrowseOnly();   // annex #5: a genuine session submit re-arms the mechanic-side gate for next launch
   $("#overlay").style.display="none";$("#editBtn").style.display="";renderCtx();
   const ex=$("#m_express").value.trim();
   if(ex){ $("#q").value=ex; runSearch(ex,true); } else { loadHome(); $("#q").focus(); }
@@ -783,6 +966,7 @@ $("#startBtn").onclick=()=>{
 // Browse-only: use THE VIEWER as a pure repository — skip the parts-request sheet. Start a session anytime
 // from the "📋 Parts session" button (which reopens this window).
 $("#browseBtn").onclick=()=>{
+  setBrowseOnly();   // annex #5: persist so chooseSide()'s mechanic branch skips the modal next launch
   BROWSE_ONLY=true; $("#overlay").style.display="none"; renderCtx(); loadHome(); $("#q").focus();
 };
 $("#editBtn").onclick=()=>{
@@ -946,11 +1130,16 @@ function renderPartMatch(q){
     card.style.cssText='border:1px solid var(--acc);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px;display:flex;gap:14px;align-items:flex-start';
     var conf=Math.round((j.confidence||0)*100);
     var imgUrl=j.image_url||'';
+    // Recommendations annex #10 (ocr-badge-tooltips): a manually-pinned override (j.overridden) is
+    // always trustworthy regardless of the raw stored float -- forced to 'high' rather than showing
+    // a stale/irrelevant confidence number for a row a human already corrected.
+    var t=j.overridden?{key:'high',label:'High confidence',note:''}:VW.confTier(j.confidence||0);
     card.innerHTML=
       '<a href="'+(j.doc_id?('/page?doc='+j.doc_id+'&page='+j.page+'&dpi=200'):'#')+'" target="_blank" style="flex:0 0 auto">'+
         (imgUrl?('<img id="pmimg" src="'+imgUrl+'" style="width:200px;height:150px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">'):'')+'</a>'+
       '<div style="min-width:0;flex:1">'+
-        '<div style="font-size:12px;color:var(--sub)">PART NUMBER MATCH'+(j.overridden?' · pinned':'')+' · confidence '+conf+'%</div>'+
+        '<div style="font-size:12px;color:var(--sub)">PART NUMBER MATCH'+(j.overridden?' · pinned':'')+' · <span class="conf '+t.key+'" style="padding:1px 6px;border-radius:5px;font-size:11px">'+esc(t.label)+'</span> ('+conf+'%)</div>'+
+        (t.note?('<div style="font-size:11px;margin-top:2px;color:var(--amb)">'+esc(t.note)+'</div>'):'')+
         '<div style="font-size:18px;font-weight:700">'+esc(j.nomenclature||'(name not parsed)')+'</div>'+
         '<div style="font-size:13px;margin-top:3px">P/N <b>'+esc(j.part_no||pn)+'</b>'+(j.cagec?(' · CAGEC '+esc(j.cagec)+(j.manufacturer?(' ('+esc(j.manufacturer)+')'):'')):'')+(j.item?(' · item '+esc(String(j.item))):'')+(j.fig_no?(' · FIG '+esc(String(j.fig_no))):'')+'</div>'+
         (j.nsn?('<div style="font-size:13px;margin-top:2px">NSN <a href="/dossier?q='+encodeURIComponent(j.nsn)+'" target="_blank">'+esc(j.nsn)+'</a>'+(j.superseded_by?(' <span style="color:var(--amb)">→ superseded by '+esc(j.superseded_by)+'</span>'):'')+'</div>'):'')+
@@ -960,13 +1149,46 @@ function renderPartMatch(q){
         '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'+
           (j.callout_url?'<button class="ghost" id="pmcallout" style="font-size:12px;padding:5px 10px">🎯 Zoom to item '+esc(String(j.item||''))+'</button>':'')+
           (j.image_url?'<button class="ghost" id="pmfull" style="font-size:12px;padding:5px 10px">🖼 Whole figure</button>':'')+
-          (conf<60?'<button class="ghost" id="pmfix" style="font-size:12px;padding:5px 10px;border-color:var(--amb);color:var(--amb)">✎ Fix this match</button>':'')+
+          (t.key==='low'?'<button class="ghost" id="pmfix" style="font-size:12px;padding:5px 10px;border-color:var(--amb);color:var(--amb)">✎ Fix this match</button>':'')+
         '</div><div id="pmfixbox"></div></div>';
     host.insertBefore(card, host.firstChild);
     var im=$("#pmimg");
     var co=$("#pmcallout"); if(co&&im) co.onclick=function(){ im.src=j.callout_url+'&t='+Date.now(); };
     var fu=$("#pmfull"); if(fu&&im) fu.onclick=function(){ im.src=j.image_url+'&t='+Date.now(); };
     var fx=$("#pmfix"); if(fx) fx.onclick=function(){ pmFixForm(j); };
+  }).catch(function(){});
+}
+// Recommendations annex #6 (search-torque-routing): the home search box is the first thing a
+// mechanic types into, but a torque/measurement-shaped query only ever returned page-text
+// snippets -- the cited, unit-converted answer sat one un-discovered menu-click away at /torque
+// or /measures, requiring the query to be retyped there too. Surfaces a compact answer inline,
+// reusing the same measures.find_for_query() every /measures lookup already calls -- no new
+// backend logic. Deliberately keyword-gated (not "query contains a digit") so a vehicle
+// designator like "M915" doesn't spuriously trigger this card.
+function looksMeasureShaped(q){
+  var s=(q||'').toLowerCase();
+  return /\btorque\b|\btighten\b|\bclearance\b|\bpressure\b|\bcapacity\b|\btemperature\b|\bthread\b|\bdiameter\b|\bweight\b|\bvoltage\b|\bamperage\b|ft-?lbs?\b|in-?lbs?\b|\bpsi\b|\bn[\s·-]?m\b/.test(s);
+}
+function renderMeasureMatch(q){
+  var host=$("#results"); var old=document.getElementById('measurematch'); if(old) old.parentNode.removeChild(old);
+  if(!host||!looksMeasureShaped(q)) return;
+  fetch('/api/measures?q='+encodeURIComponent(q)+'&limit=8').then(function(r){return r.json();}).then(function(j){
+    if(!j||!j.count) return;
+    var rows=(j.results||[]).slice(0,4);
+    var card=document.createElement('div'); card.id='measurematch';
+    card.style.cssText='border:1px solid var(--acc);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px';
+    var h='<div style="font-size:12px;color:var(--sub)">MEASUREMENTS &amp; DIMENSIONS · '+j.count+' cited in the manuals</div>';
+    rows.forEach(function(m){
+      var val=esc(m.value)+(m.value2?('–'+esc(m.value2)):'')+(m.tolerance?(' ±'+esc(m.tolerance)):'')+' '+esc(m.unit);
+      var badge=(m.trust_badge&&m.trust_badge.show)?(' <span style="color:'+esc(m.trust_badge.color)+';font-size:10px;text-transform:uppercase" title="Trust: '+esc(m.trust_badge.label)+' — verify on the cited page">'+esc(m.trust_badge.label)+'</span>'):'';
+      h+='<div style="margin-top:6px;font-size:14px"><b style="text-transform:capitalize">'+esc(m.type)+'</b>: '+val+badge+' <a href="'+esc(m.page_url)+'" target="_blank" style="font-size:11px;margin-left:4px">p.'+esc(m.page)+' ↗</a></div>';
+    });
+    h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'+
+       '<a href="/measures?q='+encodeURIComponent(q)+'" style="font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;color:var(--sub);text-decoration:none">📐 Full measurements →</a>'+
+       '<a href="/torque?q='+encodeURIComponent(q)+'" style="font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;color:var(--sub);text-decoration:none">🔩 Torque quick-ref →</a></div>';
+    card.innerHTML=h;
+    var pm=document.getElementById('partmatch');
+    host.insertBefore(card, pm ? pm.nextSibling : host.firstChild);
   }).catch(function(){});
 }
 function pmFixForm(j){
@@ -1032,6 +1254,7 @@ async function runSearch(q, autojump, mode){
     ALL=d.results||[]; DYM=d.did_you_mean||[]; FILTER={vehicle:null,type:null,source:null}; renderResults(q);
     renderSearchHints(d, q);            // v1.5: acronym-glossary expansion + fuzzy NSN 'did you mean'
     renderPartMatch(q);                 // PART NUMBER -> show its correlative breakdown image up top
+    renderMeasureMatch(q);              // annex #6: torque/measurement-shaped query -> cited values inline
     if(ALL.length) pushRecent(q);
     if(autojump && ALL[0] && ALL[0].nsn_query){ if(ALL[0].nsn_kind==="vehicle") openVehicle(ALL[0].nsn_query); else openViewer(ALL[0]); }}
   catch(err){$("#results").innerHTML='<div class="empty">Search error: '+esc(String(err))+'</div>';}
@@ -1116,7 +1339,8 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
       (r.tm_number?'<span class="badge tm">'+esc(r.tm_number)+'</span>':'')+
       (r.nsn?'<span class="badge">NSN '+esc(r.nsn)+'</span>':'')+
       '<span class="badge pg">p.'+(r.page_number||"?")+'</span>'+
-      (r.source==="ocr"?'<span class="badge ocr">OCR</span>':'')+'</div>'+
+      (r.source==="ocr"?'<span class="badge ocr" title="Machine-read text (OCR) — this page has no clean text layer; wording may contain scan errors. Verify against the page image.">OCR</span>':'')+
+      (r.approx?('<span class="badge approx" title="Matched via '+esc(r.matched_via||"synonym")+': \''+esc(r.matched_term||"")+'\' — not a literal match on your exact words">≈ approx</span>'):'')+'</div>'+
       '<div class="snip">'+snip+'</div>'+
       '<div class="rowbtns"><button class="ghost vbtn">📄 View page</button><button class="ghost abtn">+ Add to request</button></div>';
     d.querySelector(".vbtn").onclick=ev=>{ev.stopPropagation();openViewer(r);};
@@ -1137,7 +1361,7 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
 var _PREFETCHED={};
 function prefetchResult(r){
   if(!r||!r.doc_id) return;
-  var page=r.page_number||1, dpi=DPIS[2];
+  var page=r.page_number||1, dpi=DPIS[defaultZi()];   // must match loadPage()'s default dpi or the hover-prefetch misses the cache
   var hl=""; if(VIEWER_DEF_HL){ var q=(LAST_QUERY||"").replace(/<<|>>/g,"").trim(); if(q.length>=3) hl="&hl="+encodeURIComponent(q); }
   var url="/page?doc="+r.doc_id+"&page="+page+"&dpi="+dpi+hl;
   if(_PREFETCHED[url]) return; _PREFETCHED[url]=1;
@@ -1164,7 +1388,7 @@ function jumpMatch(i){ if(!VFIND.list.length)return;
   loadPage();
 }
 async function openViewer(r){
-  VIEW={doc:r.doc_id,page:r.page_number||1,pages:r.page_count||1,meta:r,snip:r.snip||"",zi:2,hl:VIEWER_DEF_HL,thumbs:VIEWER_DEF_THUMBS};
+  VIEW={doc:r.doc_id,page:r.page_number||1,pages:r.page_count||1,meta:r,snip:r.snip||"",zi:defaultZi(),hl:VIEWER_DEF_HL,thumbs:VIEWER_DEF_THUMBS};
   VFIND={term:"",list:[],idx:-1,total:0}; var _vf=$("#vfind"); if(_vf)_vf.value=""; var _vfn=$("#vfindn"); if(_vfn)_vfn.textContent="";
   $("#vhl").classList.toggle("on",VIEW.hl);
   $("#vthumbs").classList.toggle("on",VIEW.thumbs);$("#vthumbtg").classList.toggle("on",VIEW.thumbs);
@@ -1297,11 +1521,15 @@ function placeCallouts(){
   const r=img.getBoundingClientRect(), pr=img.parentNode.getBoundingClientRect();
   ov.style.left=(r.left-pr.left)+"px"; ov.style.top=(r.top-pr.top)+"px"; ov.style.width=r.width+"px"; ov.style.height=r.height+"px";
   const W=r.width, H=r.height, cs=(VP._callouts||[]).filter(c=>c.box); ov.innerHTML="";
+  // Review finding: these hotspot markers have the identical inline-sized-circle kiosk-touch-target
+  // gap deepzoom.js's callout badges were fixed for in this same review -- width/height move together
+  // (never distorting the circle) and the centering offset (half the diameter) is derived, not hardcoded.
+  const bd=(typeof window.viewerKioskOn==="function"&&window.viewerKioskOn())?44:18;
   cs.forEach((c,i)=>{ const cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2;
     const px=(VP.flip?(1-cx):cx)*W, py=cy*H;
     const d=document.createElement("div"); d.title=c.label;
-    d.style.cssText="position:absolute;left:"+(px-9)+"px;top:"+(py-9)+"px;width:18px;height:18px;border-radius:50%;"
-      +"background:"+calloutColor(c.kind)+";color:#0a0e12;font:700 10px/18px Arial;text-align:center;cursor:pointer;"
+    d.style.cssText="position:absolute;left:"+(px-bd/2)+"px;top:"+(py-bd/2)+"px;width:"+bd+"px;height:"+bd+"px;border-radius:50%;"
+      +"background:"+calloutColor(c.kind)+";color:#0a0e12;font:700 10px/"+bd+"px Arial;text-align:center;cursor:pointer;"
       +"pointer-events:auto;box-shadow:0 1px 6px rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.85)";
     d.textContent=(i+1); d.onclick=ev=>{ ev.stopPropagation(); calloutAct(c); };
     ov.appendChild(d); });
@@ -1363,14 +1591,29 @@ function pdRenderMatches(rows,c){
   var box=$("#pd_results");
   if(!rows.length){ box.innerHTML='<div class="muted" style="font-size:12px">No catalogued match for this number.</div>'; $("#pd_assets").style.display="none"; return; }
   box.innerHTML="";
+  // Recommendations annex #12 (rpstl-confidence): this is the drawer opened by TAPPING a part
+  // number highlighted on a scanned page (openPartDrawer() above) -- likely the single most common
+  // real-world lookup in the app, and it was confidence-blind end to end: m.confidence was in every
+  // response already (rpstl_feature.lookup()'s ORDER BY confidence DESC fix above guarantees rows[0]
+  // is genuinely the best match now, not just whatever order SQLite returned), just never read here.
+  // Mirrors renderPartMatch()'s existing confidence treatment (same VW.confTier(), same threshold)
+  // so a mechanic sees the identical language regardless of which of the app's two lookup paths
+  // they landed on.
+  var anyLow=false;
   rows.forEach(function(m){
     var nsn=m.nsn||m.NSN||"", name=m.name||m.item_name||m.nomenclature||"(unnamed part)", pn=m.part_no||m.part_number||"";
     var row=document.createElement("div"); row.className="pd-row";
-    row.innerHTML='<div style="min-width:0"><div class="ti">'+esc(name)+'</div><div class="me">'+esc(_fmtNSN(nsn)||nsn)+(pn?(' · P/N '+esc(pn)):'')+'</div></div>';
+    var t=(m.confidence!==undefined&&m.confidence!==null)?VW.confTier(m.confidence):null;
+    var confHtml=t?(' · '+Math.round(m.confidence*100)+'%'+(t.key==="low"?' <span style="color:var(--amb)">⚠ '+esc(t.label)+'</span>':'')):'';
+    if(t&&t.key==="low") anyLow=true;
+    row.innerHTML='<div style="min-width:0"><div class="ti">'+esc(name)+'</div><div class="me">'+esc(_fmtNSN(nsn)||nsn)+(pn?(' · P/N '+esc(pn)):'')+confHtml+'</div></div>';
     row.onclick=function(){ var rr=box.querySelectorAll(".pd-row"); for(var k=0;k<rr.length;k++) rr[k].classList.remove("sel"); row.classList.add("sel"); pdSelect(m,c); };
     box.appendChild(row);
   });
-  if(rows.length===1) box.querySelector(".pd-row").click();
+  // a single low-confidence match no longer auto-selects silently -- the mechanic sees the caveat
+  // and has to confirm it themselves, same "don't act on an unverified match for them" bar
+  // renderPartMatch()'s "Fix this match" gate already applies.
+  if(rows.length===1 && !anyLow) box.querySelector(".pd-row").click();
 }
 function pdSelect(m,c){
   $("#pd_assets").style.display="block";
@@ -1497,6 +1740,11 @@ $("#vcallouts").onclick=()=>{VP.callouts=!VP.callouts;$("#vcallouts").classList.
   function crisp(lb,url){ lb.style.backgroundImage="url('"+url+"')"; lb.style.backgroundSize=LSIZE+"px "+LSIZE+"px"; lb.style.backgroundPosition="0 0"; }
   function paint(){ raf=0; if(!cur){ return; } const img=cur.img,r=cur.r,x=cur.x,y=cur.y;
     const lb=lbox(); lb.style.display="block"; lb.style.transform="translate("+(cur.cx-LSIZE/2)+"px,"+(cur.cy-LSIZE/2)+"px)";
+    // Tier-aware: rps.py's feature_flags() sets loupe:'local' on lite/legacy specifically so weak
+    // machines' magnifier stays client-only (zero network calls) -- the same pure-CSS technique
+    // loupe.js's Loupe.attach uses on schematics.html, just applied against the page image already on
+    // screen instead of a separate <img>. Never escalate to the server crop below on that tier.
+    if(window.RPS && RPS.flags && RPS.flags.loupe==="local"){ shown=""; localZoom(lb,img,r,x,y); return; }
     const fx=x/r.width, fy=y/r.height, k=cellKey(fx,fy);
     if(cache[k]){ if(shown!==k){ shown=k; crisp(lb,cache[k]); } return; }
     if(shown!==k){ shown=""; localZoom(lb,img,r,x,y); }      // instant soft zoom while the crop loads
@@ -1616,6 +1864,11 @@ async function enrichPart(it){
     if(d&&d.found&&d.refs&&d.refs.length){ it._refs=d.refs;
       if(!it.fig && d.refs[0].fig_no) it.fig=d.refs[0].fig_no;   // auto-fill FIG from the catalog (cited)
       renderCart(); }
+    // Recommendations annex #14 (barcode-ocr-conflict): part_lookup() now surfaces any recorded
+    // disagreement between what a page's barcode decoded and what its own OCR text read for this
+    // NSN (viewer_ingest.extract_parts()'s parts_conflicts table) -- checked independently of
+    // d.found/d.refs above, since a conflict can exist even when this NSN has no other catalog refs.
+    if(d&&d.conflicts&&d.conflicts.length){ it._conflicts=d.conflicts; renderCart(); }
   }catch(e){}
   try{ const sm=(it.item_name||"").match(/(\d+\/\d+-\d+|M\d+(?:x[\d.]+)?)/i); const size=sm?sm[1]:"";
     const rd=await (await fetch("/api/reference?nsn="+encodeURIComponent(it.nsn)+(size?("&size="+encodeURIComponent(size)):""))).json();
@@ -1631,6 +1884,12 @@ function renderCart(){const box=$("#cart");
   box.innerHTML="";
   CART.forEach((it,i)=>{const e=document.createElement("div");e.className="item";
     const refs=(it._refs&&it._refs.length)?'<div class="pref">📐 In parts catalog: '+it._refs.slice(0,3).map(rf=>'<span class="prefl" data-doc="'+rf.document_id+'" data-pg="'+rf.page+'">FIG '+esc(rf.fig_no||"?")+' '+esc(rf.fig_title||"")+' (p.'+rf.page+')</span>').join(' · ')+(it._refs.length>3?' · +'+(it._refs.length-3)+' more figure'+(it._refs.length-3===1?'':'s'):'')+' — verify</div>':'';
+    // annex #14: a barcode-vs-OCR disagreement on this exact NSN -- machine-decoded is more
+    // reliable than OCR-guessed text, but the disagreement itself is what matters here: don't
+    // silently pick one, show the mechanic both readings and where they came from.
+    const conflicts=(it._conflicts&&it._conflicts.length)?it._conflicts.slice(0,2).map(cf=>
+      '<div class="pref" style="color:var(--red,#e0564f);border-left:3px solid var(--red,#e0564f);padding-left:8px">⚠ Barcode on p.'+esc(cf.page)+' reads <b>'+esc(cf.barcode_nsn)+'</b> — the page text there reads <b>'+esc(cf.page_nsn)+'</b>. Barcode is machine-decoded (more reliable), but verify against the physical part before ordering.</div>'
+    ).join(''):'';
     let ext='';
     if(it._refext){ const parts=[]; const rn=it._refext.nsn, rh=it._refext.hardware;
       if(rn){ const yr=(rn.data_date||'').match(/\d{4}/);
@@ -1641,7 +1900,7 @@ function renderCart(){const box=$("#cart");
       if(rh){ parts.push('thread '+esc(rh.size)+(rh.tap_drill?' · tap '+esc(rh.tap_drill):'')+(rh.torque_ref_lbft?' · ~'+esc(rh.torque_ref_lbft)+' lb-ft (general ref — TM governs)':'')); }
       if(it._refext.versions>1) parts.push(it._refext.versions+' versions on file');
       if(parts.length) ext='<div class="pref" style="color:#9aa6b6">📚 External reference (cited, offline · DLA FLIS): '+parts.join(' · ')+'</div>'; }
-    e.innerHTML='<button class="rm">remove</button><div style="font-size:11px;color:var(--sub);margin-bottom:6px">From '+esc(it._ref||"")+'</div>'+refs+ext+
+    e.innerHTML='<button class="rm">remove</button><div style="font-size:11px;color:var(--sub);margin-bottom:6px">From '+esc(it._ref||"")+'</div>'+conflicts+refs+ext+
       '<div class="grid"><div class="full"><label>Item name</label><input data-k="item_name" placeholder="e.g. GASKET, WATER PUMP"></div>'+
       '<div><label>NSN</label><input data-k="nsn"></div><div><label>Part #</label><input data-k="part"></div>'+
       '<div><label>FIG #</label><input data-k="fig"></div><div><label>QTY</label><input data-k="qty"></div>'+

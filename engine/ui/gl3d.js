@@ -136,13 +136,46 @@ window.GL3D = (function(){
     window.addEventListener('mouseup',()=>{if(drag){drag=false;canvas.style.cursor='grab';resumeSoon();}});
     canvas.addEventListener('wheel',e=>{e.preventDefault();st.dist*=(e.deltaY<0?0.9:1.11);st.dist=Math.max(1.4,Math.min(9,st.dist));pause();kick();resumeSoon();},{passive:false});
     canvas.addEventListener('dblclick',()=>reset());
+    // UX finding #2 (priority 5): touch support -- one-finger orbit + two-finger pinch-zoom, the same
+    // pattern already proven in cadview.js (the sibling Rotate-CAD tab), so this tab isn't dead on any
+    // touchscreen-only device (kiosk mode explicitly anticipates one).
+    let pinchDist=0;
+    function touchDist(e){const a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
+    canvas.addEventListener('touchstart',e=>{
+      if(e.touches.length===1){drag=true;px=e.touches[0].clientX;py=e.touches[0].clientY;pause();}
+      // Review finding: the two-finger (pinch) branch never called pause() -- unlike every other
+      // interaction path (mousedown, wheel, one-finger touchstart), so idle auto-rotate kept
+      // incrementing st.ry throughout a pinch gesture, fighting the user's attempt to hold it still.
+      else if(e.touches.length===2){drag=false;pinchDist=touchDist(e);pause();}
+      e.preventDefault();
+    },{passive:false});
+    canvas.addEventListener('touchmove',e=>{
+      if(e.touches.length===1&&drag){
+        st.ry+=(e.touches[0].clientX-px)*0.01;st.rx+=(e.touches[0].clientY-py)*0.01;
+        px=e.touches[0].clientX;py=e.touches[0].clientY;kick();
+      } else if(e.touches.length===2){
+        const d=touchDist(e);
+        if(pinchDist){st.dist*=(pinchDist/d);st.dist=Math.max(1.4,Math.min(9,st.dist));}
+        pinchDist=d;kick();
+      }
+      e.preventDefault();
+    },{passive:false});
+    // Review finding (follow-on): touchend only called resumeSoon() when drag was true -- a pinch
+    // gesture sets drag=false, so adding pause() to the pinch-start branch above would otherwise leave
+    // autospin permanently off after any pinch (never resumed). Resume whenever either kind of gesture
+    // was actually in progress (drag, or a pinch that had a real distance reading).
+    canvas.addEventListener('touchend',()=>{if(drag||pinchDist){drag=false;resumeSoon();}pinchDist=0;});
     function reset(){st.rx=-0.5;st.ry=0.6;st.dist=3.0;autospin=true;loop();}
     function setColor(hex){color=hexToRgb(hex);kick();}
     function setMaterial(m){if(m&&m.length===3){material=[m[0],m[1],m[2]];kick();}}
     function setKlass(k){klass=+k||0;kick();}
     function spin(b){autospin=!!b;loop();}
+    // UX finding #2: an always-visible zoom-in/zoom-out affordance for the same touch-safe reason
+    // cadview.js has its own +/- buttons -- a factor <1 moves the camera closer (zoom in), matching
+    // the wheel handler above's own dist math exactly.
+    function zoomBy(f){pause();st.dist*=f;st.dist=Math.max(1.4,Math.min(9,st.dist));kick();resumeSoon();}
     canvas.style.cursor='grab';
-    return {load,reset,setColor,setMaterial,setKlass,spin,draw:kick};
+    return {load,reset,setColor,setMaterial,setKlass,spin,zoomBy,draw:kick};
   }
   return {create,supported};
 })();

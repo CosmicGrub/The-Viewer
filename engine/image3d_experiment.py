@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """THE VIEWER -- EXPERIMENTAL local image->3D scaffold (opt-in, NOT authoritative).
 
+NOTE (low finding #49): despite the filename and the "EXPERIMENTAL" label above, this module is
+LIVE, production-wired code -- imported unconditionally by viewer_app.py (`import
+image3d_experiment as _i3d`) and backing the real GET/POST /api/image3d routes, gated by
+verify_3d_deps.py and covered by VERIFY.bat's syntax/completeness gates like every other shipped
+module. "Experimental" describes the FEATURE's nature (AI-generated mesh geometry is inherently an
+approximation, opt-in and disabled until a backend is configured -- never engineering-accurate),
+not the code's status. Do not delete or skip this file assuming it's dead scaffolding.
+
 This is a *framework*, not a shipped model. It lets you optionally wire a LOCAL image->3D model (e.g. TripoSR
 / InstantMesh / Shap-E) that runs on YOUR GPU to turn a part's cited figure crop into a rough mesh, shown in
 the 3D modal's "Approximation" tab -- always watermarked "ARTISTIC APPROXIMATION - NOT TO SCALE". It is

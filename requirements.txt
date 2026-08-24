@@ -1,22 +1,44 @@
 # THE VIEWER — Python dependencies.  Install with:  INSTALL.bat   (or:  python -m pip install -r requirements.txt)
-# Python 3.11 or 3.12 is recommended. Python 3.14 is very new and a few optional wheels below may not exist yet
-# (the app still runs — those features just self-skip until wheels are available).
+# Python 3.11, 3.12, or 3.13 is recommended; 3.14 is fully supported too (CI tests all three — see
+# .github/workflows/ci.yml). Every dependency below is upper-bounded to its current major line —
+# not because a newer major is known-broken, but so a fresh install can't silently cross a breaking
+# version boundary (numpy 1.x->2.x, reportlab 4.x->5.x, etc.) without a deliberate bump here. Bump
+# the ceiling (and re-verify) when you actually want the next major, not by surprise.
 
 # ---- CORE (required for the app to start and for search / render / PDFs) --------------------------
-pymupdf>=1.24          # fitz: page rendering, table extraction, PDF metadata/outline/forms
-reportlab>=4.0         # Job Card / parts-request / figure-sheet PDF generation
-numpy>=1.24            # perceptual hash, image ops, CV modules
-pillow>=10.0           # image handling
+pymupdf>=1.24,<2        # fitz: page rendering, table extraction, PDF metadata/outline/forms
+reportlab>=4.0,<6       # Job Card / parts-request / figure-sheet PDF generation
+numpy>=1.24,<3          # perceptual hash, image ops, CV modules
+pillow>=10.0,<13        # image handling
 
 # ---- RECOMMENDED (features degrade gracefully if missing, but you want these) --------------------
-opencv-python>=4.8     # vectorize, dimension-line scan, symbol detect, barcode/QR, visual hash
+opencv-python>=4.8,<6   # vectorize, dimension-line scan, symbol detect, barcode/QR, visual hash
 pytesseract>=0.3.10    # figure callout-number OCR  (ALSO needs the Tesseract program: see INSTALL.bat note)
 pdfplumber>=0.11       # borderless / cross-page table recovery (catalog §2.2/2.3)
 segno>=1.5             # offline QR codes on the job packet / part pages (pure-python, no other deps) -> /api/qr
+# .docx/.xlsx/.pptx text extraction (engine/office.py) -- gated to the modern OS tier (Win10/11, the
+# SAME sysprobe.py signal that already picks GPU OCR / camelot's backend), not just installed-or-not:
+# python-docx 1.x needs Python 3.9+, ruling it out even on this app's documented Win7 floor (Python
+# 3.8) -- .doc/.docx/.xls/.xlsx/.ppt/.pptx documents are still DISCOVERED on every OS regardless
+# (classify_ext() already recognizes them); this only controls whether their text gets extracted.
+python-docx>=1.0,<2     # .docx paragraph + table text
+openpyxl>=3.1,<4        # .xlsx cell text, one page per sheet
+python-pptx>=0.6,<2     # .pptx slide + table text, one page per slide
 
 # ---- OPTIONAL (heavy / GPU / niche — install only if you need them; see INSTALL.bat) --------------
 # easyocr                 # GPU OCR pipeline for scanned pages (pulls in torch — large; matches your RTX 4050)
 # sentence-transformers   # TRUE offline semantic search (otherwise a keyword-hash fallback is used)
 # pyzbar                  # 1-D barcodes + Data-Matrix (OpenCV already does QR without this)
 # lxml                    # faster IETM/S1000D XML parsing (stdlib xml.etree is used by default)
-# camelot-py[cv]          # alternative advanced table extraction
+# camelot-py              # pilot 3rd table-extraction engine, cross-validated against tables.py/tables_plus.py
+#                          # (engine/tables_plus.py camelot_tables()). Camelot 2.0's Ghostscript requirement is
+#                          # now OPTIONAL: the default backend is 'pdfium' (bundled pypdfium2, pure pip install,
+#                          # no external binary); real 2.0 extras are plot/ml/ocr/ghostscript/dev -- there is no
+#                          # 'cv' extra, so bare `pip install camelot-py` is already the correct minimal install.
+#                          # CAUTION verified 2026-08-18: camelot hard-requires opencv-python-headless, which
+#                          # installs into the SAME cv2/ path as opencv-python above -- pip lets both co-exist,
+#                          # but whichever installs/upgrades LAST silently overwrites the other's cv2.pyd on
+#                          # disk. Harmless only while both resolve to the same opencv release (confirmed
+#                          # byte-identical here); a future version skew between the two specs is NOT caught by
+#                          # `pip check` and could break cv2 for the rest of the app (vectorize/symbols/
+#                          # barcodes) -- if you install this, pin opencv-python-headless to match opencv-python.

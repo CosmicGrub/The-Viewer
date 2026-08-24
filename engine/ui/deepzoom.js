@@ -15,7 +15,16 @@
     var ctx=cv.getContext('2d');
     var hot=el('div','position:absolute;inset:0;pointer-events:none'); container.appendChild(hot);   // hotspot layer
     var bar=el('div','position:absolute;left:8px;top:8px;display:flex;gap:4px;z-index:4');
-    function mk(t,ti){ var b=el('button',null,t); b.title=ti||t; b.style.cssText='background:rgba(20,28,38,.85);color:#cfe;border:1px solid #2f4858;border-radius:6px;min-width:30px;height:26px;cursor:pointer;font-size:13px;padding:0 7px'; return b; }
+    // UX finding #7 (priority 5): base.css's kiosk-mode rule can enlarge min-height on real <button>s,
+    // but these dimensions are set inline (min-width/height as plain px), so kiosk mode could never
+    // reach them. Uses the shared window.viewerKioskOn() (shared.js loads FIRST on this page, before
+    // this script -- deepzoom.html's own script order -- unlike palette.js, which loads last; that
+    // ordering is exactly why this can't just read body.kiosk-mode's class or the --kiosk-min CSS var
+    // at mount time: neither would be applied yet). Review finding: the non-kiosk default height must
+    // stay exactly 26px -- an earlier draft's Math.max(26,m) silently grew it to 30px for every user.
+    function kioskOn(){ return typeof window.viewerKioskOn==='function' && window.viewerKioskOn(); }
+    function mk(t,ti){ var b=el('button',null,t); b.title=ti||t; var on=kioskOn(); var w=on?44:30, h=on?44:26;
+      b.style.cssText='background:rgba(20,28,38,.85);color:#cfe;border:1px solid #2f4858;border-radius:6px;min-width:'+w+'px;height:'+h+'px;cursor:pointer;font-size:13px;padding:0 7px'; return b; }
     var bIn=mk('+','zoom in'), bOut=mk('−','zoom out'), bFit=mk('⌂','fit'), bHot=mk('⌖','toggle callouts'), bDpi=mk('','');
     bDpi.style.cursor='default'; bDpi.style.color='#8fb'; bDpi.textContent='150 dpi';
     bar.appendChild(bIn); bar.appendChild(bOut); bar.appendChild(bFit); bar.appendChild(bHot); bar.appendChild(bDpi); container.appendChild(bar);
@@ -42,13 +51,19 @@
 
     function placeHotspots(g){ hot.innerHTML=''; if(!hotOn||!callouts.length) return;
       var dpr=window.devicePixelRatio||1;
+      // Review finding (efficiency): checked ONCE per draw() call, not once per visible callout badge
+      // -- draw() is a real hot path (fires on every drag-pan/wheel-zoom/pinch frame).
+      var bd=kioskOn()?44:22;
       for(var i=0;i<callouts.length;i++){ var c=callouts[i]; if(!c.box) continue;
         var cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2;          // normalized 0..1 centre
         var px=(g.dx+cx*g.dw)/dpr, py=(g.dy+cy*g.dh)/dpr;
         if(px<-20||py<-20||px>cv.width/dpr+20||py>cv.height/dpr+20) continue;
         (function(cc,x,y){ var m=el('button',null,String(cc._n));
+          // UX finding #7: width and height MUST move together here -- a badge that only grew taller
+          // (the old bug: kiosk-mode set min-height but never min-width) would distort a circle into
+          // an oval. Shared `bd` (computed once above) drives both dimensions.
           m.title=cc.label||cc.text; m.style.cssText='position:absolute;transform:translate(-50%,-50%);left:'+x+'px;top:'+y+'px;pointer-events:auto;'+
-            'background:rgba(79,157,255,.92);color:#08111d;border:2px solid #fff;border-radius:50%;width:22px;height:22px;font-size:11px;font-weight:700;cursor:pointer;z-index:5';
+            'background:rgba(79,157,255,.92);color:#08111d;border:2px solid #fff;border-radius:50%;width:'+bd+'px;height:'+bd+'px;font-size:11px;font-weight:700;cursor:pointer;z-index:5';
           m.onclick=function(ev){ ev.stopPropagation(); if(opts.onCallout){ opts.onCallout(cc); } else if(cc.url){ window.open(cc.url,'_blank'); } };
           hot.appendChild(m); })(c,px,py);
       }
@@ -87,10 +102,49 @@
 
     var ro=null; if(window.ResizeObserver){ ro=new ResizeObserver(fit); ro.observe(container); } else window.addEventListener('resize',fit);
 
+    // UX finding #5 (priority 5): OCR-only pages have text (so /api/callouts still finds NSN/PN/FIG
+    // refs) but no positioned word layer (page_words() returns [] -- has_text:false), so every callout
+    // on those pages comes back with box:null. Keep the unboxed ones too instead of discarding them --
+    // render them as a clickable chip bar (the same "list, don't drop" pattern index.html's
+    // renderCallouts()/#vcalloutbar already uses) so a mechanic reading a scanned page in Deep Zoom
+    // still gets working NSN/PN/FIG jump links, just without an on-image pin position.
+    var chipBar=el('div','position:absolute;left:8px;right:8px;bottom:8px;z-index:4;display:flex;gap:6px;'+
+      'flex-wrap:wrap;max-height:74px;overflow:auto;padding:6px;border-radius:9px;background:rgba(15,20,25,.82)');
+    container.appendChild(chipBar);
+    var unboxed=[];
+    // Review finding: a FIG-kind callout (from /api/callouts) has no .url, only .find (a "find this
+    // figure" query) -- the unboxed chip bar's tooltip promises "click to open anyway" for every chip,
+    // but a FIG chip with neither opts.onCallout (deepzoom.html never passes one) nor .url was a dead
+    // click. index.html's own inline viewer resolves this via its own in-document find; that machinery
+    // doesn't exist here (deepzoom is a single page/zoom view, not a multi-page in-doc search), so the
+    // honest working equivalent is a corpus-wide search for the same query in a new tab.
+    function calloutClick(cc){
+      if(opts.onCallout){ opts.onCallout(cc); }
+      else if(cc.url){ window.open(cc.url,'_blank'); }
+      else if(cc.find){ window.open('/?q='+encodeURIComponent(cc.find),'_blank'); }
+    }
+    function renderChipBar(){
+      chipBar.innerHTML='';
+      if(!unboxed.length){ chipBar.style.display='none'; return; }
+      chipBar.style.display='flex';
+      for(var i=0;i<unboxed.length;i++){ (function(cc){
+        var chip=el('button',null,null);
+        chip.style.cssText='border:1px solid #4f9dff;color:#e6e9ee;background:rgba(0,0,0,.3);border-radius:9px;'+
+          'padding:2px 8px;font-size:11px;cursor:pointer;white-space:nowrap';
+        chip.textContent=(cc.label||cc.text||'?');
+        chip.title='No position data on this OCR-only page -- click to open anyway';
+        chip.onclick=function(ev){ ev.stopPropagation(); calloutClick(cc); };
+        chipBar.appendChild(chip);
+      })(unboxed[i]); }
+    }
+
     fetchDpi(150);
     xget('/api/callouts?doc='+encodeURIComponent(doc)+'&page='+encodeURIComponent(page), function(d){
-      var cs=(d&&d.callouts)||[]; callouts=[]; for(var i=0;i<cs.length;i++){ if(cs[i].box){ cs[i]._n=callouts.length+1; callouts.push(cs[i]); } }
-      if(opts.onInfo) opts.onInfo({callouts:callouts.length, anchored:d&&d.anchored});
+      var cs=(d&&d.callouts)||[]; callouts=[]; unboxed=[];
+      for(var i=0;i<cs.length;i++){ if(cs[i].box){ cs[i]._n=callouts.length+1; callouts.push(cs[i]); } else { unboxed.push(cs[i]); } }
+      renderChipBar();
+      if(opts.onInfo) opts.onInfo({callouts:callouts.length, unboxed:unboxed.length, total:cs.length,
+        anchored:d&&d.anchored, hasText:d&&d.has_text});
       draw();
     });
 

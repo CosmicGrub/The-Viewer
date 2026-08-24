@@ -13,6 +13,12 @@ def run():
     check("norm dashed", P.norm_nsn("NSN 2540-01-123-4567 here") == "2540-01-123-4567")
     check("norm bare",   P.norm_nsn("pn 2540011234567 x")       == "2540-01-123-4567")
     check("norm none",   P.norm_nsn("no stock number") is None)
+    # finding #13 regression: NSN_RE used to have no \b anchors, so it happily grabbed the first
+    # 13 digits out of any longer contiguous digit run and misread it as an NSN.
+    check("norm no false positive from longer digit run",
+          P.norm_nsn("Invoice #88123456789012 due net 30") is None)
+    check("norm no false positive, PO number",
+          P.norm_nsn("PO 2025081712345678901") is None)
 
     # digits dedup: dashed and bare share the same digit string
     check("digits eq", P.digits("2540-01-123-4567") == P.digits("2540011234567") == "2540011234567")

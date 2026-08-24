@@ -43,6 +43,9 @@ MODERN_BY_DESIGN = {
     "related.html", "semantic.html", "visual.html",
     "ask.html", "binaudit.html", "command.html", "exploded.html", "learn.html", "part.html",
     "publog.html", "readiness.html", "review.html", "scan.html", "troubleshoot.html", "verify.html",
+    # v1.4.0: /kg — a discovery/analysis tool (fetch + free-text query against /api/kg), same class
+    # as related.html/semantic.html/ask.html above, not one of the core ES5-required mechanic tools.
+    "kg.html",
 }
 
 # ES6 syntax patterns that are NOT polyfillable (each would SyntaxError on a true ES5 engine).

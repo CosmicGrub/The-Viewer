@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Knowledge graph — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  .search{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .search input{flex:1;min-width:240px;background:#10151c;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:11px 13px;font-size:15px}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid}
+  a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:10px 14px;text-decoration:none}
+  h3{color:#7fbfff;font-size:13px;margin:16px 0 6px}
+  .cov{background:#111823;border:1px solid #1c2530;border-radius:10px;padding:11px 14px;margin:14px 0;font-size:12.5px;color:#b9c6d4}
+  .cov b{color:#e6edf4}
+  .cov .caveat{color:#caa24a;margin-top:6px}
+  .warn{color:#e8a06a;font-size:12px;margin-top:12px}
+  /* matched-node chips */
+  .matched{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+  .mchip{background:#16202b;border:1px solid #2f6feb;color:#7fbfff;border-radius:16px;padding:5px 12px;font-size:13px;text-decoration:none;cursor:pointer}
+  .mchip:hover{background:#1c2b3a}
+  /* neighbor rows */
+  .row{background:#10151c;border:1px solid #223;border-radius:9px;padding:9px 13px;margin:6px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row .rel{color:#8a98a8;font-size:11.5px;white-space:nowrap}
+  .row a.lbl{color:#4f9dff;text-decoration:none;font-size:13.5px;flex:1;min-width:0}
+  .row a.lbl:hover{text-decoration:underline}
+  .none{color:#8a98a8;font-size:13px;padding:8px 0}
+  /* type badges — colors reused from elsewhere in the app (ask.html/semantic.html/scan.html) so a
+     part/figure/vehicle/procedure/spec reads the same everywhere it shows up, not a new palette */
+  .badge{display:inline-block;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
+  .b-part{background:#16202b;border-color:#2f6feb;color:#7fbfff}
+  .b-figure{background:#0f2a28;border-color:#1d9e75;color:#7fd8b6}
+  .b-vehicle{background:#2a2013;border-color:#caa24a;color:#e8c07a}
+  .b-procedure{background:#201c33;border-color:#7f77dd;color:#b7b0f5}
+  .b-spec{background:#122a1c;border-color:#2f7d4f;color:#7fd6a0}
+  .b-nsn{background:#1b2735;border-color:#2f4858;color:#8fb3d9}
+  .b-document{background:#182028;border-color:#364453;color:#9aa6b6}
+  .b-default{background:#182028;border-color:#364453;color:#9aa6b6}
+</style></head><body>
+<div class="wrap">
+  <h1>🕸 Knowledge graph</h1>
+  <div class="muted">Everything one hop from a part, figure, vehicle, procedure, or spec — part↔figure↔procedure↔spec↔NSN↔vehicle, tied together so "everything about X" is a single lookup. Offline, read-only on <code>index/kg.db</code>.</div>
+  <div class="search">
+    <input id="q" placeholder="part / figure / vehicle / procedure / spec — e.g. alternator · HMMWV · FIG 4-2" autofocus>
+    <button class="go" id="go">Explore</button>
+    <a class="btn" href="/related">🔗 Related parts</a><a class="btn" href="/">← search</a>
+  </div>
+  <div id="cov" class="cov">Loading graph coverage…</div>
+  <div id="head" class="muted"></div>
+  <div id="matched" class="matched"></div>
+  <div id="out"></div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() from /shared.js */
+
+  var TYPES=["part","figure","vehicle","procedure","spec","nsn","document"];
+  function badgeCls(t){
+    t=(t||"").toLowerCase();
+    for(var i=0;i<TYPES.length;i++){ if(TYPES[i]===t) return "badge b-"+t; }
+    return "badge b-default";
+  }
+  function badge(t){ return '<span class="'+badgeCls(t)+'">'+esc(t||"?")+'</span>'; }
+
+  function fmtInt(n){ return (typeof VW!=="undefined"&&VW.fmtInt)?VW.fmtInt(n):String(n); }
+
+  /* Coverage panel: nodes/edges + by-type counts, plus the figureparts sample-fraction disclosure
+     (finding #27) -- without this, "no part→figure edge for X" is indistinguishable from "X is simply
+     outside the sample," so the caveat has to be visible right on this page, not just in code comments. */
+  function loadCoverage(){
+    fetch('/api/kg?q=').then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.available){
+        $('#cov').innerHTML='Knowledge graph not built yet on this install — run <code>BUILD-KG.bat</code> (host-side, after <code>BUILD-MASTERFILE.bat</code>) to enable it.';
+        return;
+      }
+      var st=j.stats||{}; var bt=st.by_type||{}; var m=st.meta||{};
+      var byType=Object.keys(bt).sort().map(function(t){ return esc(t)+' '+fmtInt(bt[t]); }).join(' · ');
+      var h='<b>'+fmtInt(st.nodes||0)+'</b> nodes · <b>'+fmtInt(st.edges||0)+'</b> edges'+(byType?(' — '+byType):'');
+      if(m.figureparts_docs_sampled){
+        h+='<div class="caveat">⚠ Part↔figure coverage is sampled: <b>'+esc(m.figureparts_docs_sampled)+'</b> of <b>'+
+          esc(m.figureparts_docs_total||'?')+'</b> documents ('+esc(m.figureparts_pages_per_doc||'page 1 only')+
+          '), capped at <b>'+esc(m.figureparts_parts_cap||'?')+'</b> parts ('+esc(m.figureparts_parts_seen||'0')+
+          ' seen in this build). A part/figure edge that doesn’t appear here may simply be outside the sample — not proof it doesn’t exist.</div>';
+      }
+      $('#cov').innerHTML=h;
+    }).catch(function(){ $('#cov').textContent='Coverage unavailable.'; });
+  }
+
+  function neighborRows(list, dirLabel){
+    if(!list||!list.length) return '<div class="none">No '+dirLabel+' relationships'+(list?'':' (or the graph is unavailable)')+'.</div>';
+    return list.map(function(n){
+      return '<div class="row">'+badge(n.type)+'<span class="rel">'+esc(n.rel||'')+'</span>'+
+        '<a class="lbl" href="/kg?q='+encodeURIComponent(n.label||'')+'">'+esc(n.label||'')+'</a></div>';
+    }).join('');
+  }
+
+  function run(q){
+    q=(q===undefined?$('#q').value:q).trim();
+    if(q.length<2){ $('#head').textContent='Type at least 2 characters.'; return; }
+    $('#q').value=q;
+    if(window.history&&window.history.replaceState) history.replaceState(null,'','/kg?q='+encodeURIComponent(q));
+    $('#head').textContent='Looking up…'; $('#matched').innerHTML=''; $('#out').innerHTML='';
+    fetch('/api/kg?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.available){
+        $('#head').textContent='Knowledge graph not built yet — see the notice above.'; return;
+      }
+      var matched=j.matched||[];
+      if(!matched.length){
+        $('#head').innerHTML='No node matches “'+esc(q)+'”. Try a shorter fragment, or check <a href="/locate?q='+encodeURIComponent(q)+'" style="color:#4f9dff">Part Locator</a> / <a href="/related?q='+encodeURIComponent(q)+'" style="color:#4f9dff">Related parts</a> instead.';
+        return;
+      }
+      $('#head').textContent=matched.length+' node'+(matched.length===1?'':'s')+' matched “'+q+'”:';
+      $('#matched').innerHTML=matched.map(function(m){
+        return '<a class="mchip" href="/kg?q='+encodeURIComponent(m)+'">'+esc(m)+'</a>';
+      }).join('');
+      var h='<h3>Outgoing (this → other)</h3>'+neighborRows(j.out, 'outgoing');
+      h+='<h3>Incoming (other → this)</h3>'+neighborRows(j.in, 'incoming');
+      $('#out').innerHTML=h;
+    }).catch(function(){ $('#head').textContent='Lookup failed.'; });
+  }
+
+  /* re-query on any neighbor/matched-chip click without a full page reload (links still work as
+     real deep links -- right-click "open in new tab", Ctrl+K history, etc. all keep working) */
+  $('#out').addEventListener('click', function(e){
+    var a=e.target.closest?e.target.closest('a.lbl'):null;
+    if(!a) return;
+    e.preventDefault(); run(a.textContent);
+  });
+  $('#matched').addEventListener('click', function(e){
+    var a=e.target.closest?e.target.closest('a.mchip'):null;
+    if(!a) return;
+    e.preventDefault(); run(a.textContent);
+  });
+
+  $('#go').onclick=function(){ run(); };
+  $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+
+  loadCoverage();
+  var pre=new URLSearchParams(location.search).get('q'); if(pre){ run(pre); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

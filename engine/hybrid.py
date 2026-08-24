@@ -82,7 +82,11 @@ def nsn_did_you_mean(q, limit=5) -> list:
 
 
 def _key(r):
-    return (str(r.get("doc_id") or r.get("doc") or ""), str(r.get("page") or ""))
+    # Keyword/FTS rows (core.search() -> search_feature._meta_rows) carry the page under "page_number";
+    # only the semantic (embed.py) rows use "page". Check both so keyword and semantic hits for the same
+    # page collide onto the same fusion key instead of every keyword row on a doc collapsing onto (doc, "").
+    return (str(r.get("doc_id") or r.get("doc") or ""),
+            str(r.get("page_number") if r.get("page_number") is not None else (r.get("page") or "")))
 
 
 def fuse(lists, k=60):

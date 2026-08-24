@@ -29,11 +29,11 @@ import argparse, json, os, re, sqlite3, sys, tempfile, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
-    import fitz
+    import pymupdf as fitz
 except Exception:
     fitz = None
 
-VERSION = "1.13.5"
+VERSION = "1.14.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -102,9 +102,10 @@ def rps_init():
     try:
         if RPS_OVERRIDE in _rps.VALID_MODES:                 # concrete env/CLI force (back-compat) wins
             RPS_MODE, RPS_REASON = _rps.mode_for(prof, RPS_OVERRIDE)
+            RPS_FLAGS = _rps.feature_flags(RPS_MODE)
         else:                                                # otherwise honour the persisted Settings choice
             RPS_MODE, RPS_REASON = _rps.mode_for_setting(prof, RPS_SETTING)
-        RPS_FLAGS = _rps.feature_flags(RPS_MODE)
+            RPS_FLAGS = _rps.feature_flags(RPS_MODE, premium=_rps.premium_active(prof, RPS_SETTING))
     except Exception: pass
 
 
@@ -206,6 +207,34 @@ def doc_path(doc_id):
 # server is deliberately bound to a non-loopback address, mutating requests must carry a shared token.
 _EXPOSED = False
 _AUTH_TOKEN = os.environ.get("VIEWER_AUTH_TOKEN") or ""
+# Single source of truth for the 401 body, shared by do_POST below and features/routes.py's
+# _exposed_read_guard() (routes.py's `core` IS this module -- core = sys.modules[__name__] -- so
+# both read this same dict rather than each hardcoding their own copy of the message).
+AUTH_REQUIRED_BODY = {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}
+
+# The actual bind host/port, set once in main() -- exposed as module globals (not just local
+# variables) so DI callers (routes.py's `core` IS this module) can read the real values instead of
+# blindly trusting client-supplied input. Used by r_qr's Host-header validation (finding #16).
+HOST = "127.0.0.1"
+PORT = 8765
+# Operator-configurable allowlist of additional host[:port] values a client-supplied Host header is
+# allowed to be trusted for (comma-separated), for the "exposed on the LAN, reachable at more than
+# one address" case -- e.g. a friendly hostname or a specific LAN IP. Follows the existing VIEWER_*
+# env-var convention (VIEWER_AUTH_TOKEN, VIEWER_MODE, VIEWER_MAX_WORKERS, ...).
+_ALLOWED_HOSTS = {h.strip().lower() for h in (os.environ.get("VIEWER_ALLOWED_HOSTS") or "").split(",") if h.strip()}
+
+
+def safe_public_base(candidate_host):
+    """Resolve the base URL to embed in operator-facing output (QR codes, deep links) that a
+    client's browser will later be told to visit -- never trust a client-supplied Host header for
+    this blindly (finding #16: a spoofed Host let a QR-code scan send a mechanic's phone to an
+    attacker-controlled URL). `candidate_host` is validated against the actual bind address plus
+    the VIEWER_ALLOWED_HOSTS allowlist; anything else falls back to a safe default derived from how
+    the server was actually started, never the wildcard bind address itself."""
+    safe_default = "127.0.0.1:%d" % PORT if HOST in ("0.0.0.0", "::") else "%s:%d" % (HOST, PORT)
+    allowed = _ALLOWED_HOSTS | {safe_default.lower()}
+    candidate = (candidate_host or "").strip()
+    return "http://" + (candidate if candidate.lower() in allowed else safe_default)
 
 
 def _auth_ok(token):
@@ -219,6 +248,12 @@ def _auth_ok(token):
 # ---- rotating server-error log (B10/J69): tracebacks go here, never to the client --------------
 LOG_DIR = os.path.join(HERE, "logs")
 MAX_POST_BYTES = 8 * 1024 * 1024          # B13: parts-request payloads are a few KB; 8 MB is generous
+# /api/ingest_upload is the one deliberate exception: a real dragged-and-dropped PDF, base64-encoded
+# in the JSON body, is far bigger than MAX_POST_BYTES was ever sized for (a real scanned TM chapter
+# can be tens of MB). Scoped to that ONE route by path (see do_POST below) -- every other route
+# keeps the tight 8 MB cap unchanged. features/ingest_feature.py's UPLOAD_MAX_BYTES (150 MB decoded)
+# is the second, independent check on the actual file size after base64 decoding.
+MAX_UPLOAD_POST_BYTES = 200 * 1024 * 1024
 _errlog = None
 
 
@@ -282,6 +317,12 @@ from features import registry as _registry                        # noqa: E402
 
 for _m in (_fsearch, _fparts, _fbrowse, _fproc, _frender, _fingest, _fsess, _fcorpus, _froutes):
     _m.core = sys.modules[__name__]
+# v1.14: routes.py split into features/routes/ (per-domain submodules) -- each submodule (+ the
+# shared-helper module _shared) needs the same `core` DI the package itself gets above; setting
+# `_froutes.core` alone only reaches features/routes/__init__.py's own namespace, not the
+# submodules' individual `core` globals their handler bodies actually call through.
+for _m in _froutes.SUBMODULES:
+    _m.core = sys.modules[__name__]
 
 # Re-export every name the monolith exposed (tests, scripts, and the DI feature modules call
 # these through `viewer_app` / `core`). Verbatim functions; behavior unchanged.
@@ -304,7 +345,8 @@ from features.procedures_feature import (                         # noqa: E402,F
 from features.render_feature import (                             # noqa: E402,F401
     _clean_png, _poppler_png, _which, _get_doc, _clip_rect_for, render_page_png,
     cached_page_render, _warm_adjacent, page_words, _locate_box, _digits, page_callouts)
-from features.ingest_feature import ingest_preview, ingest_start, ingest_status   # noqa: E402,F401
+from features.ingest_feature import (                             # noqa: E402,F401
+    ingest_preview, ingest_start, ingest_status, ingest_upload, ocr_backlog_start, ocr_pending_count)
 from features.sessions_feature import recent_sessions, save_request               # noqa: E402,F401
 
 # ---- the earlier extractions (unchanged): DI exactly as before ----------------------------------
@@ -329,6 +371,11 @@ import xref_feature as _xr; _xr.core = sys.modules[__name__]
 import xref_online as _xo; _xo.core = sys.modules[__name__]   # X4: opt-in cached online enrichment (off by default)
 from material_feature import part_material as _part_material
 import material_feature as _mf; _mf.core = sys.modules[__name__]
+# embed.py (semantic search: /api/semantic, /api/search_hybrid via hybrid.py) reads core.RPS_MODE
+# to decide whether to mmap or fully load embeddings.npy -- see embed.py's _load_arrays(). Same DI
+# as the injections above; embed.py stays usable standalone (BUILD-EMBEDDINGS.bat, tests) because
+# its `core` defaults to None there, which _load_arrays() treats as modern/full-load.
+import embed as _embed; _embed.core = sys.modules[__name__]
 
 
 def _same_origin(origin, host):
@@ -338,6 +385,12 @@ def _same_origin(origin, host):
         return bool(host) and (o.netloc or "").lower() == host.lower()
     except Exception:
         return False
+
+
+# _dispatch()'s "no POST payload was supplied" sentinel -- distinct from Python None, which a POST
+# body can legitimately produce (json.loads(b"null") == None). See _dispatch() for the failure this
+# collision used to cause.
+_NO_PAYLOAD = object()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -383,14 +436,22 @@ class Handler(BaseHTTPRequestHandler):
         except Exception: pass
 
     # ---- ONE error boundary (B9): registry dispatch; nothing below it can drop the socket ------
-    def _dispatch(self, table, u, qs, payload=None):
+    def _dispatch(self, table, u, qs, payload=_NO_PAYLOAD):
         self._sent = False                                # reset per request (Handler is reused on keep-alive)
         fn = table.get(u.path)
         if fn is None:
             self._send(404, {"error": "not found"}); return
         self._route_path = u.path
         try:
-            if payload is None: fn(self, qs)
+            # v1.x fix: bare `None` used to double as BOTH the "no payload -- this is a GET" sentinel
+            # AND a value a POST body can legitimately carry (json.loads(b"null") == None). That
+            # collision meant a client POSTing a literal JSON `null` body dispatched through the GET
+            # arity (fn(self, qs), missing the required `payload` arg) -> TypeError -> a bare 500,
+            # instead of reaching the route to answer its own clean 400 for a malformed body.
+            # _NO_PAYLOAD (a private sentinel object, never producible by json.loads) now marks "no
+            # payload was supplied" unambiguously, so an explicit POST payload of None reaches the
+            # route function like any other POST payload.
+            if payload is _NO_PAYLOAD: fn(self, qs)
             else: fn(self, qs, payload)
         except _registry.ParamError as e:                 # malformed client input -> 400 (B11)
             self._send(400, {"error": str(e)})
@@ -403,12 +464,12 @@ class Handler(BaseHTTPRequestHandler):
                                  "error": "this feature's data is not built yet",
                                  "detail": m})
             else:
-                ref = log_exception("%s %s" % ("POST" if payload is not None else "GET", u.path))
+                ref = log_exception("%s %s" % ("POST" if payload is not _NO_PAYLOAD else "GET", u.path))
                 if not self._sent:                        # never double-send onto a keep-alive stream
                     try: self._send(500, {"error": "internal server error", "ref": ref})
                     except Exception: pass
         except Exception:                                 # anything else: log it, generic 500 (B10/J69)
-            ref = log_exception("%s %s" % ("POST" if payload is not None else "GET", u.path))
+            ref = log_exception("%s %s" % ("POST" if payload is not _NO_PAYLOAD else "GET", u.path))
             if not self._sent:
                 try: self._send(500, {"error": "internal server error", "ref": ref})
                 except Exception: pass
@@ -433,10 +494,30 @@ class Handler(BaseHTTPRequestHandler):
         # shared token (constant-time compared). Loopback (the mechanics' normal path) is unaffected.
         if _EXPOSED and not _auth_ok(self.headers.get("X-Viewer-Token")):
             self.close_connection = True
-            self._send(401, {"error": "authentication required on a network-exposed VIEWER (set X-Viewer-Token)"}); return
+            self._send(401, AUTH_REQUIRED_BODY); return
         try: length = int(self.headers.get("Content-Length", 0) or 0)
-        except Exception: length = 0
-        if length > MAX_POST_BYTES:
+        except Exception: length = -1     # malformed (non-numeric) header -- see the `length < 0` branch
+        # A negative Content-Length used to sail past the "> MAX_POST_BYTES" check below (it's
+        # never greater than a positive cap) and then reach self.rfile.read(length) -- per Python's
+        # io semantics, read() with a negative size reads until EOF, not a bounded amount, silently
+        # defeating the B13 cap entirely. Reject it outright, before any read.
+        #
+        # A malformed (non-numeric) header used to fall into this same except clause but set
+        # length = 0 -- which reads no body at all (`raw = ... if length else b"{}"` below) and
+        # never sets close_connection, even though the client may have actually sent body bytes
+        # after that header. Those bytes then sit unread in the socket buffer and get parsed as the
+        # start of the next request on the same keep-alive connection -- an HTTP framing desync.
+        # Routing "couldn't parse a length at all" through the same length<0 branch as "parsed to a
+        # negative number" closes the connection in both cases instead of just one.
+        if length < 0:
+            self.close_connection = True
+            self._send(400, {"error": "invalid Content-Length"}); return
+        # /api/ingest_upload gets a larger cap (see MAX_UPLOAD_POST_BYTES above) -- everything else
+        # keeps the original 8 MB B13 limit unchanged. u.path is already parsed above (do_GET's
+        # equivalent routes off the same urlparse result), so this is a cheap string compare, not a
+        # new parse -- and it happens BEFORE any body is read, same as the check it replaces.
+        cap = MAX_UPLOAD_POST_BYTES if u.path == "/api/ingest_upload" else MAX_POST_BYTES
+        if length > cap:
             self.close_connection = True                                         # refuse WITHOUT reading the body
             self._send(413, {"error": "request body too large"}); return        # B13
         raw = self.rfile.read(length) if length else b"{}"
@@ -460,7 +541,19 @@ class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
         except Exception:
             n = 0
         if n <= 0:
-            try: n = max(8, min(64, (os.cpu_count() or 4) * 4))
+            try:
+                base = max(8, min(64, (os.cpu_count() or 4) * 4))
+                # RPS-deepen finding: the core-count-only formula gave a 6GB/8-core laptop (RPS mode
+                # "lite" -- mode_for() only ever returns "modern" when ram_gb>=8, so this can never
+                # regress the modern case) the same 32-thread ceiling as a 32GB workstation, on exactly
+                # the asset-burst-thrash scenario this class's own docstring above warns about. legacy
+                # additionally runs pdftoppm as a subprocess per page (heavier per-thread than in-process
+                # PyMuPDF), so it gets the tightest cap. rps_init() already ran in main() before this
+                # server object is constructed, so RPS_MODE is a free, already-computed global here --
+                # no extra probe cost. VIEWER_MAX_WORKERS above still overrides this unconditionally.
+                if RPS_MODE == "legacy": n = min(base, 8)
+                elif RPS_MODE == "lite": n = min(base, 16)
+                else: n = base
             except Exception: n = 16
         self._worker_sem = _threading.BoundedSemaphore(n)
         self.max_workers = n
@@ -528,7 +621,7 @@ def _auto_optimize():
 
 
 def main():
-    global DB_PATH, INDEX_DIR
+    global DB_PATH, INDEX_DIR, HOST, PORT
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", DB_PATH))
     ap.add_argument("--port", type=int, default=8765)
@@ -537,6 +630,7 @@ def main():
     ap.add_argument("--mode", default=None, help="force RPS mode: modern | lite | legacy")
     ap.add_argument("--prebake", type=int, default=0, metavar="N", help="pre-render the first N pages of every doc into the cache, then exit")
     args = ap.parse_args(); DB_PATH = os.path.abspath(args.db); INDEX_DIR = os.path.abspath(os.path.dirname(DB_PATH))
+    HOST, PORT = args.host, args.port
     if not os.path.exists(DB_PATH): print(f"[WARN] index not found at {DB_PATH}")
     global RPS_OVERRIDE
     if args.mode: RPS_OVERRIDE = args.mode
@@ -567,10 +661,26 @@ def main():
         print("=" * 72)
         print("[EXPOSURE] Binding to a NON-LOOPBACK address (%s) -- the VIEWER is reachable on the network." % args.host)
         if _AUTH_TOKEN:
-            print("[EXPOSURE] Mutating requests require the X-Viewer-Token header (VIEWER_AUTH_TOKEN is set).")
+            print("[EXPOSURE] Mutating requests, plus GET /api/audit, /api/ops, /api/status,")
+            print("[EXPOSURE] /api/command_status, /api/ingest_status, /api/provenance, /api/integrity")
+            print("[EXPOSURE] (host filesystem paths / internal run state), require X-Viewer-Token.")
+            print("[EXPOSURE] All other GETs (search, manual pages, figures, ...) remain open on the LAN by design.")
         else:
-            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs will be REJECTED (401).")
-            print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes over the network.")
+            print("[EXPOSURE] VIEWER_AUTH_TOKEN is NOT set -- ALL mutating POSTs, and the GETs listed")
+            print("[EXPOSURE] above (audit/ops/status/command_status/ingest_status/provenance/integrity),")
+            print("[EXPOSURE] will be REJECTED (401). Other GETs remain open.")
+            print("[EXPOSURE] Set VIEWER_AUTH_TOKEN to allow authenticated writes + those reads over the network.")
+        if args.host in ("0.0.0.0", "::") and not _ALLOWED_HOSTS:
+            # Review finding: safe_public_base() (used by /api/qr) refuses any Host it can't
+            # verify and falls back to 127.0.0.1 -- correct for a wildcard bind, where the bind
+            # address itself names no single reachable host, but that means QR codes silently
+            # encode a URL that's meaningless on the SCANNING device (127.0.0.1 resolves to
+            # itself, not this server) unless the operator sets VIEWER_ALLOWED_HOSTS to the
+            # LAN IP/hostname clients actually use -- exactly the deployment this binding is for.
+            print("[EXPOSURE] Bound to %s (a wildcard address) -- QR codes / deep links (/api/qr) will" % args.host)
+            print("[EXPOSURE] encode 127.0.0.1 (useless on a scanning phone) until you set")
+            print("[EXPOSURE] VIEWER_ALLOWED_HOSTS to the LAN IP/hostname clients actually connect to")
+            print("[EXPOSURE] (comma-separated, e.g. VIEWER_ALLOWED_HOSTS=192.168.1.50:%d)." % args.port)
         print("=" * 72)
     srv = _BoundedThreadingHTTPServer((args.host, args.port), Handler)
     print(f"THE VIEWER v{VERSION} running at http://{args.host}:{args.port}  (index: {DB_PATH})"); print("Press Ctrl+C to stop.")

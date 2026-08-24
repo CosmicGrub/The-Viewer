@@ -4,6 +4,7 @@ sheet), list every part called out ON that sheet, from the structured parts inde
 callouts). Completes the two-way navigation: locate a part -> its figures -> all parts on each of those figures.
 Read-only on the index (R1). db_path passed explicitly."""
 import os, sqlite3
+from urllib.parse import quote as _q
 
 
 def _db(db_path):
@@ -36,9 +37,9 @@ def parts_on(db_path, doc, page, limit=400):
         out.append({
             "nsn": nsn, "part_number": pn, "name": r["name"], "nomenclature": r["nomen"],
             "cagec": r["cagec"], "smr": r["smr"], "uoc": r["uoc"], "fig_no": r["fig_no"],
-            "dossier_url": ("/dossier?q=" + nsn) if nsn else (("/partdiff?q=" + pn) if pn else None),
-            "locate_url": ("/locate?q=" + (nsn or pn or (r["name"] or "").strip())) if (nsn or pn or r["name"]) else None,
-            "cad_url": ("/cadimg?nsn=" + nsn) if nsn else None,
+            "dossier_url": ("/dossier?q=" + _q(nsn, safe="")) if nsn else (("/partdiff?q=" + _q(pn, safe="")) if pn else None),
+            "locate_url": ("/locate?q=" + _q(nsn or pn or (r["name"] or "").strip(), safe="")) if (nsn or pn or r["name"]) else None,
+            "cad_url": ("/cadimg?nsn=" + _q(nsn, safe="")) if nsn else None,
         })
         if len(out) >= limit:
             break

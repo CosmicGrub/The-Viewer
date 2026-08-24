@@ -13,7 +13,7 @@ def build(dirpath):
         type TEXT, tm_number TEXT, nsn TEXT, title TEXT, vehicle TEXT, page_count INT,
         size_bytes INT, mtime REAL, status TEXT, created_at TEXT, updated_at TEXT);
     CREATE TABLE pages(id INTEGER PRIMARY KEY, document_id INT, page_number INT, body_text TEXT,
-        char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT);
+        char_count INT, source TEXT, ocr_status TEXT, ocr_priority INT, ocr_confidence REAL);
     CREATE VIRTUAL TABLE pages_fts USING fts5(body_text, content='pages', content_rowid='id');
     CREATE TABLE parts(id INTEGER PRIMARY KEY, name TEXT, part_number TEXT, nsn TEXT, document_id INT,
         page INT, vehicle TEXT, nomenclature TEXT, cagec TEXT, smr TEXT, fig_no TEXT, fig_title TEXT,

@@ -26,11 +26,14 @@ def _proc_kind(line):
     return None
 
 
-def _parse_procedure(text):
+def _parse_procedure(text, ocr_confidence=None):
     """Heuristically pull structure out of a TM work-package page: kind, numbered steps, a
     tools-required list, materials/consumables, referenced manuals, and WARNING/CAUTION/NOTE
     callouts. Best-effort extraction — the cited page image is always the source of truth (the UI
-    links to it and says 'verify on the sheet'). `materials`/`references` added v0.99.10 (additive)."""
+    links to it and says 'verify on the sheet'). `materials`/`references` added v0.99.10 (additive).
+    `ocr_confidence`: optional real, engine-reported per-page OCR confidence (pages.ocr_confidence),
+    passed through to each caution's textquality.annotate() call -- see that function's docstring for
+    the conservative blend rule (can only lower a caution's confidence flag, never raise it)."""
     if not text: return None
     lines = [l.rstrip() for l in re.split(r"[\r\n]+", text)]
     kind = None; title = None; steps = []; tools = []; cautions = []; materials = []
@@ -62,6 +65,26 @@ def _parse_procedure(text):
         m = re.match(r"^(\d{1,3})[\.\)]\s+(.+)", s)
         if m and len(m.group(2)) > 4: steps.append(m.group(2)[:300])
     if not steps and not tools: return None
+    # UX finding #6 (priority 5, R13 safety-relevant): flag each caution's OCR-quality confidence (the
+    # same signal cautions.find_for_query() already computes for /api/cautions via textquality.annotate,
+    # additive -- no change to the {kind, text} shape above) so a mechanic reading a printed Job Card
+    # away from the screen -- with no way to re-check a garbled DANGER line against the corpus -- can
+    # see that it needs verifying, instead of every callout displaying with identical visual weight.
+    # Review finding: the try/except used to wrap the WHOLE loop, so one bad caution mid-list would
+    # silently leave every LATER caution un-annotated (no exception surfaced, no consumer able to tell
+    # "clean" from "never scored") -- exactly the safety-relevant item this fix cares most about could
+    # be the one left unflagged. Each caution is now scored independently.
+    try:
+        import textquality as _tq
+    except Exception:
+        _tq = None
+    if _tq:
+        for c in cautions:
+            try:
+                scored = _tq.annotate({"text": c["text"]}, context_key="text", real_confidence=ocr_confidence)
+                c["confidence"] = scored["confidence"]; c["quality"] = scored["quality"]
+            except Exception:
+                pass
     return {"kind": kind or "Procedure", "title": (title or "")[:80], "steps": steps[:40],
             "tools": tools[:25], "materials": materials[:20], "references": refs[:12],
             "cautions": cautions[:12]}
@@ -85,7 +108,8 @@ def procedure_for(query, limit=6):
         match = phrase + ' AND (removal OR installation OR remove OR install OR disassembly OR assembly OR replace OR adjustment OR service)'
         try:
             rows = con.execute(
-                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, d.title, p.page_number, p.body_text, p.source "
+                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, d.title, p.page_number, p.body_text, "
+                "p.source, p.ocr_confidence "
                 "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid JOIN documents d ON d.id=p.document_id "
                 "WHERE pages_fts MATCH ? ORDER BY rank LIMIT ?", (match, limit*3)).fetchall()
         except sqlite3.OperationalError:
@@ -98,7 +122,7 @@ def procedure_for(query, limit=6):
     # result slot with an identical procedure instead of surfacing distinct ones.
     out = []; seen = {}
     for r in rows:
-        pr = _parse_procedure(r["body_text"])
+        pr = _parse_procedure(r["body_text"], ocr_confidence=r["ocr_confidence"])
         if not pr: continue
         kk = (r["tm_number"] or "", r["page_number"])
         if kk in seen:
@@ -128,7 +152,13 @@ def _norm_unit(u):
 
 def torque_specs(query, limit=14):
     """Find torque values stated in the manuals for a part: sentences mentioning torque/tighten near a
-    number + unit (ft-lb / in-lb / N·m), each cited to its page. Read-only; grows with OCR."""
+    number + unit (ft-lb / in-lb / N·m), each cited to its page. Read-only; grows with OCR.
+
+    Recommendations annex #2 (torque-measures-confidence): now selects p.ocr_confidence and threads
+    it through textquality.annotate() exactly the way _parse_procedure()'s cautions already do --
+    each spec gains a confidence/quality flag so torque.html can show "verify on page" the same way
+    part.html/dossier.html already do for cautions. Before this fix, torque -- arguably the value
+    most directly tied to whether a bolt holds -- carried ZERO OCR-quality signal."""
     q = (query or "").strip()
     if not q: return {"query": "", "found": False, "specs": []}
     con = core.db(); nom = None; ref = norm_nsn(q)
@@ -144,7 +174,7 @@ def torque_specs(query, limit=14):
         match = phrase + ' AND (torque OR tighten OR "ft-lb" OR "lb-ft")'
         try:
             rows = con.execute(
-                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, p.page_number, p.body_text "
+                "SELECT d.id AS doc_id, d.vehicle, d.tm_number, p.page_number, p.body_text, p.ocr_confidence "
                 "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid JOIN documents d ON d.id=p.document_id "
                 "WHERE pages_fts MATCH ? ORDER BY rank LIMIT ?", (match, limit*2)).fetchall()
         except sqlite3.OperationalError:
@@ -152,9 +182,14 @@ def torque_specs(query, limit=14):
     except sqlite3.OperationalError:
         rows = []
     con.close()
+    try:
+        import textquality as _tq
+    except Exception:
+        _tq = None
     specs = []; seen = set()
     for r in rows:
         bt = r["body_text"] or ""
+        ocr_conf = r["ocr_confidence"]
         for sent in re.split(r"(?<=[\.\n])\s+", bt):
             low = sent.lower()
             if "torque" not in low and "tighten" not in low: continue
@@ -165,8 +200,15 @@ def torque_specs(query, limit=14):
                 key = (val, ctx[:40])
                 if key in seen: continue
                 seen.add(key)
-                specs.append({"value": val, "context": ctx, "page": r["page_number"],
-                              "doc_id": r["doc_id"], "vehicle": r["vehicle"], "tm_number": r["tm_number"]})
+                spec = {"value": val, "context": ctx, "page": r["page_number"],
+                        "doc_id": r["doc_id"], "vehicle": r["vehicle"], "tm_number": r["tm_number"]}
+                if _tq:
+                    try:
+                        scored = _tq.annotate({"text": ctx}, context_key="text", real_confidence=ocr_conf)
+                        spec["confidence"] = scored["confidence"]; spec["quality"] = scored["quality"]
+                    except Exception:
+                        pass
+                specs.append(spec)
                 if len(specs) >= limit: break
             if len(specs) >= limit: break
         if len(specs) >= limit: break

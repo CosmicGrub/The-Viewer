@@ -60,21 +60,95 @@ def signature_valid(manifest, secret):
     return hmac.compare_digest(sig, expect)
 
 
+def _safe_join(root_real, name):
+    """Join `name` under `root_real` (an already-realpath'd root -- see verify(), which resolves it
+    once per call rather than once per manifest entry), refusing anything that would escape it:
+    traversal (`../`), absolute paths, or an alternate drive letter. Returns the resolved path, or
+    None if unsafe -- including a non-string `name` (a self-signed manifest is fully
+    caller-controlled JSON, so `name` could be an int/list/etc; `not name` alone doesn't catch a
+    non-empty non-string, and os.path.isabs() raises TypeError on one instead of just saying "no").
+    """
+    if not isinstance(name, str) or not name or os.path.isabs(name) or ":" in name or "\x00" in name:
+        return None
+    candidate = os.path.realpath(os.path.join(root_real, name))
+    try:
+        if os.path.commonpath([root_real, candidate]) != root_real:
+            return None
+    except ValueError:
+        # commonpath raises on e.g. a different drive on Windows -- that's an escape too.
+        return None
+    return candidate
+
+
+def export_decisions(decisions, secret, label="niin-decisions"):
+    """Sign an arbitrary list of decision dicts for air-gapped transfer between units (recommendations
+    annex #17: airgap-multiunit). `decisions` is opaque to this function -- semantic validation (NIIN
+    format, decision enum) is the caller's job (parts_feature.py owns that), same layering
+    make_manifest()/verify() already have with file-list semantics. A distinct "kind" (not the file-
+    manifest shape) means verify()'s file-hashing path can never be accidentally pointed at this --
+    airgap intentionally does NOT try to sync the built sidecars (viewer.db/kg.db/dedup.db/
+    masterfile.db/correlations.db) themselves: those are deterministic BUILD OUTPUTS from source
+    PDFs, versioned by FLIS-enrichment vintage, not independently-editable data -- two units'
+    copies diverging isn't corruption to reconcile via file hashing, it's two different build runs
+    (see docs/SYSTEM-REQUIREMENTS.md). reviews.db's niin_decisions is different: small, human-
+    authored, append-only, and genuinely safe to merge -- this is the one derived-data path that's
+    worth a real signed sync."""
+    manifest = {"kind": "niin-decisions", "label": label, "created": int(time.time()),
+                "count": len(decisions), "decisions": list(decisions)}
+    return sign(manifest, secret)
+
+
+def import_decisions(manifest, secret):
+    """Fail-closed verify of a signed decisions export. Returns {ok, decisions} -- decisions is []
+    unless the signature is valid AND the manifest is genuinely decisions-shaped. Semantic
+    validation (NIIN format, decision enum) and conflict detection against local data are the
+    caller's job (parts_feature.py) -- this only proves the export wasn't tampered with in transit,
+    the same fail-closed-before-touching-anything-else contract verify() has for files."""
+    if not isinstance(manifest, dict) or manifest.get("kind") != "niin-decisions":
+        return {"ok": False, "error": "not a niin-decisions manifest", "decisions": []}
+    if not signature_valid(manifest, secret):
+        return {"ok": False, "error": "signature invalid", "decisions": []}
+    decisions = manifest.get("decisions")
+    if not isinstance(decisions, list):
+        return {"ok": False, "error": "malformed decisions list", "decisions": []}
+    return {"ok": True, "decisions": decisions}
+
+
 def verify(manifest, root, secret):
     """Fail-closed verification on the receiving side. Returns a dict with keys ok, signature_valid,
     files (each name/present/match), missing (list of names), and tampered (list of names).
-    ok is True only if the signature is valid AND every listed file is present and hash-matches."""
+    ok is True only if the signature is valid AND every listed file is present and hash-matches.
+
+    Fail-closed by construction, in two ways that used to be missing:
+      - An invalid/missing signature is rejected *before* the filesystem is touched at all. An
+        unsigned or forged manifest previously still triggered an os.path.isfile()/hash probe for
+        every listed name -- a file-existence oracle for arbitrary paths on the receiving host,
+        reachable without knowing the shared secret.
+      - Every file name is resolved and checked for containment under `root` before any I/O.
+        `../../../etc/shadow`-style names, absolute paths, and alternate drive letters are
+        rejected as tampered rather than silently read from outside `root`.
+    """
     sig_ok = signature_valid(manifest, secret)
+    if not sig_ok:
+        return {"ok": False, "signature_valid": False, "files": [],
+                "missing": [], "tampered": [], "verdict": "REJECT"}
+
+    root_real = os.path.realpath(root)   # resolved once, not once per file (root never changes below)
     rows, missing, tampered = [], [], []
     for e in manifest.get("files", []):
-        p = os.path.join(root, e["name"])
+        name = e.get("name", "")
+        p = _safe_join(root_real, name)
+        if p is None:
+            rows.append({"name": name, "present": False, "match": False})
+            tampered.append(name)
+            continue
         present = os.path.isfile(p)
         match = bool(present and _sha256(p) == e.get("sha256"))
-        rows.append({"name": e["name"], "present": present, "match": match})
+        rows.append({"name": name, "present": present, "match": match})
         if not present:
-            missing.append(e["name"])
+            missing.append(name)
         elif not match:
-            tampered.append(e["name"])
+            tampered.append(name)
     ok = sig_ok and not missing and not tampered
     return {"ok": ok, "signature_valid": sig_ok, "files": rows,
             "missing": missing, "tampered": tampered,
@@ -122,6 +196,72 @@ if __name__ == "__main__":
     forged["files"][0]["sha256"] = "0" * 64
     assert not signature_valid(forged, SECRET), "forged manifest must fail signature"
     print("forged-manifest detection OK")
+
+    # security regressions: an unsigned/wrongly-signed manifest must not probe the filesystem at
+    # all -- verify() used to still report present/match for every name even with a bad signature,
+    # making it a file-existence oracle. Point it at TM-B.pdf, which really does exist in `dst`,
+    # via a manifest whose signature is simply wrong -- the fixed code must not even look.
+    oracle_attempt = {"label": "x", "created": 0, "count": 1, "algo": "hmac-sha256",
+                       "files": [{"name": "TM-B.pdf", "size": 0, "sha256": "0" * 64}],
+                       "signature": "not-a-real-signature"}
+    vo = verify(oracle_attempt, dst, SECRET)
+    assert vo["signature_valid"] is False and vo["files"] == [], vo
+    print("unsigned-manifest oracle blocked OK -> no filesystem probing occurred")
+
+    # path traversal: even with a *valid* signature, a name that escapes `root` must be rejected
+    # as tampered, not resolved and read. filename here doesn't need to point at a real file
+    # outside root -- the containment check itself is what's under test.
+    traversal_name = "../" * 6 + "some-file-outside-root.txt"
+    trav_man = dict(man)
+    trav_man["files"] = [{"name": traversal_name, "size": 0, "sha256": "0" * 64}]
+    trav_man["count"] = 1
+    trav_man = sign(trav_man, SECRET)
+    vt2 = verify(trav_man, dst, SECRET)
+    assert not vt2["ok"] and traversal_name in vt2["tampered"], vt2
+    print("path-traversal name rejected OK -> tampered=%s" % vt2["tampered"])
+
+    # a self-signed manifest (attacker controls both manifest AND secret, so signature_valid()
+    # trivially passes) with a non-string file name used to crash _safe_join with an unhandled
+    # TypeError (os.path.isabs(123) raises rather than returning False) -- must be rejected as
+    # tampered instead, like any other malformed entry.
+    weird_man = {"label": "x", "created": 0, "count": 1, "algo": "hmac-sha256",
+                 "files": [{"name": 12345, "size": 0, "sha256": "0" * 64}]}
+    weird_man = sign(weird_man, "attacker-chosen-secret")
+    vw2 = verify(weird_man, dst, "attacker-chosen-secret")
+    assert not vw2["ok"] and 12345 in vw2["tampered"], vw2
+    print("non-string file name rejected (no crash) OK -> tampered=%s" % vw2["tampered"])
+
+    # ---- export_decisions()/import_decisions() (annex #17: airgap-multiunit) ---------------------
+    decisions = [{"niin": "012345678", "decision": "distinct", "canonical_nsn": "5310-01-234-5678",
+                  "note": "confirmed distinct part", "decided_by": "SGT A", "decided_at": "2026-01-01"},
+                 {"niin": "987654321", "decision": "interchangeable", "canonical_nsn": "",
+                  "note": "", "decided_by": "SSG B", "decided_at": "2026-01-02"}]
+    dman = export_decisions(decisions, SECRET, label="unit-A-decisions")
+    assert dman["kind"] == "niin-decisions" and dman["count"] == 2, dman
+    assert signature_valid(dman, SECRET), "decisions manifest should validate"
+    print("export_decisions OK -> %d decisions, signed" % dman["count"])
+
+    imp = import_decisions(dman, SECRET)
+    assert imp["ok"] and imp["decisions"] == decisions, imp
+    print("import_decisions (clean) OK -> %d decisions" % len(imp["decisions"]))
+
+    imp_wrong_key = import_decisions(dman, "attacker-key")
+    assert not imp_wrong_key["ok"] and imp_wrong_key["decisions"] == [], imp_wrong_key
+    print("import_decisions (wrong key) OK -> rejected, no decisions leaked")
+
+    # a self-signed forged decisions manifest (attacker controls both content and secret) must still
+    # be rejected by KIND if handed to verify() or ignored if a file-manifest is handed to
+    # import_decisions() -- the two paths must never cross.
+    file_man = make_manifest(src, ["TM-A.pdf"], SECRET)
+    cross = import_decisions(file_man, SECRET)
+    assert not cross["ok"] and "niin-decisions manifest" in cross["error"], cross
+    print("import_decisions rejects a file-manifest handed to it by mistake OK")
+
+    tampered_dman = dict(dman); tampered_dman["decisions"] = [dict(decisions[0], decision="dismiss")] + decisions[1:]
+    imp_tampered = import_decisions(tampered_dman, SECRET)
+    assert not imp_tampered["ok"], imp_tampered
+    print("import_decisions rejects a tampered decisions list (signature no longer matches) OK")
+
     print("airgap self-test PASS")
 
 # END OF FILE

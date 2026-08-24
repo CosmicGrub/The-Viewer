@@ -7,7 +7,7 @@
   /* tokens come from /base.css (v0.97.0, A3/A4 — one source of truth) */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
   header h1{font-size:17px;margin:0;font-weight:700} header .sp{flex:1} a.nav{color:var(--acc);text-decoration:none;font-size:13px}
   .wrap{max-width:760px;margin:0 auto;padding:20px}
   .bar{display:flex;gap:10px;margin-bottom:10px}
@@ -51,7 +51,7 @@
 </head>
 <body>
 <header>
-  <h1>📐 Visual steps</h1><span class="muted">the procedure as a follow-along flow</span>
+  <h1>🎞 Visual steps</h1><span class="muted">the procedure as a follow-along flow</span>
   <span class="sp"></span>
   <a class="nav" href="/procedure">🔧 Detailed view</a>&nbsp;&nbsp;<a class="nav" href="/">← Home</a>
 </header>
@@ -77,11 +77,12 @@ function run(){
 function render(d){
   if(!d.found){ $("#out").innerHTML='<div class="empty">No step-by-step procedure found for <b>'+esc(d.query)+'</b> yet.<br><span class="muted">Try the exact part name, or check back as OCR coverage grows.</span></div>'; return; }
   var h='<div class="nom">'+esc(d.nomenclature)+'</div>';
-  h+='<div class="toggle" style="margin:8px 0 4px"><a href="/procedure?q='+encodeURIComponent(d.query)+'">📋 Detailed list</a><a href="/packet?q='+encodeURIComponent(d.query)+'" target="_blank">🖨 Job packet</a><a href="#" onclick="window.print();return false">🖨 Print</a></div>';
+  h+='<div class="toggle" style="margin:8px 0 4px"><a href="/procedure?q='+encodeURIComponent(d.query)+'">🔧 Detailed list</a><a href="/packet?q='+encodeURIComponent(d.query)+'" target="_blank">🖨 Job packet</a><a href="#" onclick="window.print();return false">Print</a></div>';
   (d.procedures||[]).forEach(function(p){
     h+='<div class="proc"><div class="phead"><span class="kind '+kcls(p.kind)+'">'+esc(p.kind)+'</span>'+
        '<span class="cite"><a href="/page?doc='+encodeURIComponent(p.doc_id)+'&page='+encodeURIComponent(p.page)+'&dpi=150&clean=1" target="_blank">'+esc(p.vehicle||p.tm_number||"")+' · p.'+esc(p.page)+' ↗</a></span></div>';
-    (p.cautions||[]).forEach(function(c){ h+='<div class="banner '+kcls(c.kind)+'"><span class="ic">'+cicon(c.kind)+'</span><span><b>'+esc(c.kind)+'</b>'+esc(c.text)+'</span></div>'; });
+    (p.cautions||[]).forEach(function(c){ var q=(c.confidence&&c.confidence!=="clean")?(' <i style="color:var(--amb)">(OCR quality: '+esc(c.confidence)+' — verify on page)</i>'):"";
+      h+='<div class="banner '+kcls(c.kind)+'"><span class="ic">'+cicon(c.kind)+'</span><span><b>'+esc(c.kind)+'</b>'+esc(c.text)+q+'</span></div>'; });
     if(p.tools&&p.tools.length){ h+='<div class="toolsbar"><span class="lbl">Tools</span>'; p.tools.forEach(function(t){h+='<span class="tool">🔧 '+esc(t)+'</span>';}); h+='</div>'; }
     if(p.steps&&p.steps.length){
       h+='<div class="flow">';

@@ -132,6 +132,37 @@ def run():
     cov_ok = masterfile.coverage(master_db)
     check("coverage() on a genuinely valid db still returns real data", len(cov_ok) == 1 and cov_ok[0]["subject"] == "hmmwv")
 
+    # ---- fix 3 (plan item 15): pageqa.db source degrades cleanly, missing OR torn -----------------
+    # masterfile.py's own __main__ self-test (v1.2.0, plan item 13) already proves pageqa_db OMITTED
+    # entirely and pageqa_db pointing at a path that does not exist yet both contribute nothing without
+    # raising. What it does NOT cover -- the third reachable state -- is a pageqa.db file that EXISTS on
+    # disk but is torn/pre-schema (a real possibility if BUILD-PAGEQA.bat is killed mid-run before its own
+    # `CREATE TABLE IF NOT EXISTS pageqa_extractions` + first INSERT ever completes, or the file is
+    # corrupted on disk). Mirrors THIS file's own torn_db pattern above (a db that exists but lacks the
+    # expected schema) applied to pageqa_db as one of build()'s optional SOURCES rather than to master_db
+    # itself -- same degrade contract dedup.db's own read side already guarantees for "sidecar not built
+    # yet" (test_dedup.py's "a dedup.db that was never built returns [] cleanly" case).
+    missing_pageqa = os.path.join(d, "never_built_pageqa.db")
+    summ_missing_pq = masterfile.build(dbp, mdb, None, master_db, pageqa_db=missing_pageqa)
+    check("build() with a pageqa_db path that doesn't exist yet succeeds normally (measures still land)",
+          summ_missing_pq["filtered"] == 1)
+    res_missing_pq = masterfile.for_subject(master_db, "HMMWV")
+    check("a missing pageqa_db contributes no vlm-verified rows",
+          not any(f["origin"] == "vlm-verified" for f in res_missing_pq["filtered"]))
+
+    torn_pageqa = os.path.join(d, "torn_pageqa.db")
+    tpq = sqlite3.connect(torn_pageqa)
+    tpq.execute("CREATE TABLE something_unrelated(x INTEGER)")   # pageqa_extractions genuinely absent
+    tpq.commit(); tpq.close()
+    summ_torn_pq = masterfile.build(dbp, mdb, None, master_db, pageqa_db=torn_pageqa)
+    check("build() with a torn/pre-schema pageqa_db degrades cleanly (no raise, rest of build still succeeds)",
+          summ_torn_pq["filtered"] == 1)
+    res_torn_pq = masterfile.for_subject(master_db, "HMMWV")
+    check("a torn pageqa_db contributes no vlm-verified rows either",
+          not any(f["origin"] == "vlm-verified" for f in res_torn_pq["filtered"]))
+    check("a torn pageqa_db still leaves the corpus's own length group intact",
+          any(f["type"] == "length" and f["origin"] == "corpus" for f in res_torn_pq["filtered"]))
+
     return passed, failed
 
 

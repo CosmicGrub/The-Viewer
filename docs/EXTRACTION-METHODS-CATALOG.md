@@ -50,7 +50,7 @@ append-only sidecars (R1/R6).
 |3.9| **Warnings / Cautions / Notes** as first-class objects | ✅ | `cautions.py` (severity-ranked) + `/api/cautions` + dossier card | — |
 |3.10| **Acronym / abbreviation expansion** (per-TM glossary) | ✅ | `acronyms.py` + `/api/acronyms` | — |
 |3.11| **Relation extraction** (part→assembly, callout→part, see-also) | ✅ | `kg.py`/`build_kg.py` graph (part↔figure↔spec↔nsn↔vehicle) | — |
-|3.12| **Local-LLM structured extraction** — page text → JSON specs | ○ | small offline GGUF (llama.cpp) for messy pages | L |
+|3.12| **Local-LLM structured extraction** — page text → JSON specs | ✅ | subsumed into §10.1's vision-language pipeline, not a separate offline-GGUF/llama.cpp path (design doc `2026-08-24-vision-language-page-qa-design.md`: the batch consumer needs typed structured output either way) — `pageqa.py`'s `mode="structured"` parses a typed `{type,value,value2,unit}` value out of the model's free-text answer via `measures.py`'s own extraction, self-grounded + OCR-cross-checked before `build_pageqa.py` ever writes it to `index/pageqa.db` | — |
 
 ## 4. Figures, drawings, and imagery
 
@@ -123,7 +123,7 @@ append-only sidecars (R1/R6).
 
 | # | Method | Status | Approach / library | Effort |
 |--|--------|--------|--------------------|--------|
-|10.1| **Vision-language document QA** (ask a page for a value) | ◐ | `vlm.py` pluggable interface + `vlm_backend.py` (Florence-2-base via `transformers`, GPU-fork tier only) + `pageqa.py`'s trust-capped core + `/api/pageqa` — the interactive "🔎 Ask this page" control (`deepzoom.html`) and `ask.py`'s retrieve-then-answer fallback both work end-to-end now (Phase 1, hard-capped at the "review" trust tier, nothing persisted). **Structured extraction + the self-grounding/OCR-cross-check verification pass that would write corroborating rows to a new `index/pageqa.db` for `masterfile.py` is still Phase 2 — not yet built** (see `docs/superpowers/plans/2026-08-24-vision-language-page-qa-plan.md`) | — |
+|10.1| **Vision-language document QA** (ask a page for a value) | ✅ | `vlm.py` pluggable interface (+ `ground(image,phrase)` self-grounding, v1.5.0) + `vlm_backend.py` (Florence-2-base via `transformers`, GPU-fork tier only) + `pageqa.py`'s trust-capped core. Phase 1: the interactive "🔎 Ask this page" control (`deepzoom.html`) and `ask.py`'s retrieve-then-answer fallback, hard-capped at the "review" trust tier, nothing persisted. Phase 2: `mode="structured", strict=True` extracts a typed `{type,value,value2,unit}` value (via `measures.py`'s own extraction) and gates it on self-grounding (`vlm.ground()` re-locates the model's own claimed phrase) **and** an OCR cross-check against the page's own stored text — only rows passing both are written by `build_pageqa.py`/`BUILD-PAGEQA.bat` to the new `index/pageqa.db` sidecar, which `masterfile.py` merges in as an `origin='vlm-verified'` corroborating source | — |
 |10.2| Table-structure transformer (TATR) for scanned tables | ○ | microsoft/table-transformer | M |
 |10.3| Mil-spec-tuned NER (parts, tools, specs) | ○ | fine-tune a small token classifier | L |
 |10.4| Layout model to drive *every* parser (§2.4) | ○ | one segmentation feeding all extractors | L |

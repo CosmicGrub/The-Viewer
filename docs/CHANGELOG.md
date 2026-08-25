@@ -12,6 +12,186 @@ every change going forward.
 
 ---
 
+## [1.17.0] — 2026-08-24 — Vision-Language Page QA: Phase 2 (structured extraction, verification, batch tool, Masterfile integration — catalog §10.1 + §3.12)
+
+Closes out the plan [1.16.0] deliberately deferred (items 10–17 of `docs/superpowers/plans/2026-08-24-
+vision-language-page-qa-plan.md`): the "Automatic consumer" — typed structured output, the two-part
+self-grounding/OCR-cross-check verification pass, the new `index/pageqa.db` sidecar, `build_pageqa.py` +
+`BUILD-PAGEQA.bat`, and wiring the sidecar into `masterfile.py` as a corroborating source. This is the
+higher-stakes half of the two-phase split: Phase 1's interactive path only ever showed an answer on
+screen; this phase writes **unattended**, so R13 (extractive+cited, fail loud, never fabricate) is load-
+bearing here, not decorative — a false-positive `verified=True` row is a real data-quality bug once
+`masterfile.py` picks it up. Per the design spec's own framing, this single implementation subsumes both
+`docs/EXTRACTION-METHODS-CATALOG.md` §10.1 (vision-language document QA) **and** §3.12 (local-LLM
+structured extraction) — the batch consumer needs typed structured output either way, so there is no
+separate offline-GGUF/llama.cpp path to build for §3.12; it is the same pipeline.
+
+### Added
+- **`engine/vlm.py` gains `ground(image, phrase, _backend=None)`** (v1.5.0) — a NEW, separate, optional
+  capability, genuinely different from `ask()`/`describe()`: `ask()`'s own grounding (when a backend
+  supports it) always grounds a caption/answer the backend just freshly generated, so it has no way to
+  re-check an arbitrary, already-claimed phrase the caller hands in. `ground()` takes exactly that phrase
+  and asks "where (if anywhere) is THIS text on the page," with no captioning step of its own — mirrors
+  `describe()`'s existing role as a thin convenience wrapper over the same pluggable-backend/graceful-
+  degrade contract `ask()` already established. Returns `{available, region, backend, note}`; a backend
+  without `ground()` (checked via `hasattr`) means "self-grounding verification unavailable for this
+  backend," not an error — `available` stays `True`, `region` is simply `None`. Never raises.
+- **`engine/vlm_backend.py` gains `ground(image, phrase)`** (v1.1) — the real implementation `vlm.ground()`
+  calls: ONE direct `<CAPTION_TO_PHRASE_GROUNDING>` call using the caller's own already-claimed phrase as
+  `text_input`, no captioning step at all (reuses the existing `_load()`/`_run_task()` helpers `ask()`
+  already established). Returns the first bbox found, normalized 0-1 exactly like `ask()`'s own `region`,
+  or `None` when nothing was located.
+- **`engine/pageqa.py` implements `mode="structured"` / `strict=True`** (v1.1) — was a "not yet implemented"
+  stub since [1.16.0]. Typed `{type, value, value2, unit}` output extracted from the backend's free-text
+  answer via `measures.py`'s **own** extraction (no parallel regex logic — the established, tested way
+  this codebase turns free text into typed measurements), gated behind a two-part verification pass before
+  `verified` is ever `True`: (1) **self-grounding** — `vlm.ground()` (per the design's explicit resolution,
+  **not** a second `vlm.ask()` — `ask()`'s own grounding can only ground text it just generated itself,
+  which cannot re-check an already-made claim) re-locates the specific phrase the typed value came from,
+  directly on the page image; (2) **OCR cross-check** — that same phrase fuzzy-matched (word-token
+  `difflib.SequenceMatcher`, matched-block coverage of the claim's own short side, 0.6 threshold — mirrors
+  `dedup.py`'s own 0.6 "meaningfully similar" bar) against this page's own already-stored, already-trusted
+  `pages.body_text`, independent of the model's self-consistency. Both must pass or `verified=False`;
+  nothing extractable in the answer at all is "nothing to verify," never a fabricated type/value (R13).
+  Still never writes anything — verification is a pure function, persistence stays the caller's job.
+- **New sidecar `index/pageqa.db`** — own `CREATE TABLE IF NOT EXISTS` schema init (matching
+  `dedup.db`/`kg.db`/`masterfile.db`'s pattern, not a `viewer.db` migration): one table,
+  `pageqa_extractions`, `UNIQUE(document_id, page_number)` (this tool asks at most one question per
+  sampled page), flat `region_x0/y0/x1/y1` columns (not embedded JSON, matching every other typed sidecar
+  in this codebase), `verified INTEGER NOT NULL DEFAULT 0` kept explicit even though only `verified=1` rows
+  are ever written, `backend`/`extracted_at` provenance columns.
+- **`engine/build_pageqa.py` + `BUILD-PAGEQA.bat`** (new) — the batch driver, structurally mirroring
+  `build_dedup.py`/`DEDUP.bat` in spirit but not byte-for-byte: samples pages where
+  `measures.py`/`tables.py`/RPSTL found **nothing** and `ocr_confidence >= 0.5` (reusing `coverage.py`'s
+  own "too garbled to be worth a look" threshold verbatim, not a fresh guess), asks ONE generic sweep
+  question per page (`mode="structured", strict=True`; the design's own "one sweep question vs. one
+  templated question per field type" open item, resolved here — `measures.py`'s `extract()` already
+  recognizes the full type taxonomy from whatever text comes back, so one open question is enough signal
+  for this phase), and writes only `verified=True` rows. `--max-pages N` is a **required** budget cap, not
+  an unbounded corpus sweep (`--max-pages 0` is a valid dry run: reports the candidate count, writes
+  nothing). Idempotent re-run: `INSERT OR REPLACE` keyed on the table's own `UNIQUE(document_id,
+  page_number)`, and the candidate query itself excludes pages already verified-and-written on an earlier
+  run, so repeated invocations make forward, resumable progress without re-asking. Checks
+  `pageqa.available()` up front and exits cleanly (code 2) if unavailable — mirrors `build_tables.py`'s own
+  missing-optional-dependency precedent (the real sibling here, not `build_dedup.py`, which has no optional
+  dependency of its own to gate on). This repo's CI runners (no GPU, no downloaded Florence-2 weights)
+  always take this path.
+- **`engine/masterfile.py`** (v1.2.0) — `build()` gains an optional `pageqa_db` parameter (appended after
+  `md_path`, so every existing positional call site keeps working unchanged): when present, verified
+  `pageqa.db` rows are merged in as a corroborating source tagged `origin='vlm-verified'`, doc/page-cited
+  to the real TM file exactly like `corpus` rows, and deduped by the **same** cross-doc same-`tm_number`
+  duplicate-ingestion guard `corpus` rows already use ([1.15.0]'s corroboration-count fix). Kept as its
+  **own** `(subject,type,unit,origin)` group, never merged into `corpus` — it must never silently inflate
+  or override a regex-extracted value's own count/note/confidence badge (R13). Degrades exactly like
+  `measures_db`/`enrich_db`: an absent/missing `pageqa.db` (the common case before an operator has ever
+  run `BUILD-PAGEQA.bat`) contributes nothing, never raises. `WHERE verified=1` on the read query is
+  defense-in-depth, not the only gate — `build_pageqa.py` itself never writes an unverified row. The raw
+  vlm-verified count is tracked in `master_meta` (`k='vlmqa_raw'`), deliberately **not** added to `build()`'s
+  own return dict — `test_medium_fixes.py`'s streaming-equivalence diff-oracle compares that exact dict via
+  plain `!=` against a from-scratch reference dict that predates `pageqa.db`, and an extra key would break
+  that comparison for a count the oracle never claimed to compute.
+- **`engine/build_masterfile.py`** (v1.2.0) — wires a new `PAGEQA_DB` env var (default
+  `index/pageqa.db`), reports its presence/absence alongside `measures.db`/`enrich.db` in the startup
+  banner, and prints the `vlm-verified` raw count (read back from `master_meta`) in the summary line.
+- **`engine/verifystate.py` / `VERIFY.bat`** — `pageqa` added to `SELFTEST_MODULES` / gate 6's self-test
+  loop (its self-test is pure/injectable-fake-backend, no `torch`/`transformers` import at module scope,
+  so it runs clean in this repo's no-GPU CI same as every other entry). `vlm_backend` is deliberately
+  **not** added — its own self-test docstring already says `import vlm_backend` itself raises before
+  `__main__` is ever reached on a machine without `transformers`/`torch` (every CI runner), so it cannot
+  degrade to "test what's installed." `build_pageqa.py` is also deliberately **not** added, matching
+  `build_dedup.py`'s own precedent — confirmed directly: no `build_*.py` driver that needs a real populated
+  `viewer.db` to do anything meaningful appears on this roster or in any `VERIFY.bat` gate.
+
+### Verified
+- `python vlm.py`, `python pageqa.py`, `python masterfile.py`, `python verifystate.py` — all four
+  self-tests pass in this no-GPU/no-`transformers` environment. `pageqa.py`'s now covers **five**
+  structured/strict verification cases (see the adversarial-review finding below for the fifth):
+  agreeing self-grounding + OCR cross-check → `verified=True`; failed self-grounding alone →
+  `verified=False`; grounding succeeds but the phrase-level OCR cross-check fails (an off-topic/
+  fabricated claim) → `verified=False`; nothing extractable in the answer at all → `verified=False` with
+  a clear note and grounding never even attempted; **a hallucinated numeric VALUE inside an otherwise-
+  correct, page-matching sentence → `verified=False`**, reproducing and closing the exact gap adversarial
+  review found live. `masterfile.py`'s covers `pageqa_db` omitted, `pageqa_db` pointing at a not-yet-built
+  path, and a real populated `pageqa.db` — including the cross-doc same-`tm_number` duplicate-ingestion
+  case, confirming an unverified (`verified=0`) row never reaches the Masterfile, and (adversarial-review
+  fix, see below) that a `vlm-verified` row's `page_url`/`counts` entry is populated exactly like a
+  `corpus` row's. `verifystate.py`'s own self-test additionally confirms its module roster matches
+  `VERIFY.bat` gate 6 exactly.
+- `python build_pageqa.py --max-pages 0` — degrades cleanly: reports the vision-language backend
+  unavailable and exits code 2, without touching `viewer.db` or any sidecar, matching
+  `build_tables.py`'s own missing-optional-dependency precedent.
+- **`engine/tests/test_pageqa.py`** (new, 28 checks) — real e2e, not just injectable-fake self-tests: a
+  genuine tiny PDF fixture (known torque text) ingested through the real `viewer_ingest.py` pipeline, a
+  mocked backend selected via `VIEWER_VLM`, run through the real `build_pageqa.py` as an actual
+  subprocess. Confirms a verified row lands in `pageqa.db` with the right document/page/type/value,
+  confirms nothing is written when self-grounding fails, confirms nothing is written when the OCR
+  cross-check fails, and confirms a subsequent `masterfile.py` build picks the verified row up. Run for
+  real: **28 passed, 0 failed** (also re-run clean after the adversarial-review fixes below, confirming
+  neither broke the existing fixtures).
+- **`engine/tests/test_masterfile_robustness.py`** (extended, +5 checks) — a `pageqa_db` that doesn't
+  exist yet, and one that exists but is torn/pre-schema, both degrade cleanly (no raise, the rest of the
+  build still succeeds, the corpus's own groups stay intact). Run for real: **21 passed, 0 failed**.
+- `py_compile` clean on every touched/new module (`vlm.py`, `vlm_backend.py`, `pageqa.py`, `masterfile.py`,
+  `build_masterfile.py`, `verifystate.py`, `build_pageqa.py`).
+- Full `engine/tests/verify_all.py --snapshot`, run after every fix below was applied: **46/47** (47, not
+  46 — `test_pageqa.py` is a new suite this entry adds). The sole failure is the same pre-existing,
+  already-diagnosed `test_ingest_routes.py` `safeguard.snapshot()` environmental flake noted in [1.16.0],
+  unrelated to this change.
+- **Adversarial review (3 independent reviewers — verification correctness, convention-consistency,
+  CI-safety) against the diff and the design spec/plan, weighted toward whether `verified=True` is
+  actually unreachable for a bad claim.** Two real, confirmed findings, both fixed directly:
+  - **(High) The OCR cross-check alone could not catch a hallucinated numeric value.** `_ocr_overlap()`
+    scores every word in a claimed phrase equally — reproduced live: `_ocr_overlap("Bolt torque is 35
+    N-m. Torque wrench required for reassembly", "Bolt torque is 22 N-m. Torque wrench required for
+    reassembly.")` scores **0.909**, comfortably above the 0.6 threshold, because the boilerplate wording
+    around the number dominates a short claim — the actual digit (35 claimed vs. 22 real) barely moves the
+    score. Fixed: new `_value_grounded()` requires every token of the claimed `value`/`value2` to appear,
+    as its own literal word-token, in the page's real OCR text — not a coverage fraction, no partial
+    credit for a wrong digit. Both `_ocr_overlap()` **and** `_value_grounded()` are now required for
+    `verified=True`; a new self-test case (`s5` in `pageqa.py`) pins this exact reproduction as a
+    permanent regression check.
+  - **(Low) `masterfile.for_subject()` didn't treat `vlm-verified` rows as page-cited**, even though they
+    demonstrably are (real `document_id`/`page_number` on every written row) — `page_url` and `counts`
+    both only recognized `origin == "corpus"`. Fixed: both now include `vlm-verified` alongside `corpus`,
+    with a new regression case in `masterfile.py`'s own self-test.
+  - A third finding (this entry's own "Known, deliberately deferred" section had gone stale mid-workflow,
+    claiming `test_pageqa.py`/the masterfile robustness case weren't added when they actually were, by a
+    parallel workflow stage the docs stage didn't see) is corrected in this entry directly rather than
+    listed as a separate fix.
+
+### Compatibility (R1)
+- `masterfile.build()`'s new `pageqa_db` parameter is optional and keyword-appended after `md_path` —
+  every existing call site (`build_masterfile.py`'s prior invocation shape, every test in this suite)
+  keeps working unchanged; omitting it degrades exactly like omitting `measures_db`/`enrich_db` already
+  does.
+- No `viewer.db` migration (next would be `0013_*.sql`) — `pageqa.db` is a standalone sidecar with its own
+  schema-init, matching `dedup.db`/`kg.db`/`masterfile.db`'s existing pattern, not the migration one (R6).
+- `vlm.ground()`/`vlm_backend.ground()` are purely additive — `ask()`'s own contract, and every existing
+  caller of it (`/api/vlm`, `/api/pageqa`'s Phase-1 text-mode path), is completely untouched.
+- No new required dependency — `build_pageqa.py` uses the exact same `transformers`/`torch` optional
+  install Phase 1 already documented; nothing new is added to `requirements.txt`.
+- `VERSION` → **1.17.0**, matching this project's own established practice of bumping `VERSION` with every
+  changelog entry (see [1.16.0]'s own confirmation of this precedent). Not a claim of any behavior change
+  on a machine without the optional `transformers`/`torch` dependencies installed — every code path here
+  degrades exactly as it did before this change on such a machine, `build_pageqa.py` included.
+
+### Known, deliberately deferred
+- `masterfile._confidence()`'s badge text is unchanged: a `vlm-verified` row's `authoritative` flag is
+  `0` (only `origin == "corpus"` sets it), so it currently reads `note="external reference — unconfirmed"`
+  / `confidence="low"` — the same badge an `enrich.db` web-crawled value gets, despite having actually
+  passed self-grounding + an OCR cross-check. This is the design spec's own explicitly-unresolved open
+  item ("whether `masterfile._confidence()` needs a new label for `vlm-verified` provenance, or reuses
+  'high — cited & corroborated' once ≥1 other source agrees") — left open on purpose, not an oversight.
+- A live check of `build_pageqa.py` against a real Florence-2 install on actual GPU hardware has not been
+  performed — same caveat as Phase 1: this environment has neither a GPU nor the optional dependencies
+  installed.
+- Exact prompt-template wording, the Florence-2 quantization/precision level, and the OCR cross-check's
+  fuzzy-match parameters were all explicitly out of scope for this design — see the spec's own
+  "Non-goals" section (the 0.6 threshold and single-sweep-question choices above are this phase's own
+  resolutions of the plan's "open items," not the design's).
+
+---
+
 ## [1.16.0] — 2026-08-24 — Vision-Language Page QA: Phase 1 (interactive "Ask this page", catalog §10.1)
 
 Closes the single highest-ceiling, longest-unbuilt gap the extraction-methods catalog itself flags: §10.1

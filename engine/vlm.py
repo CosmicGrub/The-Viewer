@@ -19,7 +19,18 @@ does not itself interpret `answer`'s shape (it never has -- `ask()` below has al
 value through untouched); the widening is a contract change for CALLERS, not a behavior change here. `pageqa.py`
 is the first caller that actually understands the dict shape -- see it for the {text, region} -> trust-tier folding.
 100% backward compatible: a backend that still returns a bare string (today's/every prior shape) needs no changes
-and `/api/vlm` (whose only caller understands a bare string) is completely untouched by this."""
+and `/api/vlm` (whose only caller understands a bare string) is completely untouched by this.
+
+v1.5.0 (Phase 2, design doc's "design-resolution" addendum): ADDS `ground(image, phrase)` -- a NEW, separate,
+optional capability, genuinely different from `ask()`/`describe()` above. `ask()`'s own grounding (when a backend
+supports it) always grounds a caption/answer the BACKEND just generated -- it has no way to re-check an arbitrary
+ALREADY-CLAIMED phrase supplied by the caller. `pageqa.py`'s structured/strict verification path needs exactly that
+(a self-grounding re-check of ITS OWN specific claim, not a second freshly-generated answer), so `ground()` is a
+direct, smaller, more targeted operation: hand it a phrase, get back where (if anywhere) that EXACT phrase is on
+the page. Mirrors `describe()`'s existing role as a thin, documented convenience wrapper over the same pluggable-
+backend/graceful-degrade contract `ask()` already established -- a backend without `ground()` support (there will
+be others besides vlm_backend.py eventually) means "verification unavailable for this backend," not an error, not
+a crash: `available` stays True, `region` is simply None, `note` says why."""
 import os
 
 
@@ -69,6 +80,41 @@ def describe(image, _backend=None):
                _backend=_backend)
 
 
+def ground(image, phrase, _backend=None):
+    """Ask the vision-language backend to locate a SPECIFIC, caller-supplied `phrase` on `image` -- a direct
+    self-grounding re-check, NOT a caption-then-ground round trip. This is genuinely different from `ask()`
+    (and from `describe()`, which is just `ask()` with a fixed question): `ask()`'s own grounding, when a
+    backend supports it, always grounds a caption/answer the BACKEND just freshly generated -- it cannot be
+    reused to re-check an arbitrary, already-claimed phrase the CALLER hands in, because it never takes one.
+    `ground()` takes exactly that phrase and asks the backend "where (if anywhere) is THIS text on the page,"
+    with no captioning step of its own. `pageqa.py`'s structured/strict verification path (Phase 2) calls this
+    -- never a second `ask()` -- specifically because it needs to re-check ITS OWN prior claim, not generate a
+    new one. `_backend` is injectable for tests, mirroring `ask()`'s own `_backend` param.
+
+    Returns {available, region, backend, note}. `region` is a {"x0","y0","x1","y1"} dict (normalized 0-1,
+    same convention as `ask()`'s grounded region) when the backend located the phrase, else None. A backend
+    that has no `ground()` at all (checked via `hasattr` -- there will be others besides vlm_backend.py
+    eventually) means "self-grounding verification unavailable for this backend," not an error and not a
+    crash: `available` is still True (a backend loaded), `region` is simply None, `note` explains why. Never
+    raises -- a backend exception is caught and folded into `note` exactly like `ask()` already does."""
+    b = _backend or _load_backend()
+    if b is None:
+        return {"available": False, "region": None, "backend": None,
+                "note": "No vision-language backend installed. Add engine/vlm_backend.py "
+                        "(ground(image, phrase)->{'x0','y0','x1','y1'}|None) or set VIEWER_VLM; needs a GPU + "
+                        "local VLM model. Catalog §10.1."}
+    name = getattr(b, "__name__", "vlm_backend")
+    if not hasattr(b, "ground"):
+        return {"available": True, "region": None, "backend": name,
+                "note": "backend %r has no ground() -- self-grounding verification unavailable for this "
+                        "backend (not an error; some backends only implement ask())" % name}
+    try:
+        region = b.ground(image, phrase)
+        return {"available": True, "region": region, "backend": name, "note": ""}
+    except Exception as e:
+        return {"available": True, "region": None, "backend": name, "note": "backend error: %s" % e}
+
+
 if __name__ == "__main__":
     # with no backend installed, it must degrade cleanly (never crash)
     r = ask("anything.png", "what is this?")
@@ -100,6 +146,42 @@ if __name__ == "__main__":
     assert r5["available"] and r5["answer"] == {"text": "General page description."}, r5
     assert "region" not in r5["answer"], r5
 
+    # v1.5.0: ground(image, phrase) -- a NEW, separate capability (self-grounding re-check of a SPECIFIC
+    # claimed phrase, not a second caption-then-ground ask()). Must degrade cleanly with no backend, same
+    # contract as ask()/describe() above.
+    g1 = ground("anything.png", "torque bolts to 35 N-m")
+    assert g1["available"] is False and g1["region"] is None and "§10.1" in g1["note"], g1
+
+    _FakeGrounder = types.SimpleNamespace(
+        __name__="fake_vlm_grounder",
+        ask=lambda image, question: "unused",
+        ground=lambda image, phrase: {"x0": 0.27, "y0": 0.44, "x1": 0.56, "y1": 0.60})
+    g2 = ground("img", "torque bolts to 35 N-m", _backend=_FakeGrounder)
+    assert g2["available"] and g2["region"] == {"x0": 0.27, "y0": 0.44, "x1": 0.56, "y1": 0.60}, g2
+    assert g2["backend"] == "fake_vlm_grounder", g2
+
+    # a backend with NO ground() support at all (e.g. _Fake above, which only has ask()) means
+    # "self-grounding verification unavailable for THIS backend" -- available stays True, region is None,
+    # never an exception.
+    g3 = ground("img", "torque bolts to 35 N-m", _backend=_Fake)
+    assert g3["available"] and g3["region"] is None, g3
+    assert "no ground()" in g3["note"], g3
+
+    # a phrase the backend genuinely can't locate on the page -> None region is a real (non-error) signal.
+    _FakeNoMatch = types.SimpleNamespace(__name__="fake_vlm_nomatch", ask=lambda i, q: "x",
+                                          ground=lambda image, phrase: None)
+    g4 = ground("img", "nonexistent phrase", _backend=_FakeNoMatch)
+    assert g4["available"] and g4["region"] is None and g4["note"] == "", g4
+
+    # a backend whose ground() raises must still degrade -- never crash out of vlm.ground().
+    _FakeGroundBroken = types.SimpleNamespace(
+        __name__="fake_vlm_ground_broken", ask=lambda i, q: "x",
+        ground=lambda image, phrase: (_ for _ in ()).throw(RuntimeError("boom")))
+    g5 = ground("img", "torque?", _backend=_FakeGroundBroken)
+    assert g5["available"] and g5["region"] is None and "backend error" in g5["note"], g5
+
     print("vlm self-test OK  (graceful degrade with no backend; pluggable backend answers when present; "
-          "widened str|{text,region} contract passed through untouched either way)")
+          "widened str|{text,region} contract passed through untouched either way; ground() self-grounding "
+          "capability degrades cleanly with no backend/no ground()-support/no-match/exception, and passes "
+          "a located region through when a backend provides one)")
 # END OF FILE

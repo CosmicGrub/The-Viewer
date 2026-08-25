@@ -265,10 +265,18 @@ GPU-tier check below doing double duty for an install-time decision:
   catalog entry is Advanced/GPU-fork-only — the Lite/portable fork never needs this dependency at all,
   and `vlm.py`'s `_load_backend()` isolates a missing/failed import via `try/except`, so `import vlm` and
   `import pageqa` never require `transformers`/`torch` to be present; only `vlm_backend.py` itself does.
-- **Trust posture (R13):** even once installed and working, every answer this backend produces is
-  hard-capped at `trust.py`'s "review" tier by `pageqa.py` — an AI-read of the page, never promoted to a
-  verified fact, and nothing from this Phase-1 path is written to any sidecar. See catalog §10.1 for the
-  still-unbuilt Phase 2 (structured, verified extraction).
+- **Trust posture (R13):** even once installed and working, every answer the interactive "Ask this page"
+  control or `ask.py`'s fallback produces is hard-capped at `trust.py`'s "review" tier by `pageqa.py` — an
+  AI-read of the page, never promoted to a verified fact, and nothing from that interactive path is
+  written to any sidecar.
+- **Phase 2 batch tool (`engine/build_pageqa.py` / `BUILD-PAGEQA.bat`, host-side, catalog §10.1 + §3.12)**
+  — no NEW dependency beyond the same `transformers`/`torch` install above: it calls
+  `pageqa.ask(mode="structured", strict=True)`, so it checks `pageqa.available()` up front and exits
+  cleanly (code 2, writes nothing) on the exact same install-absent-or-not-GPU-tier condition as the
+  interactive path, rather than crashing partway through a run. Only rows that pass BOTH `vlm.ground()`
+  self-grounding and an OCR cross-check against the page's own already-stored text are ever written, to a
+  new standalone sidecar `index/pageqa.db` — which `masterfile.py` then merges in as an
+  `origin='vlm-verified'` corroborating source. See catalog §10.1 for the full verification design.
 
 ## Multi-unit / air-gapped transfer (recommendations annex #17)
 

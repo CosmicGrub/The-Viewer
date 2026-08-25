@@ -209,7 +209,13 @@ representative value is now the **numeric median** of a group's real values (pre
 value *string* — almost always an arbitrary first-crawled tiebreak for continuous measurements, confirmed live:
 3 real docs at 180/180.5/179.8in produced `value='180'` purely because that doc crawled first), and
 corroboration counting is deduped by `(TM edition, page)` before a group can earn the "high — cited &
-corroborated" badge (1.15.0).
+corroborated" badge (1.15.0) · `masterfile.py` gained a THIRD, optional corroborating source, `index/pageqa.db`
+(`build_pageqa.py`/`BUILD-PAGEQA.bat`, host-side batch tool, catalog §10.1 + §3.12) — self-grounded
+(`vlm.ground()` re-locating the model's own claimed phrase) AND OCR-cross-checked (fuzzy word-overlap against
+the page's own stored `pages.body_text`, both must pass) vision-language page extractions, tagged
+`origin='vlm-verified'`, doc/page-cited and deduped by the same cross-doc same-TM-number guard `corpus` rows
+already use, never merged into the `corpus` group itself, degrading exactly like `measures_db`/`enrich_db` when
+`pageqa.db` is absent (the common case before `BUILD-PAGEQA.bat` has ever been run) (1.17.0).
 
 ### UI/UX, accessibility & onboarding
 Kiosk mode (bigger text, ≥44px targets, 1.4.0) · deep-zoom + callout hotspots (0.99.3/0.99.8) · palette

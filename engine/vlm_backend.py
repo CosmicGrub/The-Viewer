@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""THE VIEWER -- VISION-LANGUAGE BACKEND, Florence-2 (v1.0, catalog §10.1, design doc
+"""THE VIEWER -- VISION-LANGUAGE BACKEND, Florence-2 (v1.1, catalog §10.1, design doc
 2026-08-24-vision-language-page-qa-design.md). The real, shipped default for `engine/vlm.py`'s pluggable
 interface: `microsoft/Florence-2-base` via `transformers` (`AutoModelForCausalLM` + `AutoProcessor`,
 `trust_remote_code=True` -- Florence-2 ships its own modeling code, not a stock architecture the base
@@ -38,7 +38,13 @@ enforces the "review"-tier cap on anything this file returns, but the honesty st
 
 Returns `{"text": ..., "region": {"x0","y0","x1","y1"}}` matching `vlm.py`'s v1.4.0 widened contract --
 `region` present only when grounding found a matching phrase; coordinates normalized 0-1 (divided by the
-image's own pixel size) so callers never need to know what DPI the page was rendered at."""
+image's own pixel size) so callers never need to know what DPI the page was rendered at.
+
+v1.1 (Phase 2, design doc's "design-resolution" addendum) ADDS `ground(image, phrase)` -- a separate,
+smaller, more direct operation than `ask()` above: ONE `<CAPTION_TO_PHRASE_GROUNDING>` call using the
+CALLER's own already-claimed phrase as `text_input`, no captioning step of its own. This is what
+`pageqa.py`'s structured/strict verification path uses to re-check ITS OWN prior claim -- `ask()` cannot
+do this (it only ever grounds a caption it just generated itself). See `ground()`'s own docstring below."""
 import os
 import re
 
@@ -167,6 +173,44 @@ def ask(image, question):
               "x1": round(max(0.0, min(1.0, x1 / w)), 4), "y1": round(max(0.0, min(1.0, y1 / h)), 4)}
     text = "%s -- %s" % (labels[idx], caption) if caption and caption != labels[idx] else labels[idx]
     return {"text": text, "region": region}
+
+
+def ground(image, phrase):
+    """Matches vlm.py's pluggable `ground(image, phrase) -> {'x0','y0','x1','y1'}|None` contract
+    (`hasattr(mod, "ground")` is all vlm.py's `ground()` checks). Genuinely different, smaller operation
+    than `ask()` above: `ask()` captions the page FIRST (`<MORE_DETAILED_CAPTION>`) and then grounds THAT
+    fresh caption; this does no captioning at all -- it's a single direct `<CAPTION_TO_PHRASE_GROUNDING>`
+    call using the CALLER's own `phrase` as the task's `text_input`, i.e. "where (if anywhere) is this
+    exact already-claimed text on the page." Used by pageqa.py's structured/strict verification path to
+    re-check its OWN prior claim, which `ask()` has no way to do (it only ever grounds text it just
+    generated itself).
+
+    Returns the FIRST bbox `<CAPTION_TO_PHRASE_GROUNDING>` finds for `phrase`, normalized 0-1 exactly like
+    `ask()`'s own `region` (divided by the image's own pixel size, so callers never need to know the
+    render DPI) -- or None when nothing was located, which pageqa.py's caller treats as a real
+    hallucination signal (the claimed phrase isn't actually on the page), not as "grounding unavailable."
+    Can raise: vlm.py's own `ground()` already wraps every backend call in try/except and turns an
+    exception into a clean {"note": "backend error: ..."} response (never a crash), so -- exactly like
+    `ask()` above -- this function does the real work and lets a genuine failure (bad weights, OOM, no
+    CUDA when one was assumed) surface as one rather than silently swallowing it here too."""
+    loaded = _load()
+    if loaded is None:
+        raise RuntimeError(
+            "Florence-2 (%s) failed to load -- check that transformers/torch are installed and, if a "
+            "GPU is expected, that CUDA is set up; see docs/SYSTEM-REQUIREMENTS.md." % _MODEL_ID)
+    model, processor, device, dtype = loaded
+    img = _to_pil(image)
+
+    grounded = (_run_task(model, processor, device, dtype, img, _TASK_GROUND,
+                           text_input=phrase or "").get(_TASK_GROUND) or {})
+    bboxes = grounded.get("bboxes") or []
+    if not bboxes:
+        return None
+
+    x0, y0, x1, y1 = bboxes[0]
+    w, h = max(float(img.width), 1.0), max(float(img.height), 1.0)
+    return {"x0": round(max(0.0, min(1.0, x0 / w)), 4), "y0": round(max(0.0, min(1.0, y0 / h)), 4),
+            "x1": round(max(0.0, min(1.0, x1 / w)), 4), "y1": round(max(0.0, min(1.0, y1 / h)), 4)}
 
 
 # --------------------------------------------------------------------------- #

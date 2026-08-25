@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""THE VIEWER -- MASTERFILE (v1.1.5). The single, all-encompassing consolidation of measurement/dimensional data for the
+"""THE VIEWER -- MASTERFILE (v1.2.0). The single, all-encompassing consolidation of measurement/dimensional data for the
 whole project. It MERGES the corpus's authoritative measurements (from measures.db, page-cited to the real TM files)
-with the external gap-fills (from enrich.db) into ONE congruent dataset keyed to the authoritative subjects, so the rest
-of the project sees a unified picture instead of scattered sources.
+with the external gap-fills (from enrich.db) and, when present, self-grounded/OCR-cross-checked vision-language
+extractions (from pageqa.db) into ONE congruent dataset keyed to the authoritative subjects, so the rest of the project
+sees a unified picture instead of scattered sources.
 
 Design goals (Chris's ask):
   * ONE Masterfile that is compatible / complementary / congruent with the existing data and sidecars.
@@ -10,6 +11,18 @@ Design goals (Chris's ask):
   * NO links surfaced. Corpus rows keep their page cite (a pointer INTO the authoritative TM — desired). External rows
     carry NO URL in the Masterfile or UI; their web provenance stays inside enrich.db for audit only.
   * Corpus is authoritative: external values appear only for (subject, dimension type) the corpus is silent on.
+
+v1.2.0 (plan item 13, docs/superpowers/plans/2026-08-24-vision-language-page-qa-plan.md): build() gains index/pageqa.db
+as one more CORROBORATING source, tagged origin='vlm-verified' -- the same distinguishable-provenance pattern
+barcode-decoded NSN rows already use (confidence='barcode') in the parts table, so an operator can always tell which
+pipeline produced a given value. build_pageqa.py (Phase 2's batch driver) only ever writes verified=True rows -- self-
+grounded via vlm.ground() AND fuzzy-matched against this page's own already-trusted stored OCR text (see pageqa.py's
+structured/strict path) -- before a row ever reaches pageqa.db, so what lands here has already passed real
+verification, not a bare model claim. Still kept as its OWN (subject,type,unit,origin) group, never merged into
+'corpus': it must never silently inflate or override a regex-extracted corpus value's own count/note/confidence badge
+(R13 -- an AI-sourced tier must never visually pass as more authoritative than it is). Degrades EXACTLY like
+measures_db/enrich_db already do -- an absent/missing pageqa.db (the common case on a fresh checkout, or before an
+operator has ever run BUILD-PAGEQA.bat) simply contributes nothing, never raises, never blocks the rest of the build.
 
 Read-only on the corpus/index; writes only the append-only sidecar index/masterfile.db (R1/R6). Rebuilt by
 build_masterfile.py / BUILD-MASTERFILE.bat. Degrades gracefully if a source sidecar is absent."""
@@ -20,7 +33,8 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS master_raw(
   id INTEGER PRIMARY KEY, subject TEXT, subject_label TEXT, doc INTEGER, page INTEGER,
   type TEXT, unit TEXT, value TEXT, value2 TEXT, tolerance TEXT, context TEXT,
-  origin TEXT);                       -- 'corpus' (authoritative) | 'external' (supplemental, unconfirmed)
+  origin TEXT);     -- 'corpus' (authoritative) | 'external' (supplemental, unconfirmed) | 'vlm-verified'
+                     -- (page-cited, self-grounded + OCR-cross-checked vision-language extraction -- see pageqa.py)
 CREATE INDEX IF NOT EXISTS ix_mraw_subj ON master_raw(subject);
 CREATE INDEX IF NOT EXISTS ix_mraw_type ON master_raw(type);
 CREATE TABLE IF NOT EXISTS master_filtered(
@@ -89,8 +103,14 @@ def _canonical(vals):
     return _canonical_core(counter, low, high)
 
 
-def build(db_path, measures_db, enrich_db, master_db, md_path=None):
-    """Consolidate corpus + external into master_db (+ optional Markdown export). Returns a summary dict.
+def build(db_path, measures_db, enrich_db, master_db, md_path=None, pageqa_db=None):
+    """Consolidate corpus + external + (optional) vlm-verified into master_db (+ optional Markdown export).
+    Returns a summary dict. `pageqa_db` is a new, OPTIONAL, keyword-only-by-convention param appended after
+    `md_path` specifically so every existing positional call site (build_masterfile.py, every test in this
+    repo's suite) keeps working unchanged -- omitting it (or passing None / a path that doesn't exist yet)
+    degrades exactly like omitting measures_db/enrich_db already does: that source simply contributes
+    nothing, never raises (plan item 13's explicit ask: match the established missing-sidecar degrade
+    contract, don't invent a new one).
 
     Medium finding #25: streams both sources directly into master_raw + an incremental (subject,
     type,unit,origin)->Counter aggregator instead of first materializing EVERY measurement row
@@ -148,7 +168,7 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
         labels = {}                        # also doubles as the distinct-subjects set (labels.keys())
         corpus_have = defaultdict(set)
         dedup_seen = set()                 # (key, tm-or-doc identity, page) already counted -- see accumulate()
-        n_raw = corpus_raw = external_raw = 0
+        n_raw = corpus_raw = external_raw = vlmqa_raw = 0
         FLUSH_AT = 2000
 
         def flush():
@@ -159,12 +179,13 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                 raw_buf.clear()
 
         def accumulate(subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin, tm=None):
-            nonlocal n_raw, corpus_raw, external_raw
+            nonlocal n_raw, corpus_raw, external_raw, vlmqa_raw
             raw_buf.append((subj, label, doc, page, ty, unit, val, val2, tol, ctx, origin))
             if len(raw_buf) >= FLUSH_AT:
                 flush()
             labels[subj] = label; n_raw += 1
             if origin == "corpus": corpus_raw += 1
+            elif origin == "vlm-verified": vlmqa_raw += 1
             else: external_raw += 1
             key = (subj, ty, unit, origin)
             # Masterfile comparison audit (corroboration-count fix): the corpus holds confirmed
@@ -177,7 +198,12 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
             # into the group's Counter/bounds only ONCE -- every row still lands in master_raw
             # unchanged, so the raw audit view stays complete; only the FILTERED corroboration count
             # is deduped. External rows have no doc/tm identity worth deduping this way.
-            if origin == "corpus":
+            # plan item 13: 'vlm-verified' rows are ALSO doc/page-cited to a real document row (same
+            # documents.id/tm_number identity corpus rows use -- build_pageqa.py's pageqa_extractions
+            # is keyed on document_id, not tm_number), so the exact same duplicate-ingestion risk
+            # applies (two document rows sharing one tm_number, each independently sampled/verified by
+            # build_pageqa.py) -- reuses this SAME guard rather than inventing a parallel one.
+            if origin in ("corpus", "vlm-verified"):
                 ident = tm or ("doc%s" % doc)
                 dkey = (key, ident, page)
                 if dkey in dedup_seen:
@@ -226,6 +252,31 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
                 if e is not None:
                     e.close()
 
+        # (3) VLM-VERIFIED page-qa extractions (corroborating), page-cited to the real TM files -- plan
+        # item 13. build_pageqa.py (Phase 2's batch driver) writes ONLY verified=True rows to pageqa.db --
+        # self-grounded via vlm.ground() AND fuzzy-matched against this page's own already-trusted stored
+        # OCR text (pageqa.py's structured/strict path) -- so `WHERE verified=1` below is defense-in-depth,
+        # not the only gate (R13: never trust a row's presence alone as proof it was actually verified).
+        # Degrades EXACTLY like the measures_db/enrich_db sources above: pageqa_db missing entirely (the
+        # common case on a fresh checkout, or before BUILD-PAGEQA.bat has ever been run) or None simply
+        # contributes nothing -- same os.path.exists() gate, same try/except/finally shape, no new contract.
+        if pageqa_db and os.path.exists(pageqa_db):
+            p = None
+            try:
+                p = sqlite3.connect("file:%s?mode=ro" % pageqa_db, uri=True)
+                for doc, page, ty, unit, val, val2, ctx in p.execute(
+                        "SELECT document_id,page_number,type,unit,value,value2,source_text "
+                        "FROM pageqa_extractions WHERE verified=1"):
+                    label = doc_veh.get(doc, "") or ("doc%s" % doc)
+                    subj = label.strip().lower()
+                    accumulate(subj, label, doc, page, ty, unit, val, val2, None, ctx, "vlm-verified",
+                               tm=doc_tm.get(doc, ""))
+            except Exception:
+                pass
+            finally:
+                if p is not None:
+                    p.close()
+
         flush()
 
         # FILTERED layer: one canonical row per (subject,type,unit,origin)
@@ -241,12 +292,20 @@ def build(db_path, measures_db, enrich_db, master_db, md_path=None):
             "VALUES(?,?,?,?,?,?,?,?,?,?,?)", filt)
 
         meta = {"built_ts": str(time.time()), "n_subjects": str(len(labels)), "n_raw": str(n_raw),
-                "n_filtered": str(len(filt)), "corpus_raw": str(corpus_raw), "external_raw": str(external_raw)}
+                "n_filtered": str(len(filt)), "corpus_raw": str(corpus_raw), "external_raw": str(external_raw),
+                "vlmqa_raw": str(vlmqa_raw)}
         con.executemany("INSERT OR REPLACE INTO master_meta(k,v) VALUES(?,?)", list(meta.items()))
         con.commit()
 
     if md_path:
         _export_md(master_db, md_path, meta)
+    # Deliberately NOT adding a "vlm_verified" key here (unlike the meta table's own vlmqa_raw entry
+    # above): test_medium_fixes.py's masterfile_streaming_equivalent_to_original_10_trials diff-oracle
+    # compares this exact return dict against a from-scratch reference dict via plain `!=` -- an extra
+    # key here would break that comparison for every trial even when every value it DOES share matches,
+    # for a count that oracle never claimed to compute. The vlm-verified raw count is fully available
+    # via master_meta (k='vlmqa_raw') and via master_filtered/master_raw's own origin='vlm-verified'
+    # rows -- no information is actually lost, only kept out of this one dict's shape.
     return {"subjects": len(labels), "raw": n_raw, "filtered": len(filt),
             "corpus": corpus_raw, "external": external_raw}
 
@@ -303,10 +362,16 @@ def for_subject(master_db, q, limit=400):
     finally:
         con.close()
     counts = {"corpus": sum(1 for r in raw if r["origin"] == "corpus"),
-              "external": sum(1 for r in raw if r["origin"] == "external")}
-    # add a page pointer to the authoritative file for corpus rows (internal reference, NOT an external link)
+              "external": sum(1 for r in raw if r["origin"] == "external"),
+              "vlm-verified": sum(1 for r in raw if r["origin"] == "vlm-verified")}
+    # add a page pointer to the authoritative file -- corpus rows AND vlm-verified rows both carry a real
+    # doc/page citation (pageqa.py's structured/strict path only ever writes a row after self-grounding it
+    # AND cross-checking it against that exact page's own stored OCR text, see build()'s v1.2.0 note above),
+    # so a reader can click through and visually confirm either one; 'external' rows have no doc/page at
+    # all (a Wayback-sourced value, cited by URL instead) and correctly get no internal page reference.
     for r in raw:
-        r["page_url"] = ("/deepzoom?doc=%s&page=%s" % (r["doc"], r["page"])) if r["origin"] == "corpus" and r["doc"] else ""
+        r["page_url"] = ("/deepzoom?doc=%s&page=%s" % (r["doc"], r["page"])) \
+            if r["origin"] in ("corpus", "vlm-verified") and r["doc"] else ""
     # enrich filtered rows at READ time (no rebuild): dual-unit display + a wide-variance flag
     try:
         import units
@@ -458,6 +523,109 @@ if __name__ == "__main__":
                                  "duplicate ingestion", pressure)
     assert pressure["confidence"] == "medium", ("a duplicate ingestion must not earn 'high' off one "
                                                  "uncorroborated value", pressure)
+
+    # --------------------------------------------------------------------------------------------- #
+    # plan item 13: pageqa.db as a new, OPTIONAL corroborating source (tagged origin='vlm-verified'). #
+    # --------------------------------------------------------------------------------------------- #
+
+    def _vlmqa_raw_meta(master_db_path):
+        # master_meta's own 'vlmqa_raw' entry (written alongside n_subjects/corpus_raw/etc.) -- the raw
+        # vlm-verified count is deliberately NOT added to build()'s own return dict (see build()'s own
+        # comment just above its `return` -- test_medium_fixes.py's diff-oracle compares that exact dict
+        # via plain `!=` against a from-scratch reference that predates pageqa.db and would break on any
+        # extra key), so this self-test reads the count the same way any OTHER real caller would: from
+        # master_meta, or by counting origin='vlm-verified' rows directly (both exercised below).
+        c = sqlite3.connect(master_db_path)
+        try:
+            r = c.execute("SELECT v FROM master_meta WHERE k='vlmqa_raw'").fetchone()
+            return int(r[0]) if r else None
+        finally:
+            c.close()
+
+    # pageqa_db never passed at all (`summ` above) -- the common case on a fresh checkout, before this
+    # kwarg existed for any caller -- must contribute nothing and must not change any prior behavior.
+    assert _vlmqa_raw_meta(mf) == 0, ("pageqa_db omitted must contribute nothing", _vlmqa_raw_meta(mf))
+    assert not any(f["origin"] == "vlm-verified" for f in res["filtered"]), \
+        "no vlm-verified rows should exist when pageqa_db was never passed"
+
+    # pageqa_db passed but pointing at a path that doesn't exist yet (BUILD-PAGEQA.bat never run) --
+    # same os.path.exists() gate measures_db/enrich_db already use -- must ALSO degrade cleanly, never
+    # raise. Different code path than simply omitting the kwarg (above): pageqa_db is truthy here.
+    build(dbp, mdb, edb, mf, pageqa_db=os.path.join(d, "nope_pageqa.db"))
+    assert _vlmqa_raw_meta(mf) == 0, \
+        ("a missing pageqa.db path must contribute nothing, not raise", _vlmqa_raw_meta(mf))
+
+    # pageqa.db PRESENT with a real verified row -- must show up as its OWN corroborating origin,
+    # never silently merged into or overriding the 'corpus' group's own count/note/confidence badge.
+    pqdb = os.path.join(d, "pageqa.db")
+    pq = sqlite3.connect(pqdb)
+    pq.execute("""CREATE TABLE pageqa_extractions(
+        id INTEGER PRIMARY KEY, document_id INTEGER, page_number INTEGER, type TEXT, value TEXT,
+        value2 TEXT, unit TEXT, region_x0 REAL, region_y0 REAL, region_x1 REAL, region_y1 REAL,
+        source_text TEXT, answer_text TEXT, verified INTEGER, backend TEXT, extracted_at REAL)""")
+    pq.executemany(
+        "INSERT INTO pageqa_extractions(document_id,page_number,type,value,value2,unit,source_text,"
+        "answer_text,verified,backend,extracted_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", [
+            # doc 1 (HMMWV) -- a dimension type (capacity) the corpus's own measures.db never
+            # extracted on this page: the common real case build_pageqa.py's own candidate sampling
+            # targets (a page measures.py/tables.py/RPSTL found nothing on).
+            (1, 40, "capacity", "40", None, "qt", "Coolant capacity is 40 qt.",
+             "Coolant capacity is 40 qt.", 1, "fake_vlm_backend", 1000.0),
+            # docs 6/7 (HMMWV) -- the SAME duplicate-ingestion scenario the pressure rows above already
+            # prove for 'corpus': two document rows sharing one tm_number, each independently verified
+            # by build_pageqa.py on their own page_number -- must dedupe to n=1, not n=2.
+            (6, 50, "electrical", "12", None, "V", "System voltage is 12V.",
+             "System voltage is 12V.", 1, "fake_vlm_backend", 1000.0),
+            (7, 50, "electrical", "12", None, "V", "System voltage is 12V. (duplicate ingestion)",
+             "System voltage is 12V. (duplicate ingestion)", 1, "fake_vlm_backend", 1000.0),
+            # an UNVERIFIED row (verified=0) -- must NEVER be picked up. build_pageqa.py itself never
+            # actually writes one (only verified=True rows are ever inserted), so this is
+            # defense-in-depth on masterfile.py's own `WHERE verified=1` filter, not a re-test of
+            # build_pageqa.py's own write gate.
+            (1, 41, "weight", "99999", None, "lb", "Bogus unverified weight claim.",
+             "Bogus unverified weight claim.", 0, "fake_vlm_backend", 1000.0)])
+    pq.commit(); pq.close()
+
+    build(dbp, mdb, edb, mf, md_path=os.path.join(d, "MASTERFILE2.md"), pageqa_db=pqdb)
+    assert _vlmqa_raw_meta(mf) == 3, ("expected 3 raw vlm-verified rows (1 capacity + 2 electrical, "
+                                       "unverified excluded)", _vlmqa_raw_meta(mf))
+    res2 = for_subject(mf, "HMMWV")
+    ftypes2 = {(f["type"], f["origin"]) for f in res2["filtered"]}
+    assert ("capacity", "vlm-verified") in ftypes2, "vlm-verified capacity row missing"
+    assert ("electrical", "vlm-verified") in ftypes2, "vlm-verified electrical row missing"
+    assert ("weight", "vlm-verified") not in ftypes2, \
+        "an unverified (verified=0) pageqa row must never reach the Masterfile"
+    # corpus's own torque/length/weight groups are completely unaffected by pageqa.db's presence --
+    # 'vlm-verified' is its own group, never merged into 'corpus'.
+    assert ("length", "corpus") in ftypes2 and ("weight", "corpus") in ftypes2, \
+        "adding pageqa.db must not disturb the existing corpus groups"
+    capacity_vlm = next(f for f in res2["filtered"] if f["type"] == "capacity" and f["origin"] == "vlm-verified")
+    assert capacity_vlm["value"] == "40" and capacity_vlm["unit"] == "qt", capacity_vlm
+    electrical_vlm = next(f for f in res2["filtered"] if f["type"] == "electrical" and f["origin"] == "vlm-verified")
+    assert electrical_vlm["n"] == 1, ("duplicate-ingestion dedup must apply to vlm-verified rows too, "
+                                       "exactly like it already does for corpus rows", electrical_vlm)
+    # no link ever leaks in from a vlm-verified row either, same invariant as the corpus/external check.
+    blob2 = repr(res2["filtered"])
+    assert "http://" not in blob2, "a link leaked into a vlm-verified Masterfile row"
+
+    # adversarial-review finding (found live): a vlm-verified row IS page-cited to a real document/page --
+    # build_pageqa.py only ever writes one after self-grounding + an OCR cross-check against that exact
+    # page (pageqa.py's own structured/strict path) -- so it deserves the same deep-link click-through a
+    # corpus row gets, exactly the kind of "go check it yourself" affordance R13 wants for an AI-sourced
+    # tier. for_subject() originally only built page_url for origin=='corpus', silently leaving every
+    # vlm-verified row un-clickable despite carrying a perfectly real doc/page; fixed to include both.
+    assert any(r["page_url"] for r in res2["raw"] if r["origin"] == "vlm-verified"), \
+        "vlm-verified rows are page-cited exactly like corpus rows -- page_url must not be silently empty"
+    vlm_ref = next(r for r in res2["raw"] if r["origin"] == "vlm-verified")
+    assert vlm_ref["page_url"] == "/deepzoom?doc=%s&page=%s" % (vlm_ref["doc"], vlm_ref["page"]), vlm_ref
+    # counts must tally vlm-verified rows too, not silently omit them from a "N corpus / M external"-style
+    # summary the way the pre-fix dict shape would have (counts only ever had "corpus"/"external" keys).
+    assert res2["counts"]["vlm-verified"] == 3, ("counts must tally raw vlm-verified rows too", res2["counts"])
+
     print("masterfile self-test OK (merge, corpus-authoritative, no links surfaced, authoritative page "
-          "refs kept, numeric-median representative value, duplicate-ingestion corroboration-count fix)")
+          "refs kept, numeric-median representative value, duplicate-ingestion corroboration-count fix, "
+          "vlm-verified pageqa.db source: absent/missing degrades cleanly, present contributes its own "
+          "corroborating origin without disturbing corpus groups, unverified rows excluded, cross-doc "
+          "same-tm_number duplicate ingestion deduped exactly like corpus rows already are, page_url + "
+          "counts correctly include vlm-verified rows alongside corpus)")
 # END OF FILE

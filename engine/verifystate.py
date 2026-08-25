@@ -24,6 +24,21 @@ SELFTEST_MODULES = [
     "torqueseq", "bom", "pinouts", "training", "fieldnotes", "crossmethod", "rpstl", "intervals",
     "fluidsmatrix", "commonality", "handover", "forms", "ingestpipe", "airgap", "standards", "nsndecode",
     "smrdecode", "cage", "harnesstrace", "macchart", "features/corpus", "office", "flags",
+    # Vision-language page QA Phase 2 (design doc 2026-08-24-vision-language-page-qa-design.md, plan item
+    # 14): "vlm" was already on this roster (Phase 1, [1.16.0]). Phase 2 adds "pageqa" -- its self-test is pure/
+    # injectable-fake-backend, exactly like vlm.py's own (no torch/transformers import at module scope; see
+    # pageqa.py's own module docstring), so it runs clean in this repo's no-GPU/no-torch CI same as every
+    # other entry here. "vlm_backend" is deliberately NOT added: its own self-test docstring says plainly
+    # that `import vlm_backend` itself raises before __main__ is ever reached on a machine without
+    # transformers/torch (every CI runner, this dev sandbox) -- it cannot degrade to "test what's
+    # installed" the way office.py's/embed.py's optional-dependency self-tests do, so it fails the
+    # "genuinely self-testable in this environment" bar this roster requires. "build_pageqa.py" is also
+    # deliberately NOT added -- matching build_dedup.py's own precedent: neither build_dedup.py nor any
+    # other build_*.py driver that needs a real populated viewer.db to do anything meaningful appears on
+    # this roster (confirmed directly: build_dedup.py is absent from both SELFTEST_MODULES and every gate
+    # in VERIFY.bat) or in VERIFY.bat's gate 6 loop -- this is a pure-library-module roster, and a batch
+    # driver script is not one.
+    "pageqa",
 ]
 
 _PASS = re.compile(r"\[([^\]]*?)\s+PASS\]|\b([a-z_]+) self-test (?:OK|PASS)\b|\bpy parse OK\b", re.I)

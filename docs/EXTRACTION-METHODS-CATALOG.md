@@ -20,7 +20,7 @@ append-only sidecars (R1/R6).
 |1.6| **Transformer OCR (degraded text)** | ○ | TrOCR / PaddleOCR-rec for hard pages only (GPU) | M |
 |1.7| **Handwriting recognition (HTR)** — margin notes, stamps | ○ | Kraken/Calamari or TrOCR-handwritten | L |
 |1.8| Per-page rotation / orientation detection | ✅ | `ocrprep.detect_orientation` (pytesseract OSD) | — |
-|1.9| Per-word OCR **confidence capture** (drives everything downstream) | ◐ | RapidOCR already returns per-line conf, persisted page-level since v1.13.5 — per-token capture still not built | S |
+|1.9| Per-word OCR **confidence capture** (drives everything downstream) | ◐ | RapidOCR's own detection stage is per-LINE, not per-word/per-character (no public API for finer granularity) — page-level average persisted since v1.13.5, and as of v1.21.0 the per-line detail itself is captured too: `engine/ocrconf.py` + `index/ocrconf.db` store one row per detected line (text + confidence), keyed to document/page. Genuinely independent per-word confidence would need RapidOCR reconfigured for word-level detection boxes — a GPU-hardware-dependent rebuild, still not built; a consumer wanting word-level granularity today has to attribute a line's score down to the words it contains, which is attribution, not an independent per-word measurement | S |
 
 ## 2. Understanding page structure (layout, reading order, regions)
 

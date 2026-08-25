@@ -12,6 +12,171 @@ every change going forward.
 
 ---
 
+## [1.22.0] — 2026-08-25 — Multi-column reading-order reconstruction (catalog §2.5)
+
+Design spec + plan: `docs/superpowers/specs/2026-08-25-layout-reading-order-design.md` /
+`docs/superpowers/plans/2026-08-25-layout-reading-order-plan.md`. Verified directly before designing
+(the same check that already corrected two other pitches this session): `layout.py:76` really did sort
+every page's blocks with a flat `key=lambda r: (r["bbox"][1], r["bbox"][0])` — top-to-bottom, left-to-right
+on raw coordinates, no column awareness. On a genuine 2-column TM page this interleaves the two columns
+line-by-line instead of reading one column fully before the next — the "scrambled order" `EXTRACTION-
+METHODS-CATALOG.md` §2.5 has flagged as a known gap since that catalog was written. The module's own prior
+self-test never caught this because every fixture block sat at the same `x=40` — a single-column layout was
+the only shape it ever exercised.
+
+### Added
+- **`engine/layout.py` gains column-aware reading order** (v1.4.1 — see "Adversarial review" below for the
+  0 → 1 patch bump). A single-level column split, not full recursive XY-cut — deliberately scoped to this
+  corpus's actual page shapes (Army TM pages are either single-column body text or a simple 2-column layout
+  with full-width headers/footers/titles, never a deeper multi-region magazine layout; if a future page shape
+  needs more than one cut level, this is additively revisitable). Small, dependency-free local helpers
+  (`_content_span`, `_is_full_width`, `_find_gutter`, `_median`, `_row_alignment_ratio`) feed
+  `_column_order()`, called from a new `_reading_order()` that replaces the old bare `out.sort(...)` call at
+  the end of `analyze()`:
+  1. **Full-width vs. narrow.** A block spanning ≥65% of the page's own CONTENT width (the union x-range of
+     every non-header/footer block — not the raw page width, so margins don't skew the threshold) is
+     full-width. A `header`/`footer`/`title`/`heading`-typed block is *always* full-width regardless of its
+     own measured text width — each is a page-spanning band positioned by role, not narrow column content,
+     even when the literal text happens to render narrow (a short page number, a short chapter title like
+     "COOLING"). Originally implemented for `header`/`footer` only; widened to `title`/`heading` too by
+     adversarial review — see below.
+  2. **Gutter detection.** The x-intervals of the narrow blocks are merged (any gap smaller than
+     `max(12, 4% of content width)` counts as touching); the widest gap left between merged clusters is the
+     gutter candidate. Fewer than 4 narrow blocks, or no gap left after merging, or fewer than 2 blocks on
+     either side of the gutter → "not really 2-column," fall back to exactly the old flat sort.
+  3. **Row-alignment gate.** A genuine x-gutter alone isn't sufficient — see "Adversarial review" below for
+     why — so the two candidate columns must also read as actually *aligned* side by side, not merely
+     occupying two x-ranges.
+  4. **Banding.** When a real split is found, the page is walked top-to-bottom in bands delimited by the
+     full-width blocks' own y-positions (each full-width block sits exactly where its y puts it); within
+     each band every left-column block sorts before every right-column block, each column internally still
+     ordered top-to-bottom.
+- **`layout.py`'s own `__main__` self-test** — the existing single-column fixture/assertions are completely
+  unchanged (regression pin: single-column output is byte-identical to before this change — confirmed by
+  running it, not assumed). Four new fixtures: a genuine 2-column page (full-width header + title, 3
+  left-column paragraphs and 3 right-column paragraphs with pairwise-**overlapping** y-ranges — the exact
+  shape that breaks a flat sort — full-width footer), asserting the exact header → title → left×3 → right×3
+  → footer order; a "couple of small scattered captions on an otherwise single-column page" fixture (only 2
+  narrow blocks — below the 4-block minimum), asserting the fallback flat sort; and two adversarial-review
+  regression fixtures — see below.
+- **`engine/tests/test_routes.py`** — `/api/layout` added to the curated route list (`doc=2&page=12`, same
+  style as the neighboring `/api/dimscan`/`/api/callout_numbers` entries). A repo-wide grep confirmed this
+  route had zero coverage before this change — not even the blanket bare-GET crash-sweep proved more than
+  "no 5xx," since a bare `/api/layout` with no `doc` param never reaches `layout.analyze()` at all.
+- **`engine/tests/test_layout_route.py`** (new) — exercises the REAL route function
+  (`doc_extractors.r_layout`) directly against a real 2-column PDF built with PyMuPDF, the same lightweight
+  h/qs/core-fake pattern `test_tables_plus_stitch.py` already established for a sibling per-page extractor
+  route, asserting the actual JSON response (not just `layout.analyze()` called in isolation) comes back in
+  column-aware order. Also covers a single-column page through the same real route (flat order, unaffected)
+  and an unknown doc id (degrades to empty regions, no crash).
+
+### Why this is safe/isolated (R1, R6)
+- `layout.py` has exactly one consumer, `doc_extractors.py`'s `/api/layout` route (a local `import layout`)
+  — confirmed via a repo-wide grep both before writing the design spec AND again after this change landed;
+  nothing else imports it, nothing persists its output anywhere. This makes the whole change fully isolated:
+  it changes what `/api/layout` returns, and nothing else — never `pages.body_text`, never search indexing,
+  never any extraction pipeline that already runs corpus-wide.
+- `analyze()`'s return **shape** is unchanged (`[{type, bbox, text, size}]`); only the *order* of that list
+  changes, and only for pages where a genuine 2-column split is actually detected. No new fields, no new
+  sidecar, no schema of any kind, no re-processing of the existing corpus needed for this to take effect.
+- Reordering the actual text `pages.body_text` is built from (native-PDF or OCR) is explicitly OUT of scope
+  for this pass — that would need re-processing the whole corpus and real-corpus validation that extraction/
+  search behavior doesn't regress, a materially bigger risk class this change deliberately does not touch.
+  `layout.py`'s reading order is a presentation-layer concern only.
+- Error handling is unchanged: the whole function still degrades to `[]` on any exception or when
+  `fitz`/the PDF path is unavailable; the new column-detection logic is plain-Python geometry over an
+  in-memory list the existing code already built, so nothing new can raise that the existing `try/except`
+  doesn't already catch.
+
+### Deviation from the plan
+- The design spec's classification list ("full-width: titles, section headings, running headers/footers…")
+  was first implemented as a **type-based** rule for `header`/`footer` only, not a pure measured-width rule
+  like every other block type gets. Discovered empirically: `layout.py`'s own pre-existing self-test fixture
+  has a short header/footer string ("Change 2   2-1") that measures well under the 65%-of-content-width
+  cutoff — treating it as "narrow" would have added it to the narrow-block pool alongside the fixture's
+  heading/caption/figure blocks, crossing the 4-block minimum and risking a false-positive column split on a
+  single-column regression fixture the plan requires to stay byte-identical. **Adversarial review caught
+  that this same reasoning applies equally to `title`/`heading` and the first draft didn't cover them** — see
+  below.
+
+### Adversarial review
+Three independent reviewers examined the diff (algorithm-correctness, regression-safety, test-quality
+lenses). Two HIGH findings, both fixed and verified directly before being accepted — not taken on the
+reviewers' word.
+
+- **HIGH (algorithm-correctness): a short title/heading could be swallowed as narrow column content.**
+  `_is_full_width()`'s first draft only exempted `header`/`footer` by type; `title`/`heading` were measured
+  purely by rendered width. A short title (e.g. "COOLING", well under the 65% cutoff) positioned over one
+  column got column-assigned and sorted into the MIDDLE of the page — after an entire column of body text —
+  instead of appearing first as the page-spanning heading it actually is. Neither of the diff's own original
+  test fixtures caught this because both used a long title comfortably clearing the width threshold by
+  accident. **Fixed** by widening the type-based exemption to `title`/`heading` too, matching the spec's own
+  stated intent. New regression fixture added (a short "COOLING" title over a 2-column page); sabotage-
+  verified by reverting the fix and confirming the new assertion fails exactly as predicted, then restored.
+- **HIGH (regression-safety): the "single-column pages stay byte-identical" guarantee was false on the most
+  common Army-TM page shape.** `_find_gutter()` clusters purely by x-interval overlap with no y-awareness —
+  an ordinary single-column page using the standard right-indented CAUTION/NOTE/WARNING callout-box
+  convention next to left-margin step text produces two real x-clusters (left steps, right callouts) with a
+  genuine gutter between them, and the reviewer showed callouts can even span nearly the same y-range as the
+  steps they're interleaved with. The original heuristic accepted this as "2 columns" and regrouped every
+  CAUTION/NOTE/WARNING away from the specific step it modifies — not just a cosmetic reorder, actively
+  misleading on a maintenance manual (a WARNING separated from the step it warns about is a real usability/
+  safety concern, not a UX nit). **Fixed** by replacing a density-based check (tried first, rejected — both a
+  genuine short 2-column section and a scattered-callout pattern score similarly "sparse" at only 2-3 blocks
+  per side, so density alone didn't discriminate) with a row-alignment check: for each left block, the
+  distance to its nearest right-column neighbor, compared against the typical gap between consecutive
+  left-column blocks. Genuine side-by-side columns have matching items at nearly the same y (ratio ≈0.14,
+  measured directly against a real reproduced fixture); an interleaved callout sits roughly halfway between
+  two consecutive same-column items (ratio ≈0.49, same method). Threshold set at 0.30 — real margin on both
+  sides of the two measured cases, not tuned to either edge. New regression fixture reproduces the reviewer's
+  exact scenario (left-margin lettered steps + right-indented CAUTION/NOTE/WARNING boxes); sabotage-verified
+  twice — the first sabotage attempt revealed the fixture's OWN geometry bug (step text long enough to
+  visually overlap the callouts' x-range, so `_find_gutter()` returned no gutter at all and the fixture never
+  reached the code path it claimed to test — caught by tracing the actual internal values, not by trusting a
+  green assertion), fixed the fixture, then re-sabotaged the real threshold and confirmed the corrected
+  fixture genuinely fails without the fix and passes with it restored.
+- LOW finding (not fixed, documented): the design spec's error-handling section overstated that "the
+  existing try/except" fully covers the new logic — technically the new helpers run just outside `analyze()`'s
+  own `try/except`, though `doc_extractors.py`'s route already wraps the whole `analyze()` call in its own
+  guard, so nothing is actually unprotected today. Noted here for a future maintainer rather than changed,
+  since fixing it would mean restructuring working code to satisfy a documentation nit.
+
+### Verified
+- `python -m py_compile engine/layout.py engine/tests/test_layout_route.py engine/features/routes/
+  doc_extractors.py` — clean.
+- `python layout.py` — all five self-test fixtures pass (single-column regression, 2-column, fallback, the
+  two adversarial-review regression cases above).
+- `python tests/test_layout_route.py` — 6/6 passed (real route, 2-column order, single-column flat order,
+  unknown-doc degrade).
+- `python tests/test_routes.py` — 294/294 passed, including the new curated `/api/layout` entry.
+- `python tests/verify_all.py --snapshot` — 48 checks, 47 ok, 1 pre-existing failure
+  (`test_ingest_routes.py`'s "real e2e upload" subprocess case — reproduced identically via `git stash` on
+  the unmodified base commit, so it predates and is unrelated to this change; `safeguard verify` reports
+  716/716 files OK against the fresh snapshot). Every suite that touches `layout.py`, `doc_extractors.py`,
+  or `/api/layout` (`test_routes.py` 294/294, the new `test_layout_route.py` 6/6, `rps_lint.py`) is green.
+
+### Compatibility (R1)
+- `VERSION` → **1.22.0**, matching this project's own established practice of bumping `VERSION` with every
+  changelog entry. Not a claim of any behavior change for a single-column page — every single-column page's
+  `/api/layout` response is byte-identical to before this change (pinned by the unmodified original
+  self-test fixture).
+- No `viewer.db` migration, no new dependency, no changed function signature outside `layout.py` itself.
+
+### Known, deliberately deferred
+- 3+ column layouts are not specifically detected — a page with more than 2 x-coverage clusters collapses
+  to "left of the widest gap" vs. "right of it." Not seen as a real TM page shape in this project's own
+  document set (per the catalog's own framing, "multi-column TMs," not general magazine layouts) — deferred
+  unless a real example surfaces.
+- The exact numeric thresholds (65% full-width cutoff, 4-block narrow minimum, 2-block-per-side minimum,
+  12px/4%-of-content-width gutter minimum, 0.30 max row-alignment ratio) are tuned against this change's own
+  synthetic fixtures — including two adversarial-review-driven, directly-reproduced cases for the alignment
+  threshold specifically — not against a broad real-corpus sample of multi-column TM pages. The design spec's
+  own "open items" framing explicitly left this for implementation-time tuning, not a blocking
+  pre-requirement; the alignment ratio in particular would benefit from validation against real corpus pages
+  in a future pass if mis-detections ever surface in practice.
+
+---
+
 ## [1.17.0] — 2026-08-24 — Vision-Language Page QA: Phase 2 (structured extraction, verification, batch tool, Masterfile integration — catalog §10.1 + §3.12)
 
 Closes out the plan [1.16.0] deliberately deferred (items 10–17 of `docs/superpowers/plans/2026-08-24-

@@ -30,7 +30,7 @@ append-only sidecars (R1/R6).
 |2.2| **Advanced table extraction** — borderless / spanning cells | ✅ | `tables_plus.borderless_tables` (pdfplumber) + `/api/tables_plus` | — |
 |2.3| **Cross-page table stitching** — one table split over pages | ✅ | `tables_plus.stitch` (data-row/repeated-header aware) | — |
 |2.4| **Document layout analysis** — title/para/figure/table/caption/header | ✅ | `layout.py` (heuristic over PyMuPDF blocks, no ML) + `/api/layout` | — |
-|2.5| **Reading-order reconstruction** (multi-column TMs) | ○ | column detection + XY-cut; fixes scrambled OCR order | M |
+|2.5| **Reading-order reconstruction** (multi-column TMs) | ✅ | `layout.py` (v1.4.0): single-level column split over `analyze()`'s already-classified blocks — full-width vs. narrow by content-width union, a real x-coverage gutter + majority-on-one-side check, band the page by full-width blocks' y and sort left column before right within each band. Deliberately NOT full recursive XY-cut: this corpus's TM pages are single-column body text or a simple 2-column layout with full-width headers/footers/titles, never a deeper multi-region magazine layout — a weak/ambiguous split falls back to the exact prior flat sort, so single-column pages are unaffected. `/api/layout` | — |
 |2.6| Header/footer / running-title stripping | ✅ | `pagetrim.py` (recurrence heuristic) | — |
 |2.7| **Section / chapter hierarchy** — TOC + heading detection | ◐ | PDF outline + font-size heading model; powers chapter routing | M |
 |2.8| **Page-type classifier** — RPSTL vs procedure vs schematic vs PMCS vs LP | ◐ | features + small model; routes each page to the right parser | M |

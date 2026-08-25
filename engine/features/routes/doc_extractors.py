@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """THE VIEWER -- per-document/page field-extraction routes ("catalog §" endpoints: callouts, VLM,
-layout, dimscan, KG, IETM, acronyms, tables, cautions, specs, pdfmeta, provenance, Masterfile,
-specsheet, QR, PUBLOG, dimscad, external gap-fill, hybrid tables, parts-request PDF, procedure).
-v1.14 routes/ split -- moved verbatim out of the former monolithic engine/features/routes.py.
-DI via `core`."""
+page Q&A, layout, dimscan, KG, IETM, acronyms, tables, cautions, specs, pdfmeta, provenance,
+Masterfile, specsheet, QR, PUBLOG, dimscad, external gap-fill, hybrid tables, parts-request PDF,
+procedure). v1.14 routes/ split -- moved verbatim out of the former monolithic
+engine/features/routes.py. DI via `core`."""
 import os
 
 from features.registry import get, post, qstr, qint, qflag, safe_header_token
@@ -65,6 +65,23 @@ def r_vlm(h, qs):
         res = vlm.ask(arr, q) if q else vlm.describe(arr)
     except Exception as e:
         res = {"available": True, "answer": None, "note": "error: %s" % e}
+    h._send(200, {"doc": doc, "page": page, **res})
+
+
+@get("/api/pageqa")
+def r_pageqa(h, qs):
+    # trust-aware vision-language page Q&A (catalog §10.1, design doc 2026-08-24-vision-language-page-
+    # qa-design.md) -- the capable sibling of /api/vlm just above, which stays completely UNCHANGED
+    # (R1). pageqa.ask() itself resolves doc/page -> image (no core.doc_path()/fitz here -- this route
+    # really is thin), folds vlm.py's widened str|{text,region} backend contract into one shape, and
+    # hard-caps trust at 'review' for this mode=text/strict=False interactive path -- Phase 2 adds a
+    # verified structured mode without this route needing to change. Degrades to available:false with
+    # no crash when no backend/GPU tier is present (this repo's CI has neither).
+    import pageqa
+    doc = qint(qs, "doc", 0); page = qint(qs, "page", 1)
+    q = qstr(qs, "q", "") or "Describe this technical illustration and list any part numbers, callouts, or measurements."
+    mode = qstr(qs, "mode", "text"); strict = qflag(qs, "strict", "0")
+    res = pageqa.ask(doc, page, q, mode=mode, strict=strict, db_path=core.DB_PATH)
     h._send(200, {"doc": doc, "page": page, **res})
 
 

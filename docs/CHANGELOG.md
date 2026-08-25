@@ -12,6 +12,124 @@ every change going forward.
 
 ---
 
+## [1.16.0] — 2026-08-24 — Vision-Language Page QA: Phase 1 (interactive "Ask this page", catalog §10.1)
+
+Closes the single highest-ceiling, longest-unbuilt gap the extraction-methods catalog itself flags: §10.1
+vision-language document QA. Every other extractor (`measures.py`, `tables.py`, RPSTL, …) is a
+regex/geometry pipeline that can only find what it was specifically built to look for; a vision-language
+model can be asked a page directly — "what's the torque value here?" — and answer questions no existing
+extractor covers. `engine/vlm.py` has carried the pluggable `ask(image, question) -> str` interface since
+v1.3.3, but shipped with **no backend** — an honest stub, never a real feature. This entry completes it
+into a genuine, two-consumer system, per `docs/superpowers/specs/2026-08-24-vision-language-page-qa-
+design.md` and its companion implementation plan. **Phase 1 only** — interactive, ephemeral, writes
+nothing to any sidecar. Phase 2 (typed structured extraction, the self-grounding/OCR-cross-check
+verification pass, and the batch tool that would write corroborating rows into a new `index/pageqa.db`
+for `masterfile.py` to consume) is deliberately deferred — see "Known, deliberately deferred" below.
+
+### Added
+- **`engine/vlm.py` widened `ask()`'s return contract** (v1.4.0) — a backend may now return either a bare
+  string (every backend before this, and any that still doesn't ground) or a
+  `{"text": ..., "region": {"x0","y0","x1","y1"}}` dict for backends that support native grounding
+  (coordinates normalized 0-1). 100% backward compatible: `region` is always optional, `GET /api/vlm`
+  (whose only caller understands a bare string) is completely untouched, and `ask()` itself still never
+  inspects or coerces the shape — it just passes the backend's return value through, exactly as it always
+  has.
+- **`engine/vlm_backend.py`** (new) — the real, shipped default backend: `microsoft/Florence-2-base` via
+  `transformers` (`AutoModelForCausalLM` + `AutoProcessor`, `trust_remote_code=True` — Florence-2 ships
+  its own modeling code). Lazy model load, mirroring `embed.py`'s own convention: importing this module
+  needs only the `transformers`/`torch` *packages* installed, never touching the network or the ~460MB
+  weights until the first real `ask()` call. Florence-2 has no native open-ended VQA task prompt, so this
+  ships the official cascaded pattern from its own model card instead: `<MORE_DETAILED_CAPTION>` the
+  whole page, then `<CAPTION_TO_PHRASE_GROUNDING>` that caption's noun phrases back onto the page, and
+  take the grounded phrase whose words overlap the asked question the most as the "answer" — a documented
+  approximation of VQA, said plainly in the module's own docstring so nobody mistakes it for real
+  instruction-following (R13). Advanced/GPU-fork-only optional dependency, same posture as
+  RapidOCR-on-`onnxruntime-gpu`.
+- **`engine/pageqa.py`** (new) — the shared core both consumers below call, so neither reimplements
+  trust-tier logic independently (mirrors how `cautions.py` already shares `textquality.annotate()`
+  rather than recomputing text quality itself). This phase implements only `mode="text", strict=False`:
+  resolve doc/page → a rendered page image, call `vlm.ask()`, fold its widened str|{text,region} contract
+  into one `(answer_text, region)` shape, and **hard-cap trust at `trust.py`'s "review" tier no matter
+  what the backend claims** — a human is looking at the actual page right there, so this is a second pair
+  of eyes, never a verified fact (R13). Its own `available()` is checked *before* any model-load attempt:
+  requires both `vlm.available()` and `sysprobe.py`'s GPU-capable tier, so a legacy/no-GPU machine — and
+  this repo's own CI runners, which have neither a GPU nor downloaded model weights — report `available:
+  False` cleanly and cheaply. `mode="structured"`/`strict=True` already exist in the function signature
+  (so Phase 2 lands additive, not a breaking rework) but for now just return a clean "not yet
+  implemented" note rather than raising.
+- **`GET /api/pageqa`** (new route, `doc_extractors.py`) — a thin wrapper calling `pageqa.ask()` directly.
+  `GET /api/vlm` stays completely unchanged (R1).
+- **`engine/ui/deepzoom.html`**: a floating "🔎 Ask this page" control (the same pattern the
+  Editions/Symbols buttons already use) — a question box, a canvas-drawn highlight for the model's
+  grounded region, a trust chip drawn from `trust.py`'s own color/label vocabulary, and the disclaimer
+  "AI-read — verify on page." shown verbatim from `pageqa.py`'s own note text. The button stays hidden
+  unless a lightweight capability probe (`GET /api/pageqa?mode=text`, no real doc/page) reports
+  available — the same simply-absent-on-hardware-that-can't-run-it gate RPS Premium already uses. Nothing
+  is ever persisted — answer-and-forget, matching `ask.py`'s own existing contract.
+- **`engine/ask.py` / `engine/ui/ask.html`**: when extractive sentence-scoring finds **no** answer at all
+  for a question, `answer()` now falls through to `pageqa.ask()` on the single top-retrieved page. This
+  comes back under its own `vlm_fallback` key — **never** folded into `sentences`/`sources`, and never
+  allowed to flip `answered` to `True` (R13: an AI-sourced value must never visually pass as an
+  extractive citation). Rendered in its own distinctly-badged block in `ask.html`; silently absent
+  whenever `pageqa` is unavailable or has nothing to say.
+
+### Verified
+- `python vlm.py` and `python pageqa.py` — both self-tests pass in this no-GPU/no-`transformers`
+  environment (this repo's own CI has neither either): graceful degrade with no backend installed,
+  bare-string and grounded-dict `vlm.ask()` shapes both handled, the "review" trust-cap holds even with a
+  grounded region, a backend that errors mid-call and an unknown `mode` both degrade cleanly, and
+  `mode="structured"`/`strict=True` correctly report Phase 2 as not-yet-implemented instead of crashing.
+- `tests/test_routes.py`'s blanket GET/POST sweep extended with `GET
+  /api/pageqa?doc=2&page=12&q=torque`, exercising the exact no-backend-installed degrade path CI runs.
+- `tests/rps_lint.py` — `ask.html` and `deepzoom.html` both still ES5-clean; full gate: **PASS**.
+- Full `engine/tests/verify_all.py --snapshot`: **45/46**. The sole failure, `test_ingest_routes.py`'s two
+  "real e2e upload" checks, is a pre-existing, already-diagnosed environmental flake tied to
+  `safeguard.snapshot()` disk contention specific to this working copy — independently reproduced as
+  absent in a clean clone earlier this same session — and unrelated to this change.
+- Direct real-world check beyond the self-tests: `import vlm_backend` fails cleanly with
+  `ModuleNotFoundError: No module named 'torch'` in this environment, and that failure is fully absorbed
+  by `vlm.available()` → `False` with zero effect on `import vlm`/`import pageqa`.
+- Adversarial review (3 independent reviewers — correctness, convention-consistency, CI-safety) against
+  the diff and the design spec/plan all converged on the same real finding: `transformers`/`torch` had
+  been placed in `requirements.txt`'s auto-installed RECOMMENDED tier, contradicting the spec's own
+  "Advanced/GPU-fork-only optional dependency" posture and risking CI actually installing multi-GB deps
+  on every push/PR. Fixed — moved to the commented-out OPTIONAL tier (matching `easyocr`'s own
+  precedent), restoring the "CI has neither package installed" invariant the tests/docs above depend on.
+
+### Compatibility (R1)
+- `vlm.py`'s `ask()` contract change is purely additive — every existing caller (`/api/vlm`) still only
+  ever sees a bare string back, since `vlm_backend.py`'s v1.4.0 dict shape is new, not retrofitted onto
+  any prior backend.
+- No schema/migration change and no new sidecar in this phase (R6) — `pageqa.py` opens nothing but a
+  short-lived read-only connection to resolve a doc id to a file path, and writes nothing anywhere.
+- `engine/vlm_backend.py`'s two heavy imports (`torch`, `transformers`) are deliberately unguarded at
+  module scope — `vlm.py`'s `_load_backend()` already isolates a missing/failed import via
+  `__import__()` + `try/except`, so `import vlm` and `import pageqa` never require them installed; only
+  `import vlm_backend` does.
+- `VERSION` → **1.16.0**, matching this project's own established practice of bumping `VERSION` with
+  every changelog entry — confirmed via `git log -p` on `engine/viewer_app.py`'s `VERSION` line back
+  through [1.13.2], plus this file's own explicit bump lines further back (e.g. [1.7.1]: "`VERSION` →
+  **1.7.1**. Test-only + tooling; no app-behavior change (R1)."). Not a claim that this entry changes
+  behavior on a machine without the new optional `transformers`/`torch` dependencies installed — on such
+  a machine every code path here degrades exactly as it did before this change.
+
+### Known, deliberately deferred
+- **Phase 2 — structured extraction, verification, and the batch tool** is not built yet: typed
+  `{type, value, value2, unit, region, source_text}` output reusing `measures.py`'s own type taxonomy,
+  the two-part self-grounding + OCR-cross-check verification pass, the new `index/pageqa.db` sidecar,
+  `build_pageqa.py` + `BUILD-PAGEQA.bat`, and wiring `pageqa.db` into `masterfile.py`'s source list as a
+  `source='vlm-verified'` corroborating input — tracked as items 10–17 in the implementation plan.
+  Nothing in this phase writes to any sidecar; `docs/EXTRACTION-METHODS-CATALOG.md` §10.1 stays at
+  **◐** (partial), not ✅, until Phase 2 lands.
+- Exact prompt-template wording per extraction type, the Florence-2 quantization/precision level, and the
+  Phase-2 fuzzy-match parameters are all explicitly out of scope for this phase — see the design spec's
+  own "Non-goals" section.
+- A live check of the "Ask this page" control against a real Florence-2 install on actual GPU hardware
+  has not been performed — see "Verified" above for what was: this environment has neither a GPU nor the
+  optional dependencies installed.
+
+---
+
 ## [1.15.0] — 2026-08-19 — Discovery Engine phase 1 + in-app scanning, 5 deferred items closed, RPS Premium tier, OCR confidence threaded end-to-end, full-codebase reachability audit
 30 commits, 2026-08-18 20:40 → 2026-08-19 21:41 (~25 hours, effectively one continuous session) — the
 largest single body of undocumented work this file has ever carried at once, and itself a fresh instance

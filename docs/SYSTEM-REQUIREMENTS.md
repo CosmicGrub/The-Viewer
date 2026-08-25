@@ -218,8 +218,11 @@ disabled stage's missing counts never look unexplained.
 **Optional feature backends (unconfigured / off by default):**
 
 - **`VIEWER_VLM`** (`vlm.py`) — module name implementing the pluggable vision-language interface's
-  `ask(image, question) -> str`. Default `"vlm_backend"`, i.e. `engine/vlm_backend.py` — which
-  doesn't ship, so the feature reports "unavailable" until you drop one in.
+  `ask(image, question) -> str | {"text":...,"region":...}`. Default `"vlm_backend"`, i.e.
+  `engine/vlm_backend.py` — which now DOES ship (catalog §10.1, Phase 1: Florence-2-base via
+  `transformers`) but still reports "unavailable" until its own dependencies are installed and this
+  machine is on the GPU-capable tier; see the dedicated dependency section below. Set this only to
+  point at a *different* backend module.
 - **`VIEWER_IMG3D_CMD`** (`image3d_experiment.py`) — command template for the optional local
   image→3D backend (e.g. TripoSR), with `{in}`/`{out}` placeholders. Empty by default (falls back to
   `engine/image3d_backend.txt` if present; otherwise the feature reports "not configured").
@@ -232,6 +235,40 @@ disabled stage's missing counts never look unexplained.
 - **`VIEWER_XREF_URL`** (`xref_online.py`) — the public endpoint template for the above, with
   `{nsn}`/`{niin}` placeholders (e.g. `https://example-public-nsn-catalog/api?nsn={nsn}`). Empty by
   default.
+
+**Vision-language page QA (`engine/vlm_backend.py`, catalog §10.1) — `transformers`/`torch`, Advanced/GPU-fork
+tier only, optional:**
+
+`vlm.py`'s pluggable interface now ships a real default backend (design doc
+`2026-08-24-vision-language-page-qa-design.md`): `microsoft/Florence-2-base` via `transformers`
+(`AutoModelForCausalLM` + `AutoProcessor`, `trust_remote_code=True` — Florence-2 ships its own modeling
+code) and `torch`. Listed **commented out** in `requirements.txt`'s OPTIONAL tier (matching `easyocr`'s
+own precedent one line above — same "pulls in torch, large" cost) rather than RECOMMENDED: unlike the
+Office-format deps just above (small, CPU-only, safe to install unconditionally), `torch` is genuinely
+the heaviest single install in this file, and a bare `pip install -r requirements.txt` — what this
+repo's own CI runs, on every push/PR, across 4 matrix legs — must not install it. That keeps
+`pageqa.available()` testable as `False` in CI on install-absence alone, not solely on the runtime
+GPU-tier check below doing double duty for an install-time decision:
+
+- **Gated to the GPU-capable tier**, not just installed-or-not: `pageqa.available()` requires BOTH
+  `vlm.available()` (a real backend module actually imports) AND `sysprobe.py`'s `use_gpu` signal (the
+  same one GPU OCR already uses), so a legacy/no-GPU machine — or this repo's own CI runners, which have
+  neither a GPU nor downloaded model weights — reports "unavailable" cleanly, exactly like the
+  Office-format tier gate above, even with `transformers`/`torch` installed. `/api/pageqa` and the
+  "🔎 Ask this page" control simply don't appear at all in that case, rather than appearing and failing.
+- **Lazy model load** — importing `vlm_backend.py` only needs the `transformers`/`torch` *packages*
+  installed; it does not touch the network or download the ~460MB Florence-2-base weights until the
+  first real `ask()` call (mirrors `embed.py`'s own lazy-load convention). Probing availability (which
+  the "Ask this page" button does on every page load, to decide whether to show itself) never triggers a
+  download.
+- **CPU-only `torch` technically runs Florence-2-base**, but this app's documented posture for this
+  catalog entry is Advanced/GPU-fork-only — the Lite/portable fork never needs this dependency at all,
+  and `vlm.py`'s `_load_backend()` isolates a missing/failed import via `try/except`, so `import vlm` and
+  `import pageqa` never require `transformers`/`torch` to be present; only `vlm_backend.py` itself does.
+- **Trust posture (R13):** even once installed and working, every answer this backend produces is
+  hard-capped at `trust.py`'s "review" tier by `pageqa.py` — an AI-read of the page, never promoted to a
+  verified fact, and nothing from this Phase-1 path is written to any sidecar. See catalog §10.1 for the
+  still-unbuilt Phase 2 (structured, verified extraction).
 
 ## Multi-unit / air-gapped transfer (recommendations annex #17)
 

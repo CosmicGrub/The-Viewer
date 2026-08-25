@@ -123,7 +123,7 @@ append-only sidecars (R1/R6).
 
 | # | Method | Status | Approach / library | Effort |
 |--|--------|--------|--------------------|--------|
-|10.1| **Vision-language document QA** (ask a page for a value) | ◐ | `vlm.py` pluggable interface + `/api/vlm`; drop in a GPU model backend (Donut/Qwen-VL/…) to enable | — |
+|10.1| **Vision-language document QA** (ask a page for a value) | ◐ | `vlm.py` pluggable interface + `vlm_backend.py` (Florence-2-base via `transformers`, GPU-fork tier only) + `pageqa.py`'s trust-capped core + `/api/pageqa` — the interactive "🔎 Ask this page" control (`deepzoom.html`) and `ask.py`'s retrieve-then-answer fallback both work end-to-end now (Phase 1, hard-capped at the "review" trust tier, nothing persisted). **Structured extraction + the self-grounding/OCR-cross-check verification pass that would write corroborating rows to a new `index/pageqa.db` for `masterfile.py` is still Phase 2 — not yet built** (see `docs/superpowers/plans/2026-08-24-vision-language-page-qa-plan.md`) | — |
 |10.2| Table-structure transformer (TATR) for scanned tables | ○ | microsoft/table-transformer | M |
 |10.3| Mil-spec-tuned NER (parts, tools, specs) | ○ | fine-tune a small token classifier | L |
 |10.4| Layout model to drive *every* parser (§2.4) | ○ | one segmentation feeding all extractors | L |

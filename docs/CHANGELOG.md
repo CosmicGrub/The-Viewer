@@ -12,6 +12,82 @@ every change going forward.
 
 ---
 
+## [1.19.0] — 2026-08-25 — Home page nav: Tools menu regrouped into 6 labeled sections, My Bench promoted to top-level
+
+Versioned 1.19.0 rather than 1.18.0 (the next number after this branch's base, [1.17.0]) because a separate,
+independently-branched change (search click instrumentation + heuristic re-rank) already claimed 1.18.0 on its
+own PR off the same base — this avoids a guaranteed version collision whichever merges to `main` second.
+
+The header's `#toolsPop` "🧰 Tools ▾" dropdown (`engine/ui/index.html`, the only copy of this menu in the whole
+UI — no other page duplicates it) had grown to **31 items in one flat, unlabeled list**, loosely broken only by
+plain visual separators. User-flagged as "far longer than necessary," especially the 16-item unlabeled block
+that mixed identification tools, reference lookups, search modes, and workflow tools together with no
+structure. A real, previously-unrelated bug was found in the same file while scoping this: `.menupop` had no
+`max-height`/scroll cap at all — a long dropdown could run off the bottom of a short viewport with no way to
+reach the rest of it.
+
+### Changed
+- **`engine/ui/index.html`** — `#toolsPop` regrouped into 6 labeled sections (Find & identify · Reference ·
+  Search modes · Do the work · Learn & audit · Admin), replacing the old plain `.msep` divider `<div>`s with
+  a new `.mgrouplbl` group-header style (reuses `.col h2`'s existing uppercase/letter-spacing/`color:var(--sub)`
+  treatment, scaled for a dropdown row). Every one of the original 30 remaining links/buttons kept its exact
+  href/title/label/emoji — this is a reorganization, not a content rewrite (verified programmatically: 29
+  `<a href="/...">` + 1 `<button>` = 30 items across 6 groups, every original href still present, none
+  dropped/duplicated).
+- **★ My Bench promoted to a new top-level header button**, between Collections and Tools — a personal
+  saved-items shortcut people return to constantly no longer costs an extra click through a 30-item menu.
+  Matches Collections'/Help's exact `a.ghost` tag/style pattern; carries over its original href/title/label
+  unchanged. Confirmed `/bench` appears exactly once in the file (the new header button), not still also
+  inside the dropdown.
+- **`.menupop`'s missing max-height/scroll, fixed** — but not with a hardcoded CSS constant. Adversarial
+  review caught that a fixed `calc(100vh - 90px)` assumes the Tools button sits near the top of a single-row
+  header; the header now carries one more permanent top-level item (My Bench), which can push it to wrap to a
+  2nd row on a narrower viewport, moving the popup's real on-screen start position down with it — a fixed
+  viewport-relative constant can't account for that, so the popup's bottom could still run off-screen in
+  exactly the case this fix was meant to cover. **Verified directly, not taken on the reviewer's word**: fixed
+  by computing the true available space from the Tools button's actual `getBoundingClientRect()` every time
+  the menu opens (`open_()` in the existing accessible-toggle script), with the CSS constant demoted to a
+  pre-JS fallback only.
+- **Misapplied ARIA role removed** — the new `.mgrouplbl` group headers had inherited `role="separator"` from
+  the empty `<div class="msep" role="separator">` divider pattern they replaced, but ARIA's separator role is
+  defined for a contentless dividing line, not a labeled heading with real text content; assistive tech isn't
+  guaranteed to expose that text as an accessible name under that role. Removed (`#toolsPop` has no
+  `role="menu"` to begin with, so this was never part of a coherent ARIA widget pattern) — plain, unstyled
+  labeled text is read correctly by default.
+- **Dead CSS removed** — `.menupop .msep{...}` was orphaned once every divider in this popup became a labeled
+  `.mgrouplbl` instead; confirmed no `class="msep"` element remains anywhere in the file before removing.
+
+### Adversarial review
+Three independent reviewers (completeness / interaction-correctness / html-hygiene lenses) examined the diff.
+- **Completeness lens: 0 findings** — every original href/label/title/emoji verified preserved, My Bench
+  reachable from exactly one place.
+- **Interaction lens (MEDIUM, fixed above)**: the max-height header-wrap gap described above.
+- **Html-hygiene lens**: caught that my own workflow instructions named the wrong lint script path
+  (`engine/tools/rps_lint.py`, which doesn't exist — the real path is `engine/tests/rps_lint.py`); re-ran the
+  correct one directly. Also 2 LOW findings (misapplied `role="separator"`, dead `.msep` CSS), both fixed
+  above.
+
+### Self-caught regression (during the max-height fix, before commit)
+Reformatting `open_()` to a multi-line function (to add the dynamic max-height computation above) broke an
+existing, unrelated regression test: `test_uiux_fixes.py`'s `tools_menu_open_calls_threadQuery` does an exact
+literal-substring check for `"function open_(){ threadQuery();"` in the page source (guarding that
+`threadQuery()` — which threads the current search query into every menu link — still runs first thing on
+open). The reformat moved `threadQuery()` onto its own indented line, breaking the literal match even though
+the *behavior* was unchanged. Caught by running the full `verify_all.py --snapshot` suite before commit (not
+just the files I expected to be affected) — fixed by keeping `function open_(){ threadQuery(); ...}` as the
+required literal one-line opener and appending the new logic as additional statements after it, same function,
+same behavior.
+
+### Verified
+- `python engine/tests/rps_lint.py` (correct path): RPS GATE: PASS.
+- HTML well-formedness: fed the whole file through `html.parser` with a start/end tag stack checker —
+  zero mismatched or unclosed tags.
+- Programmatic count-check: 6 `.mgrouplbl` groups, 29 links + 1 button = 30 items in `#toolsPop`, exactly one
+  `/bench` href in the whole file and it's outside `#toolsPop`.
+- `git diff --stat`: only `engine/ui/index.html` changed.
+- Full `engine/tests/verify_all.py --snapshot`, run directly: **47/47, ALL GREEN** (includes the corrected
+  `tools_menu_open_calls_threadQuery` check and a fresh, clean `safeguard verify` — 712/712 files OK).
+
 ## [1.17.0] — 2026-08-24 — Vision-Language Page QA: Phase 2 (structured extraction, verification, batch tool, Masterfile integration — catalog §10.1 + §3.12)
 
 Closes out the plan [1.16.0] deliberately deferred (items 10–17 of `docs/superpowers/plans/2026-08-24-

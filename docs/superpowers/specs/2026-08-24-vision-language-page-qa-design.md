@@ -1,6 +1,7 @@
 # Vision-Language Page QA — Design Spec
 
-**Status:** approved (brainstorm), not yet implemented
+**Status:** approved (brainstorm); implementation plan written —
+`docs/superpowers/plans/2026-08-24-vision-language-page-qa-plan.md`
 **Catalog reference:** `docs/EXTRACTION-METHODS-CATALOG.md` §10.1 (vision-language document QA) + §3.12 (local-LLM
 structured extraction) — this design explicitly subsumes both into one system, since the batch consumer needs
 structured output either way.

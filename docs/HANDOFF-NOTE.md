@@ -1,9 +1,20 @@
-# THE VIEWER — Handoff Note (reconciled 2026-08-18)
+# THE VIEWER — Handoff Note (reconciled 2026-08-24)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-24):** this file had gone stale again — pinned to v1.14.0/2026-08-18 while
+> `CHANGELOG.md` had moved on to **v1.15.0** (2026-08-19), a 30-commit, ~25-hour session (2026-08-18 20:40 →
+> 2026-08-19 21:41) — the largest single body of undocumented work this project has carried at once, and
+> `CHANGELOG.md` itself only caught up to it in a dedicated reconciliation pass on 2026-08-24 (PR #4), five
+> days after it shipped. That pass wrote the `[1.15.0]` entry from the actual commit diffs (not just messages)
+> via 8 parallel read-and-summarize passes; this file's "## LATEST — v1.15.0" section below is condensed from
+> that same source, not re-derived independently. `docs/PROJECT-SUMMARY.md` and `docs/MASTER-RECONCILIATION.md`
+> were reconciled to v1.15.0 in the same pass — all four docs now agree. `ITERATION-SNAPSHOTS.md`/
+> `ITERATION-DASHBOARD.html` were **not** regenerated as part of this pass (see "Suggested next" below — that's
+> `build_iteration_snapshot.py`, a separate host-run step, not touched here).
+>
 > **Reconciliation note (2026-08-18):** this file had gone stale again — pinned to v1.13.4/2026-08-09 while
 > `CHANGELOG.md` and `ITERATION-SNAPSHOTS.md` had moved on to **v1.14.0** (2026-08-18), 9+ days and an entire
 > 12-commit audit run behind. That run is the largest single effort in this project's history by commit
@@ -24,7 +35,66 @@
 > added below; nothing else changed. `docs/PROJECT-SUMMARY.md` and `docs/MASTER-RECONCILIATION.md` were
 > reconciled to v1.13.4 in the same pass — all four docs now agree.
 
-## LATEST — v1.14.0 (2026-08-18) — 50-finding 4-tier audit + UX pass + CI + doc reconciliation
+## LATEST — v1.15.0 (2026-08-19) — Discovery Engine + in-app scanning, 5 deferred items closed, RPS Premium, OCR confidence end-to-end, reachability audit
+**VERSION → `1.15.0`.** 30 commits, ~25 hours (2026-08-18 20:40 → 2026-08-19 21:41), effectively one
+continuous session — see `CHANGELOG.md`'s `[1.15.0]` entry for the full per-commit breakdown; this section
+condenses the same source into hand-off form.
+- **Discovery Engine phase 1 + in-app scan/OCR** (`05ff17f`→`85df23c`): Add Documents now runs scan+OCR+parts
+  as one in-app job with a real 4-stage progress panel (closes the "go run a .bat yourself" gap); new
+  drag-and-drop single-file upload (`ingest_upload()`) with a live "where did my data go" breakdown panel;
+  `crawl()` finally reads images/`.txt`/`.html` (`index_other()` — a raw image gets the SAME OCR/barcode/
+  dimensional pipeline a scanned PDF page does, for free); `tables.py`'s `find_tables()` becomes a live 5th
+  pipeline stage; `measures.py`/`schem_overlay.py`/`schemgraph.py` wired into the live scan (new `schematics`
+  table, migration `0011`) with a new "dimensions" discriminator on `part_differences()`.
+- **Full-codebase reachability audit → 3 more gaps wired in + a live toggle registry** (`099737f`, `e9eee88`):
+  a 6-agent sweep of ~90 root-level modules found RPSTL parts-row extraction, pagetrim boilerplate stripping,
+  and an automatic `keywords.json` refresh all fully built with zero live callers — all three wired in as new
+  pipeline stages. New `engine/flags.py` centralizes the resulting 8 extraction opt-out toggles into one live
+  registry (`python viewer_ingest.py flags` introspects current state).
+- **5 previously-deferred items closed** (`ee3714d`→`d5fb9f8`): `tables_plus.py`'s cross-page `stitch()`
+  wired into `/api/tables_plus`; new `engine/office.py` (`.docx`/`.xlsx`/`.pptx`/`.rtf` extraction, tier-gated
+  to Win10/11); `dedup.py` gains a persistence layer + `/api/editions` + an "📚 Editions" button; `symbols.py`'s
+  missing template-sourcing UI (3 new routes + a crop-and-save modal); `pagetrim.py`'s OCR-page path (the
+  text-layer path already existed — OCR'd pages needed a separate post-pass design).
+- **RPS Premium tier + hardware-adaptive deepening** (`bdc17cd`, `735455f`): a new opt-in `Premium`
+  Settings choice (visual-effects layer, only ever activates on top of an already-`modern`-capable machine);
+  9 real gaps closed where OCR ingestion/embeddings/HTTP-worker-pool/page-DPI/CAD rendering all had RPS tier
+  flags available but unread.
+- **OCR confidence threaded end-to-end** (`5116324`, `fcd0d75`): the real per-page confidence score (captured
+  since v1.13.5 but never read outside its own column) now feeds the caution/procedure quality-flag heuristic
+  AND finally renders on `torque.html`/`measures.html` — both pages were silently discarding an
+  already-computed trust signal.
+- **Functions + security pass: 52 confirmed fixes** (`c147614`) across all 265+ routes, plus a **32-fix
+  icon/emblem quality pass** (`4b3224c`) resolving 7 palette-glyph collisions and real kiosk-mode touch-target
+  gaps. A real barcode-loss bug (`54d2546`) — caught live by this repo's own CI on its very first run against
+  the barcode pipeline — is fixed: an OCR text-engine failure was silently discarding an already-decoded
+  barcode instead of persisting it alongside the "failed" page status.
+- **Masterfile comparison audit + dedup performance + weekly DB backup + a mechanical reachability checker**
+  (`40a811b`→`804bb08`): `masterfile.py`'s representative value is now a numeric median, not a
+  most-common-string tiebreak; corroboration counting deduped by `(TM edition, page)`; `dedup.py` blocks
+  comparisons by TM family before the O(n²) pass (real corpus scale: 39,683 docs, ~787M unblocked pairs); new
+  weekly `viewer.db` backup task (the multi-GB index was never covered by any automatic task before this);
+  new `audit_features.py [7]` — an AST import-closure reachability checker for the "built but never wired in"
+  bug class that recurred across at least 9 prior commits.
+- **Airgap NIIN-decision sync** (`875ffd5`): sign/verify a batch of review decisions for transfer between
+  air-gapped units, fail-closed on tamper/wrong-key, never auto-resolving a genuine conflict.
+- **UX pass**: `procedure_full()` now merges the preceding page's WARNING box and stops collapsing three
+  different failure states into one "none found" message (`da0c996`); `readaloud.js` gets hands-free
+  voice-controlled step navigation (`32614b7`); `palette.js`'s discovery pill relabeled and touch-sized
+  (`00b1d4a`); `index.html` stops re-gating mechanics behind the session modal on every launch, routes
+  torque/measure queries to an inline answer card, and touch-sizes app-wide (`cc02caa`); a final
+  "confidence signaling" pass (`9b0e5b9`) surfaces OCR-badge tooltips, fixes an RPSTL exact-match ordering bug,
+  adds a fuzzy-match "≈ approx" badge, and a new barcode-vs-OCR NSN conflict table.
+- **Verified:** range ends at **46/46, ALL GREEN** (`9b0e5b9`), up from 26/26 at the start of [1.14.0]. 18 new
+  test files across the range.
+- **Docs:** `CHANGELOG.md` `[1.15.0]`; `VERSION` bump — both landed 2026-08-24 (PR #4), 5 days after the code
+  itself shipped. This file, `PROJECT-SUMMARY.md`, `MASTER-RECONCILIATION.md` reconciled in the same
+  2026-08-24 pass (see the reconciliation note at the top of this file).
+- **Known, deliberately deferred:** `camelot_tables()` (3rd table engine pilot) stays unwired — a documented
+  cv2/opencv-python binary-collision risk on version skew; `dedup.py` cross-TM-family duplicates aren't caught
+  by design (the TM-family blocking that makes the O(n²) pass tractable trades that away deliberately).
+
+## v1.14.0 (2026-08-18) — 50-finding 4-tier audit + UX pass + CI + doc reconciliation
 **VERSION → `1.14.0`.** The largest single effort in this project's history by commit count (12 commits,
 2026-08-17 → 2026-08-18): a full 4-tier code audit (Critical/High/Medium/Low, 50 findings from the original
 manifest), a follow-up UI/UX audit + priority-5 fix pass, this repo's first-ever CI workflow (plus a real bug
@@ -298,28 +368,31 @@ of the dev-team review (ACCURACY · VERIFY/OPS · UI · FEATURES) on top of the 
   + legacy parity; diagram `docs/diagrams/113-holistic-hardening.{svg,pdf}` (`_make_113_holistic.py`); iteration
   snapshot row appended (R10 **literal screenshot still pending host-side** — server not running in the sandbox).
 
-### RUN THESE ON THE HOST (updated 2026-08-18, was "2026-08-09")
-1. **`VERIFY.bat`** (→ `engine/tests/verify_all.py`) — ✅ **DONE, confirmed GREEN**, repeatedly: v1.13.3,
-   v1.13.4 (563 PASS / 0 FAIL, 658/658 files intact — pre-v1.14.0 baseline), and every one of the 12 commits
-   in the 2026-08-17→08-18 audit run landed on a full green pass before moving to the next tier. As of
-   `3054dad` (v1.14.0) it's **26/26, ALL GREEN** — the first point in this project's history the suite has
-   been fully clean end to end (23 `test_*.py` files, glob-discovered, no hardcoded list). This repo now also
-   has CI (`.github/workflows/ci.yml`) running the same gate on every push/PR to `main`, so a host run is no
-   longer the only place this gets checked. `VERIFY-099.bat` still forwards to it.
+### RUN THESE ON THE HOST (updated 2026-08-24, was "2026-08-18")
+1. **`VERIFY.bat`** (→ `engine/tests/verify_all.py`) — ✅ **DONE, confirmed GREEN**, repeatedly through
+   v1.13.4, every tier of the v1.14.0 audit run, and every commit of the v1.15.0 session — the range ends at
+   **46/46, ALL GREEN** (`9b0e5b9`), up from 26/26 at the start of v1.14.0. CI (`.github/workflows/ci.yml`)
+   runs the same gate on every push/PR to `main`; the CI-fix work landing alongside PR #3's merge into this
+   pass (see `CHANGELOG.md`) also fixed a tesseract-binary gap and a Windows-only-font gap in the CI runners
+   themselves, plus made `verify_all.py` print full output on a suite failure instead of just its last 3 lines.
+   `VERIFY-099.bat` still forwards to it.
 2. **R10 screenshot:** capture the running app (e.g. `/part` red one-use card, `/command` gap card, or home with the
    operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Still not done as a saved artifact** — unchanged
-   by the 2026-08-17/08-18 audit run, which verified everything live-in-browser but, per its own pattern, didn't
-   save screenshots either. **To finish R10:** capture and save at least one real screenshot per major page
-   into `docs/screenshots/` using the `<version>-<page>.png` convention.
+   by either the v1.14.0 audit run or the v1.15.0 session, both of which verified extensively live-in-browser but,
+   per the same established pattern, didn't save screenshots either. **To finish R10:** capture and save at least
+   one real screenshot per major page into `docs/screenshots/` using the `<version>-<page>.png` convention.
 3. Optional while OCR is paused: **`BUILD-CONFLICTS.bat`** (precompute the conflict sweep; append-only sidecar) —
    still not run; `index/conflicts.db` doesn't exist yet.
-4. **`safeguard.py backupdb`** is manual + documented — run for an off-index full-DB backup when wanted. Still not
-   run (distinct from `safeguard.py snapshot`, item 5, which HAS been run repeatedly).
-5. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, through v1.13.3/v1.13.4 (current
-   recorded baseline: `SNAP_20260808_184421_v1.13.4-changelog`, confirmed 658/658 OK against that era's final
-   green VERIFY.bat run). No longer predates the OCR text layer. Not confirmed re-baselined again during the
-   2026-08-17/08-18 audit run — worth a fresh snapshot next time `safeguard.py` runs on the host, now that
-   v1.14.0's changes are on disk.
+4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) has existed since v1.15.0, **and**
+   `register_snapshot_task.bat` now also registers a weekly automatic task
+   (`THE_VIEWER_WeeklyDBBackup`, Sunday 03:00) so the multi-GB `viewer.db` finally has *some* automatic
+   protection beyond the source-file snapshot vault. Neither has been confirmed run against the real
+   production index on this host yet — worth checking the scheduled task is actually registered
+   (`schtasks /query`) and has fired at least once.
+5. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, through v1.13.4 (baseline at that
+   point: `SNAP_20260808_184421_v1.13.4-changelog`, 658/658 OK). Not confirmed re-baselined again during either
+   the v1.14.0 or v1.15.0 sessions — worth a fresh snapshot next time `safeguard.py` runs on the host, now that
+   v1.15.0's changes (including two new migrations, `0011`/`0012`) are on disk.
 
 ## v1.10 → v1.12.9 (2026-07-02 → 07-03) — compressed (full detail in CHANGELOG.md)
 - **1.10.0 Recommendations wave:** `rpstl.py` structured RPSTL import + `crossmethod.py` cross-method agreement
@@ -475,41 +548,59 @@ rps_lint · verify_ui · check_crlf · module self-tests · no-truncation comple
 list is no longer hardcoded** — a v1.14.0 Critical-tier fix (`08bbb81`) replaced `verify_all.py`'s fixed
 filename allowlist with glob-based auto-discovery, which is what surfaced 8 previously-never-run test suites
 (~1,200 lines, including `test_procedure.py`'s 22 tests catching the live `procedure_feature.py` infinite
-loop) in that same change. **23 `test_*.py` files, 26/26 gates ALL GREEN as of `3054dad`** (v1.14.0,
-2026-08-18) — the first point in this project's history the suite has been fully clean end to end. The old
-subroutine `call :body > log` pattern is retained — do **not** re-wrap the body in CMD parens (the `( )`
-paren-block bug silently killed earlier host-verifies). If gate 7's `test_hardening` step ever fails right
-after a standalone run of the same test file, it's very likely the same transient port-8893 TIME_WAIT cooldown
-hit during the v1.13.4 session — re-run VERIFY.bat clean (no standalone test runs immediately before it)
-before treating it as a real regression. **New in v1.14.0:** this same gate now also runs in CI —
-**`.github/workflows/ci.yml`** (this project's first-ever CI workflow) invokes `verify_all.py` on every
-push/PR to `main`; it caught a real `test_http.py` bug (11 failing routes, 3 distinct root causes) on the very
-first PR it ran against, fixed in `7c4a3ba`.
+loop) in that same change. **`test_*.py` files auto-discovered by glob, 46/46 gates ALL GREEN as of `9b0e5b9`**
+(v1.15.0, 2026-08-19) — up from 26/26 at the start of v1.14.0, itself the first point in this project's
+history the suite was fully clean end to end; the count keeps climbing (18 new test files landed across the
+v1.15.0 range alone). The old subroutine `call :body > log` pattern is retained — do **not** re-wrap the body
+in CMD parens (the `( )` paren-block bug silently killed earlier host-verifies). If gate 7's `test_hardening`
+step ever fails right after a standalone run of the same test file, it's very likely the same transient
+port-8893 TIME_WAIT cooldown hit during the v1.13.4 session — re-run VERIFY.bat clean (no standalone test runs
+immediately before it) before treating it as a real regression. **This same gate also runs in CI** —
+**`.github/workflows/ci.yml`** (added in v1.14.0) invokes `verify_all.py` on every push/PR to `main`; it
+caught a real `test_http.py` bug on its very first run (`7c4a3ba`), and again a real barcode-loss bug on its
+first run against the barcode pipeline during v1.15.0 (`54d2546`) — plus, ironically, its own environment gaps
+(no `tesseract` binary, a Windows-only test font) during the CI-hardening work that landed alongside the
+v1.15.0/CHANGELOG reconciliation on 2026-08-24.
 
 ## Known gotchas still in force
 - **Mount truncation:** sandbox reads of grown host files are truncated/stale; verify host-side or via the Read tool.
   Snapshot/verify HOST-SIDE (`safeguard.py` / root `VERIFY.bat`).
 - **Never** write the big `viewer.db` through the mount; sidecars are written by host-run builders only.
 - **LF-only .bat blink-crashes** — now gated mechanically by `engine/tools/check_crlf.py` (in VERIFY).
-- Duplicate route paths silently override — audited (244 GET + 21 POST, 265 total, no collisions) + covered by the audit rule.
+- Duplicate route paths silently override — audited at 244 GET + 21 POST (265 total, no collisions) as of
+  v1.14.0; a real, mechanical check for a DIFFERENT bug class (built but never wired in — dead code, not a
+  collision) was added in v1.15.0 (`audit_features.py [7]`, 0 FAIL/0 WARN against the live repo as of that
+  session). The route COUNT itself hasn't been recounted since v1.15.0 added a real batch of new routes
+  (RPSTL/schematics/tables stages don't add routes, but `ocr_backlog_start`, `ingest_upload`,
+  `airgap_export_decisions`/`import_decisions`, and the 3 new `symbols_*` routes all do) — worth a fresh count
+  next time the audit runs.
 - Standing rules R1–R13 are **THE VIEWER-only**; do not carry them to other projects.
 
 ## Suggested next
 1. **R10 screenshots** — still the one item from the v1.13.0-era host checklist not done as a saved artifact
-   (see "RUN THESE ON THE HOST" above); unchanged by the v1.14.0 audit run.
+   (see "RUN THESE ON THE HOST" above); unchanged by either the v1.14.0 audit run or the v1.15.0 session.
 2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — still open;
    needs corpus-wide regression testing before a safe fix; flagged since `CHANGELOG.md` `[1.13.4]`, not
-   touched by the v1.14.0 audit.
-3. **Staleness-audit Tiers 2–6** — the "Viewer Drift Report" this session's Tier-1 pass (`3054dad`) only
-   partly addresses: dependency-version hardening, further documentation reconciliation, and repo-bloat
-   cleanup are tracked separately and not yet started (see `docs/audit/` + the Viewer Drift Report artifact).
-4. **5 Medium-tier findings deliberately deferred** (see `CHANGELOG.md` `[1.14.0]`, Medium-tier entry) plus
-   that tier's own duplicated `_box()` CAD mesh-builder cleanup — each with recorded reasoning at the commit
-   that deferred it.
-5. Complete OCR → re-index; run `BUILD-CONFLICTS.bat` (first sweep, still never run) and `BUILD-MEASURES`/
-   `BUILD-MASTERFILE` refreshes on the grown text layer; `safeguard.py backupdb` (full off-index DB backup,
-   still never run — distinct from the snapshot vault, which is current).
-6. Real semantic embeddings + hybrid ranking; R12 catalog march continues
+   touched by v1.14.0 or v1.15.0.
+3. **Staleness-audit Tiers 2–6** — the "Viewer Drift Report" `3054dad` only partly addresses (Tier 1):
+   dependency-version hardening, further documentation reconciliation, and repo-bloat cleanup are tracked
+   separately and not yet started (see `docs/audit/` + the Viewer Drift Report artifact). Note this is a
+   DIFFERENT deferred-items list from the "5 deferred items" v1.15.0 closed (item 4 below, and distinct again
+   from item 5's audit-reachability findings) — three separate tracking threads with similar names, easy to
+   conflate.
+4. **5 Medium-tier findings deliberately deferred from the v1.14.0 audit** (see `CHANGELOG.md` `[1.14.0]`,
+   Medium-tier entry) plus that tier's own duplicated `_box()` CAD mesh-builder cleanup — each with recorded
+   reasoning at the commit that deferred it. (Not the same "5 deferred items" as v1.15.0's — those were
+   tables_plus-stitch/Office-formats/dedup/symbols/pagetrim, flagged by a later, separate audit, and are now
+   CLOSED.)
+5. **v1.15.0's own deliberately-deferred items**: `camelot_tables()` (3rd table-extraction engine pilot)
+   stays unwired into `/api/tables_plus` — a documented cv2/opencv-python binary-collision risk on version
+   skew, not just unmeasured benefit; `dedup.py` cross-TM-family duplicates aren't caught by design (the
+   TM-family blocking that makes the O(n²) pass tractable at real corpus scale trades that away deliberately).
+6. Confirm the new weekly DB-backup scheduled task (v1.15.0) is actually registered and has fired on the real
+   host (see "RUN THESE ON THE HOST" item 4); complete OCR → re-index; run `BUILD-CONFLICTS.bat` (first sweep,
+   still never run) and `BUILD-MEASURES`/`BUILD-MASTERFILE` refreshes on the grown text layer.
+7. Real semantic embeddings + hybrid ranking; R12 catalog march continues
    (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
 
 <!-- END OF FILE -->

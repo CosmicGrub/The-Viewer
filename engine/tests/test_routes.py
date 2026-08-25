@@ -105,6 +105,7 @@ ROUTES = [
     ("GET",  "/api/callout_numbers?doc=2&page=12",          True,  True),
     ("GET",  "/api/dimscan?doc=2&page=12",                  True,  True),
     ("GET",  "/api/figureparts?doc=2&page=1",               True,  True),
+    ("GET",  "/api/pageqa?doc=2&page=12&q=torque",          True,  True),   # vision-language page QA (catalog §10.1)
     ("GET",  "/api/jobpack?q=brake",                        False, False),
     ("GET",  "/api/specsheet?q=brake",                      False, False),
     ("GET",  "/part",                                       False, True),
@@ -220,6 +221,29 @@ def run():
             if status >= 500:
                 failed.append((label, "5xx on an empty JSON body: %d" % status)); continue
             passed.append("%s -> %d" % (label, status))
+
+        # --- /api/pageqa degrade-cleanly content check (vision-language page QA, catalog §10.1; design
+        # doc 2026-08-24-vision-language-page-qa-design.md plan item 7) -- the curated hit above only
+        # proves 200 + valid JSON, same as every other curated route. This repo's CI has neither a GPU
+        # nor transformers/torch installed, so pageqa.ask() must ALWAYS degrade to available:false here --
+        # confirm the actual body content, not just the status, so a future change that silently starts
+        # claiming success with no real backend would fail this test loudly.
+        status, raw = _get(base + "/api/pageqa?doc=2&page=12&q=torque")
+        label = "GET /api/pageqa content (no VLM backend installed -> available:false)"
+        if status != 200:
+            failed.append((label, "expected 200, got %d" % status))
+        else:
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except Exception as e:
+                failed.append((label, "invalid JSON: %s" % e))
+            else:
+                if body.get("available") is not False:
+                    failed.append((label, "expected available:false with no VLM backend, got %r" % (body.get("available"),)))
+                elif not body.get("note"):
+                    failed.append((label, "expected a non-empty 'note' explaining why unavailable, got %r" % (body.get("note"),)))
+                else:
+                    passed.append("%s -> %d (available:false, note=%r)" % (label, status, body.get("note")))
     finally:
         srv.shutdown()
     return passed, failed

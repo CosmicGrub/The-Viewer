@@ -17,6 +17,14 @@
   .ex{display:inline-block;background:#141d29;border:1px solid #2f4858;border-radius:14px;padding:4px 11px;margin:3px 5px 3px 0;font-size:12.5px;color:#cfe;cursor:pointer}
   .none{color:#8a98a8;font-size:13px;padding:10px 0}
   .disc{color:#6b7280;font-size:11.5px;margin-top:10px}
+  /* v1.5.0 (vision-language page QA, plan item 6): the pageqa.py "vlm_fallback" block. Deliberately NOT
+     styled like .ans/.s above -- an AI-read of the page image must never look like an extractive citation
+     (R13). Amber/dashed = trust.py's own "review" tier color, reused, not a new badge vocabulary. */
+  .vlmans{background:#1c1409;border:1px dashed #e8c07a;border-radius:12px;padding:14px 16px;margin:12px 0}
+  .vlmhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .vlmbadge{display:inline-block;background:#e8c07a;color:#241a08;font-weight:700;font-size:11px;border-radius:10px;padding:2px 9px;letter-spacing:.3px;text-transform:uppercase}
+  .vlmtext{margin-top:9px;font-size:14.5px;line-height:1.5;color:#f0dcb4;font-style:italic}
+  .vlmdisc{color:#e8c07a;font-size:11.5px;margin-top:10px}
 </style></head><body>
 <div class="wrap">
   <h1>💬 Ask the manuals <span class="muted">— offline &amp; cited</span></h1>
@@ -40,12 +48,35 @@
   $('#ex').innerHTML=EX.map(function(e){return '<span class="ex">'+esc(e)+'</span>';}).join('');
   $('#ex').querySelectorAll('.ex').forEach(function(el){ el.onclick=function(){ $('#q').value=el.textContent; run(); }; });
 
+  /* v1.5.0 (vision-language page QA, plan item 6): render pageqa.py's "vlm_fallback" -- a VISION-LANGUAGE
+     MODEL'S READ of the top retrieved page, offered only when the extractive path above found literally
+     no matching sentences. Deliberately its own block, its own CSS classes (.vlmans/.vlmbadge/.vlmtext/
+     .vlmdisc, never .ans/.s/.disc), and its own disclaimer wording -- it must never look like, or be
+     mistaken for, a normal cited sentence (R13: an AI-sourced value must never visually pass as
+     authoritative). trust_tier is hard-capped at "review" by pageqa.ask() itself; nothing here is saved. */
+  function vlmFallbackHtml(vf){
+    var label=(vf.trust&&vf.trust.label)||'check';
+    var cite=(vf.doc!=null&&vf.page!=null)?('<a class="cite" href="'+esc(vf.page_url||('/deepzoom?doc='+encodeURIComponent(vf.doc)+'&page='+encodeURIComponent(vf.page)))+'" target="_blank">'+esc(vf.tm||('doc '+vf.doc))+' p.'+esc(vf.page)+' ↗</a>'):'';
+    var h='<div class="vlmans"><div class="vlmhead"><span class="vlmbadge">🔎 AI-read · '+esc(label)+'</span>'+cite+'</div>';
+    h+='<div class="vlmtext">'+esc(vf.answer_text)+'</div>';
+    h+='<div class="vlmdisc">AI-read — verify on page. This is a vision-language model’s read of the page image, not text extracted from the manual, and it is capped at “review” trust no matter what it claims. Nothing here is saved.</div></div>';
+    return h;
+  }
   function run(){
     var q=$('#q').value.trim(); if(q.length<3){ $('#head').textContent='Ask a question.'; return; }
     history.replaceState(null,'','/ask?q='+encodeURIComponent(q));
     $('#head').textContent='Reading the manuals…'; $('#out').innerHTML='';
     fetch('/api/ask?q='+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){
-      if(!j||!j.answered){ $('#head').textContent=''; $('#out').innerHTML='<div class="none">No answer found in the corpus for that. Try rephrasing, or use <a href="/?q='+encodeURIComponent(q)+'" style="color:#4f9dff">full search</a>. (Answers improve as OCR coverage grows.)</div>'; return; }
+      if(!j||!j.answered){
+        $('#head').textContent='';
+        if(j&&j.vlm_fallback&&j.vlm_fallback.answer_text){
+          $('#out').innerHTML=vlmFallbackHtml(j.vlm_fallback);
+          window.__lastAnswer=j.vlm_fallback.answer_text;
+          return;
+        }
+        $('#out').innerHTML='<div class="none">No answer found in the corpus for that. Try rephrasing, or use <a href="/?q='+encodeURIComponent(q)+'" style="color:#4f9dff">full search</a>. (Answers improve as OCR coverage grows.)</div>';
+        return;
+      }
       $('#head').textContent='From your manuals'+(j.retrieved?(' — scanned '+j.retrieved+' pages'):'')+':';
       var h='<div class="ans">';
       j.sentences.forEach(function(s){

@@ -27,6 +27,18 @@ python-pptx>=0.6,<2     # .pptx slide + table text, one page per slide
 
 # ---- OPTIONAL (heavy / GPU / niche — install only if you need them; see INSTALL.bat) --------------
 # easyocr                 # GPU OCR pipeline for scanned pages (pulls in torch — large; matches your RTX 4050)
+# Vision-language page QA (engine/vlm_backend.py, catalog §10.1, "🔎 Ask this page") -- genuinely
+# optional, not just gracefully-degrading: unlike office.py's deps just above (small, CPU-only, safe
+# to install unconditionally), torch is the heaviest single install in this file, so it stays
+# commented out here rather than in RECOMMENDED, matching easyocr's own precedent one line up (same
+# "pulls in torch -- large" cost). A bare `pip install -r requirements.txt` -- what this repo's own CI
+# runs on every push/PR, across 4 matrix legs -- must NOT install these; that's what keeps
+# pageqa.available() actually testable as False in CI without a runtime GPU-tier check doing double
+# duty for an install-time decision. Florence-2-base (~460MB) itself downloads lazily on the first
+# real ask() call once these two ARE installed, matching sentence-transformers' own zero-download
+# default below. See docs/SYSTEM-REQUIREMENTS.md for the full note.
+# transformers>=4.40,<5   # microsoft/Florence-2-base (trust_remote_code=True) -- grounded page Q&A
+# torch>=2.2,<3           # transformers' backend for Florence-2 -- large; CUDA build matches a GPU tier
 # sentence-transformers   # TRUE offline semantic search (otherwise a keyword-hash fallback is used)
 # pyzbar                  # 1-D barcodes + Data-Matrix (OpenCV already does QR without this)
 # lxml                    # faster IETM/S1000D XML parsing (stdlib xml.etree is used by default)

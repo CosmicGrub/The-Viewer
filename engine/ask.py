@@ -2,7 +2,19 @@
 answerer. It retrieves the most relevant pages (semantic embeddings if built + keyword FTS), then pulls the
 sentences that best answer the question and returns them verbatim, each cited to its manual + page. That
 keeps every answer grounded in the manuals -- it never invents text, it surfaces the exact lines a mechanic
-would read, with the page to open.
+would read, with the page to open. THAT PROMISE IS UNCHANGED for this path -- everything below still applies
+to `sentences`/`sources`/`answered` exactly as before.
+
+v1.5.0 (design doc 2026-08-24-vision-language-page-qa-design.md, plan item 6) ADDS a second, clearly-separate
+kind of answer: when extraction finds NO sentences at all, answer() falls through to pageqa.py's shared core
+on the single top-retrieved page -- a vision-language model's READ of that page image, not text pulled from
+the corpus. It comes back under its own `vlm_fallback` key, NEVER folded into `sentences`/`sources`, and
+NEVER allowed to flip `answered` to True -- an AI-sourced value must never visually pass as an extractive
+citation (R13). Same trust discipline as the interactive "Ask this page" page-viewer control: hard-capped at
+"review" by pageqa.ask() itself, answer-and-forget (nothing persisted here either), silently absent whenever
+pageqa is unavailable (no GPU-capable backend -- this repo's CI, most dev machines) or has nothing to say.
+See pageqa.py's own module docstring for the full trust-cap rationale; engine/ui/ask.html renders this key in
+its own distinctly-badged block, never as another extractive citation row.
 
 extract_answer(question, passages) is pure and unit-testable; answer() wires in retrieval. Read-only."""
 
@@ -80,7 +92,9 @@ def _fts_passages(db_path, question, limit=12):
 
 
 def answer(db_path, index_dir, question, k=12, max_sentences=5):
-    """Retrieve passages (semantic if the embeddings index is built + keyword FTS), then extract the answer."""
+    """Retrieve passages (semantic if the embeddings index is built + keyword FTS), then extract the answer.
+    v1.5.0: when extraction finds no sentences, additionally attempts a `vlm_fallback` -- see module
+    docstring; never touches `sentences`/`sources`/`answered`, never raises."""
     passages = _fts_passages(db_path, question, limit=k)
     try:
         import embed
@@ -115,6 +129,35 @@ def answer(db_path, index_dir, question, k=12, max_sentences=5):
                         if res.get("answered") else None)
     except Exception:
         res["trust"] = None
+
+    # v1.5.0: extractive sentence-scoring found NOTHING -- fall through to pageqa.py's shared core on
+    # the single top-retrieved page (passages[0]: the best-ranked FTS hit per features.corpus.fts_pages's
+    # own "best-ranked pages first" contract, or -- when FTS found nothing -- the first semantic hit,
+    # since that's the only thing appended before it). Wholly additive: `sentences`/`sources`/`answered`
+    # above are untouched either way, and this can only ADD the `vlm_fallback` key, never remove or
+    # replace anything the extractive path already set.
+    if not res.get("answered") and passages:
+        top = passages[0]
+        doc_id, page = top.get("doc"), top.get("page")
+        if doc_id is not None and page is not None:
+            try:
+                import pageqa
+                vq = pageqa.ask(doc_id, page, question, mode="text", strict=False, db_path=db_path)
+                if vq.get("available") and vq.get("answer_text"):
+                    import trust as _trust
+                    res["vlm_fallback"] = {
+                        "answer_text": vq["answer_text"],
+                        "region": vq.get("region"),
+                        "doc": doc_id, "page": page,
+                        "tm": top.get("tm") or top.get("vehicle") or "",
+                        "page_url": top.get("page_url") or ("/deepzoom?doc=%s&page=%s" % (doc_id, page)),
+                        "backend": vq.get("backend"),
+                        "verified": bool(vq.get("verified")),          # always False in this mode -- Phase 2 only
+                        "trust": _trust.badge(confidence=vq.get("trust_tier") or "review"),  # hard-capped by pageqa.ask()
+                        "note": vq.get("note") or "AI-read -- verify on page.",
+                    }
+            except Exception:
+                pass          # pageqa unavailable/broken -> no vlm_fallback key at all; never raise out of answer()
     return res
 
 

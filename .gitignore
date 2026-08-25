@@ -40,3 +40,6 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# Brainstorming visual-companion scratch (skill: brainstorming)
+.superpowers/

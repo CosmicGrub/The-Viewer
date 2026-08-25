@@ -361,6 +361,9 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
 9. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch of
    new routes (`ocr_backlog_start`, `ingest_upload`, `airgap_export_decisions`/`import_decisions`, 3
    `symbols_*` routes, `editions`); worth a fresh audit pass.
+10. **Tier-2 "learned search re-ranker" — Phase 1 (click instrumentation + heuristic re-rank) shipped in
+    v1.20.0; the actual learned model is still open**, now that a real click-through log exists to train it
+    on (see `CHANGELOG.md` `[1.20.0]` / `HANDOFF-NOTE.md` item 8).
 
 ## 7 · Downloadable artifacts produced across the project's life
 

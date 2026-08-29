@@ -12,6 +12,66 @@ every change going forward.
 
 ---
 
+## [1.18.0] — 2026-08-25 — measures.py: labeled bare-letter-unit callouts ("ITEM 489A") no longer misread as measurements
+Closes the **labeled** half of the deferred `[1.13.4]` finding: an RPSTL item number's letter-suffix
+variant, "489A", reading as "489 Amps". `measures.py`'s `_CALLOUT` guard (added `[1.13.5]` for exactly
+this false-positive shape, but scoped only to degF/degC — "FIGURE 5 C"/"TABLE 3 F" misread as bare
+temperatures) is generalized to every bare single-letter unit in `_BARE_LETTER_UNITS` (V, A, W, N, L, m,
+g, not just F/C): "ITEM 489 A", "TABLE 3 W", "REF NO. 12 C" are just as readable as electrical/force/
+weight/length/capacity as a figure/table reference is readable as a temperature — same false-positive
+class, same fix. Deliberately does **not** also require whitespace between the number and letter the way
+the degF/degC check does — that guard is safe for temperature because a genuine bare reading is
+essentially always space-separated ("120 F"), so requiring one costs no real recall; it is **not** safe
+to generalize to V/A/W/N/L/m/g, where a fused, no-space reading ("12V", "5A", "60W") is the standard way
+this corpus writes electrical/mechanical ratings on nameplates, fuse panels, and spec tables. The
+genuinely **unlabeled** case (a bare "489A" with no preceding label word at all) is therefore still
+deliberately open — the original reason this finding was deferred rather than blindly patched (no way to
+verify a broader fix's recall impact without the real corpus) still applies to that narrower remainder;
+see `docs/HANDOFF-NOTE.md`'s "Suggested next" for the precise, current framing.
+
+### Fixed
+- `engine/measures.py`: `_CALLOUT`'s single word list is split in two. The universal structural/reference
+  words (`figure`/`table`/`tbl`/`item`/`detail`/`sheet`/`view`/`note`/`step`/`paragraph`/`section`/
+  `index`/`no.`/`nos.`) now guard every bare-letter unit, not just temperature — none of them are also
+  standard nomenclature immediately in front of an electrical/mechanical rating. A new, temperature-only
+  `_CALLOUT_TEMP_EXTRA` keeps `grade`/`class`/`type`/`key`/`zone` scoped to degF/degC alone.
+
+### Verified — including a real regression caught by adversarial review, not shipped blind
+- **Adversarial review** (two independent reviewers, regex-correctness and scope-honesty angles) against
+  the first draft of this fix. **One real, confirmed, medium-severity finding, fixed before this landed:**
+  the first draft reused the temperature `_CALLOUT` word list verbatim — including `type`/`class`/
+  `grade`/`key`/`zone`, safe for temperature (nobody writes "Type 74 F") but standard, common electrical/
+  mechanical component nomenclature ("Type 20A fuse", "Type 60W bulb", "Type 24V power supply", "Class
+  30A disconnect switch") that the reused list silently dropped entirely — not quarantined, not flagged,
+  just gone, with 100% green tests, since the first draft's own test suite never placed a label word
+  directly before a real reading. Reproduced directly (`measures.extract("Install Type 20A fuse F1.") ==
+  []`) before fixing via the word-list split above; the exact reproduction is now a permanent regression
+  case. Two low-severity findings also fixed: a vacuous test case (`"PARA 5B"` — "B" isn't a recognized
+  unit letter at all, so that assertion passed for a reason unrelated to the guard being tested,
+  replaced with a real unit letter) and missing V/m coverage in the new test's callout cases.
+- `engine/tests/test_extraction.py`'s `test_measures_bare_letter_callout_generalized()`: one case per
+  newly-covered letter (not just the four the first draft happened to cover), the direct Type/Class
+  regression test above, confirmation the five temperature-only extra words still do their original job,
+  recall-preservation cases for both spaced and fused real readings, and a canary case proving the
+  unlabeled sub-case is still an honest, undisguised open gap, not silently masked. Every existing
+  `[1.13.5]` temperature callout case (`"FIGURE 5 C"`, `"Grade 8 F bolts"`, `"Class 2 C wiring"`, …) still
+  passes unchanged.
+- Full `engine/tests/verify_all.py --snapshot`: **46/47**. The sole failure is the same pre-existing,
+  already-diagnosed `test_ingest_routes.py` environmental flake noted in `[1.16.0]`/`[1.17.0]`, unrelated
+  to this change.
+
+### Compatibility (R1)
+- Purely a precision fix to `measures.extract()`'s existing behavior — same function signature, same
+  return shape. Only ever *withholds* a value the labeled-callout shape would previously have
+  misclassified; never invents or alters a genuine reading (R13). No schema, migration, or API change.
+- `VERSION` → **1.18.0**.
+
+### Known, deliberately deferred
+- The unlabeled bare-letter-suffix case ("489A" with no preceding label) — see this entry's own intro
+  and `docs/HANDOFF-NOTE.md`'s "Suggested next" for the full, current reasoning.
+
+---
+
 ## [1.17.0] — 2026-08-24 — Vision-Language Page QA: Phase 2 (structured extraction, verification, batch tool, Masterfile integration — catalog §10.1 + §3.12)
 
 Closes out the plan [1.16.0] deliberately deferred (items 10–17 of `docs/superpowers/plans/2026-08-24-

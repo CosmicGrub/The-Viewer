@@ -319,8 +319,11 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
 2. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, still never run; `index/conflicts.db`
    doesn't exist yet. Optional while OCR is paused.
 3. **`measures.py`'s bare-number-fused-to-single-letter-unit ambiguity** (e.g. an RPSTL item number "489A"
-   reading as "489 Amps") — the same bug class fixed elsewhere, but broader; needs corpus-wide regression
-   testing before a safe fix. Documented since `[1.13.4]`, not yet patched by either v1.14.0 or v1.15.0.
+   reading as "489 Amps") — the **labeled** sub-case ("ITEM 489A", any bare-letter unit preceded by a
+   figure/table/item/detail/etc. reference word) is fixed as of `[1.18.0]`. The **unlabeled** sub-case
+   (a bare "489A" with no preceding label) stays open on purpose: unlike the labeled fix, a blanket
+   no-space-required guard would silently drop real "12V"/"5A"/"60W"-style fused electrical readings,
+   a recall regression with no safe way to verify without the real corpus. Documented since `[1.13.4]`.
 4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) and an automatic weekly scheduled
    task (`THE_VIEWER_WeeklyDBBackup`, via `register_snapshot_task.bat`) both shipped in v1.15.0, but neither
    has been confirmed to have actually run against the real production index on the host yet.

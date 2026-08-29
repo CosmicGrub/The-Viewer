@@ -579,9 +579,16 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
 ## Suggested next
 1. **R10 screenshots** — still the one item from the v1.13.0-era host checklist not done as a saved artifact
    (see "RUN THESE ON THE HOST" above); unchanged by either the v1.14.0 audit run or the v1.15.0 session.
-2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — still open;
-   needs corpus-wide regression testing before a safe fix; flagged since `CHANGELOG.md` `[1.13.4]`, not
-   touched by v1.14.0 or v1.15.0.
+2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — the
+   **labeled** sub-case ("ITEM 489A", "TABLE 3W", any bare-letter unit immediately preceded by a
+   figure/table/item/detail/etc. reference word) is fixed as of `[1.18.0]`, generalizing the existing
+   degF/degC `_CALLOUT` guard to every unit in `_BARE_LETTER_UNITS`. The **unlabeled** sub-case (a bare
+   "489A" with no preceding label word at all) is still deliberately open — a blanket no-space-required
+   guard (the fix that worked safely for temperature) is confirmed NOT safe to generalize to V/A/W:
+   "12V"/"5A"/"60W" fused with no space is standard, common electrical-rating notation in this corpus,
+   so requiring whitespace there would silently drop real readings, a recall regression this module has
+   no way to verify without the real corpus (the original reason this was deferred, still true for this
+   narrower remaining piece). Flagged since `CHANGELOG.md` `[1.13.4]`.
 3. **Staleness-audit Tiers 2–6** — the "Viewer Drift Report" `3054dad` only partly addresses (Tier 1):
    dependency-version hardening, further documentation reconciliation, and repo-bloat cleanup are tracked
    separately and not yet started (see `docs/audit/` + the Viewer Drift Report artifact). Note this is a
@@ -602,5 +609,13 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
    still never run) and `BUILD-MEASURES`/`BUILD-MASTERFILE` refreshes on the grown text layer.
 7. Real semantic embeddings + hybrid ranking; R12 catalog march continues
    (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
+8. **Tier-2 "learned search re-ranker" — Phase 1 shipped in v1.20.0, the actual learned model is still
+   open.** v1.20.0 corrected a false premise (the backlog item assumed click-through training data already
+   existed; it didn't — `analytics.py` only ever logged zero-result queries) and shipped both halves that
+   were actually possible now: real click instrumentation (`analytics.clicked_pages()`, a `"click"` event
+   kind, `POST /api/analytics_log` from `index.html`'s result rows) and a modest hand-tuned heuristic (a 4th
+   `search_feature.search()` stable-sort key that floats a previously-opened result — inert with zero click
+   history, by construction). The actual learned model — trained on the click log this now produces — is
+   still open, gated on accumulating enough real click volume to be worth it. See `CHANGELOG.md` `[1.20.0]`.
 
 <!-- END OF FILE -->

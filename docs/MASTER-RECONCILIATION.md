@@ -339,9 +339,12 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
 2. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, still never run; `index/conflicts.db`
    doesn't exist yet. Optional while OCR is paused.
 3. **`measures.py`'s bare-number-fused-to-single-letter-unit ambiguity** (e.g. an RPSTL item number "489A"
-   reading as "489 Amps") — the same bug class fixed elsewhere (`fluidsmatrix.py`'s "12L", `measures.py`'s own
-   oil-grade/newline cases, v1.13.4), but this specific one is broader and needs corpus-wide regression testing
-   before a safe fix. Documented in `CHANGELOG.md` `[1.13.4]`, not yet patched by v1.14.0 or v1.15.0.
+   reading as "489 Amps") — the **labeled** sub-case ("ITEM 489A", any bare-letter unit preceded by a
+   figure/table/item/detail/etc. reference word) is fixed as of `[1.18.0]`, generalizing the existing
+   degF/degC `_CALLOUT` guard. The **unlabeled** sub-case (a bare "489A" with no preceding label) stays
+   open — a blanket no-space-required guard would silently drop real "12V"/"5A"/"60W"-style fused
+   electrical readings (standard, common notation in this corpus), a recall regression with no safe way
+   to verify without the real corpus. Documented in `CHANGELOG.md` `[1.13.4]`.
 4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) and an automatic weekly scheduled
    task (`THE_VIEWER_WeeklyDBBackup`) both shipped in v1.15.0, but neither has been confirmed to have actually
    run against the real production index on the host yet.
@@ -361,6 +364,9 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
 9. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch of
    new routes (`ocr_backlog_start`, `ingest_upload`, `airgap_export_decisions`/`import_decisions`, 3
    `symbols_*` routes, `editions`); worth a fresh audit pass.
+10. **Tier-2 "learned search re-ranker" — Phase 1 (click instrumentation + heuristic re-rank) shipped in
+    v1.20.0; the actual learned model is still open**, now that a real click-through log exists to train it
+    on (see `CHANGELOG.md` `[1.20.0]` / `HANDOFF-NOTE.md` item 8).
 
 ## 7 · Downloadable artifacts produced across the project's life
 

@@ -128,15 +128,35 @@ def _classify(unit_raw):
 # "deg F"/"°F" match that happens to span a newline -- same conservative trade-off already accepted above.
 _BARE_LETTER_UNITS = {"V", "A", "W", "N", "L", "m", "g", "degF", "degC"}
 
-# v1.13.5 fix: labels that make a following "<number> <letter>" a document CALLOUT, not a temperature.
-# The bare-letter F/C alternative above fires on any number + space + F/C, and in a TM that shape is
-# overwhelmingly a figure/table/item reference ("FIGURE 5 C", "Refer to TABLE 3 F", "Grade 8 F bolts").
-# The designator (F-16), C-rate (0.5C) and newline-bridge guards can't catch these -- a real space
-# genuinely separates the number from the letter, which is exactly what the whitespace check accepts.
+# v1.13.5 fix, generalized v1.18.0: labels that make a following "<number> <letter>" a document
+# CALLOUT (or an RPSTL item-number letter suffix, "ITEM 489 A") rather than a real measurement.
+# Originally scoped to just degF/degC ("FIGURE 5 C", "Refer to TABLE 3 F", "Grade 8 F bolts" all read
+# as bare temperatures) -- generalized to EVERY bare single-letter unit in _BARE_LETTER_UNITS
+# (V/A/W/N/L/m/g too, not just F/C) once the exact same shape was confirmed for the deferred
+# [1.13.4] finding ("489A" reading as "489 Amps"): "ITEM 489 A"/"REF NO. 12 C" are just as readable
+# as electrical/force/weight/length as a figure/table reference is readable as a temperature -- same
+# false-positive class, same fix. "item"/"nos?" (matches "no"/"nos") in the word list below already
+# cover "ITEM 489 A" and "REF NO. 489 A" without adding a dedicated "ref" entry -- the anchor only
+# needs SOME label word to end the lookback window, not the whole phrase, so "REF NO." matches via
+# "nos?" alone exactly like "ITEM NO." already does.
+#
+# SPLIT IN TWO, deliberately, not one shared list (adversarial-review finding, v1.18.0): "type" /
+# "class" / "grade" / "key" / "zone" are safe callout words for TEMPERATURE specifically -- nobody
+# writes "Type 74 F", and "Grade 8 F bolts"/"Class 2 C wiring" are this module's own existing
+# [1.13.5] test cases -- but they are NOT safe to generalize to electrical/mechanical bare-letter
+# units. Confirmed live: "Type 20A fuse", "Type 60W bulb", "Type 24V power supply", "Class 30A
+# disconnect switch" are all standard, common component nomenclature -- reusing the full temperature
+# word list verbatim silently dropped every one of these (no partial/quarantined record, just gone),
+# exactly the kind of recall regression this whole fix was designed to avoid. The five temperature-
+# only words stay temperature-only in _CALLOUT_TEMP_EXTRA below; every other label word here is a
+# pure document-structure/reference term (figure/table/item/detail/sheet/view/note/step/paragraph/
+# section/index/no.) with no plausible electrical/mechanical-nomenclature collision, so those stay
+# safe to guard every bare-letter unit with, not just temperature.
 # Anchored at the end so it only inspects the text immediately preceding the number.
-_CALLOUT = re.compile(
-    r"(?<![a-z])(?:fig(?:ure)?|table|tbl|item|detail|sheet|view|note|step|para(?:graph)?|"
-    r"section|grade|class|type|key|zone|index|nos?)\.?\s*\Z", re.I)
+_CALLOUT_WORDS = (r"fig(?:ure)?|table|tbl|item|detail|sheet|view|note|step|para(?:graph)?|"
+                  r"section|index|nos?")
+_CALLOUT = re.compile(r"(?<![a-z])(?:%s)\.?\s*\Z" % _CALLOUT_WORDS, re.I)
+_CALLOUT_TEMP_EXTRA = re.compile(r"(?<![a-z])(?:grade|class|type|key|zone)\.?\s*\Z", re.I)
 
 
 def extract(text, page=None, cap=200):
@@ -151,20 +171,40 @@ def extract(text, page=None, cap=200):
             # table cells bridged by linearized OCR text, not a real measurement. Confirmed live: a
             # transmission-solenoid fault-code table produced a fabricated "26 N" / "22 G" this way.
             continue
+        if canon in _BARE_LETTER_UNITS and len(m.group("unit")) == 1:
+            # generalized [1.13.4]/[1.13.5] fix (v1.18.0): a LABELED reference immediately before the
+            # number ("ITEM 489 A", "TABLE 3 F") is a callout or an RPSTL item-suffix, never a real
+            # measurement, whichever bare letter follows. Deliberately does NOT also require the
+            # number/letter to be space-separated the way the degF/degC check below does -- that guard is
+            # safe there because a genuine bare temperature reading is essentially always written WITH a
+            # space ("120 F"), so requiring one costs no real recall; it is NOT safe to generalize to
+            # V/A/W/N/L/m/g, where a fused, no-space reading ("12V", "5A", "60W") is the standard,
+            # extremely common way this corpus writes electrical/force ratings on nameplates, fuse
+            # panels, and spec tables -- requiring whitespace there would silently drop real, common
+            # readings, a recall regression with no way to verify safely without the actual corpus (the
+            # documented reason this bug was originally deferred rather than blindly patched). The
+            # unlabeled, no-space, fused case this bug report's own example ("489A") shows is therefore
+            # still open on purpose -- see docs/HANDOFF-NOTE.md's "Suggested next" for the full reasoning
+            # rather than re-deriving it here.
+            if _CALLOUT.search(text[max(0, m.start() - 40):m.start()]):
+                continue
         if canon in ("degF", "degC") and len(m.group("unit")) == 1:
             # v1.13.5: the bare-letter F/C alternative needs REAL whitespace between the number and the
             # unit -- a no-space form is the signature of a collision, not a genuine temperature: battery
             # C-rate notation (0.5C, 1C discharge) writes it with no space, and a stray digit immediately
             # before a designator (e.g. a parts-list count next to "C130") would too. A real prose
             # temperature reading puts a space there ("120 F", "-40 F"). The ° and "deg" forms are exact
-            # words/symbols already and don't need this extra check.
+            # words/symbols already and don't need this extra check. (The callout check above already
+            # covers "FIGURE 5 C"/"TABLE 3 F" for degF/degC too, since they're also in
+            # _BARE_LETTER_UNITS -- not repeated here.)
             ustart = m.start("unit")
             if ustart == 0 or not text[ustart - 1].isspace():
                 continue
-            # ...and it must not be a document callout ("FIGURE 5 C", "TABLE 3 F", "Grade 8 F"). See
-            # _CALLOUT above: the whitespace rule alone ACCEPTS every one of these, because a callout
-            # puts a real space there too. A 40-char lookback covers the label plus any lead-in words.
-            if _CALLOUT.search(text[max(0, m.start() - 40):m.start()]):
+            # temperature-EXCLUSIVE extra callout words ("Grade 8 F bolts", "Class 2 C wiring") --
+            # see _CALLOUT_TEMP_EXTRA's own comment above for why these five stay out of the general
+            # _CALLOUT check just above: safe here, NOT safe to generalize to electrical/mechanical
+            # units ("Type 20A fuse" must keep extracting).
+            if _CALLOUT_TEMP_EXTRA.search(text[max(0, m.start() - 40):m.start()]):
                 continue
         raw = m.group(0).strip()
         start = max(0, m.start() - 45); end = min(len(text), m.end() + 45)

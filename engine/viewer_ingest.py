@@ -42,6 +42,8 @@ try:
     import barcodes
 except Exception:
     barcodes = None
+import ocrconf   # catalog §1.9 per-line OCR confidence sidecar -- pure stdlib (sqlite3/os), no optional
+                  # dependency to guard against, unlike barcodes above.
 # Barcode/QR read on the same page render OCR already produced (catalog §4.9): barcodes.py has had a
 # fully-built, self-tested, dual-backend (pyzbar/OpenCV) detect() since it was written, but it had no
 # caller anywhere in the codebase -- only its own self-test and the import-check in verifystate.py.
@@ -166,7 +168,7 @@ OCR_LOCK_TIMEOUT_SECONDS = int(os.environ.get("VIEWER_OCR_LOCK_TIMEOUT", "20"))
 # longer than that, defeating the split's whole point (a busy-but-healthy lock should fail fast and be
 # reported as lock contention, distinct from a genuine page-level hang). Clamp, don't just document.
 OCR_LOCK_TIMEOUT_SECONDS = min(OCR_LOCK_TIMEOUT_SECONDS, OCR_PAGE_TIMEOUT_SECONDS)
-_DEDUP = {}                       # img_hash -> (text, confidence): identical pages (boilerplate) reuse the cached result, skip re-inference
+_DEDUP = {}                       # img_hash -> ocr_one()'s own result tuple (text, confidence, barcode, lines): identical pages (boilerplate) reuse the cached result, skip re-inference
 _DEDUP_LOCK = threading.Lock()
 _DEDUP_STATS = {"hits": 0}
 def _page_density(path, page_number):
@@ -870,14 +872,23 @@ def _scan_barcode(img_path, _pil_img=None):
 
 
 def ocr_one(path, page_number):
-    """Returns (text, confidence, barcode). confidence is RapidOCR's page-level average of its per-line
-    detection scores (0.0-1.0), rounded to 4dp -- None on the blank-skip path, the Tesseract fallback (no
-    per-line scores exposed the same way), or if RapidOCR returned no scored lines. v1.13.5: this score was
-    always being computed (see _RapidAdapter, r[2]) but silently discarded here -- captured now as the first
-    real, corpus-wide OCR-quality signal (previously the only signal was 'OCR ran' vs 'OCR did not run').
+    """Returns (text, confidence, barcode, lines). confidence is RapidOCR's page-level average of its
+    per-line detection scores (0.0-1.0), rounded to 4dp -- None on the blank-skip path, the Tesseract
+    fallback (no per-line scores exposed the same way), or if RapidOCR returned no scored lines. v1.13.5:
+    this score was always being computed (see _RapidAdapter, r[2]) but silently discarded here -- captured
+    now as the first real, corpus-wide OCR-quality signal (previously the only signal was 'OCR ran' vs
+    'OCR did not run').
     barcode is _scan_barcode()'s result -- None, or {'type','data','nsn'} -- read off the SAME render used
     for OCR when the page gets a full OCR pass, or off a dedicated render on the blank-skip path (see
-    below); None whenever BARCODE_SCAN/barcodes.py can't run (opt-in + cheap, see _scan_barcode())."""
+    below); None whenever BARCODE_SCAN/barcodes.py can't run (opt-in + cheap, see _scan_barcode()).
+    lines is [(text, score), ...] -- catalog §1.9, docs/superpowers/specs/2026-08-25-per-line-ocr-
+    confidence-design.md: RapidOCR's own per-line results (`res` below), kept alongside `text` instead of
+    only being collapsed into the single page-level `conf` average. This is genuinely PER-LINE confidence
+    (RapidOCR's detection stage groups text into line/phrase boxes; there is no per-word or per-character
+    score in its public API -- word-level use of this data is attribution down to the words a line
+    contains, not independent per-word confidence; see the design doc's "Why" section). None on the
+    blank-skip path and the Tesseract fallback (same paths `conf` is None on -- no per-line scoring
+    available there either)."""
     dens = _page_density(path, page_number)
     if dens is not None and dens < 0.004:
         # skip-the-junk: no full OCR on blanks (same threshold) -- but a TM divider/parts-label/cover
@@ -898,7 +909,7 @@ def ocr_one(path, page_number):
                 if bimg and os.path.exists(bimg):
                     try: os.unlink(bimg)
                     except OSError: pass
-        return "", None, barcode
+        return "", None, barcode, None
     dpi = OCR_DPI
     if ADAPTIVE_DPI and dens is not None and dens < 0.02:   # opt-in: sparse pages render lower (never below 160)
         dpi = max(160, OCR_DPI - 50)
@@ -942,12 +953,25 @@ def ocr_one(path, page_number):
                 text = "\n".join(r[1] for r in res).strip() if res else ""
                 scores = [r[2] for r in res if len(r) > 2 and isinstance(r[2], (int, float))] if res else []
                 conf = round(sum(scores) / len(scores), 4) if scores else None
+                # catalog §1.9: keeps each line's TEXT alongside its score instead of discarding it once
+                # folded into `conf` above. Adversarial-review fix: `scores`' filter (dropping any entry
+                # without a numeric score) is safe for an AVERAGE -- an unscored entry just doesn't
+                # contribute -- but is NOT safe here: filtering `res` before building `lines` would both
+                # silently lose that line's text entirely and shift every SUBSEQUENT line's index, so
+                # `ocrconf.py`'s `line_index` would no longer match the line's true position in `res`.
+                # Every entry is kept at its real position; a missing/non-numeric score becomes `None`
+                # (ocrconf.record_lines() already accepts this -- see its own docstring) rather than
+                # dropping the line.
+                lines = [(r[1], round(r[2], 4) if len(r) > 2 and isinstance(r[2], (int, float)) else None)
+                         for r in res] if res else []
+                lines = lines or None   # empty list -> None, matching conf's own "nothing scored" signal
             else:
                 tess_img = _ocr_preprocessed_input(img, for_tesseract=True, _pil_img=shared_rgb)
                 out = subprocess.run(["tesseract", tess_img, "-", "-l", "eng", "--psm", "1"],
                                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
                 text = out.stdout.decode("utf-8","ignore").strip()
                 conf = None   # tesseract fallback: no per-line confidence captured (yet)
+                lines = None  # ditto -- no per-line data on this path either (catalog §1.9)
         except Exception as e:
             # The OCR text engine (RapidOCR or the tesseract binary) failing is a REAL page-level
             # failure and must still surface as one -- ocr()'s handle() marks the page 'failed' and
@@ -956,12 +980,12 @@ def ocr_one(path, page_number):
             # already independently decoded above -- a self-contained OpenCV/pyzbar read that has
             # nothing to do with the text engine -- so it must NOT be discarded as collateral damage
             # of an unrelated engine failure. Re-raising a bare exception here would lose `barcode`
-            # entirely: ocr_one()'s 3-tuple return never happens, so the caller has nothing to recover
+            # entirely: ocr_one()'s tuple return never happens, so the caller has nothing to recover
             # it from. Attach it to the exception instead so _ocr_task() can still pull it off the
             # failure path and hand it to handle(), which persists it alongside the 'failed' status.
             e.barcode = barcode
             raise
-        result = (text, conf, barcode)
+        result = (text, conf, barcode, lines)
         if h is not None:
             with _DEDUP_LOCK:
                 if len(_DEDUP) < 200000: _DEDUP[h] = result
@@ -980,16 +1004,18 @@ def _ocr_task(args):
     signal.alarm or a bare subprocess. Called both from ocr()'s single-threaded loop (workers<=1)
     and from inside its ThreadPoolExecutor (workers>1) -- wrapping it here (rather than in ocr()
     itself) means the timeout applies uniformly in both cases with one implementation. Times out ->
-    same (pid, None, None, None, err) shape as any other failure, so handle() needs no changes: the
+    same (pid, None, None, None, None, err) shape as any other failure, so handle() needs no changes: the
     page is marked 'failed' and the batch moves on to the next one instead of hanging on it forever.
     args[:3] (not a bare 3-way unpack): ocr()'s `rows` query gained a 4th column (p.document_id,
     for the measures.db/schematics-stage document tracking added alongside it) that this function
-    itself has no use for -- only handle()/_labels do."""
+    itself has no use for -- only handle()/_labels do.
+    Return shape (pid, text, conf, barcode, lines, err) -- `lines` (catalog §1.9) sits before the
+    trailing `err`, mirroring ocr_one()'s own 4-tuple widened the same way."""
     pid, pno, path = args[:3]
     box = {}
     def run():
         try:
-            box["text"], box["conf"], box["barcode"] = ocr_one(path, pno)
+            box["text"], box["conf"], box["barcode"], box["lines"] = ocr_one(path, pno)
         except Exception as e:
             box["err"] = str(e)[:300]
             box["barcode"] = getattr(e, "barcode", None)   # see ocr_one()'s except clause: a text-engine
@@ -998,10 +1024,10 @@ def _ocr_task(args):
     t.start()
     t.join(OCR_PAGE_TIMEOUT_SECONDS)
     if t.is_alive():
-        return pid, None, None, None, "timeout after %ds" % OCR_PAGE_TIMEOUT_SECONDS
+        return pid, None, None, None, None, "timeout after %ds" % OCR_PAGE_TIMEOUT_SECONDS
     if "err" in box:
-        return pid, None, None, box.get("barcode"), box["err"]
-    return pid, box.get("text"), box.get("conf"), box.get("barcode"), None
+        return pid, None, None, box.get("barcode"), None, box["err"]
+    return pid, box.get("text"), box.get("conf"), box.get("barcode"), box.get("lines"), None
 
 def _db_dir(con):
     try:
@@ -1172,8 +1198,14 @@ def ocr(con, limit, workers=1):
     _labels = {r[0]: (r[1], os.path.basename(r[2] or ""), r[3]) for r in rows}
     if not _EXTRACT_TALLY: _tally_reset()   # same lazy-default as crawl(): ocrall doesn't call crawl() first
     meas_con = _open_meas_db(dbdir)
+    # catalog §1.9 sidecar (index/ocrconf.db, next to viewer.db) -- resolved once here, same "not
+    # per-page" precedent meas_con already sets above; None when dbdir can't be resolved (matches
+    # _open_meas_db()'s own "no dbdir -> just don't" degrade). record_lines() itself is best-effort/
+    # never-raises (see ocrconf.py), so a bad/unwritable ocrconf_db_path only ever costs the per-line
+    # detail, never a page's own OCR result.
+    ocrconf_db_path = os.path.join(dbdir, "ocrconf.db") if dbdir else None
     _write_progress(dbdir, stage="ocr", current=None, done=0, fail=0, total=total, extracted=dict(_EXTRACT_TALLY))
-    def handle(pid, text, conf, barcode, err):
+    def handle(pid, text, conf, barcode, lines, err):
         nonlocal done, fail
         if err is None:
             bc = barcode or {}
@@ -1184,6 +1216,9 @@ def ocr(con, limit, workers=1):
             if conf is not None:
                 _EXTRACT_TALLY["ocr_conf_sum"] += conf; _EXTRACT_TALLY["ocr_conf_n"] += 1
             _lbl_pno, _lbl_dname, _lbl_doc_id = _labels.get(pid, (None, "", None))
+            if lines and _lbl_doc_id is not None and ocrconf_db_path:
+                # catalog §1.9: per-line OCR confidence, additive -- own sidecar, never touches `pages`.
+                ocrconf.record_lines(ocrconf_db_path, _lbl_doc_id, _lbl_pno, lines)
             if _lbl_doc_id is not None:
                 _EXTRACT_TALLY["dimensions"] += _extract_measures_for_page(meas_con, _lbl_doc_id, _lbl_pno, text)
                 _TOUCHED_DOC_IDS.add(_lbl_doc_id)   # so the schematics stage (after extract_parts()) scans this document

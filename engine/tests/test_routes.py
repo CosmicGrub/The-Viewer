@@ -104,6 +104,7 @@ ROUTES = [
     ("GET",  "/api/publogdiff?a=5305-01-674-1467&b=5305-01-674-1468", True, True),
     ("GET",  "/api/callout_numbers?doc=2&page=12",          True,  True),
     ("GET",  "/api/dimscan?doc=2&page=12",                  True,  True),
+    ("GET",  "/api/layout?doc=2&page=12",                   True,  True),   # heuristic layout regions (catalog §2.4/§2.5)
     ("GET",  "/api/figureparts?doc=2&page=1",               True,  True),
     ("GET",  "/api/pageqa?doc=2&page=12&q=torque",          True,  True),   # vision-language page QA (catalog §10.1)
     ("GET",  "/api/jobpack?q=brake",                        False, False),

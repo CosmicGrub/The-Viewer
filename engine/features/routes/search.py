@@ -148,6 +148,9 @@ def r_visualmatch(h, qs, payload):
 def r_analytics_log(h, qs, payload):
     import analytics
     p = payload if isinstance(payload, dict) else {}
+    # v1.20 (search-click-instrumentation): "rank" added alongside doc/page/nsn -- the click beacon's
+    # 0-indexed result position. analytics.log() itself validates/coerces it (and drops it silently
+    # if it isn't int-like); this route only needs to stop filtering the key out before it gets there.
     ok = analytics.log(core.INDEX_DIR, p.get("kind", "tool"), p.get("key", ""),
-                       {k: p.get(k) for k in ("doc", "page", "nsn") if p.get(k) is not None})
+                       {k: p.get(k) for k in ("doc", "page", "nsn", "rank") if p.get(k) is not None})
     h._send(200, {"ok": bool(ok)})

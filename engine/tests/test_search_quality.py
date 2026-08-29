@@ -195,17 +195,82 @@ def main():
         os.remove(_an_path)              # isolate from any earlier run against this same INDEX_DIR
     c5, b5 = _post("/api/analytics_log", {"kind": "search", "key": "torque wrench"})
     c6, b6 = _post("/api/analytics_log", {"kind": "part", "key": "5305-01-674-1467", "doc": 2, "page": 13})
+    # v1.20 (search-click-instrumentation): a "click" event, carrying rank -- confirms _VALID/allowlist
+    # widened correctly and rank round-trips through the route into the logged record. Uses doc=99/page=1,
+    # an arbitrary pair that matches NO real fixture page -- adversarial review (verified directly: removing
+    # the "clicked" term from search_feature.search()'s sort key entirely still left every assertion in the
+    # later real re-rank regression test green) caught that this event used to reuse doc=3/page=9, one of
+    # the two "bolt" fixture rows that block exercises -- contaminating that block's own "before" baseline
+    # with a click before it ever seeded its own. Never reuse a real fixture doc/page here.
+    c6b, b6b = _post("/api/analytics_log", {"kind": "click", "key": "grommet", "doc": 99, "page": 1, "rank": 3})
     ok("analytics_log 200 + ok:true (search)", c5 == 200 and json.loads(b5).get("ok") is True)
     ok("analytics_log 200 + ok:true (part)", c6 == 200 and json.loads(b6).get("ok") is True)
+    ok("analytics_log 200 + ok:true (click)", c6b == 200 and json.loads(b6b).get("ok") is True)
     c7, b7 = _get("/api/analytics_top")
     top = json.loads(b7)
     ok("analytics_top reflects both logged events", c7 == 200 and top.get("events", 0) >= 2)
     ok("analytics_top by_kind carries what was just logged",
        top.get("by_kind", {}).get("search", 0) >= 1 and top.get("by_kind", {}).get("part", 0) >= 1)
+    ok("analytics_top by_kind carries the click event too",
+       top.get("by_kind", {}).get("click", 0) >= 1)
     ok("analytics_top top_searches round-trips the logged key",
        any(t.get("key") == "torque wrench" for t in top.get("top_searches") or []))
     ok("analytics_top top_parts round-trips the logged key",
        any(t.get("key") == "5305-01-674-1467" for t in top.get("top_parts") or []))
+    # rank isn't surfaced through summary()/top() (those only ever read "q"/"k"/"t") -- confirm it made
+    # it into the raw JSONL record itself, i.e. the route didn't drop it before analytics.log() got it.
+    _click_rows = [r for r in _an._read(V.INDEX_DIR) if r.get("k") == "click"]
+    ok("click event's rank round-trips into the raw record",
+       any(r.get("q") == "grommet" and r.get("doc") == "99" and r.get("page") == "1" and r.get("rank") == "3"
+           for r in _click_rows))
+
+    # ---- v1.20 (search-click-instrumentation): the new 4th sort key is a REAL regression test, not
+    # just a schema round-trip -- seed a synthetic click and confirm the clicked row now sorts ahead
+    # of its untouched twin, via a REAL /api/search HTTP call against the live server (not V.search()
+    # called in-process) -- the actual path the shipped UI hits. The route LRU is bust before/after so
+    # the second call can't just replay the first call's cached (pre-click) response.
+    #
+    # Adversarial review caught two compounding bugs in the first version of this test (both verified
+    # directly before this fix, not just accepted on the reviewers' say-so):
+    #   1. It hardcoded the click onto (doc=3, page=9) -- but the actual round-trip block just above
+    #      used to log its own throwaway "click" event on that exact same fixture row, so this block's
+    #      own "seeded" click was never what produced the observed order (fixed above: that event now
+    #      targets doc=99/page=1, a pair matching no real fixture row).
+    #   2. Even with that fixed, (doc=3, page=9) already outranks (doc=2, page=13) on plain FTS bm25
+    #      alone (shorter page body -> higher score for the same term count), with zero help from the
+    #      click signal -- confirmed by deleting the "clicked" term from search_feature.search()'s sort
+    #      key entirely and rerunning this whole file: every assertion below still passed.
+    # Fixed by never assuming which of the two tied rows bm25 naturally favors -- read the REAL pre-click
+    # order first, seed the click on whichever one is naturally behind, and assert that row now leads.
+    # This can't pass vacuously: if the click signal has no effect, the natural loser stays the loser.
+    R._SEARCH_LRU.clear(); R._SEARCH_LRU_ORDER[:] = []
+    c_before, b_before = _get("/api/search?q=bolt&limit=20")
+    rows_bolt_before = json.loads(b_before).get("results") or []
+    by_pg_before = {(r["doc_id"], r["page_number"]): i for i, r in enumerate(rows_bolt_before)}
+    ok("fixture sanity: both bolt pages present, neither boosted/clicked pre-seed",
+       c_before == 200 and (2, 13) in by_pg_before and (3, 9) in by_pg_before
+       and not rows_bolt_before[by_pg_before[(2, 13)]].get("boosted")
+       and not rows_bolt_before[by_pg_before[(3, 9)]].get("boosted")
+       and not rows_bolt_before[by_pg_before[(2, 13)]].get("clicked")
+       and not rows_bolt_before[by_pg_before[(3, 9)]].get("clicked"))
+    # naturally-behind row (higher index = ranks worse) is the one we seed a click on -- computed, never
+    # assumed, so a future fixture edit that flips which row bm25 favors can't silently re-introduce a
+    # vacuous test the way the hardcoded version did.
+    loser, leader = (((2, 13), (3, 9)) if by_pg_before[(2, 13)] > by_pg_before[(3, 9)]
+                      else ((3, 9), (2, 13)))
+    log_ok = _an.log(V.INDEX_DIR, "click", "bolt", {"doc": str(loser[0]), "page": str(loser[1]), "rank": 1})
+    ok("seeded synthetic click event logged", log_ok)
+    _an._CLICK_CACHE["t"] = 0.0                    # bust the 60s clicked_pages() cache too
+    R._SEARCH_LRU.clear(); R._SEARCH_LRU_ORDER[:] = []
+    c_after, b_after = _get("/api/search?q=bolt&limit=20")
+    rows_bolt_after = json.loads(b_after).get("results") or []
+    by_pg_after = {(r["doc_id"], r["page_number"]): i for i, r in enumerate(rows_bolt_after)}
+    ok("clicked (naturally-losing) row is now tagged r['clicked']=True",
+       c_after == 200 and rows_bolt_after[by_pg_after[loser]].get("clicked") is True)
+    ok("untouched twin is NOT tagged clicked",
+       not rows_bolt_after[by_pg_after[leader]].get("clicked"))
+    ok("clicked row REVERSES its natural bm25 order and now outranks its unclicked twin (real /api/search)",
+       by_pg_after[loser] < by_pg_after[leader])
 
     # ---- v1.14: /api/visualmatch -- real image decode + phash.match ranking -----------------
     # Previously neither phash nor this route had ANY coverage; only the "no image at all" 400

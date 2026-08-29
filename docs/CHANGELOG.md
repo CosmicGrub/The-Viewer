@@ -177,6 +177,418 @@ reviewers' word.
 
 ---
 
+## [1.21.0] — 2026-08-25 — Per-line OCR confidence capture (catalog §1.9)
+
+Versioned 1.21.0, not 1.18.0 as this branch initially claimed (cut fresh from `main`, which no other PR had
+merged into yet): three other independently-branched PRs off that same base already claimed 1.18.0/1.19.0/
+1.20.0 (measures.py bare-unit fix, home-page nav regroup, search click instrumentation) — caught and
+renumbered across every touched file before merge, same as the click-instrumentation branch's own earlier
+collision with this same root cause.
+
+Corrects the catalog's own framing while shipping it: §1.9 called this "per-word OCR confidence capture"
+(S effort), but `ocr_one()`'s own docstring already said RapidOCR returns confidence **per detected line**,
+not per word — standard PP-OCR-family behavior (the detection stage groups text into line/phrase boxes;
+there's no per-word or per-character score in its public API). Genuinely per-word would mean reconfiguring
+RapidOCR's detection model for word-level boxes — a materially bigger, GPU-hardware-dependent task this
+environment can't build or verify (`rapidocr_onnxruntime` isn't installed here, same Advanced/GPU-fork-only
+posture as every other RapidOCR-dependent piece of this app). What ships instead: the per-LINE confidence
+RapidOCR already computes — today averaged into one page-level `ocr_confidence` number and the per-line
+detail discarded (see [1.13.5] below, which captured the *average* but not this) — now captured and stored
+per line. A future consumer that wants "which words does this apply to" attributes a line's score down to
+the words it contains; that's word-level *attribution*, not independent per-word confidence, and this
+change is explicit about the difference rather than repeating the catalog's original overstatement.
+Design doc: `docs/superpowers/specs/2026-08-25-per-line-ocr-confidence-design.md`. Plan:
+`docs/superpowers/plans/2026-08-25-per-line-ocr-confidence-plan.md`.
+
+### Added
+- **New sidecar `index/ocrconf.db` + `engine/ocrconf.py`** — own `CREATE TABLE IF NOT EXISTS` schema init
+  (matching `dedup.db`/`pageqa.db`'s "own sidecar, own schema, never touches `viewer.db`" pattern, R6:
+  append-only, corpus authoritative), one table `ocr_lines(document_id, page_number, line_index, text,
+  confidence, PRIMARY KEY(document_id, page_number, line_index))`. `available(db_path)` (sidecar exists +
+  non-empty, matching `publogdiff.py`'s own convention), `record_lines(db_path, document_id, page_number,
+  lines)` (delete-then-insert per page, so a retried/re-OCR'd page never leaves stale trailing rows from a
+  shorter re-record — not a bare `INSERT OR REPLACE`, which alone can't shrink a row set), `lines_for_page
+  (db_path, document_id, page_number)` (`[]` on a missing/empty sidecar or any read failure, never an
+  error — same degrade-to-empty contract `dedup.editions_for()`/`pageqa.ask()` already guarantee). Pure
+  sidecar I/O, no extraction logic — `record_lines()` is best-effort and **never raises** (matches every
+  other sidecar writer in `viewer_ingest.py`: a failure to persist per-line detail must never turn a
+  successful page OCR into a failed one). `__main__` self-test round-trips a real temp sidecar.
+- **`viewer_ingest.py`'s `ocr_one()` return widens `(text, confidence, barcode)` → `(text, confidence,
+  barcode, lines)`.** `lines` is `[(text, score), ...]`, built alongside the existing `scores`/`conf`
+  reduction from RapidOCR's own per-line `res` — every entry is kept at its true position (`None` for a
+  missing/non-numeric score rather than dropping the line; see "Adversarial review" below for why filtering
+  `res` itself, the way `scores`' own reduction safely does for an average, is NOT safe here) — `lines` is
+  `None` on the blank-skip path and the Tesseract fallback (same paths `conf` is already `None` on;
+  Tesseract doesn't expose per-line confidence the same way, matching the existing page-level gap this
+  entry does not attempt to close). The identical-page dedup cache (`_DEDUP`)
+  needed zero code changes — both its read and write sites already store/replay whatever tuple `ocr_one()`
+  returns, so a cache hit on a repeated boilerplate page now correctly replays its `lines` too, not just
+  `text`/`conf`/`barcode` (confirmed directly, and covered by a new regression test — see below).
+- **`_ocr_task()` return widens** `(pid, text, conf, barcode, err)` → `(pid, text, conf, barcode, lines,
+  err)` at all 3 return points (timeout / exception / success) — `lines` inserted before the trailing
+  `err`, mirroring `ocr_one()`'s own widened shape.
+- **`ocr()`'s `handle()` callback** widens to accept `lines`, and — after the existing `UPDATE pages SET
+  ... ocr_confidence=?` call, using the same `document_id`/`page_number` already resolved from `_labels`
+  right there for the `measures.db` call a few lines below (no reordering needed; the real code already
+  resolves them in the right spot) — calls `ocrconf.record_lines(ocrconf_db_path, document_id,
+  page_number, lines)` when `lines` is truthy. `ocrconf_db_path` (`index/ocrconf.db`, next to `viewer.db`)
+  is resolved once before the loop, same "not per-page" precedent `meas_con` already sets. Both real call
+  sites (`handle(*_ocr_task(r))`, `handle(*fut.result())`) already splat the tuple — zero changes needed
+  there (confirmed directly, not assumed).
+
+### Adversarial review
+Three independent reviewers examined the diff (contract-integrity, data-correctness, test-quality lenses).
+- **Contract-integrity lens: 0 findings** — every return point and call site of the three widened function
+  contracts checked consistent.
+- **Test-quality lens: 0 findings**, and it did real, independent sabotage-testing of its own before
+  reporting: manually broke the `_DEDUP` cache-hit path to drop the newly-added `lines` element, confirmed
+  `test_ocrconf.py` caught it (19/20, the exact dedup-replay check failing) with nothing else cascading,
+  then restored and reconfirmed 20/20 — the kind of direct verification this project expects rather than
+  trusting a test's name.
+- **Data-correctness lens (HIGH, fixed)**: `ocr_one()`'s first draft filtered `res` itself — `[(r[1],
+  round(r[2],4)) for r in res if len(r) > 2 and isinstance(r[2], (int, float))]` — before building `lines`,
+  reusing `scores`' own filter verbatim. Safe for an average (an unscored entry just doesn't contribute);
+  **not** safe here: filtering the list before building indexed rows both silently dropped that line's text
+  entirely (never written to `ocr_lines`, not even with `confidence=NULL`, contradicting `ocrconf.py`'s own
+  documented contract) and shifted every subsequent line's `line_index` out of alignment with its true
+  position in `res` — worse for every later unscored line on the page. **Verified directly before fixing**:
+  sabotage-tested by reverting to the buggy filter-based version and re-running the new regression test
+  below — it failed exactly as predicted (4 of 4 new checks), confirming both the bug and that the test
+  actually catches it, not just asserts something coincidentally true. Fixed by keeping every entry at its
+  real position, using `None` for a missing/non-numeric score instead of dropping the line — `ocrconf.py`'s
+  `record_lines()` already handled `None` scores correctly (it has its own dedicated self-test case for
+  this), so the fix needed no sidecar-side change, only `ocr_one()`'s own list-building line.
+- New regression test added for this exact bug (`test_ocrconf.py` section 4, 5 checks): a mocked 3-line
+  page where the middle entry carries no score at all — confirms all 3 lines are recorded (none dropped),
+  the unscored line keeps its text with `confidence=None` at its correct `line_index=1`, and the line
+  *after* it still lands at its true `line_index=2`, not shifted down to 1.
+
+### Verified
+- `python ocrconf.py` — self-test OK (round-trips `record_lines()`/`lines_for_page()` against a real temp
+  sidecar; `available()` False→True across a write; keyed strictly to document_id+page_number, no cross-
+  page/doc leakage; re-recording a page's lines replaces rather than duplicates or leaving stale trailing
+  rows; a non-numeric score keeps its line's text with `confidence=None`; a never-built sidecar and bad
+  inputs degrade to `[]`/`False`, never raise).
+- New `python tests/test_ocrconf.py` (25/25 checks, including the adversarial-review regression case above)
+  — a real crawl → index → `ocr()` pass through
+  `viewer_ingest.py` with `_have_rapid()`/`_get_rapid()` monkeypatched to a fake engine returning known
+  multi-line results (no real `rapidocr_onnxruntime` needed — this environment doesn't have it installed,
+  same posture the design doc calls out): one `ocr_lines` row per line lands with correct text/confidence,
+  correctly keyed to document_id/page_number, unrelated doc/page queries return `[]`; the `_DEDUP`
+  identical-page cache hit on a second byte-identical page replays the exact same per-line rows while the
+  mocked engine is confirmed called exactly once (not twice); a Tesseract-fallback run (forced via the same
+  `_have_rapid()`-monkeypatch technique `test_barcode_wiring.py`'s own section 9 already established)
+  completes the page normally and writes nothing to `ocrconf.db`, without raising.
+- `python tests/test_barcode_wiring.py` — 65/65 checks still pass unmodified (full real crawl→OCR→
+  extract_parts pipeline, zero behavior change for the 3 widened contracts' one real caller).
+- `python tests/test_ingest_routes.py` — 173/175 checks pass; the 2 failures (`real e2e upload...`) are
+  **pre-existing**, confirmed unrelated by re-running the identical file against `viewer_ingest.py` stashed
+  back to its pre-this-change state (same 2 failures, same names, before `ocr_one()`/`_ocr_task()`/`ocr()`
+  were touched at all).
+- `python tests/test_sysprobe_cli_resolution.py` — 20/20 (stubs `ocr()` itself; unaffected by its internal
+  contract widening).
+- `python tests/test_pageqa.py` — 28/28; `python tests/test_ocr_supervisor.py` — 22/22 (neither calls
+  through the widened functions, included for completeness since both live in the same OCR-pipeline
+  neighborhood).
+- `python -m py_compile` clean on every touched file (`viewer_ingest.py`, `ocrconf.py`,
+  `tests/test_ocrconf.py`); `python -m compileall engine/` clean whole-tree.
+- `engine/tests/verify_all.py --snapshot` — full run: **48 checks, 47 ok, 1 FAILED** (the same
+  pre-existing `test_ingest_routes.py` 2 sub-checks noted above; every other suite green, including the
+  new `test_ocrconf.py` at 20/20); `safeguard verify` — **717 files, 717 OK, 0 DAMAGED**.
+
+### Compatibility (R1)
+- `ocr_one()`/`_ocr_task()`'s return arity changed (3→4, 5→6 respectively) — both have exactly one real
+  caller each inside `viewer_ingest.py` itself (`_ocr_task()` calls `ocr_one()`; `ocr()`'s `handle()`
+  consumes `_ocr_task()`'s result via the two existing splat call sites), both updated in this same change.
+  Grepped the whole tree for any other caller — none found (confirmed in the PR's own verification, not
+  assumed).
+- `index/ocrconf.db` is a brand-new, purely additive sidecar — nothing in `viewer.db`, `dedup.db`,
+  `pageqa.db`, `measures.db`, or any existing route/consumer references it. Rollback = don't run future OCR
+  passes through the changed code; the sidecar stops growing but nothing existing breaks or needs it.
+  `cautions.py`'s `textquality.annotate()` and `coverage.py`'s aggregate OCR stats are unmodified and keep
+  reading `pages.ocr_confidence` exactly as before.
+
+### Known, deliberately deferred (see design doc's "Non-goals")
+- True independent per-word/per-character confidence — needs RapidOCR reconfigured for word-level
+  detection, a GPU-hardware-dependent follow-on this environment can't build or verify, not this pass.
+- No bounding-box geometry captured for each line — only text + confidence; no visual-highlighting
+  consumer exists yet to need it (YAGNI).
+- No existing consumer (`cautions.py`, `coverage.py`) was migrated to read the new per-line data — both
+  keep working exactly as before (R1). A future pass could upgrade `cautions.py` to cite the specific line
+  a caution's text came from instead of the whole page's average.
+- Tesseract-fallback per-line capture is still out of scope — matches the existing page-level `conf=None`
+  gap on that path, not a new one.
+- No new route or UI affordance reads `ocrconf.py` yet — this pass is capture + storage + a generic read
+  function (`lines_for_page()`) only, per the design doc's explicit scope.
+
+---
+
+## [1.20.0] — 2026-08-25 — Search click instrumentation + heuristic re-rank (Tier 2 "learned search re-ranker", Phase 1)
+
+Versioned 1.20.0, not 1.18.0 as originally tagged throughout this branch's own commit/comments: two other
+independently-branched PRs off the same `main` base already claimed the two numbers in between (`[1.18.0]`,
+the still-open `fix/measures-labeled-bare-unit-callout` PR; `[1.19.0]`, the home-page nav regroup) — caught
+and renumbered across every touched file (code comments, this entry, the 3 reconciliation docs) before merge,
+avoiding a guaranteed collision whichever PR lands last.
+
+The Tier-2 backlog item "learned search re-ranker" was pitched on a premise that turned out to be false on
+inspection: `analytics.py`'s event log only ever captured **zero-result** queries (`gaps()`) — a pure failure
+list. Nothing recorded which result a user actually opened, by rank, for a query that DID return results, so
+there was no click-through / relevance signal anywhere to train a learned model on. Rather than build
+"learned" ranking on top of a signal that didn't exist, this does two honest things instead: (1) start
+logging real engagement now, so a genuinely learned re-ranker has real data next round, and (2) ship a
+modest, hand-tuned ranking improvement now, so something concrete improves this round too. Full design in
+`docs/superpowers/specs/2026-08-25-search-click-instrumentation-and-heuristic-rerank-design.md`. A secondary
+correction made during design: `engine/ui/index.html`'s search UI calls `/api/search`
+(`search_feature.search()`'s FTS + `exact`/`approx`/`boosted` stable sort), **not**
+`/api/search_hybrid` (`hybrid.py`'s RRF `fuse()`, a secondary endpoint nothing in the primary UI calls) — the
+heuristic therefore targets `search_feature.py`'s sort, not `hybrid.py`.
+
+### Added
+- **`engine/analytics.py`** — new event kind `"click"` added to `_VALID`; `log()`'s `extra` allowlist grows
+  from `{doc, page, nsn}` to include `rank` (coerced to `int` then stored as a string, silently dropped —
+  not error-raised — if it isn't int-like, matching every other field's "never raises, best-effort"
+  contract). New `clicked_pages(index_dir)` → `set[str]` of `"doc_id:page_number"` keys built from every
+  `"click"` event ever logged, cached 60s — copied verbatim from `features/parts_feature.py`'s
+  `popular_nsns()` cache-dict shape/TTL (own `_CLICK_CACHE`, deliberately not sharing `_POP_CACHE`, so the
+  two caches can never collide). `__main__` self-test extended: an event with no `rank`, one with a
+  non-numeric `rank` (must be dropped, not fatal), and confirmation that a missing/empty `index_dir`
+  degrades to `set()`, never an error.
+- **`engine/features/search_feature.py`** — `search()` now also calls `analytics.clicked_pages(core.INDEX_DIR)`
+  right after the existing `popular_nsns()`/`boosted` block and tags `r["clicked"] = True` for any row whose
+  `doc_id:page_number` was opened from a search before. Local `import analytics` (not module-scope), matching
+  `routes/search.py`'s own existing call-site-import style for this same module — avoids import-order risk
+  with whatever already imports `search_feature` at load time. The stable sort tuple grows a 4th key:
+  `(exact, approx, boosted, clicked)` — same shape, one more tier; rows are only ever tagged `clicked=True`,
+  never explicitly `False`, matching how `exact`/`approx`/`boosted` already work in this same function. With
+  zero click history the new key is a no-op for every row and ranking is byte-for-byte identical to before
+  this change — the heuristic is inert until the instrumentation half has actually produced data, by
+  construction, not a special-cased guard.
+- **`engine/ui/index.html`** — `renderList()` gains a `.badge.opened` (`↺ opened before`, titled "Opened from
+  a search result before") next to the existing `.fav` (`★ requested`) badge, shown when `r.clicked` — keeps
+  R13 honest for this new ranking tier too (a floated result must say why, never pass as unexplained
+  authority). New `logResultClick(r, rows)` fires a fire-and-forget `POST /api/analytics_log`
+  (`kind:"click", key:LAST_QUERY, doc, page, rank`) from both places a result is actually opened
+  (`d.onclick` and the `.vbtn` button's handler — both already routed through the same `openViewer(r)`),
+  wrapped in the same `try{...}catch(_){}` every other beacon in this file/`palette.js` already uses so a
+  blocked `fetch` can never break the click's actual navigation. `rank` is the row's index in `rows` —
+  `renderList(rows)`'s own parameter, which shadows the outer `shown` — not the outer variable, so rank
+  always matches what's actually on screen (confirmed: `renderList` is called as `renderList(shown)`, but the
+  parameter name inside the function is `rows`).
+
+### Deviation from the plan
+- **`engine/features/routes/search.py`'s `r_analytics_log` DOES need a one-line change**, contrary to the
+  design spec's claim that this route is "unchanged" because it's "already generic over kind." That's true
+  for `kind`, but the route's own payload extraction hardcodes its extra-field allowlist to
+  `("doc", "page", "nsn")` when building the dict it hands to `analytics.log()` — `rank` would never reach
+  `analytics.log()`'s (correctly widened) allowlist without also being added here. Fixed by adding `"rank"`
+  to that tuple; `analytics.log()` itself still owns all the actual validation/coercion. Caught by writing
+  the round-trip regression test first and watching `rank` silently vanish before this fix.
+
+### Adversarial review — a real bug in the test, caught, reproduced, and fixed
+Three independent reviewers examined the diff. Two of them, from different angles, converged on the same root
+problem in the *test*, not the shipped code:
+- The regression test hardcoded its seeded click onto fixture row `doc 3/page 9`, but that row already
+  outranks its "tied" twin (`doc 2/page 13`) on plain FTS bm25 alone (shorter page body → higher score for
+  the same term count) — the click signal contributed nothing to the observed pass. **Verified directly, not
+  taken on the reviewers' word:** deleting the `clicked` term from `search_feature.search()`'s sort key
+  entirely and rerunning the whole file still produced `48 passed, 0 failed`, including that exact assertion.
+- Compounding it, an *earlier* assertion in the same file's `/api/analytics_log` round-trip check logged its
+  own throwaway `"click"` event on that identical fixture row (`doc 3/page 9`) before the "real" test ever
+  seeded its own — so even the pre-click "tied" baseline wasn't clean. Also independently reproduced: removing
+  the cache-bust line the test's own comment called essential produced byte-identical `PASS` output.
+- Same pattern as the `measures.py` vacuous "PARA 5B" test caught earlier this project (`[1.20.0]` below, the
+  bare-letter-unit fix) — a test that asserts something true for reasons unrelated to the code it claims to
+  cover.
+
+Fixed by (1) moving the round-trip test's example click event off the shared fixture rows entirely (now
+`doc 99/page 1`, matching nothing real), and (2) rewriting the regression test to never assume which of the
+two tied rows bm25 favors: it reads the real pre-click order first, seeds the click on whichever row is
+*naturally behind*, and asserts that row now leads — a test that cannot pass vacuously, because if the click
+signal has no effect, the natural loser stays the loser. Re-verified against the same sabotage (`clicked` term
+removed from the sort key): the corrected test now correctly **fails** (`47 passed, 1 failed`), then passes
+clean once the sort key is restored.
+
+Two further findings were reproduced and consciously left as-is, not fixed, with reasoning:
+- **`routes/search.py`'s `_SEARCH_LRU`** (pre-existing, 60s, untouched by this diff) caches the full search
+  response and short-circuits before `search_feature.search()` runs again — so a just-logged click doesn't
+  affect an identical repeat query for up to 60 seconds. Verified this is symmetric with the already-shipped
+  `boosted` signal, not a new gap this diff introduces (the LRU short-circuits before *any* of
+  `exact`/`approx`/`boosted`/`clicked` get recomputed, not just the new one) — an accepted, pre-existing
+  characteristic of this cache, not a regression.
+- **`routes/search.py`'s extra-field allowlist** now accepts `rank` for every event `kind`, not just
+  `"click"` — matches the existing (also ungated) treatment of `doc`/`page`/`nsn`, so this is consistent with
+  precedent rather than a new inconsistency. Currently inert: no existing caller sends `rank` on a non-click
+  event.
+
+### Verified
+- `python analytics.py` — self-test passes, including the new `clicked_pages()` coverage.
+- `python -m py_compile` clean on `analytics.py`, `features/search_feature.py`,
+  `features/routes/search.py`, `tests/test_search_quality.py`.
+- **`engine/tests/test_search_quality.py`** (extended, +12 checks) — the existing `/api/analytics_log` →
+  `/api/analytics_top` round-trip gains a `kind:"click"` case on a non-fixture doc/page (confirms `rank`
+  survives the route into the raw JSONL record). New direct regression test (corrected per the adversarial
+  review above): reads the real pre-click order between two genuinely-tied fixture "bolt" rows, seeds a click
+  on whichever one bm25 naturally disfavors, busts both the 60s `clicked_pages()` cache and the route's own
+  60s search LRU, then re-issues the query through a **real** `/api/search` HTTP call against the live test
+  server (not `search()` called in-process) — confirms the clicked row is tagged `clicked=True`, its untouched
+  twin is not, and the clicked row now *reverses* its natural order. Run for real: **48 passed, 0 failed.**
+  Sabotage-checked: with the `clicked` sort key removed, the same file correctly reports **1 failed**.
+- `engine/tests/test_routes.py` — re-run as a checkpoint per the plan (widened `_VALID`/allowlist, no new
+  route to add to the blanket sweep): **294 passed, 0 failed.**
+- `engine/tests/rps_lint.py ui/index.html` — RPS GATE: PASS (`index.html` stays in its existing "modern
+  ES6, by design" bucket; no ES5-required page regressed).
+- `engine/tools/check_crlf.py` — clean.
+
+### Deferred (per the design's explicit non-goals — not this round)
+Query-similarity-aware click weighting (this ships global per-doc/page click popularity only, mirroring
+`boosted`/`popular_nsns()` exactly — no "only float a result for the *same* query it was clicked from" yet);
+click recency decay or minimum-click thresholds; click-fraud/bot filtering (single-operator offline tool, not
+a real threat model here); wiring this signal into `hybrid.py`'s `fuse()`/`/api/search_hybrid` (nothing in
+the shipped UI calls that endpoint); and the actual learned re-ranker itself — this entry produces the
+training data and ships a stopgap, training/deploying a real model is future Tier-2 work once real click
+volume exists to justify it.
+
+---
+
+## [1.19.0] — 2026-08-25 — Home page nav: Tools menu regrouped into 6 labeled sections, My Bench promoted to top-level
+
+Versioned 1.19.0 rather than 1.18.0 (the next number after this branch's base, [1.17.0]) because a separate,
+independently-branched change (search click instrumentation + heuristic re-rank) already claimed 1.18.0 on its
+own PR off the same base — this avoids a guaranteed version collision whichever merges to `main` second.
+
+The header's `#toolsPop` "🧰 Tools ▾" dropdown (`engine/ui/index.html`, the only copy of this menu in the whole
+UI — no other page duplicates it) had grown to **31 items in one flat, unlabeled list**, loosely broken only by
+plain visual separators. User-flagged as "far longer than necessary," especially the 16-item unlabeled block
+that mixed identification tools, reference lookups, search modes, and workflow tools together with no
+structure. A real, previously-unrelated bug was found in the same file while scoping this: `.menupop` had no
+`max-height`/scroll cap at all — a long dropdown could run off the bottom of a short viewport with no way to
+reach the rest of it.
+
+### Changed
+- **`engine/ui/index.html`** — `#toolsPop` regrouped into 6 labeled sections (Find & identify · Reference ·
+  Search modes · Do the work · Learn & audit · Admin), replacing the old plain `.msep` divider `<div>`s with
+  a new `.mgrouplbl` group-header style (reuses `.col h2`'s existing uppercase/letter-spacing/`color:var(--sub)`
+  treatment, scaled for a dropdown row). Every one of the original 30 remaining links/buttons kept its exact
+  href/title/label/emoji — this is a reorganization, not a content rewrite (verified programmatically: 29
+  `<a href="/...">` + 1 `<button>` = 30 items across 6 groups, every original href still present, none
+  dropped/duplicated).
+- **★ My Bench promoted to a new top-level header button**, between Collections and Tools — a personal
+  saved-items shortcut people return to constantly no longer costs an extra click through a 30-item menu.
+  Matches Collections'/Help's exact `a.ghost` tag/style pattern; carries over its original href/title/label
+  unchanged. Confirmed `/bench` appears exactly once in the file (the new header button), not still also
+  inside the dropdown.
+- **`.menupop`'s missing max-height/scroll, fixed** — but not with a hardcoded CSS constant. Adversarial
+  review caught that a fixed `calc(100vh - 90px)` assumes the Tools button sits near the top of a single-row
+  header; the header now carries one more permanent top-level item (My Bench), which can push it to wrap to a
+  2nd row on a narrower viewport, moving the popup's real on-screen start position down with it — a fixed
+  viewport-relative constant can't account for that, so the popup's bottom could still run off-screen in
+  exactly the case this fix was meant to cover. **Verified directly, not taken on the reviewer's word**: fixed
+  by computing the true available space from the Tools button's actual `getBoundingClientRect()` every time
+  the menu opens (`open_()` in the existing accessible-toggle script), with the CSS constant demoted to a
+  pre-JS fallback only.
+- **Misapplied ARIA role removed** — the new `.mgrouplbl` group headers had inherited `role="separator"` from
+  the empty `<div class="msep" role="separator">` divider pattern they replaced, but ARIA's separator role is
+  defined for a contentless dividing line, not a labeled heading with real text content; assistive tech isn't
+  guaranteed to expose that text as an accessible name under that role. Removed (`#toolsPop` has no
+  `role="menu"` to begin with, so this was never part of a coherent ARIA widget pattern) — plain, unstyled
+  labeled text is read correctly by default.
+- **Dead CSS removed** — `.menupop .msep{...}` was orphaned once every divider in this popup became a labeled
+  `.mgrouplbl` instead; confirmed no `class="msep"` element remains anywhere in the file before removing.
+
+### Adversarial review
+Three independent reviewers (completeness / interaction-correctness / html-hygiene lenses) examined the diff.
+- **Completeness lens: 0 findings** — every original href/label/title/emoji verified preserved, My Bench
+  reachable from exactly one place.
+- **Interaction lens (MEDIUM, fixed above)**: the max-height header-wrap gap described above.
+- **Html-hygiene lens**: caught that my own workflow instructions named the wrong lint script path
+  (`engine/tools/rps_lint.py`, which doesn't exist — the real path is `engine/tests/rps_lint.py`); re-ran the
+  correct one directly. Also 2 LOW findings (misapplied `role="separator"`, dead `.msep` CSS), both fixed
+  above.
+
+### Self-caught regression (during the max-height fix, before commit)
+Reformatting `open_()` to a multi-line function (to add the dynamic max-height computation above) broke an
+existing, unrelated regression test: `test_uiux_fixes.py`'s `tools_menu_open_calls_threadQuery` does an exact
+literal-substring check for `"function open_(){ threadQuery();"` in the page source (guarding that
+`threadQuery()` — which threads the current search query into every menu link — still runs first thing on
+open). The reformat moved `threadQuery()` onto its own indented line, breaking the literal match even though
+the *behavior* was unchanged. Caught by running the full `verify_all.py --snapshot` suite before commit (not
+just the files I expected to be affected) — fixed by keeping `function open_(){ threadQuery(); ...}` as the
+required literal one-line opener and appending the new logic as additional statements after it, same function,
+same behavior.
+
+### Verified
+- `python engine/tests/rps_lint.py` (correct path): RPS GATE: PASS.
+- HTML well-formedness: fed the whole file through `html.parser` with a start/end tag stack checker —
+  zero mismatched or unclosed tags.
+- Programmatic count-check: 6 `.mgrouplbl` groups, 29 links + 1 button = 30 items in `#toolsPop`, exactly one
+  `/bench` href in the whole file and it's outside `#toolsPop`.
+- `git diff --stat`: only `engine/ui/index.html` changed.
+- Full `engine/tests/verify_all.py --snapshot`, run directly: **47/47, ALL GREEN** (includes the corrected
+  `tools_menu_open_calls_threadQuery` check and a fresh, clean `safeguard verify` — 712/712 files OK).
+
+---
+
+## [1.18.0] — 2026-08-25 — measures.py: labeled bare-letter-unit callouts ("ITEM 489A") no longer misread as measurements
+Closes the **labeled** half of the deferred `[1.13.4]` finding: an RPSTL item number's letter-suffix
+variant, "489A", reading as "489 Amps". `measures.py`'s `_CALLOUT` guard (added `[1.13.5]` for exactly
+this false-positive shape, but scoped only to degF/degC — "FIGURE 5 C"/"TABLE 3 F" misread as bare
+temperatures) is generalized to every bare single-letter unit in `_BARE_LETTER_UNITS` (V, A, W, N, L, m,
+g, not just F/C): "ITEM 489 A", "TABLE 3 W", "REF NO. 12 C" are just as readable as electrical/force/
+weight/length/capacity as a figure/table reference is readable as a temperature — same false-positive
+class, same fix. Deliberately does **not** also require whitespace between the number and letter the way
+the degF/degC check does — that guard is safe for temperature because a genuine bare reading is
+essentially always space-separated ("120 F"), so requiring one costs no real recall; it is **not** safe
+to generalize to V/A/W/N/L/m/g, where a fused, no-space reading ("12V", "5A", "60W") is the standard way
+this corpus writes electrical/mechanical ratings on nameplates, fuse panels, and spec tables. The
+genuinely **unlabeled** case (a bare "489A" with no preceding label word at all) is therefore still
+deliberately open — the original reason this finding was deferred rather than blindly patched (no way to
+verify a broader fix's recall impact without the real corpus) still applies to that narrower remainder;
+see `docs/HANDOFF-NOTE.md`'s "Suggested next" for the precise, current framing.
+
+### Fixed
+- `engine/measures.py`: `_CALLOUT`'s single word list is split in two. The universal structural/reference
+  words (`figure`/`table`/`tbl`/`item`/`detail`/`sheet`/`view`/`note`/`step`/`paragraph`/`section`/
+  `index`/`no.`/`nos.`) now guard every bare-letter unit, not just temperature — none of them are also
+  standard nomenclature immediately in front of an electrical/mechanical rating. A new, temperature-only
+  `_CALLOUT_TEMP_EXTRA` keeps `grade`/`class`/`type`/`key`/`zone` scoped to degF/degC alone.
+
+### Verified — including a real regression caught by adversarial review, not shipped blind
+- **Adversarial review** (two independent reviewers, regex-correctness and scope-honesty angles) against
+  the first draft of this fix. **One real, confirmed, medium-severity finding, fixed before this landed:**
+  the first draft reused the temperature `_CALLOUT` word list verbatim — including `type`/`class`/
+  `grade`/`key`/`zone`, safe for temperature (nobody writes "Type 74 F") but standard, common electrical/
+  mechanical component nomenclature ("Type 20A fuse", "Type 60W bulb", "Type 24V power supply", "Class
+  30A disconnect switch") that the reused list silently dropped entirely — not quarantined, not flagged,
+  just gone, with 100% green tests, since the first draft's own test suite never placed a label word
+  directly before a real reading. Reproduced directly (`measures.extract("Install Type 20A fuse F1.") ==
+  []`) before fixing via the word-list split above; the exact reproduction is now a permanent regression
+  case. Two low-severity findings also fixed: a vacuous test case (`"PARA 5B"` — "B" isn't a recognized
+  unit letter at all, so that assertion passed for a reason unrelated to the guard being tested,
+  replaced with a real unit letter) and missing V/m coverage in the new test's callout cases.
+- `engine/tests/test_extraction.py`'s `test_measures_bare_letter_callout_generalized()`: one case per
+  newly-covered letter (not just the four the first draft happened to cover), the direct Type/Class
+  regression test above, confirmation the five temperature-only extra words still do their original job,
+  recall-preservation cases for both spaced and fused real readings, and a canary case proving the
+  unlabeled sub-case is still an honest, undisguised open gap, not silently masked. Every existing
+  `[1.13.5]` temperature callout case (`"FIGURE 5 C"`, `"Grade 8 F bolts"`, `"Class 2 C wiring"`, …) still
+  passes unchanged.
+- Full `engine/tests/verify_all.py --snapshot`: **46/47**. The sole failure is the same pre-existing,
+  already-diagnosed `test_ingest_routes.py` environmental flake noted in `[1.16.0]`/`[1.17.0]`, unrelated
+  to this change.
+
+### Compatibility (R1)
+- Purely a precision fix to `measures.extract()`'s existing behavior — same function signature, same
+  return shape. Only ever *withholds* a value the labeled-callout shape would previously have
+  misclassified; never invents or alters a genuine reading (R13). No schema, migration, or API change.
+- `VERSION` → **1.18.0**.
+
+### Known, deliberately deferred
+- The unlabeled bare-letter-suffix case ("489A" with no preceding label) — see this entry's own intro
+  and `docs/HANDOFF-NOTE.md`'s "Suggested next" for the full, current reasoning.
+
+---
+
 ## [1.17.0] — 2026-08-24 — Vision-Language Page QA: Phase 2 (structured extraction, verification, batch tool, Masterfile integration — catalog §10.1 + §3.12)
 
 Closes out the plan [1.16.0] deliberately deferred (items 10–17 of `docs/superpowers/plans/2026-08-24-

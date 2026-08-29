@@ -8,7 +8,10 @@ from collections import Counter
 
 FNAME = "analytics.jsonl"
 _VALID = {"search", "part", "page", "tool", "torque", "pmcs",
-          "gap"}   # v1.13 (#19): a search that returned ZERO results (the corpus couldn't answer)
+          "gap",     # v1.13 (#19): a search that returned ZERO results (the corpus couldn't answer)
+          "click"}   # v1.20 (search-click-instrumentation): a search RESULT the user actually opened,
+                     # by rank -- the click-through signal that "gap" and "boosted" (popular_nsns) never
+                     # captured. See clicked_pages() below and search_feature.search()'s 4th sort key.
 
 
 def _path(index_dir):
@@ -29,6 +32,15 @@ def log(index_dir, kind, key, extra=None):
             for kk in ("doc", "page", "nsn"):
                 if extra.get(kk) is not None:
                     rec[kk] = str(extra[kk])[:40]
+            # v1.20 (search-click-instrumentation): "rank" -- the row's 0-indexed position in the
+            # rendered result list at click time. Coerced to an int (never trusts the client's string
+            # verbatim) and silently dropped, not error-raised, if it isn't one -- same "never raises,
+            # best-effort" contract as doc/page/nsn above.
+            if extra.get("rank") is not None:
+                try:
+                    rec["rank"] = str(int(extra["rank"]))
+                except Exception:
+                    pass
         with open(_path(index_dir), "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         return True
@@ -116,6 +128,29 @@ def hot_docs(index_dir, n=20):
     return [{"doc": d, "count": v} for d, v in c.most_common(max(1, min(int(n or 20), 200)))]
 
 
+_CLICK_CACHE = {"t": 0.0, "s": set()}
+
+
+def clicked_pages(index_dir):
+    """v1.20 (search-click-instrumentation): set of "doc_id:page_number" keys for every search result
+    ever actually opened (kind='click' events, logged by index.html's renderList() beacon) -- the
+    click-through counterpart to parts_feature.popular_nsns()'s "successfully requested before" set,
+    same cached-60s shape (set[str]), same TTL, deliberately a distinct module-level cache
+    (_CLICK_CACHE, not _POP_CACHE) so the two never collide. Used by search_feature.search() to float
+    a previously-opened result the same way popular_nsns() floats a previously-requested part."""
+    now = time.time()
+    if _CLICK_CACHE["s"] and now - _CLICK_CACHE["t"] < 60: return _CLICK_CACHE["s"]
+    s = set()
+    for r in _read(index_dir):
+        if r.get("k") != "click":
+            continue
+        doc = r.get("doc"); page = r.get("page")
+        if doc and page:
+            s.add("%s:%s" % (doc, page))
+    _CLICK_CACHE["t"] = now; _CLICK_CACHE["s"] = s
+    return s
+
+
 if __name__ == "__main__":
     import tempfile
     d = tempfile.mkdtemp()
@@ -138,5 +173,21 @@ if __name__ == "__main__":
     assert g["top"][0] == {"query": "flux capacitor seal", "count": 2, "last": g["top"][0]["last"]}, g
     assert g["top"][0]["last"], g            # last-seen timestamp present
     print("gaps:", g["top"])
+
+    # v1.20 (search-click-instrumentation): clicked_pages() -- log a few "click" events (one with no
+    # rank, one with a non-numeric rank that must be dropped, not fatal) and confirm the returned set.
+    d2 = tempfile.mkdtemp()
+    assert clicked_pages(d2) == set(), "clicked_pages against a missing/empty dir must be set(), not error"
+    log(d2, "click", "alternator bracket torque", {"doc": "5", "page": "40", "rank": 2})
+    log(d2, "click", "alternator bracket torque", {"doc": "5", "page": "41"})            # no rank -- still counted
+    log(d2, "click", "water pump gasket", {"doc": "5", "page": "40", "rank": "bogus"})    # non-numeric rank -- dropped, event still logged
+    log(d2, "search", "alternator")                                                       # other kind -- must NOT show up
+    cp = clicked_pages(d2)
+    assert cp == {"5:40", "5:41"}, cp
+    rows_c = [r for r in _read(d2) if r.get("k") == "click"]
+    assert rows_c[0].get("rank") == "2", rows_c
+    assert "rank" not in rows_c[1], rows_c            # no rank given -- key absent, not None/""
+    assert "rank" not in rows_c[2], rows_c            # "bogus" rank -- silently dropped, event kept
+    print("clicked_pages:", sorted(cp))
     print("analytics self-test OK")
 # END OF FILE

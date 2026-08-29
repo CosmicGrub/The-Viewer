@@ -71,6 +71,89 @@ def test_measures_bare_temperature():
           any(r["unit"] == "degF" and r["value"] == "120" for r in real))
 
 
+def test_measures_bare_letter_callout_generalized():
+    # [1.13.4]'s deferred finding: "489A" (an RPSTL item number's letter-suffix variant, e.g. item 489's
+    # "A" sub-variant) reading as "489 Amps" -- the SAME false-positive shape test_measures_bare_temperature
+    # already proves for F/C ("FIGURE 5 C" reading as a temperature), generalized to every bare-letter unit
+    # (_BARE_LETTER_UNITS: V/A/W/N/L/m/g too, not just degF/degC). One case per newly-covered letter,
+    # not just the four the first draft of this fix happened to cover -- adversarial review caught that
+    # V and m (meter) were both untested here.
+    callouts = [
+        ("ITEM 489A is a bracket sub-variant.", "electrical"),          # A, "item" label
+        ("Replace ITEM NO. 489A per WP 5.", "electrical"),              # "item" ... "no." (both match)
+        ("See REF NO. 489A for details.", "electrical"),                # "no." alone anchors, no "ref" needed
+        ("PARA 5V covers the wiring harness.", "electrical"),           # V (was the vacuous "5B" case --
+                                                                          # "B" isn't a recognized unit letter
+                                                                          # at all, so that assertion passed
+                                                                          # for a reason unrelated to the
+                                                                          # guard being tested; adversarial
+                                                                          # review caught this too)
+        ("TABLE 3W lists the wattage ratings.", "electrical"),          # W
+        ("FIGURE 12N shows the mounting force.", "force"),              # N (force), not electrical at all
+        ("See DETAIL 4L for the reservoir.", "capacity"),                # L (capacity)
+        ("Refer to ITEM 7G on the parts list.", "weight"),               # g (weight)
+        ("Refer to INDEX 5M for the shaft length.", "length"),           # m (meter/length)
+    ]
+    for s, typ in callouts:
+        got = [r for r in measures.extract(s) if r["type"] == typ]
+        check("labeled callout not read as %s: %s" % (typ, s[:32]), not got)
+
+    # Recall preservation -- the whole point of scoping this fix to labels only (not a blanket
+    # whitespace-required rule like degF/degC's): a real electrical/force/etc. reading, spaced OR
+    # fused with no space at all, must still extract exactly as before. "12V"/"5A"/"60W" fused with no
+    # space is the STANDARD way this corpus writes nameplate/fuse-panel/spec-table ratings -- unlike a
+    # bare temperature, that convention is common, not a collision signature, so it must never be
+    # guarded away the way the degF/degC whitespace check guards temperature.
+    spaced = measures.extract("28 VDC at 100 A.")
+    check("spaced electrical reading still extracts (V)", any(r["unit"] == "V" and r["value"] == "28" for r in spaced))
+    check("spaced electrical reading still extracts (A)", any(r["unit"] == "A" and r["value"] == "100" for r in spaced))
+    fused = [
+        ("Battery rated 12V nominal.", "V", "12"),
+        ("Fuse rated 5A.", "A", "5"),
+        ("Bulb rated 60W.", "W", "60"),
+    ]
+    for s, unit, val in fused:
+        got = measures.extract(s)
+        check("fused no-space reading still extracts: %s" % s,
+              any(r["unit"] == unit and r["value"] == val for r in got))
+
+    # Adversarial-review regression case (found live, confirmed by direct reproduction before fixing):
+    # the FIRST draft of this fix reused the temperature callout word list verbatim, including
+    # "type"/"class"/"grade"/"key"/"zone" -- safe for temperature (nobody writes "Type 74 F"), but
+    # "Type NNA"/"Type NNW"/"Type NNV"/"Class NNA" are standard, common electrical/mechanical component
+    # nomenclature (fuse/lamp/supply/switch ratings) that were silently dropped entirely, not
+    # quarantined or flagged, just gone. This is now the direct regression test for that fix: every one
+    # of these MUST extract, proving _CALLOUT_TEMP_EXTRA's five words stay temperature-only and never
+    # suppress a real electrical/mechanical reading immediately after "Type"/"Class".
+    labeled_real = [
+        ("Install Type 20A fuse F1.", "A", "20"),
+        ("Install a Type 60W bulb.", "W", "60"),
+        ("Connect to a Type 24V power supply.", "V", "24"),
+        ("Use a Class 30A disconnect switch.", "A", "30"),
+    ]
+    for s, unit, val in labeled_real:
+        got = measures.extract(s)
+        check("real reading after Type/Class still extracts (not treated as a temperature-only callout): %s" % s,
+              any(r["unit"] == unit and r["value"] == val for r in got))
+
+    # ...and the temperature-only extra words must still do their original job (Grade/Class already
+    # covered by test_measures_bare_temperature's own cases; Type/Key/Zone were part of the original
+    # v1.13.5 word list but never had a dedicated test until now).
+    temp_extra = ["Type 74 F is the rated maximum.", "Key 12 C is out of range.", "Zone 5 F is unmonitored."]
+    for s in temp_extra:
+        got = [r for r in measures.extract(s) if r["type"] == "temperature"]
+        check("temperature-only extra word still suppresses a bare temp: %s" % s, not got)
+
+    # The genuinely UNLABELED case ("489A" with no preceding item/ref/para word at all) is deliberately
+    # still open -- see measures.py's own extract() comment for why a blanket fix isn't safe without the
+    # real corpus. This assertion is a canary, not a wish: it fails loudly if someone "fixes" this
+    # silently without updating the documented reasoning (docs/HANDOFF-NOTE.md's "Suggested next") to
+    # match, and it keeps this test suite honest about what actually shipped vs. what's still a known gap.
+    unlabeled = [r for r in measures.extract("Replace 489A and 489B as a set.") if r["type"] == "electrical"]
+    check("unlabeled bare-letter-suffix case is STILL a known open false positive (not silently masked)",
+          any(r["value"] == "489" and r["unit"] == "A" for r in unlabeled))
+
+
 def test_measures_unbroken_digit_run_not_truncated():
     # v1.13.6: _NUM used to cap a comma-less digit run at \d{1,6}. For a longer unbroken run (garbled OCR /
     # an impossible value, e.g. a 9-digit torque figure), the cap didn't reject the number -- finditer just
@@ -181,7 +264,8 @@ def test_tables():
 
 if __name__ == "__main__":
     print("== extraction/enrichment/masterfile regression ==")
-    test_measures(); test_measures_bare_temperature(); test_measures_unbroken_digit_run_not_truncated()
+    test_measures(); test_measures_bare_temperature(); test_measures_bare_letter_callout_generalized()
+    test_measures_unbroken_digit_run_not_truncated()
     test_enrich(); test_masterfile(); test_tables()
     print(("FAILED: " + ", ".join(FAILS)) if FAILS else "ALL EXTRACTION TESTS PASS")
     sys.exit(1 if FAILS else 0)

@@ -579,9 +579,16 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
 ## Suggested next
 1. **R10 screenshots** — still the one item from the v1.13.0-era host checklist not done as a saved artifact
    (see "RUN THESE ON THE HOST" above); unchanged by either the v1.14.0 audit run or the v1.15.0 session.
-2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — still open;
-   needs corpus-wide regression testing before a safe fix; flagged since `CHANGELOG.md` `[1.13.4]`, not
-   touched by v1.14.0 or v1.15.0.
+2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — the
+   **labeled** sub-case ("ITEM 489A", "TABLE 3W", any bare-letter unit immediately preceded by a
+   figure/table/item/detail/etc. reference word) is fixed as of `[1.18.0]`, generalizing the existing
+   degF/degC `_CALLOUT` guard to every unit in `_BARE_LETTER_UNITS`. The **unlabeled** sub-case (a bare
+   "489A" with no preceding label word at all) is still deliberately open — a blanket no-space-required
+   guard (the fix that worked safely for temperature) is confirmed NOT safe to generalize to V/A/W:
+   "12V"/"5A"/"60W" fused with no space is standard, common electrical-rating notation in this corpus,
+   so requiring whitespace there would silently drop real readings, a recall regression this module has
+   no way to verify without the real corpus (the original reason this was deferred, still true for this
+   narrower remaining piece). Flagged since `CHANGELOG.md` `[1.13.4]`.
 3. **Staleness-audit Tiers 2, 5, 6** — `[1.23.0]`'s reconciliation pass found Tiers 3 (dependency/CI
    hardening) and 4 (repo bloat, env vars, Windows CI) were actually done on 2026-08-18 (`8f795bc`,
    `1b3c6d8`) and simply never reconciled here — corrected. Only Tiers 2/5/6 remain genuinely unstarted (see
@@ -606,12 +613,20 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
    `hybrid.py` already does real RRF fusion of keyword (FTS) + `embed.py` semantic search, confirmed directly
    (this item predates whenever that actually shipped and was never removed once it did). R12 catalog march
    continues (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
-8. **5 more open PRs as of `[1.23.0]`, none merged yet** (each independently branched off `main`, each own
-   spec+plan under `docs/superpowers/`): `[1.18.0]` measures.py unlabeled-bare-unit case remains genuinely
-   open per its own design (needs real corpus data, not a quick fix); `[1.19.0]` home-page nav regroup;
-   `[1.20.0]` search click instrumentation + heuristic re-rank (the actual learned re-ranker model is the
-   real follow-on, gated on this merging and accumulating real click volume); `[1.21.0]` per-line OCR
-   confidence capture (per-word specifically stays open, GPU-gated); `[1.22.0]` multi-column reading-order
-   reconstruction. See each PR's own CHANGELOG entry for what's deferred within it.
+8. **Tier-2 "learned search re-ranker" — Phase 1 shipped in `[1.20.0]`, the actual learned model is still
+   open.** `[1.20.0]` corrected a false premise (the backlog item assumed click-through training data already
+   existed; it didn't — `analytics.py` only ever logged zero-result queries) and shipped both halves that
+   were actually possible now: real click instrumentation (`analytics.clicked_pages()`, a `"click"` event
+   kind, `POST /api/analytics_log` from `index.html`'s result rows) and a modest hand-tuned heuristic (a 4th
+   `search_feature.search()` stable-sort key that floats a previously-opened result — inert with zero click
+   history, by construction). The actual learned model — trained on the click log this now produces — is
+   still open, gated on accumulating enough real click volume to be worth it. See `CHANGELOG.md` `[1.20.0]`.
+9. **`[1.18.0]`–`[1.23.0]`, 6 PRs from the same session as this reconciliation, all now merged.** Beyond
+   items 2 and 8 above, each shipped its own remaining open piece: `[1.19.0]` home-page nav regroup (nothing
+   left open — self-contained UI fix); `[1.21.0]` per-line OCR confidence capture (true per-word confidence
+   stays open, gated on GPU hardware this environment can't build/verify against); `[1.22.0]` multi-column
+   reading-order reconstruction (3+ column layouts not specifically detected, and the row-alignment threshold
+   is tuned against synthetic fixtures only — worth validating against real corpus pages if mis-detections
+   ever surface). `[1.23.0]` (this entry) is documentation-only.
 
 <!-- END OF FILE -->

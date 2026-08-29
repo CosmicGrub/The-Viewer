@@ -319,8 +319,11 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
 2. **`BUILD-CONFLICTS.bat`** — first precomputed conflict-sweep run, still never run; `index/conflicts.db`
    doesn't exist yet. Optional while OCR is paused.
 3. **`measures.py`'s bare-number-fused-to-single-letter-unit ambiguity** (e.g. an RPSTL item number "489A"
-   reading as "489 Amps") — the same bug class fixed elsewhere, but broader; needs corpus-wide regression
-   testing before a safe fix. Documented since `[1.13.4]`, not yet patched by either v1.14.0 or v1.15.0.
+   reading as "489 Amps") — the **labeled** sub-case ("ITEM 489A", any bare-letter unit preceded by a
+   figure/table/item/detail/etc. reference word) is fixed as of `[1.18.0]`. The **unlabeled** sub-case
+   (a bare "489A" with no preceding label) stays open on purpose: unlike the labeled fix, a blanket
+   no-space-required guard would silently drop real "12V"/"5A"/"60W"-style fused electrical readings,
+   a recall regression with no safe way to verify without the real corpus. Documented since `[1.13.4]`.
 4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) and an automatic weekly scheduled
    task (`THE_VIEWER_WeeklyDBBackup`, via `register_snapshot_task.bat`) both shipped in v1.15.0, but neither
    has been confirmed to have actually run against the real production index on the host yet.
@@ -338,11 +341,15 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
    pass tractable at real corpus scale — 39,683 docs — trades that away deliberately).
 8. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch
    of new routes (see §6); worth a fresh audit pass.
-9. **5 open PRs as of `[1.23.0]`, none merged yet**, each independently branched off `main`: `[1.18.0]`
-   measures.py unlabeled-bare-unit case (genuinely open, needs real corpus data); `[1.19.0]` home-page nav
-   regroup; `[1.20.0]` search click instrumentation + heuristic re-rank (the actual learned model is gated on
-   this merging and accumulating real click volume); `[1.21.0]` per-line OCR confidence capture (per-word
-   stays open, GPU-gated); `[1.22.0]` multi-column reading-order reconstruction.
+9. **Tier-2 "learned search re-ranker" — Phase 1 (click instrumentation + heuristic re-rank) shipped in
+   `[1.20.0]`; the actual learned model is still open**, now that a real click-through log exists to train it
+   on (see `CHANGELOG.md` `[1.20.0]` / `HANDOFF-NOTE.md` item 8).
+10. **`[1.18.0]`–`[1.23.0]`, 6 PRs from the same session as this reconciliation, all now merged.** Beyond
+    item 9 above: `[1.18.0]` measures.py unlabeled-bare-unit case stays genuinely open (needs real corpus
+    data); `[1.19.0]` home-page nav regroup (nothing left open); `[1.21.0]` per-line OCR confidence capture
+    (per-word stays open, GPU-gated); `[1.22.0]` multi-column reading-order reconstruction (3+ column layouts
+    not specifically detected; the row-alignment threshold is tuned against synthetic fixtures only, worth
+    real-corpus validation if mis-detections surface). `[1.23.0]` (this entry) is documentation-only.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

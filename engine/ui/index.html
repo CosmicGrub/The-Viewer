@@ -45,11 +45,26 @@
   .menuwrap{position:relative;display:inline-flex}
   .menupop{position:absolute;right:0;top:calc(100% + 6px);min-width:228px;background:var(--panel);
     border:1px solid var(--line);border-radius:10px;padding:6px;z-index:60;display:flex;flex-direction:column;
-    box-shadow:0 10px 30px rgba(0,0,0,.5)}
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+    /* v1.18.0 (nav regroup): 6 labeled groups now run longer on screen than the old flat 31-item
+       list did, so an unbounded popup can run off the bottom of the viewport. This 90px constant is
+       only a PRE-JS FALLBACK (single-row header, ~52px popup top + margin) -- the real, authoritative
+       value is computed dynamically every time the menu opens (see open_() in the script block below),
+       from the Tools button's actual on-screen position. A fixed constant can't account for the header
+       wrapping to a 2nd row on a narrower viewport (adversarial review caught this: adding the My Bench
+       top-level button shifted the header's wrap point, and a hardcoded 90px under-corrects once
+       #toolsBtn itself is no longer near the viewport top) -- so JS always overrides this on open. */
+    max-height:calc(100vh - 90px);overflow-y:auto}
   .menupop a,.menupop button{display:block;width:100%;text-align:left;text-decoration:none;color:var(--sub);
     background:transparent;border:none;border-radius:7px;padding:8px 11px;font:inherit;font-weight:500;cursor:pointer;white-space:nowrap}
   .menupop a:hover,.menupop button:hover{background:var(--panel2);color:var(--txt)}
-  .menupop .msep{height:1px;background:var(--line);margin:5px 8px}
+  /* v1.18.0: group-section labels inside the Tools menu -- reuses the same uppercase/letter-spacing/
+     color:var(--sub) treatment as .col h2 (line 66), scaled down to fit a dropdown row instead of a
+     full panel header, with a hairline top border to separate groups (the old flat list's plain
+     .msep divider rule is gone -- every divider in this popup is now a labeled .mgrouplbl instead). */
+  .menupop .mgrouplbl{font-size:11px;letter-spacing:.6px;color:var(--sub);text-transform:uppercase;
+    font-weight:700;margin:0;padding:9px 11px 4px;white-space:nowrap}
+  .menupop .mgrouplbl:not(:first-child){border-top:1px solid var(--line);margin-top:5px;padding-top:9px}
   .chip{background:var(--chip);border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:12px;color:var(--sub)}
   .chip b{color:var(--txt)}
   button{font:inherit;cursor:pointer;border:none;border-radius:7px;padding:8px 13px;background:var(--accent);color:#06121f;font-weight:600}
@@ -270,38 +285,51 @@
     <!-- v0.98.0 nav consolidation: Schematics + 3D Library live INSIDE Collections now; the
          mechanic tools + admin pages live behind ONE Tools menu. Every old route still works. -->
     <a class="ghost" href="/collections" title="Smart Collections + the Schematics & 3D libraries" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">🏷 Collections</a>
+    <!-- v1.18.0 (nav regroup): My Bench promoted out of the Tools menu to a top-level header button,
+         same tier as Collections/Help -- it's a per-mechanic pinboard, not a "tool", and was getting
+         lost in a 31-item flat list. -->
+    <a class="ghost" href="/bench" title="Your pinned parts / procedures / pages" style="text-decoration:none;display:inline-flex;align-items:center;padding:6px 11px;border:1px solid var(--line);border-radius:8px;color:var(--sub)">★ My Bench</a>
     <div class="menuwrap">
       <button class="ghost" id="toolsBtn" aria-haspopup="true" aria-expanded="false" title="All mechanic tools + admin pages">🧰 Tools ▾</button>
       <div class="menupop" id="toolsPop" hidden>
-        <a href="/solve" title="Symptom → parts → how-to → tools → schematic, in one place">🛠 Solve it</a>
-        <a href="/semantic" title="Search by meaning, not just keywords (offline)">🧠 Semantic search</a>
-        <a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🔗 Related parts</a>
-        <a href="/kg" title="Explore the part↔figure↔vehicle↔procedure↔spec knowledge graph, one hop at a time (offline)">🕸 Knowledge graph</a>
-        <a href="/visual" title="Photo of a part → closest figure crops (offline)">🖼 Visual search</a>
-        <a href="/bench" title="Your pinned parts / procedures / pages">★ My Bench</a>
+        <!-- v1.18.0 (nav regroup): the old flat 31-item list (loosely broken by plain .msep dividers)
+             regrouped into 6 labeled sections. My Bench moved out to the header (see above). Every
+             other href/title/label/emoji is unchanged from before -- only the grouping changed. -->
+        <div class="mgrouplbl">Find &amp; identify</div>
         <a href="/dossier" title="Everything about one part, in one page">📋 Part dossier</a>
         <a href="/part" title="One fast pane per part: identity + dims + torque + procedure + cautions, all cited">🪪 Part page (fast)</a>
-        <a href="/measures" title="Every measured value for a part/vehicle — dimensions, torque, pressure — each cited">📐 Measurements &amp; dimensions</a>
-        <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📷 Scan (camera)</a>
-        <a href="/procedure" title="Step-by-step remove/install, tools & cautions from the manuals">🔧 How to do it</a>
+        <a href="/partdiff" title="Tell apart parts that look identical but aren't">🔍 Look-Alike Parts</a>
+        <a href="/locate" title="Where does a part show up? Every figure &amp; page that calls it out">🧭 Find a part</a>
+        <a href="/decode" title="Paste any code off a page — NSN / SMR / CAGE / MS — and see what it means">🔣 Decode a code</a>
+
+        <div class="mgrouplbl">Reference</div>
         <a href="/torque" title="Cited torque values for a part + ft-lb / in-lb / N·m converter">🔩 Torque quick-ref</a>
         <a href="/fastener" title="Thread sizes: major dia, TPI/pitch, class — UNC/UNF/metric">🪛 Fastener reference</a>
         <a href="/pmcs" title="Find Preventive Maintenance Checks &amp; Services tables by vehicle">🗓 PMCS finder</a>
-        <a href="/partdiff" title="Tell apart parts that look identical but aren't">🔍 Look-Alike Parts</a>
-        <a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a>
-        <div class="msep" role="separator"></div>
-        <a href="/jobcard" title="One printable Work Order: procedures + tools + torque + parts + figures for a task">🧾 Work Order</a>
-        <a href="/locate" title="Where does a part show up? Every figure &amp; page that calls it out">🧭 Find a part</a>
-        <a href="/coverage" title="How enriched the corpus is — OCR, CAD, vectorized figures, netlists">📈 Coverage</a>
-        <div class="msep" role="separator"></div>
-        <!-- v1.13.0 UI coherence: Diagnose & decode — pages that were palette/deep-link only -->
+        <a href="/measures" title="Every measured value for a part/vehicle — dimensions, torque, pressure — each cited">📐 Measurements &amp; dimensions</a>
+        <a href="/readiness" title="Fluids matrix + service intervals + fleet shared-parts, by vehicle">🛢 Readiness (fluids · intervals)</a>
+
+        <div class="mgrouplbl">Search modes</div>
+        <a href="/semantic" title="Search by meaning, not just keywords (offline)">🧠 Semantic search</a>
+        <a href="/visual" title="Photo of a part → closest figure crops (offline)">🖼 Visual search</a>
+        <a href="/kg" title="Explore the part↔figure↔vehicle↔procedure↔spec knowledge graph, one hop at a time (offline)">🕸 Knowledge graph</a>
+        <a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🔗 Related parts</a>
+
+        <div class="mgrouplbl">Do the work</div>
+        <a href="/solve" title="Symptom → parts → how-to → tools → schematic, in one place">🛠 Solve it</a>
+        <a href="/procedure" title="Step-by-step remove/install, tools & cautions from the manuals">🔧 How to do it</a>
         <a href="/troubleshoot" title="Symptom → checks → corrective action, straight from the fault trees">🌳 Guided troubleshooting</a>
         <a href="/ask" title="Ask a question in plain words — cited answers from the manuals (offline)">💬 Ask the manuals</a>
-        <a href="/decode" title="Paste any code off a page — NSN / SMR / CAGE / MS — and see what it means">🔣 Decode a code</a>
-        <a href="/readiness" title="Fluids matrix + service intervals + fleet shared-parts, by vehicle">🛢 Readiness (fluids · intervals)</a>
-        <a href="/binaudit" title="Scan bin/shelf NSNs → flag look-alikes &amp; superseded stock">📦 Bin / shelf audit</a>
+        <a href="/jobcard" title="One printable Work Order: procedures + tools + torque + parts + figures for a task">🧾 Work Order</a>
+        <a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a>
+        <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📷 Scan (camera)</a>
+
+        <div class="mgrouplbl">Learn &amp; audit</div>
         <a href="/learn" title="Cited multiple-choice quiz built from the manuals">🎓 Learn / quiz mode</a>
-        <div class="msep" role="separator"></div>
+        <a href="/binaudit" title="Scan bin/shelf NSNs → flag look-alikes &amp; superseded stock">📦 Bin / shelf audit</a>
+        <a href="/coverage" title="How enriched the corpus is — OCR, CAD, vectorized figures, netlists">📈 Coverage</a>
+
+        <div class="mgrouplbl">Admin</div>
         <a href="/ingest" title="Scan, index, and OCR new TMs / PDFs — no command line">➕ Add documents</a>
         <a href="/ops" title="Ops dashboard — mode, cache, runs, coverage, file audit">📊 Ops</a>
         <a href="/status" title="OCR status">🔤 OCR status</a>
@@ -437,7 +465,17 @@ if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallb
       links[i].setAttribute("href", q ? (base+"?q="+encodeURIComponent(q)) : base);
     }
   }
-  function open_(){ threadQuery(); p.hidden=false; b.setAttribute("aria-expanded","true"); }
+  function open_(){ threadQuery(); p.hidden=false; b.setAttribute("aria-expanded","true");
+    // v1.18.0 adversarial-review fix: the CSS max-height:calc(100vh - 90px) fallback (see the .menupop
+    // rule's own comment) assumes the button sits near the top of a single-row header -- but the header
+    // now carries one more permanent top-level item (My Bench), so on a narrower viewport #toolsBtn can
+    // wrap to row 2 and the popup's real on-screen top moves down with it. A fixed viewport-relative
+    // constant can't account for that; compute the true available space from the button's actual
+    // position every time the menu opens instead of guessing.
+    var rect=b.getBoundingClientRect();
+    var avail=window.innerHeight-rect.bottom-6-24;   // 6px gap (matches .menupop's top offset) + 24px bottom margin
+    p.style.maxHeight=Math.max(120,avail)+"px";       // 120px floor: never collapse the popup unusably short
+  }
   b.addEventListener("click",function(ev){ ev.stopPropagation(); p.hidden?open_():close(); });
   document.addEventListener("click",function(ev){ if(!p.hidden && !p.contains(ev.target) && ev.target!==b) close(); });
   document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && !p.hidden){ close(); b.focus(); } });

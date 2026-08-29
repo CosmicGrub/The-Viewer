@@ -600,7 +600,17 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
     if pop:
         for r in rows:
             if (r.get("nsn") or "").strip() in pop: r["boosted"] = True
-    rows.sort(key=lambda r: (0 if r.get("exact") else 1, 1 if r.get("approx") else 0, 0 if r.get("boosted") else 1))
+    # v1.20 (search-click-instrumentation): float results you've actually OPENED from a search
+    # before -- a click-through signal, distinct from popular_nsns()'s "successfully requested"
+    # signal above. Local import (not module-scope) matches this file's own existing style for
+    # analytics (routes/search.py already does a local `import analytics` before calling it).
+    import analytics
+    clicked = analytics.clicked_pages(core.INDEX_DIR)
+    if clicked:
+        for r in rows:
+            if "%s:%s" % (r.get("doc_id"), r.get("page_number")) in clicked: r["clicked"] = True
+    rows.sort(key=lambda r: (0 if r.get("exact") else 1, 1 if r.get("approx") else 0,
+                             0 if r.get("boosted") else 1, 0 if r.get("clicked") else 1))
     con.close(); return rows
 
 

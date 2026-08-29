@@ -341,6 +341,9 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
    pass tractable at real corpus scale — 39,683 docs — trades that away deliberately).
 8. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch
    of new routes (see §6); worth a fresh audit pass.
+9. **Tier-2 "learned search re-ranker" — Phase 1 (click instrumentation + heuristic re-rank) shipped in
+   v1.20.0; the actual learned model is still open**, now that a real click-through log exists to train it
+   on (see `CHANGELOG.md` `[1.20.0]` / `HANDOFF-NOTE.md` item 8).
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

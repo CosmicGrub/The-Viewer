@@ -609,5 +609,13 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
    still never run) and `BUILD-MEASURES`/`BUILD-MASTERFILE` refreshes on the grown text layer.
 7. Real semantic embeddings + hybrid ranking; R12 catalog march continues
    (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
+8. **Tier-2 "learned search re-ranker" — Phase 1 shipped in v1.20.0, the actual learned model is still
+   open.** v1.20.0 corrected a false premise (the backlog item assumed click-through training data already
+   existed; it didn't — `analytics.py` only ever logged zero-result queries) and shipped both halves that
+   were actually possible now: real click instrumentation (`analytics.clicked_pages()`, a `"click"` event
+   kind, `POST /api/analytics_log` from `index.html`'s result rows) and a modest hand-tuned heuristic (a 4th
+   `search_feature.search()` stable-sort key that floats a previously-opened result — inert with zero click
+   history, by construction). The actual learned model — trained on the click log this now produces — is
+   still open, gated on accumulating enough real click volume to be worth it. See `CHANGELOG.md` `[1.20.0]`.
 
 <!-- END OF FILE -->

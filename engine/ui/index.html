@@ -100,6 +100,7 @@
   .badge.approx{background:#2f3a2a;color:#c9e6a0}
   .conf.high{background:#1e3324;color:#7fd6a0}.conf.verify{background:#3a301a;color:#e8c07a}.conf.low{background:#3a2020;color:#e6a0a0}
   .badge.fav{background:#3a3320;color:#ecdca0}
+  .badge.opened{background:#20323a;color:#a0d4ec}
   .snip{color:#cfd6df;font-size:13px;line-height:1.45}
   .snip mark{background:var(--mark);color:#ffe9a8;padding:0 2px;border-radius:2px}
   .rowbtns{margin-top:8px;display:flex;gap:8px}
@@ -1373,6 +1374,7 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
     const snip=esc(r.snip||"").replaceAll("&lt;&lt;","<mark>").replaceAll("&gt;&gt;","</mark>");
     d.innerHTML='<div class="meta"><span class="badge vbadge" title="Open vehicle breakdown">'+esc(r.vehicle||"?")+'</span>'+
       (r.boosted?'<span class="badge fav" title="Requested before">★ requested</span>':'')+
+      (r.clicked?'<span class="badge opened" title="Opened from a search result before">↺ opened before</span>':'')+
       '<span class="badge ty">'+esc(classifyType(r))+'</span>'+
       (r.tm_number?'<span class="badge tm">'+esc(r.tm_number)+'</span>':'')+
       (r.nsn?'<span class="badge">NSN '+esc(r.nsn)+'</span>':'')+
@@ -1381,18 +1383,31 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
       (r.approx?('<span class="badge approx" title="Matched via '+esc(r.matched_via||"synonym")+': \''+esc(r.matched_term||"")+'\' — not a literal match on your exact words">≈ approx</span>'):'')+'</div>'+
       '<div class="snip">'+snip+'</div>'+
       '<div class="rowbtns"><button class="ghost vbtn">📄 View page</button><button class="ghost abtn">+ Add to request</button></div>';
-    d.querySelector(".vbtn").onclick=ev=>{ev.stopPropagation();openViewer(r);};
+    d.querySelector(".vbtn").onclick=ev=>{ev.stopPropagation();logResultClick(r,rows);openViewer(r);};
     var vb=d.querySelector(".vbadge"); if(vb&&r.vehicle){vb.style.cursor="pointer";vb.onclick=ev=>{ev.stopPropagation();openVehicle(r.vehicle);};}
     d.querySelector(".abtn").onclick=ev=>{ev.stopPropagation();addItem(r);};
     // background tagging: a quiet pencil marks an NSN-bearing result as tag-able (your words feed search)
     if(r.nsn && window.Tagger){ const tg=Tagger.button({nsn:r.nsn, name:(r.item_name||"")}); const rb=d.querySelector(".rowbtns"); if(rb) rb.appendChild(tg); }
-    d.onclick=()=>openViewer(r);
+    d.onclick=()=>{logResultClick(r,rows);openViewer(r);};
     // Hover-prefetch: warm the page render the moment the cursor lands on a result, so the click opens
     // instantly (served from browser cache + the server's page-render disk cache). Debounced + de-duped.
     var _pfT=0;
     d.addEventListener("mouseenter",function(){ _pfT=setTimeout(function(){ prefetchResult(r); },120); });
     d.addEventListener("mouseleave",function(){ if(_pfT) clearTimeout(_pfT); });
     box.appendChild(d);});
+}
+// v1.20 (search-click-instrumentation): fire-and-forget beacon logging which result (by rank in the
+// CURRENTLY RENDERED list, 0-indexed) got opened for which query -- the click-through signal
+// search_feature.search() reads back via analytics.clicked_pages() to float previously-opened
+// results (r.clicked / the "↺ opened before" badge above). "rows" (renderList's own parameter, NOT
+// the outer `shown` var, which it shadows) is passed in explicitly so rank always matches what's
+// actually on screen. Wrapped in try/catch, never awaited -- can never block the click it's attached to.
+function logResultClick(r,rows){
+  try{
+    var rk=(rows||[]).indexOf(r);
+    window.fetch("/api/analytics_log",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({kind:"click",key:(LAST_QUERY||""),doc:r.doc_id,page:r.page_number,rank:(rk>=0?rk:null)})});
+  }catch(_){}
 }
 // Prefetch the exact /page URL openViewer→loadPage will request for this result (default zoom, default
 // highlight). Each (doc,page) is fetched at most once per session; a hidden Image() primes the HTTP cache.

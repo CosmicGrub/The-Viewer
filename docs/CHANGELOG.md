@@ -12,6 +12,125 @@ every change going forward.
 
 ---
 
+## [1.23.0] — 2026-08-25 — Reconcile CHANGELOG.md against 11 more undocumented commits (2026-08-18 → 08-24)
+
+A second reconciliation pass, same root cause the [1.15.0] entry already names at length: real work landed on
+`main` without a matching entry here. This batch is smaller than that one (11 commits vs. 30) but was hiding
+in plain sight — `5116324` (folded into [1.15.0]'s own commit range, see below) **explicitly names 4 of these
+11 commits as "a real R4 violation... flagged for a following pass"**, and that following pass never
+happened until now. Found via a fresh commit-vs-changelog audit (every non-merge, non-doc commit on `main`,
+cross-checked for sha citation or narrative coverage), not a routine check — prompted by tracing why
+`HANDOFF-NOTE.md`'s "5 Medium-tier findings deliberately deferred" list still named a CAD-mesh-dedup item
+that turned out to already be fixed. Every commit below was verified directly: its own diff read in full, and
+its shipped code confirmed still present in the current tree (not superseded or reverted by later work).
+`docs/HANDOFF-NOTE.md`/`PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` still need their own follow-up pass to
+drop the now-resolved items this entry closes (tracked below, matching [1.15.0]'s own precedent of
+reconciling `CHANGELOG.md` first and the three hand-off docs separately). **`VERSION` → `1.23.0`.**
+
+### Reconciled — Viewer Drift Report, Tiers 3 & 4 (`8f795bc`, `1b3c6d8`; 2026-08-18 08:41 / 10:30)
+- **Tier 3 — dependency & CI hardening** (`8f795bc`): `requirements.txt` version-bounded (`pymupdf<2`,
+  `numpy<3`, etc. — no forced downgrades against what was already installed, verified via
+  `pip install --dry-run` before committing); `.github/workflows/ci.yml` gained the Python 3.12/3.13/3.14
+  matrix this project's CI has run under ever since (verified the 3.14 leg specifically had never been tested
+  locally at all — no 3.14 interpreter existed on the dev machine at the time — making this genuinely the
+  first real test of it, live).
+- **Tier 4 — repo bloat, env vars, Windows CI** (`1b3c6d8`): deleted 147 redundant per-diagram `_preview.png`
+  files plus a duplicated, unused `mermaid.min.js`/`viewer.html` pair (27MB → 9.9MB repo size); added the
+  `SYSTEM-REQUIREMENTS.md` "Environment variables" section that's been cited by name elsewhere in this file
+  ever since; added the `test-windows` CI job. This is HANDOFF-NOTE.md's own "Staleness-audit Tiers 2–6 …
+  not yet started" item — **Tiers 3 and 4 specifically were already done**, just never reconciled here; only
+  Tiers 2/5/6 remain genuinely unstarted (see docs/audit/ + the Viewer Drift Report artifact for what those
+  cover).
+
+### Reconciled — CI-matrix fallout + audit-followup hardening (`4592117`, `37d909b`; 2026-08-18 10:57 / 14:12)
+- **Two real bugs the new matrix surfaced** (`4592117`): `ingest_preview()` compared an un-normalized path
+  against a `realpath()`-resolved one, failing on Windows junction points the new Windows CI leg actually
+  exercises; a process-group-kill test asserted a POSIX guarantee ("grandchild also dies") that was never
+  actually true there — rewritten to assert the real, platform-specific guarantee (strong on Windows, weaker
+  documented behavior on POSIX) instead of a guarantee that only happened to hold on the dev machine.
+- **CAD mesh dedup + 2 more shared-helper consolidations, plus a full 6-angle xhigh review pass** (`37d909b`):
+  `cad_render.py`'s and `dimscad.py`'s duplicate hand-rolled `_box()` builders now share one implementation,
+  `engine/cad_mesh.py` (`box_mesh()`) — **this is the exact item `HANDOFF-NOTE.md`'s "5 Medium-tier findings
+  deliberately deferred from the v1.14.0 audit" list still names as open; it has been fixed since 2026-08-18
+  and was simply never reconciled.** Same commit also unified `kg.py`'s/`build_publog.py`'s near-identical
+  atomic SQLite build-and-swap scaffolds into `safeguard.atomic_sqlite_build()` (the review pass caught
+  `build_rpstl.py` had the identical unmigrated pattern and migrated it too, so all three sidecar builders
+  now share one crash-safety contract), consolidated `ocr_supervisor.py`'s and `run_timeout.py`'s duplicate
+  process-tree-kill logic into `engine/proctree.py`, and split `viewer_ingest.py`'s OCR lock-acquire timeout
+  from its full page timeout (a busy-but-healthy lock now fails fast in ≤20s instead of burning most of a
+  page's own 120s deadline queued behind it) — the review pass caught the two timeouts had no cross-check, so
+  a tight page timeout could let the lock timeout outlive it; now clamped.
+
+### Reconciled — v1.13.6: bare-callout temperature guard + null-vs-zero OCR average (`5928d59`; 2026-08-24)
+- This commit's own message calls itself "v1.13.6" — no such section ever existed here (the sequence jumped
+  `[1.13.5]` → `[1.14.0]` directly). Rather than retroactively splice a `[1.13.6]` section into already-
+  shipped, already-numbered history, it's reconciled here under the current version instead, same as every
+  other commit in this entry — this is the origin of the `_CALLOUT` guard `[1.18.0]`'s (now `[1.20.0]`'s,
+  see that entry's own version-collision note) generalization work built directly on top of.
+- `measures.py` gained the original `_CALLOUT` regex guard (a document-structure word — figure/table/degree
+  callouts like "FIGURE 5 C" — immediately before a bare number+letter stops it from misreading as a
+  temperature), with 6 callout-case tests plus 1 regression case proving a real temperature still extracts.
+- `coverage.py`: `AVG(ocr_confidence)` was computed even when zero pages had ever been scored, and this
+  project's `scalar()` helper swallows the resulting SQL exception down to `0` — indistinguishable from a
+  real, catastrophic confidence average. Gated the `AVG` query on the scored-count so both "never migrated"
+  and "nothing scored yet" correctly read as `null`, not a fabricated zero.
+
+### Reconciled — CI/test-infra fix chain, 6 commits (`86e4304` → `c0da558`; 2026-08-24 15:38 → 16:06)
+One continuous ~30-minute live-CI debugging session, each commit diagnosing exactly what the previous one's
+fix newly revealed — not batched after the fact, reconciled here as the sequence it actually was:
+1. `86e4304` — `test_ingest_routes.py`'s `.bat`-subprocess checks called `cmd` directly with no `os.name`
+   guard; Ubuntu CI has no `cmd`, so the whole file aborted with `FileNotFoundError` before any of its other
+   checks could run. Guarded the same way `test_features.py`/`test_ocr_supervisor.py` already do.
+2. `f3bae71` — `verify_all.py` tailed every suite's output to its last 3 lines regardless of pass/fail, so a
+   failing suite's own named `PASS`/`FAIL` lines (which say what broke) were silently discarded, not just
+   unprinted — the exact gap that made the next 4 commits' diagnosis possible once fixed. Compact tail kept
+   for a passing suite; full output printed for a failing one.
+3. `b6f115c` — with real output finally visible, root cause of 5 failing OCR-content checks across all 4
+   matrix legs: CI installed `pytesseract` (a subprocess wrapper) but never the actual `tesseract` binary it
+   wraps — the call doesn't raise, it just returns empty text, so everything downstream of "OCR produced real
+   content" failed instead of erroring. The dev machine already had tesseract installed system-wide, masking
+   this in every local repro attempt. Installs the real binary via `apt`/`choco` on both runners.
+4. `91b6bbf` — same 5 checks still failed after the binary was installed (OCR now genuinely ran, just
+   garbled): both real-OCR test fixtures hardcoded `arial.ttf`, which resolves on Windows (including this
+   project's own dev machine) but not Linux, silently falling back to a bitmap font too thin to OCR back
+   cleanly. Shared `_ocr_test_font()` helper added: Windows Arial → Linux DejaVuSans-Bold/DejaVuSans by
+   absolute path → macOS Arial by absolute path → `load_default()` as the final fallback.
+5. `9e2101c` — down to 1 failing check (`fts_content_hits >= 5`), landing exactly at the floor's own edge
+   locally too (5/6). Rather than guess at a new threshold, embedded the real N/6 count in the check's own
+   name so a future failure shows the real number directly instead of requiring another instrument-and-rerun
+   round trip.
+6. `c0da558` — the embedded count answered its own question: CI's Ubuntu tesseract (5.3.4) + the DejaVu
+   fallback font reproducibly lands at 4/6, not a flake. Recalibrated the floor to `>=4` — the check's real
+   intent (the FTS trigger stays in sync with real OCR content after the pagetrim post-pass) is just as well
+   proven by 4-of-6 as by 5-of-6; the original floor was accidentally coupled to one specific engine/font
+   combination's exact accuracy, which was never the point.
+
+### Noted, not fixed — `5116324`'s mechanism was folded into [1.15.0] without its own citation
+`5116324` ("Wire real OCR-engine confidence into the quality-flag system," 2026-08-19 05:04, inside
+[1.15.0]'s own `c147614`→`9b0e5b9` commit range) is the commit that actually threads `pages.ocr_confidence`
+through `features/corpus.py`'s `fts_pages()` into `textquality.annotate()`'s conservative blend (real
+confidence can only pull a heuristic "clean" call down, never raise a "poor" one) — but [1.15.0]'s own prose
+describes different files under its "OCR confidence threaded end-to-end" theme (UI badge tooltips,
+`torque.html`/`measures.html`) and never names this specific mechanism or commit. Not re-opening or amending
+that already-shipped entry; noted here for the historical record, since this is the exact commit whose own
+message flagged the 4-commit gap this entry closes above.
+
+### Verified
+- Every commit's shipped code confirmed present in the current tree directly (not assumed from the commit
+  message): `engine/cad_mesh.py` + both `_box()` delegates, `safeguard.atomic_sqlite_build()`,
+  `engine/proctree.py`, `viewer_ingest.py`'s `OCR_LOCK_TIMEOUT_SECONDS` clamp, `requirements.txt`'s version
+  bounds, the CI matrix + tesseract-binary install steps, `_ocr_test_font()`'s fallback chain, the `>=4` FTS
+  floor, `measures.py`'s `_CALLOUT` guard, `coverage.py`'s scored-count gate.
+- `python -m py_compile` clean on every file this entry's reconciled commits touch (spot-checked; none of
+  this pass's own edits touch code, only `docs/CHANGELOG.md`).
+- `python engine/build_iteration_snapshot.py` — R10 integrity OK, all changelog versions present in the
+  snapshot after this entry's addition.
+
+### Compatibility (R1)
+- Documentation-only change. No code, no schema, no route, no test file touched by this entry itself — every
+  fix it documents already shipped to `main` between 2026-08-18 and 2026-08-24 and has been running in
+  production (such as it is) ever since.
+
 ## [1.17.0] — 2026-08-24 — Vision-Language Page QA: Phase 2 (structured extraction, verification, batch tool, Masterfile integration — catalog §10.1 + §3.12)
 
 Closes out the plan [1.16.0] deliberately deferred (items 10–17 of `docs/superpowers/plans/2026-08-24-

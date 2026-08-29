@@ -582,17 +582,19 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
 2. **`measures.py`'s deferred bare-unit-fusion ambiguity** (item "489A" reading as "489 Amps") — still open;
    needs corpus-wide regression testing before a safe fix; flagged since `CHANGELOG.md` `[1.13.4]`, not
    touched by v1.14.0 or v1.15.0.
-3. **Staleness-audit Tiers 2–6** — the "Viewer Drift Report" `3054dad` only partly addresses (Tier 1):
-   dependency-version hardening, further documentation reconciliation, and repo-bloat cleanup are tracked
-   separately and not yet started (see `docs/audit/` + the Viewer Drift Report artifact). Note this is a
-   DIFFERENT deferred-items list from the "5 deferred items" v1.15.0 closed (item 4 below, and distinct again
-   from item 5's audit-reachability findings) — three separate tracking threads with similar names, easy to
+3. **Staleness-audit Tiers 2, 5, 6** — `[1.23.0]`'s reconciliation pass found Tiers 3 (dependency/CI
+   hardening) and 4 (repo bloat, env vars, Windows CI) were actually done on 2026-08-18 (`8f795bc`,
+   `1b3c6d8`) and simply never reconciled here — corrected. Only Tiers 2/5/6 remain genuinely unstarted (see
+   `docs/audit/` + the Viewer Drift Report artifact for what those cover). Note this is a DIFFERENT
+   deferred-items list from the "5 deferred items" v1.15.0 closed (item 4 below, and distinct again from
+   item 5's audit-reachability findings) — three separate tracking threads with similar names, easy to
    conflate.
 4. **5 Medium-tier findings deliberately deferred from the v1.14.0 audit** (see `CHANGELOG.md` `[1.14.0]`,
-   Medium-tier entry) plus that tier's own duplicated `_box()` CAD mesh-builder cleanup — each with recorded
-   reasoning at the commit that deferred it. (Not the same "5 deferred items" as v1.15.0's — those were
-   tables_plus-stitch/Office-formats/dedup/symbols/pagetrim, flagged by a later, separate audit, and are now
-   CLOSED.)
+   Medium-tier entry) — the tier's own duplicated `_box()` CAD mesh-builder cleanup this item used to also
+   list was fixed on 2026-08-18 (`37d909b`, which also consolidated two more duplicated helpers and split
+   the OCR lock timeout) and reconciled in `[1.23.0]`; removed from this line. (Not the same "5 deferred
+   items" as v1.15.0's — those were tables_plus-stitch/Office-formats/dedup/symbols/pagetrim, flagged by a
+   later, separate audit, and are now CLOSED.)
 5. **v1.15.0's own deliberately-deferred items**: `camelot_tables()` (3rd table-extraction engine pilot)
    stays unwired into `/api/tables_plus` — a documented cv2/opencv-python binary-collision risk on version
    skew, not just unmeasured benefit; `dedup.py` cross-TM-family duplicates aren't caught by design (the
@@ -600,7 +602,16 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
 6. Confirm the new weekly DB-backup scheduled task (v1.15.0) is actually registered and has fired on the real
    host (see "RUN THESE ON THE HOST" item 4); complete OCR → re-index; run `BUILD-CONFLICTS.bat` (first sweep,
    still never run) and `BUILD-MEASURES`/`BUILD-MASTERFILE` refreshes on the grown text layer.
-7. Real semantic embeddings + hybrid ranking; R12 catalog march continues
-   (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
+7. ~~Real semantic embeddings + hybrid ranking~~ — **stale, corrected in `[1.23.0]`'s reconciliation pass**:
+   `hybrid.py` already does real RRF fusion of keyword (FTS) + `embed.py` semantic search, confirmed directly
+   (this item predates whenever that actually shipped and was never removed once it did). R12 catalog march
+   continues (`docs/EXTRACTION-METHODS-CATALOG.md` — next cheapest uncaptured methods).
+8. **5 more open PRs as of `[1.23.0]`, none merged yet** (each independently branched off `main`, each own
+   spec+plan under `docs/superpowers/`): `[1.18.0]` measures.py unlabeled-bare-unit case remains genuinely
+   open per its own design (needs real corpus data, not a quick fix); `[1.19.0]` home-page nav regroup;
+   `[1.20.0]` search click instrumentation + heuristic re-rank (the actual learned re-ranker model is the
+   real follow-on, gated on this merging and accumulating real click volume); `[1.21.0]` per-line OCR
+   confidence capture (per-word specifically stays open, GPU-gated); `[1.22.0]` multi-column reading-order
+   reconstruction. See each PR's own CHANGELOG entry for what's deferred within it.
 
 <!-- END OF FILE -->

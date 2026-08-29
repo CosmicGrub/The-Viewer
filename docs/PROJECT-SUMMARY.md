@@ -327,17 +327,22 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
 5. **OCR completion** — confirmed **94.4%** as of the v1.13.4 session; not re-checked during either the
    v1.14.0 or v1.15.0 sessions, both code-quality/feature passes rather than ingestion runs — check current %
    via `/command` or `/status` before assuming fully finished either way.
-6. **Tiers 2–6 of the separate staleness Drift Report** (dependency-version-bound hardening, further doc
-   reconciliation beyond each pass, and repo-bloat cleanup) — the Tier-1 pass (`3054dad`) is only the first
-   tier of that audit; the rest is tracked separately and not yet started. This is a DIFFERENT tracking thread
-   from item 7 below and from the v1.14.0 Medium-tier deferred findings — see `HANDOFF-NOTE.md`'s "Suggested
-   next" for the full disambiguation.
+6. **Tiers 2, 5, 6 of the separate staleness Drift Report** — `[1.23.0]`'s reconciliation found Tiers 3
+   (dependency/CI hardening, `8f795bc`) and 4 (repo bloat/env vars/Windows CI, `1b3c6d8`) were actually done
+   on 2026-08-18 and simply never reconciled here; corrected. Only 2/5/6 remain genuinely unstarted. This is
+   a DIFFERENT tracking thread from item 7 below and from the v1.14.0 Medium-tier deferred findings — see
+   `HANDOFF-NOTE.md`'s "Suggested next" for the full disambiguation.
 7. **v1.15.0's own deliberately-deferred items:** `camelot_tables()` (3rd table-extraction engine pilot) stays
    unwired into `/api/tables_plus` — a documented cv2/opencv-python binary-collision risk on version skew;
    `dedup.py` cross-TM-family duplicates aren't caught by design (the TM-family blocking that makes the O(n²)
    pass tractable at real corpus scale — 39,683 docs — trades that away deliberately).
 8. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch
    of new routes (see §6); worth a fresh audit pass.
+9. **5 open PRs as of `[1.23.0]`, none merged yet**, each independently branched off `main`: `[1.18.0]`
+   measures.py unlabeled-bare-unit case (genuinely open, needs real corpus data); `[1.19.0]` home-page nav
+   regroup; `[1.20.0]` search click instrumentation + heuristic re-rank (the actual learned model is gated on
+   this merging and accumulating real click volume); `[1.21.0]` per-line OCR confidence capture (per-word
+   stays open, GPU-gated); `[1.22.0]` multi-column reading-order reconstruction.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

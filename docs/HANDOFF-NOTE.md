@@ -1,20 +1,35 @@
-# THE VIEWER — Handoff Note (reconciled 2026-08-24)
+# THE VIEWER — Handoff Note (reconciled 2026-08-30)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
-> **Reconciliation note (2026-08-30):** while re-running host-side follow-up items (backupdb, the weekly
-> backup task, `BUILD-CONFLICTS.bat`) directly on the real host, found and fixed a critical, previously
-> undiscovered bug: the real `index/viewer.db` was missing 4 schema migrations (0009–0012), silently
-> breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) with no test ever catching
-> it (the suite runs against a synthetic fixture DB, never the real corpus). Fixed via the already-built
-> `python viewer_ingest.py migrate` (auto-backs up, applies atomically); confirmed live and via a clean
-> `verify_all.py` re-run. See "RUN THESE ON THE HOST" item 5 below and `CHANGELOG.md` `[1.25.0]` for full
-> detail, including a real follow-up this surfaced in `build_conflicts.py`'s subject-scoping that is
-> deliberately NOT fixed yet. Also completed this pass: the weekly DB-backup task (registered + test-fired,
-> did not exist before), a real `backupdb` run, and `BUILD-CONFLICTS.bat`'s first-ever real run. `main` is
-> at `[1.25.0]`; `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
+> **Reconciliation note (2026-08-30, second pass):** the `build_conflicts.py`/`conflicts.py` follow-up
+> the note below flagged as "deliberately NOT fixed yet" is now fixed, in `[1.26.0]` — and its own first
+> attempt needed a second pass. Pass 1 grouped `conflicts.detect()` by `(type, unit, vehicle)` to stop
+> unrelated vehicles' naturally-different specs pooling into a false "conflict"; adversarial review
+> caught it silently DROPPING a genuine cross-manual disagreement whenever the same real vehicle was
+> filed under two different ingest-folder spellings (confirmed live: a real 35-vs-50-ft-lb torque
+> conflict returned `[]`) — reverted before merge. Pass 2 (shipped) restores byte-identical recall to
+> the pre-bug code and annotates each conflict with `vehicle`/`vehicles`/`cross_vehicle` instead of
+> filtering by it. Re-swept for real against production: 1548 conflicts unchanged (recall confirmed
+> unregressed), 5,071 now marked `cross_vehicle: true`, 1,466 `cross_vehicle: false`. Genuinely still
+> open: `engine/ui/part.html` doesn't yet read any of the new fields (available via the API, not yet
+> shown to a technician) — see `CHANGELOG.md` `[1.26.0]` and item 9 below for the full story and the
+> remaining, lower-priority disclosed limitations. `main` is at `[1.26.0]`;
+> `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
+>
+> **Reconciliation note (2026-08-30, first pass):** while re-running host-side follow-up items
+> (backupdb, the weekly backup task, `BUILD-CONFLICTS.bat`) directly on the real host, found and fixed a
+> critical, previously undiscovered bug: the real `index/viewer.db` was missing 4 schema migrations
+> (0009–0012), silently breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) with
+> no test ever catching it (the suite runs against a synthetic fixture DB, never the real corpus). Fixed
+> via the already-built `python viewer_ingest.py migrate` (auto-backs up, applies atomically); confirmed
+> live and via a clean `verify_all.py` re-run. See "RUN THESE ON THE HOST" item 5 below and
+> `CHANGELOG.md` `[1.25.0]` for full detail. Also completed this pass: the weekly DB-backup task
+> (registered + test-fired, did not exist before), a real `backupdb` run, and `BUILD-CONFLICTS.bat`'s
+> first-ever real run — the real follow-up that run surfaced in `conflicts.py`'s subject-scoping is
+> covered by the second-pass note directly above, not repeated here.
 >
 > **Reconciliation note (2026-08-24):** this file had gone stale again — pinned to v1.14.0/2026-08-18 while
 > `CHANGELOG.md` had moved on to **v1.15.0** (2026-08-19), a 30-commit, ~25-hour session (2026-08-18 20:40 →
@@ -665,5 +680,13 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
    reading-order reconstruction (3+ column layouts not specifically detected, and the row-alignment threshold
    is tuned against synthetic fixtures only — worth validating against real corpus pages if mis-detections
    ever surface). `[1.23.0]` (this entry) is documentation-only.
+10. **`[1.26.0]`'s own genuinely open follow-up: wire `engine/ui/part.html`'s conflict card to show the
+    new `cross_vehicle`/`vehicles` fields.** The data is computed and returned by `/api/conflicts` (and
+    the sort already puts confirmed single-vehicle conflicts ahead of ambiguous ones), but the UI itself
+    still renders every conflict identically — a technician has no way to see "this spans 3 different
+    vehicles, verify before trusting it" without reading the raw JSON. A small, well-scoped UI task: add
+    a caveat badge/line when `cross_vehicle: true`. Lower-priority, also open: the citation-completeness
+    quirk and the "vehicle is a raw folder name, not a curated identity" limitation, both disclosed in
+    `conflicts.py`'s own docstring (see `CHANGELOG.md` `[1.26.0]`).
 
 <!-- END OF FILE -->

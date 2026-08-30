@@ -1,12 +1,15 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.25.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.26.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), and updated again 2026-08-30 after a critical real-host fix — 4 pending schema
+re-audit (`[1.24.0]`), updated again 2026-08-30 after a critical real-host fix — 4 pending schema
 migrations were never applied to production, silently breaking measures/ask/cautions/pmcs/oneuse
-(`[1.25.0]`) — see the reconciliation notes below and §8 item 12). This document + `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
+(`[1.25.0]`) — and updated once more the same day after `conflicts.py`'s cross-vehicle false-positive
+fix, which itself needed two implementation passes after adversarial review caught a safety regression
+in the first (`[1.26.0]`) — see the reconciliation notes below and §8 items 12–13). This document +
+`docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
 rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session hand-off) are everything a new machine —
@@ -370,13 +373,27 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     silently breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) — nothing else
     caught it because the test suite runs against a synthetic fixture DB with the correct schema. Fixed via
     `python viewer_ingest.py migrate` (auto-backs up first, applies atomically); confirmed live
-    (`find_for_query('torque')`: 0 → 26 real cited results). **New follow-up surfaced while fixing this**:
-    `BUILD-CONFLICTS.bat`'s real first-ever sweep found data (unlike the pre-fix vacuous "0 conflicts"
-    run), but its 1548-of-2000-subjects "conflict" rate is inflated by generic, corpus-wide subject
-    phrases (e.g. "WINCH INSTALLATION") pooling unrelated values from different vehicles/manuals under one
-    subject string — `conflicts.check_query()` has no per-document/per-part disambiguation. Not fixed in
-    `[1.25.0]`; the precomputed sidecar this produced should not be treated as a trustworthy safety-conflict
-    list until that scoping gap is addressed. See `CHANGELOG.md` `[1.25.0]` for full detail.
+    (`find_for_query('torque')`: 0 → 26 real cited results). ~~**New follow-up surfaced while fixing
+    this**: `BUILD-CONFLICTS.bat`'s real first-ever sweep found data..., but its 1548-of-2000-subjects
+    "conflict" rate is inflated by generic, corpus-wide subject phrases pooling unrelated values from
+    different vehicles/manuals under one subject string~~ — **FIXED, `[1.26.0]`, see item 13 below.**
+13. **`[1.26.0]` — fixed `conflicts.py`'s cross-vehicle false positives, in two passes** (Pass 1's own
+    design was caught introducing a safety regression by adversarial review before it shipped, and
+    reverted in favor of Pass 2 — see `CHANGELOG.md` `[1.26.0]` for the full story). Pass 2 restores
+    byte-identical recall to the pre-bug code and annotates each conflict with `vehicle`/`vehicles`/
+    `cross_vehicle` instead of filtering by it, so nothing is ever silently dropped. Re-swept for real
+    against production: 1548 conflicts unchanged (confirms recall didn't regress), **5,071 now correctly
+    marked `cross_vehicle: true`** (ambiguous, needs human confirmation) vs **1,466 marked
+    `cross_vehicle: false`** (confirmed single-vehicle). **Genuinely still open**: `engine/ui/part.html`
+    does not yet read any of the new fields — the distinction is available via `/api/conflicts` but not
+    yet visible to a technician looking at `/part`. A cheap, well-scoped next step (surface a "⚠ spans N
+    vehicles, verify before trusting" caveat on `cross_vehicle: true` conflicts in that page). Also
+    genuinely open, lower priority: a pre-existing citation-completeness quirk (conflicts.py's citation
+    list dedups by distinct value, not by doc, so a vehicle named in a conflict's `vehicles` list can
+    have zero backing citation in `values`) and the underlying fact that `vehicle` is a raw ingest-folder
+    name, not a curated identity, so `cross_vehicle: false` can still in principle mean "two different
+    real vehicles filed under the same broad folder" (e.g. "WORK", ~65% of the corpus) — both disclosed
+    in `conflicts.py`'s own docstring, neither fixed.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

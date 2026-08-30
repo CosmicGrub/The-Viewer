@@ -12,6 +12,78 @@ every change going forward.
 
 ---
 
+## [1.29.0] — 2026-08-30 — Build Roadmap "Now" tier: dead focus outline, doubled fuzzy scans, missing modal traps/alt text/ARIA, 3 real WCAG failures
+**VERSION → `1.29.0`.** All 6 "Now" items from the Build Roadmap (the companion to the production-
+readiness dossier, scoped by a second research pass with real benchmarks and a real WCAG audit run on
+this host) — every fix independently re-verified live against the real running app before shipping,
+not trusted from the roadmap's own claims.
+
+- **Keyboard focus was silently invisible on the home page — and several accent colors were dropping
+  with it.** `engine/ui/index.html` duplicates its own `:root` token block instead of loading
+  `base.css` (a deliberate legacy-tier tradeoff, not new), but that duplicate never defined `--acc` —
+  only `--accent`, its own separate name for the identical blue. The page's `:focus-visible` rule (and
+  several hover/pinned/card-accent rules) reference `var(--acc)` with no fallback, so every one of them
+  was silently invalid. Confirmed live via `getComputedStyle()` before fixing, same after: `--acc` now
+  defined alongside `--accent`.
+- **The exact same bug, worse: `--grn`/`--amb`/`--red`/`--teal`/`--pur` were never defined on the home
+  page at all.** Confirmed live: `var(--grn)`/`var(--teal)`/`var(--amb)` were each silently resolving to
+  the inherited body text color, not amber/green/teal — the operator/mechanic side-of-house badges, the
+  "Saved" correction confirmations, and the chapter-count status text were rendering in plain white, not
+  the color their own markup asked for. Restored the full `base.css` token set into `index.html`'s copy.
+- **3 real WCAG AA contrast failures, now measured and fixed, not spot-checked.** Once the tokens above
+  were restored to their true values, three TEXT usages still measured below the 4.5:1 AA floor against
+  their real backgrounds (computed directly from the app's own hex values, then re-confirmed live via
+  `getComputedStyle()` + the same contrast formula in-browser): `--red` as the barcode-vs-OCR NSN
+  mismatch warning text is `4.02:1` against `--panel2`; `--grn` as the part-match "Saved" confirmation
+  is `2.98:1` against `--panel2`; `--grn` as the side-of-house "operator" badge / chapter-count status is
+  `3.36:1` against `--panel`. Fix: two new lightened, text-only siblings — `--grn-tx:#4fae7a` (5.49:1 /
+  6.18:1 against panel2/panel) and `--red-tx:#ec7a74` (5.44:1 against panel2) — added to both
+  `base.css` and `index.html`'s own copy; the original `--grn`/`--red` are untouched and still correct
+  for every existing border/background use (which only needs the lower 3:1 non-text floor). New
+  regression guard in `engine/verify_ui.py` computes these exact ratios from the live CSS on every run,
+  so a future hex change that breaks AA again fails the build instead of shipping silently.
+- **A fuzzy search query was scanning the vocabulary for the same word 2–3 times.** `fuzzy_terms()` is a
+  real scan against `pages_vocab` (5–49ms measured per word on the live corpus, not free) —
+  `search_feature.py`'s `build_match()` (via `_alts()`) and `_token_alts()` each called it fresh on the
+  identical tokens within one `search()` request, unconditionally doubling (sometimes tripling, via the
+  nomenclature-widening variant pass) the cost of every fuzzy query for zero behavior difference. Fixed
+  with a request-scoped `fuzzy_cache` dict, created once per `search()` call and threaded through every
+  `build_match()`/`_alts()`/`_token_alts()` call in that request — `fuzzy_cache=None` (the default for
+  any caller that doesn't opt in) preserves the exact old always-fresh behavior, so this is purely
+  additive. `core_pillars.py`'s own independent, never-imported-by-production mirror of this code is
+  deliberately untouched. New `engine/tests/test_search_fuzzy_cache.py` (8 checks) proves the mechanism
+  directly — counting real calls to the underlying scan, not just "search() doesn't crash" — first
+  showing the old pattern really does double-count, then showing the new pattern doesn't.
+- **The home page's 5 real modals had `aria-modal="true"` and no actual focus trap.** A keyboard or
+  screen-reader user tabbing through `#sidegate`/`#pnreview`/`#overlay`/`#setgate`/`#tsgate` could tab
+  straight out into the page behind the dialog. New shared `VW.trapFocus()` in `shared.js`, modeled on
+  `palette.js`'s own command-palette Tab-trap (the only correct implementation of this in the codebase
+  before now) — generalized via a `MutationObserver` on each modal's own `style` attribute (these 5 are
+  opened/closed from many scattered call sites, not one owned open()/close() pair, so this reacts to the
+  `none`↔`flex` transition itself rather than requiring every call site to change). Handles Tab-cycle
+  containment, Escape-to-close, and focus-restore-on-close. Verified live for all 5: auto-focus on open,
+  Shift+Tab from the first element correctly wraps to the last, Escape correctly closes.
+- **The 3 primary viewer `<img>` tags had no `alt` text.** The main page-render image (`loadPage()`),
+  the part-match thumbnail (`renderPartMatch()`), and the part-drawer figure crop (`showFig()`) now
+  carry real, content-derived `alt` text (page number + document title/TM number; part nomenclature;
+  "Figure crop for {name}") instead of nothing.
+- **ARIA labels added to the 10 highest-traffic unlabeled controls.** 43 of 45 UI pages carried zero
+  ARIA of their own. Fixed the home page's search box plus every core tool's own search box
+  (`procedure`/`dossier`/`part`/`stepflow`/`torque`/`packet`/`jobcard`/`locate`.html) and
+  `collections.html`'s 4-field new-collection form (name/search-terms/vehicle/manual-type) — each a
+  content-specific `aria-label`, not a generic "search" restatement.
+
+**Verified:** `engine/tests/verify_all.py --snapshot`: 49/51 checks (the pre-existing `test_ingest_routes.py`
+real-subprocess-e2e flake, independently re-run and re-confirmed unrelated to any change in this batch;
+plus a `safeguard verify` flag that was this very `VERSION` bump landing between an unrelated automated
+snapshot and this run's own verify step — confirmed via direct `diff` against the flagged snapshot showing
+only the intentional `VERSION` line changed, then resolved with a fresh snapshot: `720/720 OK, 0 damaged`).
+`rps_lint.py` clean. New coverage: `engine/tests/test_search_fuzzy_cache.py` (8 checks), a new WCAG guard
+in `engine/verify_ui.py` (6 checks). Every fix in this entry checked live in a real browser against the
+real running app (`getComputedStyle()`/`document.activeElement`/simulated `KeyboardEvent`s), not just read.
+
+---
+
 ## [1.28.0] — 2026-08-30 — Field-reliability quick wins: cart persistence, stepflow voice-nav, PORTING.md currency
 **VERSION → `1.28.0`.** The first three "do now" items from a production-readiness/parity audit against
 fielded military IETM viewers (EMS-VIEWER/EMS-NG, IADS) and the search-accuracy landscape more broadly —

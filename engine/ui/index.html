@@ -6,7 +6,27 @@
 <script src="/shared.js"></script><!-- esc()/toast() one-copy helpers (v1.13.0 UI coherence) -->
 <style>
   :root{--bg:#0f1419;--panel:#171d26;--panel2:#1f2733;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;
-        --accent:#4f9dff;--accent2:#2f7d4f;--warn:#caa24a;--chip:#243042;--mark:#5a4a1e;}
+        --acc:#4f9dff;--accent:#4f9dff;--accent2:#2f7d4f;--warn:#caa24a;--chip:#243042;--mark:#5a4a1e;
+        --grn:#2f7d4f;--amb:#caa24a;--red:#e0564f;--teal:#1d9e75;--pur:#7f77dd;
+        --grn-tx:#4fae7a;--red-tx:#ec7a74;}
+  /* v1.29 fix: this :root never defined --acc (only --accent, its own separate name for the same
+     blue), but the :focus-visible rule below -- and the hover/pinned/card-accent rules further down
+     this same page -- all reference var(--acc) with NO fallback. Since this page doesn't load
+     base.css (which defines both --acc and --accent as aliases, see the comment at line 23), that
+     left every var(--acc) reference invalid: keyboard focus was silently invisible on the home page,
+     and several accent borders/text colors quietly dropped too. Confirmed live before fixing. */
+  /* v1.29 (WCAG contrast fix, roadmap Now-tier item 5): the SAME bug, worse -- this :root also never
+     defined --grn/--amb/--red/--teal/--pur at all. Confirmed live via getComputedStyle(): var(--grn),
+     var(--teal) and var(--amb) each silently resolved to the inherited body text color (#e6e9ee) on
+     this page, not their intended amber/green/teal -- the "operator"/"mechanic" side badges, the
+     "Saved" confirmations, and the chapter-count status text were rendering in plain white, not the
+     color the markup asked for. Restored the full base.css set here (this page still doesn't load
+     base.css, so it needs its own copy, same as --acc above). Also added --grn-tx/--red-tx (mirrors
+     base.css's new pair, see its :root comment) -- --grn and --red are correct once restored for
+     borders/backgrounds, but measured at only 2.98:1 (--grn on --panel2) / 3.36:1 (--grn on --panel)
+     / 4.02:1 (--red on --panel2) as actual TEXT, below the 4.5:1 AA floor; --teal/--amb, once
+     restored, pass AA as text on every real background they're used on here (5.00:1 / 6.29:1+) so
+     they didn't need a lightened sibling. */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
   /* v0.97.0 (E39 fix): the header must WRAP at every width — 16 nav items used to force a
@@ -487,7 +507,7 @@ if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallb
   <section class="col">
     <h2>Search — part #, NSN, material #, or key term (e.g. gasket). Click a result to view the page.</h2>
     <div class="pad searchbar">
-      <input id="q" placeholder="Search a part…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
+      <input id="q" placeholder="Search a part…" aria-label="Search parts, NSNs, part numbers, or keywords" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
       <div id="ac" class="ac" role="listbox" style="display:none"></div>
       <div class="srow">
         <span class="srlbl">Match</span>
@@ -785,6 +805,12 @@ function dpiIndexFor(dpi){ var best=2, bestDiff=Infinity;
   for(var i=0;i<DPIS.length;i++){ var d=Math.abs(DPIS[i]-dpi); if(d<bestDiff){ bestDiff=d; best=i; } }
   return best; }
 function defaultZi(){ return dpiIndexFor((window.RPS&&window.RPS.dpi)||150); }
+// Roadmap Now-tier item 3 (a11y): wire the 5 real modals on this page into shared.js's focus trap
+// (Tab-cycle containment + Escape-to-close + focus-restore-on-close). Safe no-op if VW/trapFocus
+// isn't present (e.g. shared.js failed to load) -- never blocks the rest of the page from working.
+if(window.VW && typeof VW.trapFocus==="function"){
+  ["sidegate","pnreview","overlay","setgate","tsgate"].forEach(function(id){ VW.trapFocus(id); });
+}
 let SESSION={}, CART=[], VIEW={doc:null,page:1,pages:1,meta:null,zi:defaultZi(),hl:true,thumbs:false}, LAST_QUERY="", BROWSE_ONLY=false;
 let ALL=[], DYM=[], FILTER={vehicle:null,type:null,source:null}, VEHICLES=null, THUMB={lo:0,hi:0};   // DYM: v0.97.0 did-you-mean (C20)
 
@@ -867,7 +893,7 @@ function renderUncertain(){
     var its=(d&&d.items)||[]; if(!its.length){ box.innerHTML='<div style="padding:10px;color:var(--sub);font-size:12px">Nothing uncertain — every document classified from its TM number.</div>'; return; }
     var h="";
     for(var i=0;i<its.length;i++){ var it=its[i];
-      var badge = (it.operator&&it.mechanic) ? '<span style="color:var(--amb)">both</span>' : (it.operator?'<span style="color:var(--grn)">operator</span>':'<span style="color:var(--teal)">mechanic</span>');
+      var badge = (it.operator&&it.mechanic) ? '<span style="color:var(--amb)">both</span>' : (it.operator?'<span style="color:var(--grn-tx)">operator</span>':'<span style="color:var(--teal)">mechanic</span>');
       h+='<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--line)">'+
          '<div style="min-width:0"><div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.tm||it.title||("doc "+it.doc_id))+'</div>'+
          '<div style="font-size:11px;color:var(--sub)">'+esc(it.title||"")+' · now '+badge+' · '+esc(it.confidence||"")+'</div></div>'+
@@ -917,7 +943,7 @@ function renderChapterReview(){
       d.combined_total+' combined manual'+(d.combined_total==1?'':'s')+' · '+d.no_chapters+' with no detected chapters (open whole-book). Open one to inspect or pin a section start.</div>';
     var h="";
     for(var i=0;i<its.length;i++){ var it=its[i];
-      var status = it.has_chapters ? ('<span style="color:var(--grn)">'+(it.ranges?it.ranges.length:0)+' sections · op p.'+(it.operator_page||'?')+' / mech p.'+(it.mechanic_page||'?')+'</span>')
+      var status = it.has_chapters ? ('<span style="color:var(--grn-tx)">'+(it.ranges?it.ranges.length:0)+' sections · op p.'+(it.operator_page||'?')+' / mech p.'+(it.mechanic_page||'?')+'</span>')
                                    : '<span style="color:var(--amb)">no chapters detected — whole-book</span>';
       h+='<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--line)">'+
          '<div style="min-width:0"><div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.tm||it.title||("doc "+it.doc_id))+(it.overridden?' <span style="color:var(--acc)">· pinned</span>':'')+'</div>'+
@@ -1177,7 +1203,7 @@ function renderPartMatch(q){
     var t=j.overridden?{key:'high',label:'High confidence',note:''}:VW.confTier(j.confidence||0);
     card.innerHTML=
       '<a href="'+(j.doc_id?('/page?doc='+j.doc_id+'&page='+j.page+'&dpi=200'):'#')+'" target="_blank" style="flex:0 0 auto">'+
-        (imgUrl?('<img id="pmimg" src="'+imgUrl+'" style="width:200px;height:150px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">'):'')+'</a>'+
+        (imgUrl?('<img id="pmimg" src="'+imgUrl+'" alt="'+esc(j.nomenclature?('Illustration of '+j.nomenclature):'Part illustration')+'" style="width:200px;height:150px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">'):'')+'</a>'+
       '<div style="min-width:0;flex:1">'+
         '<div style="font-size:12px;color:var(--sub)">PART NUMBER MATCH'+(j.overridden?' · pinned':'')+' · <span class="conf '+t.key+'" style="padding:1px 6px;border-radius:5px;font-size:11px">'+esc(t.label)+'</span> ('+conf+'%)</div>'+
         (t.note?('<div style="font-size:11px;margin-top:2px;color:var(--amb)">'+esc(t.note)+'</div>'):'')+
@@ -1241,7 +1267,7 @@ function pmFixForm(j){
   var sv=$("#pmsave"); if(sv) sv.onclick=function(){
     fetch('/api/rpstl_override',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({pn:(j.part_no||''),fields:{nomenclature:$("#pmnom").value,nsn:$("#pmnsn").value,doc_id:j.doc_id,page:j.page,item:j.item,fig_no:j.fig_no},by:'ui'})})
-      .then(function(r){return r.json();}).then(function(){ box.innerHTML='<div style="margin-top:6px;color:var(--grn);font-size:12px">Saved — your correction will show next search.</div>'; }).catch(function(){});
+      .then(function(r){return r.json();}).then(function(){ box.innerHTML='<div style="margin-top:6px;color:var(--grn-tx);font-size:12px">Saved — your correction will show next search.</div>'; }).catch(function(){});
   };
 }
 // Part# review overlay: bulk-fix OCR-noisy low-confidence rows.
@@ -1281,7 +1307,7 @@ function pnrFix(it){
   cont.querySelector('.pnrSave').onclick=function(){
     fetch('/api/rpstl_override',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({pn:(it.part_no||''),fields:{nomenclature:cont.querySelector('.pnrNom').value,nsn:cont.querySelector('.pnrNsn').value,doc_id:it.doc_id,page:it.page,item:it.item,fig_no:it.fig_no},by:'review'})})
-      .then(function(r){return r.json();}).then(function(){ cont.innerHTML='<div style="margin-top:6px;color:var(--grn);font-size:12px">Saved.</div>'; }).catch(function(){});
+      .then(function(r){return r.json();}).then(function(){ cont.innerHTML='<div style="margin-top:6px;color:var(--grn-tx);font-size:12px">Saved.</div>'; }).catch(function(){});
   };
 }
 if($("#pnReviewBtn")) $("#pnReviewBtn").onclick=openPnReview;
@@ -1675,7 +1701,8 @@ function pdSelect(m,c){
   var nsn=m.nsn||m.NSN||"", name=m.name||m.item_name||m.nomenclature||"", chars=m.characteristics||m.chars||"";
   var fig=$("#pd_fig"); fig.innerHTML='<span class="muted" style="font-size:11px">loading figure…</span>';
   function showFig(url){ if(!url){ fig.innerHTML='<span class="muted" style="font-size:11px">No figure crop for this part.</span>'; return; }
-    var im=new Image(); im.onload=function(){ fig.innerHTML=""; fig.appendChild(im); if(window.Loupe) Loupe.attach(im,{mag:2.8}); };
+    var im=new Image(); im.alt=name?("Figure crop for "+name):"Part figure crop";
+    im.onload=function(){ fig.innerHTML=""; fig.appendChild(im); if(window.Loupe) Loupe.attach(im,{mag:2.8}); };
     im.onerror=function(){ fig.innerHTML='<span class="muted" style="font-size:11px">No figure crop for this part.</span>'; }; im.src=url; }
   var imgUrl=m.image_url||m.img||m.url||"";
   if(imgUrl) showFig(imgUrl);
@@ -1736,6 +1763,7 @@ function loadPage(){
   const clq=VP.clean?("&clean=1&contrast="+VP.contrast):"";
   const eff=VP.hd?Math.min(400,Math.max(300,curDpi()*2)):curDpi();   // HD: render from lossless source at high DPI
   const img=new Image();
+  img.alt="Page "+VIEW.page+" of "+(m.filename||m.title||("doc "+VIEW.doc))+(m.tm_number?" ("+m.tm_number+")":"");
   img.onload=()=>{$("#vstage").innerHTML="";applyTilt(img);$("#vstage").appendChild(img);applyTilt(img); clearSearchHL(); if(VP.callouts) renderCallouts(); pdAfterPageLoad();};
   img.onerror=()=>{$("#vstage").innerHTML='<div class="ld">This page can\'t be rendered (the source file may be an image set, not a PDF).</div>';};
   img.src="/page?doc="+VIEW.doc+"&page="+VIEW.page+"&dpi="+eff+hlq+clq;
@@ -1956,7 +1984,7 @@ function renderCart(){const box=$("#cart");saveCart();
     // reliable than OCR-guessed text, but the disagreement itself is what matters here: don't
     // silently pick one, show the mechanic both readings and where they came from.
     const conflicts=(it._conflicts&&it._conflicts.length)?it._conflicts.slice(0,2).map(cf=>
-      '<div class="pref" style="color:var(--red,#e0564f);border-left:3px solid var(--red,#e0564f);padding-left:8px">⚠ Barcode on p.'+esc(cf.page)+' reads <b>'+esc(cf.barcode_nsn)+'</b> — the page text there reads <b>'+esc(cf.page_nsn)+'</b>. Barcode is machine-decoded (more reliable), but verify against the physical part before ordering.</div>'
+      '<div class="pref" style="color:var(--red-tx,#ec7a74);border-left:3px solid var(--red,#e0564f);padding-left:8px">⚠ Barcode on p.'+esc(cf.page)+' reads <b>'+esc(cf.barcode_nsn)+'</b> — the page text there reads <b>'+esc(cf.page_nsn)+'</b>. Barcode is machine-decoded (more reliable), but verify against the physical part before ordering.</div>'
     ).join(''):'';
     let ext='';
     if(it._refext){ const parts=[]; const rn=it._refext.nsn, rh=it._refext.hardware;

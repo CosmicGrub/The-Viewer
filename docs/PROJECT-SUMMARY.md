@@ -1,17 +1,20 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.28.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.29.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), and reconciled four more times the same day, 2026-08-30 — a critical real-host
+re-audit (`[1.24.0]`), and reconciled five more times the same day, 2026-08-30 — a critical real-host
 fix (4 pending schema migrations were never applied to production, silently breaking measures/ask/
 cautions/pmcs/oneuse, `[1.25.0]`); `conflicts.py`'s cross-vehicle false-positive fix, which itself needed
 two implementation passes after adversarial review caught a safety regression in the first (`[1.26.0]`);
 wiring that fix's new fields into `engine/ui/part.html` (`[1.27.0]`); then, following a production-
 readiness/EMS-VIEWER-parity audit, three field-reliability quick wins — parts-request cart persistence,
-`stepflow.html`'s voice step-nav wiring, and `PORTING.md`'s currency (`[1.28.0]`) — see the reconciliation
-notes below and §8 items 12–14). This document +
+`stepflow.html`'s voice step-nav wiring, and `PORTING.md`'s currency (`[1.28.0]`); then the Build
+Roadmap's full "Now" tier — a missing-CSS-token bug worse than first scoped, a doubled fuzzy-search scan,
+5 modals with no real focus trap, 3 unlabeled viewer images, 3 real WCAG contrast failures, and the 10
+highest-traffic unlabeled controls (`[1.29.0]`) — see the reconciliation notes below and §8 items 12–15).
+This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -408,12 +411,29 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     verified live in a real browser, not just read. `docs/PORTING.md` — the document a new site would
     use to stand itself up cold — updated from a 14-version-stale v1.13.2 to current, with an explicit
     new call-out of the real `[1.25.0]` schema-migration trap so a fresh copy doesn't walk into it blind.
-    **Still open from that same audit, not yet started**: semantic search is real but currently
-    non-functional in production (no embedding model installed, stale index) and needs a decision —
-    fix it for real or hide its UI entry point; the RRF hybrid-fusion route has zero UI callers; ARIA/
-    `<label>`s exist on only 2 of 45 UI pages; the home page's 6 modals lack real focus traps; no user
+15. **`[1.29.0]` — the Build Roadmap's full "Now" tier** (a second scoping audit, companion to `[1.28.0]`'s
+    dossier, with real benchmarks + a real programmatic WCAG contrast audit run on this host). The home
+    page's `--acc` CSS var wasn't just missing a fallback — confirmed live, `index.html`'s own `:root`
+    duplicate never defined `--acc`/`--grn`/`--amb`/`--red`/`--teal`/`--pur` at all, so keyboard focus was
+    silently invisible and the operator/mechanic side badges, "Saved" confirmations, and chapter-count
+    status text were rendering in plain white instead of their intended colors — all restored, plus 3 real
+    WCAG AA text-contrast failures the restoration exposed (2.98:1/3.36:1/4.02:1, all below the 4.5:1
+    floor) fixed with new lightened text-only token siblings, locked in by a new automated guard in
+    `engine/verify_ui.py`. A fuzzy-search vocabulary scan that ran 2-3x per query (same tokens, zero
+    behavior difference) now runs once per token per request via a request-scoped cache. A shared
+    `VW.trapFocus()` (modeled on `palette.js`'s own correct Tab-trap) is now wired into all 5 real modals
+    — Tab-cycle containment, Escape-to-close, focus-restore, verified live. The 3 primary viewer images
+    have `alt` text; the 10 highest-traffic controls (home + 8 tool search boxes + `collections.html`'s
+    form) have `aria-label`s. **Still open from the same roadmap** (Next/Later tiers, not yet started):
+    semantic search is real but currently non-functional in production (no embedding model installed,
+    stale index) and needs a decision — fix it for real or hide its UI entry point; the RRF hybrid-fusion
+    route has zero UI callers; 5 built-but-orphaned modules (`commonality.py`/`tmrev.py`/
+    `harnesstrace.py`+`pinouts.py`/`macchart.py`/`crossmethod.py`) have no UI entry point; a real learned
+    re-ranker is gated on click volume that doesn't exist yet (`index/analytics.jsonl` logs zero
+    `search`/`click` events today); the other 35 of 45 UI pages still carry no ARIA of their own; no user
     accounts/RBAC, no TLS, no offsite backup automation, no accreditation artifacts exist for multi-site
-    fielding. See the published dossier and `CHANGELOG.md` `[1.28.0]` for the complete, prioritized list.
+    fielding. See the published Build Roadmap and Readiness Dossier artifacts, plus `CHANGELOG.md`
+    `[1.28.0]`/`[1.29.0]`, for the complete, prioritized list.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

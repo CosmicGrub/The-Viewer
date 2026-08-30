@@ -68,10 +68,10 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 <div class="grid" id="grid"></div>
 
 <div class="bar" style="margin-top:18px">
-  <input class="nm" id="nname" placeholder="New collection name" autocomplete="off">
-  <input class="qy" id="nquery" placeholder='Search terms, e.g.  brake OR caliper OR "brake fluid"' autocomplete="off">
-  <input class="vh" id="nveh" list="vehlist" placeholder="Any vehicle" autocomplete="off"><datalist id="vehlist"></datalist>
-  <select id="ntype"><option value="">Any manual</option></select>
+  <input class="nm" id="nname" placeholder="New collection name" aria-label="New collection name" autocomplete="off">
+  <input class="qy" id="nquery" placeholder='Search terms, e.g.  brake OR caliper OR "brake fluid"' aria-label="Search terms for this collection" autocomplete="off">
+  <input class="vh" id="nveh" list="vehlist" placeholder="Any vehicle" aria-label="Filter by vehicle" autocomplete="off"><datalist id="vehlist"></datalist>
+  <select id="ntype" aria-label="Filter by manual type"><option value="">Any manual</option></select>
   <label class="muted" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="npin" style="width:auto"> pin</label>
   <button onclick="saveCollection()">+ Save collection</button>
   <span class="muted" id="saveh"></span>

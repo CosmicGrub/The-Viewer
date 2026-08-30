@@ -8,6 +8,15 @@
   --acc:#4f9dff; --accent:#4f9dff; --accent2:#2f7d4f;
   --grn:#2f7d4f; --amb:#caa24a; --warn:#caa24a; --red:#e0564f;
   --teal:#1d9e75; --pur:#7f77dd; --mark:#5a4a1e;
+  /* v1.29 (WCAG contrast fix, roadmap Now-tier item 5): --grn and --red are correct as decorative
+     accents (borders/backgrounds/chips -- 3:1 non-text floor, both pass there against every real
+     bg they're used on) but fail the 4.5:1 TEXT floor against --panel2/--panel, the two backgrounds
+     the app's actual live confirmation/warning copy sits on -- measured directly against this
+     file's own hex values: --grn on --panel2 is 2.98:1, --grn on --panel is 3.36:1, --red on
+     --panel2 is 4.02:1 (all below 4.5:1). These two lightened siblings are for TEXT only -- pass
+     4.5:1+ against both --panel2 and --panel (grn-tx: 5.49:1 / 6.18:1, red-tx: 5.44:1 / 6.13:1) --
+     the darker --grn/--red stay untouched for every existing border/background use. */
+  --grn-tx:#4fae7a; --red-tx:#ec7a74;
 }
 *{box-sizing:border-box}
 /* APP-WIDE GUARANTEE: the HTML `hidden` attribute ALWAYS wins over any display rule.

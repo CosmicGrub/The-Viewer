@@ -41,7 +41,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:v
   <div><a href="/solve">🛠 Solve it</a> &nbsp; <a href="/">&larr; back to search</a></div>
 </div>
 <div class="bar noprint">
-  <input id="q" placeholder="Part or symptom — e.g. alternator replacement, brake bleed" autocomplete="off">
+  <input id="q" placeholder="Part or symptom — e.g. alternator replacement, brake bleed" aria-label="Search for a procedure by part or symptom" autocomplete="off">
   <button class="go" onclick="run()">Find the procedure</button>
   <button onclick="window.print()" id="printbtn" style="display:none">&#128424; Print sheet</button>
   <span class="muted" id="hint"></span>

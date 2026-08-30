@@ -4,6 +4,28 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30, fifth pass):** a second scoping audit (companion to the fourth-pass
+> dossier below — real benchmarks + a real programmatic WCAG contrast audit run on this host) produced a
+> 19-item, 4-tier Build Roadmap; all 6 "Now" items shipped in `[1.29.0]`, each re-verified live before
+> shipping rather than trusted from the roadmap's own claims. Two bugs turned out worse than scoped: the
+> home page's `--acc` CSS var wasn't just missing a fallback, it plus `--grn`/`--amb`/`--red`/`--teal`/
+> `--pur` were never defined on `index.html` at all — confirmed live via `getComputedStyle()` that the
+> operator/mechanic side badges, "Saved" confirmations, and chapter-count status text were silently
+> rendering in plain white, not their intended colors, before this fix. Also shipped: a fuzzy-search
+> vocabulary scan that was running 2-3x per query for zero behavior difference (request-scoped cache,
+> `search_feature.py`); a shared `VW.trapFocus()` (`shared.js`) wired into all 5 real modals, verified
+> live (auto-focus, Tab-wrap, Escape-close); `alt` text on the 3 primary viewer images; `aria-label`s on
+> the 10 highest-traffic unlabeled controls (home + 8 tool search boxes + `collections.html`'s form); and
+> the 3 real WCAG AA text-contrast failures the restored color tokens exposed (2.98:1/3.36:1/4.02:1,
+> all below the 4.5:1 floor) — fixed with new lightened text-only siblings (`--grn-tx`/`--red-tx`),
+> locked in by a new automated contrast guard in `engine/verify_ui.py` so a future hex change can't
+> silently reintroduce this. **Still genuinely open** (Next/Later tiers of the same roadmap, not started):
+> the 5 orphaned modules (`commonality.py`/`tmrev.py`/`harnesstrace.py`+`pinouts.py`/`macchart.py`/
+> `crossmethod.py`), semantic search's non-functional production state, RRF hybrid fusion's zero UI
+> callers, symptom/procedural query routing, and a real learned re-ranker (gated on click volume that
+> doesn't exist yet — `index/analytics.jsonl` logs zero `search`/`click` events today). `main` is at
+> `[1.29.0]`; `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
+>
 > **Reconciliation note (2026-08-30, fourth pass):** a production-readiness/end-user-friendliness audit
 > against fielded military IETM viewers (EMS-VIEWER/EMS-NG, IADS) plus an honest search-accuracy
 > scorecard was published this session as a standalone dossier. Three "do now" items from it shipped in
@@ -715,8 +737,16 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
     correctly). Lower-priority, still open: the citation-completeness quirk and the "vehicle is a raw
     folder name, not a curated identity" limitation, both disclosed in `conflicts.py`'s own docstring
     (see `CHANGELOG.md` `[1.26.0]`/`[1.27.0]`).
-11. **Remaining items from the `[1.28.0]` production-readiness/EMS-VIEWER-parity dossier, roughly in
-    priority order:**
+11. ~~**A real accessibility pass, not another ad hoc fix.**~~ — **DONE (partially), `[1.29.0]`:** the
+    home page's `--acc`/`--grn`/`--amb`/`--red`/`--teal`/`--pur` tokens (previously undefined, silently
+    dropping colors app-wide) restored; 3 real WCAG AA contrast failures fixed with new text-only shades,
+    locked in by an automated guard; all 5 real modals now have a working `VW.trapFocus()`; the 3 primary
+    viewer images have `alt` text; the 10 highest-traffic controls (home + 8 tool search boxes +
+    `collections.html`'s form) have `aria-label`s. Still open: the other 35 of 45 UI pages carry no ARIA
+    of their own beyond the shared palette/toast components.
+12. **Remaining items from the `[1.28.0]`/`[1.29.0]` production-readiness/EMS-VIEWER-parity work, roughly
+    in priority order (full detail + real benchmarks: the published Build Roadmap and Readiness Dossier
+    artifacts, plus `CHANGELOG.md` `[1.28.0]`/`[1.29.0]`):**
     - **Semantic search: decide and act.** `embed.search()` returns `{ready:false, stale:true,
       results:[]}` on this real corpus today — no `sentence-transformers` installed, the on-disk index
       has no version stamp so it's treated as stale. Either install the model + rebuild the index so it
@@ -725,11 +755,13 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
     - **Route the default search box through the real RRF hybrid-fusion code.** `hybrid.py`'s `fuse()`
       is genuinely correct and self-tested, wired to `/api/search_hybrid` — but zero UI page has ever
       called that route; the home search only calls plain `/api/search`. The fusion logic isn't broken,
-      it's disconnected.
-    - **A real accessibility pass, not another ad hoc fix.** ARIA attributes/`<label>`s exist on only 2
-      of 45 UI pages' own markup (the shared palette/toast components do it right); 6 of `index.html`'s
-      own modals declare `aria-modal="true"` with no actual focus trap; none of the 3 primary viewer
-      `<img>` tags set `alt`. Color tokens likely already pass WCAG AA (spot-checked, never formally run).
+      it's disconnected. Sequenced *after* the semantic-search fix above (fusion is only as good as its
+      weakest input).
+    - **5 orphaned-but-built modules with no UI entry point at all:** `commonality.py`, `tmrev.py`,
+      `harnesstrace.py`+`pinouts.py`, `macchart.py`, `crossmethod.py`.
+    - **A real learned re-ranker** — gated on click volume that doesn't exist yet: `index/analytics.jsonl`
+      logs zero `search`/`click` events today (76 total logged events, none of that kind), confirmed by
+      direct query. Not worth starting until real usage data accumulates.
     - **Offsite backup automation + one real restore drill.** The weekly `backupdb()` writes to the same
       disk as the live data; `docs/IMPROVEMENT-BACKLOG.md` already lists automating the offsite mirror as
       open. Nobody has ever actually restored the real 3.65GB+ index and served from it.
@@ -739,6 +771,5 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
       term goal): real user accounts + RBAC, a fleet update/version-inventory mechanism, load-testing at
       10× today's corpus scale, and 508/VPAT + dependency-scanning + a real pen-test toward any future
       accreditation package.
-    See the published Readiness Dossier and `CHANGELOG.md` `[1.28.0]` for full detail and citations.
 
 <!-- END OF FILE -->

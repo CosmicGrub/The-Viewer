@@ -1,12 +1,14 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
 **Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
-(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and three more times on
+(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and four more times on
 2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; `conflicts.py`'s
 cross-vehicle false-positive fix, itself needing a second pass after adversarial review caught a safety
 regression in the first, `[1.26.0]`; wiring that fix's new fields into `engine/ui/part.html`, `[1.27.0]`;
 then, following a production-readiness/EMS-VIEWER-parity audit, 3 field-reliability quick wins,
-`[1.28.0]`).** This document
+`[1.28.0]`; then a second scoping audit's Build Roadmap "Now" tier — a missing-CSS-token bug worse than
+first scoped, a doubled fuzzy-search scan, 5 modals with no real focus trap, 3 unlabeled viewer images,
+3 real WCAG contrast failures, 10 unlabeled controls, `[1.29.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -17,9 +19,12 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.28.0, shipped 2026-08-30** (3 field-reliability quick wins from a production-
-readiness/EMS-VIEWER-parity audit — cart persistence, stepflow voice-nav wiring, PORTING.md currency —
-see §6 item 15). Immediately prior, all the same day: v1.27.0 (`engine/ui/part.html` now shows
+**True current state: v1.29.0, shipped 2026-08-30** (the Build Roadmap's full "Now" tier — restored
+missing/undefined CSS color tokens on the home page, 3 real WCAG contrast fixes, a doubled fuzzy-search
+scan fixed, focus traps on all 5 real modals, alt text on the 3 primary viewer images, ARIA labels on the
+10 highest-traffic controls — see §6 item 16). Immediately prior, all the same day: v1.28.0 (3
+field-reliability quick wins from a production-readiness/EMS-VIEWER-parity audit — cart persistence,
+stepflow voice-nav wiring, PORTING.md currency — see §6 item 15); v1.27.0 (`engine/ui/part.html` now shows
 `[1.26.0]`'s `cross_vehicle`/`vehicles` fields to a technician, see §6 item 14); v1.26.0 (`conflicts.py`'s
 cross-vehicle false-positive fix); v1.25.0 (critical fix: 4 missing schema migrations applied to the real
 production DB, see §6 item 13); before that v1.24.0, shipped 2026-08-29 (route-count re-audit, docs-only,
@@ -435,11 +440,32 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     now actually triggers `readaloud.js`'s hands-free voice step-nav (additive class aliases, zero style
     impact, confirmed); `docs/PORTING.md` updated from a 14-version-stale v1.13.2 to current, now
     explicitly warning about the real `[1.25.0]` schema-migration trap. All three verified live in a
-    real browser. **Still open from the same audit**: semantic search is real but non-functional in
-    production today (no embedding model installed, stale index) — needs a decision, fix or hide; RRF
-    hybrid fusion has zero UI callers; ARIA/`<label>`s exist on only 2 of 45 UI pages; the home page's 6
-    modals lack real focus traps; no accounts/RBAC, TLS, offsite backup automation, or accreditation
-    artifacts exist for multi-site fielding. See the dossier and `CHANGELOG.md` `[1.28.0]`.
+    real browser. ~~**Still open from the same audit**: ARIA/`<label>`s exist on only 2 of 45 UI pages;
+    the home page's 6 modals lack real focus traps~~ — see item 16.
+16. **`[1.29.0]` — the Build Roadmap's full "Now" tier** (a second scoping audit, companion to `[1.28.0]`'s
+    dossier, with real benchmarks + a real programmatic WCAG contrast audit run on this host). The
+    `--acc` CSS bug turned out worse than first scoped: confirmed live via `getComputedStyle()`,
+    `index.html`'s own `:root` duplicate never defined `--acc`/`--grn`/`--amb`/`--red`/`--teal`/`--pur` at
+    all, so keyboard focus was silently invisible and the operator/mechanic side badges, "Saved"
+    confirmations, and chapter-count status text were rendering in plain white instead of their intended
+    colors — all restored. Restoring them exposed 3 real WCAG AA text-contrast failures (2.98:1 / 3.36:1 /
+    4.02:1, all below the 4.5:1 floor); fixed with new lightened text-only token siblings
+    (`--grn-tx`/`--red-tx`), locked in by a new automated contrast guard in `engine/verify_ui.py`. A
+    fuzzy-search vocabulary scan that ran 2-3x per query on identical tokens now runs once per token per
+    request via a request-scoped cache (`search_feature.py`), proven by a new call-counting regression
+    test, not just "search() doesn't crash". A shared `VW.trapFocus()` (`shared.js`, modeled on
+    `palette.js`'s own correct Tab-trap) is now wired into all 5 real modals — Tab-cycle containment,
+    Escape-to-close, focus-restore, each verified live. The 3 primary viewer images have `alt` text; the
+    10 highest-traffic controls (home + 8 tool search boxes + `collections.html`'s form) have
+    `aria-label`s. **Still open from the same roadmap** (Next/Later tiers): semantic search is real but
+    non-functional in production today (no embedding model installed, stale index) — needs a decision,
+    fix or hide; RRF hybrid fusion has zero UI callers; 5 built-but-orphaned modules
+    (`commonality.py`/`tmrev.py`/`harnesstrace.py`+`pinouts.py`/`macchart.py`/`crossmethod.py`) have no UI
+    entry point; a learned re-ranker is gated on click volume that doesn't exist yet
+    (`index/analytics.jsonl` logs zero `search`/`click` events); the other 35 of 45 UI pages still carry
+    no ARIA of their own; no accounts/RBAC, TLS, offsite backup automation, or accreditation artifacts
+    exist for multi-site fielding. See the Build Roadmap and Readiness Dossier artifacts, plus
+    `CHANGELOG.md` `[1.28.0]`/`[1.29.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

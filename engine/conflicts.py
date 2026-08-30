@@ -1,11 +1,34 @@
 """conflicts.py -- cross-manual CONFLICT checker. Two manuals (or two editions) sometimes state different
 values for the SAME thing on the same part -- a different torque, pressure, clearance, or dimension. That
 is exactly the kind of discrepancy that gets a fastener over- or under-torqued. This module gathers the
-measured values for a part across the corpus, groups them by dimension type + unit, and flags any group
-where documents DISAGREE beyond a tolerance -- with every competing value cited to its manual + page so a
-human can adjudicate.
+measured values for a part across the corpus, groups them by dimension type + unit + VEHICLE, and flags
+any group where documents DISAGREE beyond a tolerance -- with every competing value cited to its manual +
+page so a human can adjudicate.
 
-detect(rows) is pure and unit-testable; the route feeds it measures.find_for_query results. Read-only."""
+v1.24.x (vehicle-scoping fix): grouping used to be purely (type, unit), with no regard for which
+vehicle/document family a value came from. A generic FTS-matched subject pools numeric readings from
+whatever documents happen to match it, and unrelated vehicles routinely share a subject string --
+confirmed on the real corpus, a "WINCH INSTALLATION" sweep pooled 4 documents from 3 different vehicles
+into one group:
+    doc 983   vehicle="5 TON"              tm="TM 9-2320-272-24-4"
+    doc 13781 vehicle="TM,S HUMMERS,ALL"   tm="TM 9-2320-387-24-1"
+    doc 14105 vehicle="TM,S HUMMERS,ALL"   tm="TM 9-2320-387-24-2"
+    doc 870   vehicle="2.5 Ton Truck"      tm="TM 9-2320-361-34"
+Their readings naturally disagree -- they're different real specs for different real equipment -- and
+the old (type,unit)-only grouping flagged that disagreement as a "conflict". Grouping by vehicle too
+correctly separates "5 TON" / "TM,S HUMMERS,ALL" / "2.5 Ton Truck" into distinct buckets (eliminating
+those 3 spurious cross-vehicle pairings) while still correctly keeping the two genuine "TM,S HUMMERS,ALL"
+entries grouped together -- two manuals, same vehicle, disagreeing values, which is the real, intended
+positive case this module exists to catch.
+
+KNOWN REMAINING LIMITATION (like dedup.py's block_key() tradeoff -- narrower blocking, not a complete
+fix): grouping by vehicle does NOT fully solve same-vehicle-different-part collisions. Many different
+bolts on ONE HMMWV all sharing "BOLT" as their FTS-matched subject can still falsely pool into a single
+group, because nothing here scopes by WHICH bolt. This fix narrows the false-positive surface from
+corpus-wide to vehicle-wide -- it does not eliminate it.
+
+detect(rows) is pure and unit-testable; the route feeds it measures.find_for_query results (which sets
+"vehicle" on every row -- see measures.find_for_query()). Read-only."""
 
 from __future__ import annotations
 import re
@@ -28,10 +51,17 @@ def _to_float(v):
 
 
 def detect(rows, rel_tol=0.05, min_docs=2):
-    """rows: iterable of {type, unit, value, doc, tm, page, page_url}. Returns a list of conflicts, each:
-        {type, unit, min, max, spread_pct, severity, n_docs, values:[{value, doc, tm, page, page_url}], trust}
-    A conflict = one (type,unit) group whose values span more than rel_tol AND come from >= min_docs
-    DISTINCT documents with distinct values.
+    """rows: iterable of {type, unit, value, doc, tm, vehicle, page, page_url}. Returns a list of
+    conflicts, each:
+        {type, unit, vehicle, min, max, spread_pct, severity, n_docs, values:[{value, doc, tm, page, page_url}], trust}
+    A conflict = one (type, unit, vehicle) group whose values span more than rel_tol AND come from
+    >= min_docs DISTINCT documents with distinct values. Grouping by vehicle (in addition to type+unit)
+    keeps unrelated vehicles/document families from having their naturally-different real specs pooled
+    together and flagged as a false "conflict" -- see the module docstring's real "WINCH INSTALLATION"
+    example, and its KNOWN REMAINING LIMITATION (vehicle-scoping narrows, but does not eliminate, this
+    class of false positive). veh = (r.get("vehicle") or "").strip().upper(); rows with a missing/blank
+    vehicle still bucket together under veh="" and can still be compared/flagged against each other --
+    never silently dropped just for lacking a vehicle.
     v1.13 (R13): values that validate.py QUARANTINES (garbled OCR / physically impossible) are dropped
     BEFORE grouping, so a garble can never manufacture a false safety-critical conflict. Callers wanting
     the dropped count use check_query (reported as 'quarantined')."""
@@ -40,16 +70,17 @@ def detect(rows, rel_tol=0.05, min_docs=2):
     for r in rows or []:
         t = (r.get("type") or "").strip()
         u = (r.get("unit") or "").strip()
+        veh = (r.get("vehicle") or "").strip().upper()
         fv = _to_float(r.get("value"))
         if not t or fv is None:
             continue
         if _validate.validate_value(t, r.get("value"), u)["status"] == "quarantine":
             continue                                   # garbled/impossible value: never a conflict input
-        groups.setdefault((t, u), []).append({
+        groups.setdefault((t, u, veh), []).append({
             "f": fv, "value": r.get("value"), "doc": r.get("doc"), "tm": r.get("tm") or r.get("vehicle") or "",
             "page": r.get("page"), "page_url": r.get("page_url")})
     out = []
-    for (t, u), vals in groups.items():
+    for (t, u, veh), vals in groups.items():
         if len(vals) < 2:
             continue
         docs_by_val = {}
@@ -76,7 +107,7 @@ def detect(rows, rel_tol=0.05, min_docs=2):
                 seen.add(key)
                 reps.append({"value": v["value"], "doc": v["doc"], "tm": v["tm"],
                              "page": v["page"], "page_url": v["page_url"]})
-        out.append({"type": t, "unit": u, "min": lo, "max": hi,
+        out.append({"type": t, "unit": u, "vehicle": veh, "min": lo, "max": hi,
                     "spread_pct": round(spread * 100, 1),
                     "severity": "high" if t in _HIGH else "medium",
                     "n_docs": len(all_docs), "values": reps})
@@ -158,29 +189,53 @@ def check_query(db_path, q, limit=120, rel_tol=0.05, use_precomputed=True):
 # self-test: `python conflicts.py`                                            #
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
+    # all six rows share vehicle="HMMWV" -- these are meant to represent two manuals for the SAME
+    # vehicle, so the torque disagreement below is the real, intended positive case (same equipment,
+    # disagreeing values), not a cross-vehicle false positive.
     rows = [
-        {"type": "torque", "unit": "ft-lb", "value": "35 ft-lb", "doc": "10", "tm": "TM-A", "page": 12},
-        {"type": "torque", "unit": "ft-lb", "value": "50 ft-lb", "doc": "22", "tm": "TM-B", "page": 4},
-        {"type": "torque", "unit": "ft-lb", "value": "35 ft-lb", "doc": "10", "tm": "TM-A", "page": 12},  # dup, same doc
-        {"type": "length", "unit": "in", "value": "7.50 in", "doc": "10", "tm": "TM-A", "page": 3},
-        {"type": "length", "unit": "in", "value": "7.51 in", "doc": "22", "tm": "TM-B", "page": 9},        # within tol
-        {"type": "pressure", "unit": "psi", "value": "30 psi", "doc": "10", "tm": "TM-A", "page": 1},       # single doc
+        {"type": "torque", "unit": "ft-lb", "value": "35 ft-lb", "doc": "10", "tm": "TM-A", "vehicle": "HMMWV", "page": 12},
+        {"type": "torque", "unit": "ft-lb", "value": "50 ft-lb", "doc": "22", "tm": "TM-B", "vehicle": "HMMWV", "page": 4},
+        {"type": "torque", "unit": "ft-lb", "value": "35 ft-lb", "doc": "10", "tm": "TM-A", "vehicle": "HMMWV", "page": 12},  # dup, same doc
+        {"type": "length", "unit": "in", "value": "7.50 in", "doc": "10", "tm": "TM-A", "vehicle": "HMMWV", "page": 3},
+        {"type": "length", "unit": "in", "value": "7.51 in", "doc": "22", "tm": "TM-B", "vehicle": "HMMWV", "page": 9},        # within tol
+        {"type": "pressure", "unit": "psi", "value": "30 psi", "doc": "10", "tm": "TM-A", "vehicle": "HMMWV", "page": 1},      # single doc
     ]
     cs = detect(rows)
     assert len(cs) == 1, cs                                  # only the torque disagreement qualifies
     c = cs[0]
     assert c["type"] == "torque" and c["severity"] == "high", c
+    assert c["vehicle"] == "HMMWV", c
     assert c["min"] == 35 and c["max"] == 50 and c["n_docs"] == 2, c
     assert len(c["values"]) == 2, c
-    print("conflicts detect OK -> %s %s: %s vs %s across %d docs (%.0f%% apart, %s)"
-          % (c["type"], c["unit"], c["values"][0]["value"], c["values"][1]["value"],
+    print("conflicts detect OK -> %s %s (%s): %s vs %s across %d docs (%.0f%% apart, %s)"
+          % (c["type"], c["unit"], c["vehicle"], c["values"][0]["value"], c["values"][1]["value"],
              c["n_docs"], c["spread_pct"], c["severity"]))
 
     # no conflict when everyone agrees
-    agree = [{"type": "torque", "unit": "ft-lb", "value": "35", "doc": "1", "page": 1},
-             {"type": "torque", "unit": "ft-lb", "value": "35", "doc": "2", "page": 2}]
+    agree = [{"type": "torque", "unit": "ft-lb", "value": "35", "doc": "1", "vehicle": "HMMWV", "page": 1},
+             {"type": "torque", "unit": "ft-lb", "value": "35", "doc": "2", "vehicle": "HMMWV", "page": 2}]
     assert detect(agree) == [], "false positive"
     print("conflicts no-false-positive OK")
+
+    # vehicle-scoping fix: same (type,unit), DIFFERENT vehicles, values that would have falsely
+    # conflicted under the OLD (type,unit)-only grouping -- must NOT be flagged now.
+    cross_vehicle = [
+        {"type": "torque", "unit": "ft-lb", "value": "35 ft-lb", "doc": "100", "tm": "TM-X", "vehicle": "HMMWV", "page": 1},
+        {"type": "torque", "unit": "ft-lb", "value": "60 ft-lb", "doc": "200", "tm": "TM-Y", "vehicle": "M35A2", "page": 1},
+    ]
+    assert detect(cross_vehicle) == [], "cross-vehicle values must not be pooled into a conflict"
+    print("conflicts cross-vehicle-not-pooled OK")
+
+    # same-vehicle positive case must keep working with a different type too: same vehicle, 2 distinct
+    # docs, values spanning past rel_tol -> still flagged.
+    same_vehicle_positive = [
+        {"type": "pressure", "unit": "psi", "value": "30 psi", "doc": "300", "tm": "TM-P1", "vehicle": "M35A2", "page": 1},
+        {"type": "pressure", "unit": "psi", "value": "45 psi", "doc": "400", "tm": "TM-P2", "vehicle": "M35A2", "page": 2},
+    ]
+    same_cs = detect(same_vehicle_positive)
+    assert len(same_cs) == 1, same_cs
+    assert same_cs[0]["vehicle"] == "M35A2" and same_cs[0]["n_docs"] == 2, same_cs[0]
+    print("conflicts same-vehicle-still-flagged OK")
 
     # v1.13 (#88-lite): precomputed sidecar round-trip -- fresh entry served instantly, stale/missing -> None
     import json as _json, os as _os, sqlite3 as _sq, tempfile as _tf

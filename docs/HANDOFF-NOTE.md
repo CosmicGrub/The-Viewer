@@ -4,6 +4,15 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30, third pass):** the UI-wiring follow-up the second-pass note below
+> flagged as "genuinely still open" is now done, in `[1.27.0]`: `engine/ui/part.html`'s `lazyConflicts()`
+> shows each disagreeing value's vehicle inline and a "⚠ Spans N different vehicle labels..." caveat when
+> `cross_vehicle: true`. Verified live against the real running server and the exact WINCH INSTALLATION
+> corpus example this whole investigation started from — both the ambiguous `electrical`/`weight`
+> conflicts (correctly showing the caveat with all real vehicle labels listed) and the confirmed
+> single-vehicle `length` conflict (correctly showing neither) rendered as intended, no console errors.
+> `main` is at `[1.27.0]`; see item 10 below for the remaining, lower-priority disclosed limitations.
+>
 > **Reconciliation note (2026-08-30, second pass):** the `build_conflicts.py`/`conflicts.py` follow-up
 > the note below flagged as "deliberately NOT fixed yet" is now fixed, in `[1.26.0]` — and its own first
 > attempt needed a second pass. Pass 1 grouped `conflicts.detect()` by `(type, unit, vehicle)` to stop
@@ -680,13 +689,13 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
    reading-order reconstruction (3+ column layouts not specifically detected, and the row-alignment threshold
    is tuned against synthetic fixtures only — worth validating against real corpus pages if mis-detections
    ever surface). `[1.23.0]` (this entry) is documentation-only.
-10. **`[1.26.0]`'s own genuinely open follow-up: wire `engine/ui/part.html`'s conflict card to show the
-    new `cross_vehicle`/`vehicles` fields.** The data is computed and returned by `/api/conflicts` (and
-    the sort already puts confirmed single-vehicle conflicts ahead of ambiguous ones), but the UI itself
-    still renders every conflict identically — a technician has no way to see "this spans 3 different
-    vehicles, verify before trusting it" without reading the raw JSON. A small, well-scoped UI task: add
-    a caveat badge/line when `cross_vehicle: true`. Lower-priority, also open: the citation-completeness
-    quirk and the "vehicle is a raw folder name, not a curated identity" limitation, both disclosed in
-    `conflicts.py`'s own docstring (see `CHANGELOG.md` `[1.26.0]`).
+10. ~~**`[1.26.0]`'s own genuinely open follow-up: wire `engine/ui/part.html`'s conflict card to show
+    the new `cross_vehicle`/`vehicles` fields.**~~ — **DONE, `[1.27.0]`:** `lazyConflicts()` now shows
+    each value's vehicle inline and a "⚠ Spans N different vehicle labels..." caveat on
+    `cross_vehicle: true` conflicts, verified live against the real WINCH INSTALLATION example (both the
+    `electrical`/`weight` cross-vehicle hits and the `length` confirmed single-vehicle hit rendered
+    correctly). Lower-priority, still open: the citation-completeness quirk and the "vehicle is a raw
+    folder name, not a curated identity" limitation, both disclosed in `conflicts.py`'s own docstring
+    (see `CHANGELOG.md` `[1.26.0]`/`[1.27.0]`).
 
 <!-- END OF FILE -->

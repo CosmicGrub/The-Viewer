@@ -399,9 +399,12 @@ if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallb
    same way if the user later opens the app on a modern machine, and vice versa. */
 (function () {
   function $(sel) { return document.querySelector(sel); }
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
+  /* esc() was previously redeclared here (ES5, & < > only) -- removed (v1.28.1): this IIFE's two call
+     sites now resolve to the global esc() /shared.js sets ("& < > \" '" + null/undefined, a strict
+     superset), same as every other call site on this page. Safe for the ES5 fallback specifically
+     because shared.js itself is ES5-only (see its own header) and is always the first <script> on the
+     page, so it has already run and set window.esc by the time this IIFE executes -- on a true legacy
+     engine included, not just the modern-script path this fallback exists to cover for. */
   function saveSide(side) {
     try { localStorage.setItem("viewer_side", side); } catch (e) {}
     try {

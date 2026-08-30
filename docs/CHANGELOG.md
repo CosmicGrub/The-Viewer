@@ -12,6 +12,40 @@ every change going forward.
 
 ---
 
+## [1.28.1] — 2026-08-30 — index.html: dropped the last inline esc() shadowing /shared.js's canonical copy
+**VERSION → `1.28.1`.** `engine/verify_ui.py`'s "shared.js dedup" guard (v1.13.0 UI coherence: no page
+that loads `/shared.js` may also redeclare `esc()`/`toast()`, since the inline copy is usually weaker
+and shadows the canonical one) has reported `FAIL` for `ui/index.html` since shared.js's per-page
+migration began — the one page out of 43 that loads `/shared.js` and still had its own inline
+`function esc(`. `verify_ui.py` itself isn't wired into `verify_all.py` (which only globs
+`engine/tests/test_*.py`), so this FAIL was never a build-breaker, just a standing false-clean report.
+### Fixed
+- **`engine/ui/index.html`** — removed the inline `function esc(s)` (escaped only `& < >`) declared
+  inside the ES5-only `#legacyHome` fallback IIFE (UX finding #1: the small self-contained shell that
+  substitutes for the page's main ES6 script on true legacy engines). Compared behaviorally against
+  `shared.js`'s `esc()` first: shared.js's version escapes `& < > " '` (five chars, a strict superset of
+  the inline copy's three) and its null/undefined handling (`s === null || s === undefined`) is
+  equivalent to the inline copy's (`s == null`) — same "" output either way, no behavioral gap
+  found. Confirmed it was safe to remove rather than just redundant: shared.js is itself deliberately
+  ES5-only (its own header states this, enforced by `rps_lint.py`) and is the first `<script>` on the
+  page, so it has already set `window.esc` before this IIFE ever runs — on the true-legacy-engine path
+  this fallback exists for, not only the modern-script path. The two call sites inside the IIFE
+  (`renderResults()`'s TM-number/vehicle interpolation) now resolve to the global `esc()` `shared.js`
+  exposes via `if (g.esc === undefined) g.esc = esc;`, same as every other `esc(` call already elsewhere
+  on this page and on all 42 other pages that load `/shared.js` — no other page had its own copy to
+  begin with. Net effect on those two call sites: they now also escape `"` and `'`, which they
+  previously didn't.
+- Bumped `VERSION` (`engine/viewer_app.py`) to `1.28.1`.
+
+**Verified:** `python engine/verify_ui.py` — `shared.js dedup` line flips from `FAIL -- ui/index.html
+declares inline \`function esc(...\` but loads /shared.js` to `OK` (all other checks unaffected, exit 0
+before and after). `python engine/tools/check_es5_fallback.py` — the touched `#legacyHome` span is
+still ES5-clean (104 lines scanned). `engine/tests/verify_all.py`: 49/49 (a clean run, no flake this
+time), including `test_uiux_fixes.py` (250/250) and `rps_lint.py`, both of which exercise
+`ui/index.html` directly.
+
+---
+
 ## [1.28.0] — 2026-08-30 — Field-reliability quick wins: cart persistence, stepflow voice-nav, PORTING.md currency
 **VERSION → `1.28.0`.** The first three "do now" items from a production-readiness/parity audit against
 fielded military IETM viewers (EMS-VIEWER/EMS-NG, IADS) and the search-accuracy landscape more broadly —

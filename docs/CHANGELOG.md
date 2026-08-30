@@ -12,6 +12,76 @@ every change going forward.
 
 ---
 
+## [1.25.0] — 2026-08-30 — CRITICAL: applied 4 pending schema migrations the real viewer.db never had — measures/ask/cautions/pmcs/oneuse were silently returning nothing since v1.13.5
+**VERSION → `1.25.0`.** Host-operational fix, not a code change (migrations 0009–0012 already shipped in
+past releases as SQL files — this is the first time they were ever actually applied to the real,
+production `index/viewer.db`). Found while investigating a suspicious "0 conflicts found" result from
+`BUILD-CONFLICTS.bat`'s real first-ever run against the full corpus (see below) — verified rather than
+trusted, per this project's own review discipline.
+
+### Root cause
+`schema_meta` on the real DB showed `schema_version=8`. Migrations 0009 (`pages.ocr_confidence`), 0010
+(`pages.barcode_type`/`barcode_data`/`barcode_nsn`), 0011 (`schematics` table), 0012 (`parts_conflicts`
+table) — shipped in the changelog between v1.13.5 and v1.22.0 — had **never been applied**. Every one of
+`features/corpus.py`'s `fts_pages()` calls unconditionally selects `p.ocr_confidence` in its shared SQL
+template; against the real schema this always raised `sqlite3.OperationalError: no such column:
+p.ocr_confidence`, caught by the function's own "degrade safe, never a 500" contract and silently
+converted to an empty list. Confirmed directly against the live running server (not just a script):
+`GET /api/measures?q=torque` → `count:0`, `GET /api/ask` → `answered:false, retrieved:0`,
+`GET /api/cautions`/`GET /api/pmcs`/`GET /api/oneuse` → all empty. Plain `GET /api/search` was unaffected
+(it doesn't ride `corpus.py`), which is why nothing looked wrong from the home page. This has been
+silently broken since whichever session shipped v1.13.5 (2026-08-09) — 3 weeks — and nothing caught it
+because the test suite runs against a synthetic fixture DB with the correct schema, never the real corpus.
+
+### Fix
+`python viewer_ingest.py migrate` — the sanctioned, already-built path (`migrate()`'s own docstring:
+backs up via `safeguard.backupdb()` before applying any pending migration, then applies each one
+atomically, DDL + `schema_version` bump in one transaction, crash-safe). Ran for real against the
+production `index/viewer.db`: `schema_meta` now reads `12`; `pages` gained `ocr_confidence`,
+`barcode_type`, `barcode_data`, `barcode_nsn`; `schematics` and `parts_conflicts` tables now exist.
+Re-verified live: `find_for_query('torque')` → 26 real, cited results (was 0); `find_for_query('GASKET')`
+→ 25 (was 0). `engine/tests/verify_all.py --snapshot` re-run clean after: 48/49 (only the known
+pre-existing `test_ingest_routes.py` flake), `safeguard verify` 718/718 files OK, 0 damaged.
+
+### Also done this session (real host actions, not simulated)
+- **`safeguard.py backupdb --auto`** run for real for the first time: 3.64 GB `VACUUM INTO` copy,
+  verified via `PRAGMA quick_check`, in 147.5s; `--auto` also pruned 47 stale code/docs snapshots from
+  this session's own repeated `verify_all --snapshot` runs down to the newest 10.
+- **`THE_VIEWER_WeeklyDBBackup` scheduled task registered** (`schtasks`, Sunday 03:00) — it did not exist
+  before despite `register_snapshot_task.bat` shipping for it in v1.15.0. Test-fired once via
+  `schtasks /Run` to confirm it actually executes end-to-end, not just that the underlying function
+  works: confirmed, produced a second real backup file.
+- **OCR completion re-checked against the real corpus**: **94.62%** (1,749,089 of 1,848,465 pages have
+  `char_count > 0`), up slightly from the 94.4% last recorded at v1.13.4. No OCR process is currently
+  running (some `ocr_status='running'` rows are stale leftover state from a past interrupted run, not
+  live — confirmed via `tasklist`/process inspection, not assumed).
+- **`BUILD-CONFLICTS.bat` run for the first time ever** against the full corpus (`index/conflicts.db` now
+  exists). The pre-fix run (vacuous, before the migration was applied) found "0 conflicts" across 2000
+  subjects with `n_values=0` everywhere — this is what surfaced the bug above. The post-fix re-run found
+  real data (1548 of 2000 subjects flagged), but **that headline number is not a trustworthy conflict
+  list as-is** — spot-checking the actual rows shows `build_conflicts.py`'s "most frequent part subjects"
+  selection picks generic, corpus-wide phrases (e.g. "WINCH INSTALLATION", "POWER AMP ASSEMBLY") that FTS
+  legitimately matches across hundreds of unrelated documents/vehicles; `conflicts.detect()` then pools
+  every incidentally-matched numeric value under that one subject string and flags the natural spread
+  across genuinely different real equipment as a "conflict" (e.g. one flagged row pools values `'3'`,
+  `'4'`, `'5'`, `'6'`, `'7'` sourced from `TM 9-2320-272-24-4`, `TM 9-2320-387-24-1`, `TM 9-2320-387-24-2`,
+  and `TM 9-2320-361-34` — four different manuals for what are very likely four different real winches,
+  not one part with disputed specs). This is a real, separate, pre-existing design gap in how
+  `conflicts.check_query()` scopes a match (no per-document/per-part disambiguation), not something
+  introduced by this fix — the live `/api/conflicts?q=...` route has carried the same limitation for any
+  sufficiently generic user-typed query since v1.13.0. **Deliberately not fixed in this pass** — needs
+  either narrower subject selection (skip corpus-wide-generic terms) or a same-document/same-vehicle
+  grouping constraint in `detect()` before the precomputed sweep's output can be trusted as a real safety
+  finding rather than noise; flagged as a new, genuinely open follow-up item.
+
+### Docs
+`docs/CHANGELOG.md` `[1.25.0]`; `VERSION` bump; `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md`/
+`HANDOFF-NOTE.md` updated with the corrected OCR %, the backup-task confirmation, and the new
+conflicts.py subject-scoping follow-up item. `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html`
+regenerated.
+
+---
+
 ## [1.24.0] — 2026-08-29 — Route-count re-audit + Staleness-audit "Tiers 2/5/6" correction (both docs-only)
 **VERSION → `1.24.0`.** Documentation-only, two independent findings from the same reconciliation pass.
 

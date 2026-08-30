@@ -4,6 +4,18 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30):** while re-running host-side follow-up items (backupdb, the weekly
+> backup task, `BUILD-CONFLICTS.bat`) directly on the real host, found and fixed a critical, previously
+> undiscovered bug: the real `index/viewer.db` was missing 4 schema migrations (0009–0012), silently
+> breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) with no test ever catching
+> it (the suite runs against a synthetic fixture DB, never the real corpus). Fixed via the already-built
+> `python viewer_ingest.py migrate` (auto-backs up, applies atomically); confirmed live and via a clean
+> `verify_all.py` re-run. See "RUN THESE ON THE HOST" item 5 below and `CHANGELOG.md` `[1.25.0]` for full
+> detail, including a real follow-up this surfaced in `build_conflicts.py`'s subject-scoping that is
+> deliberately NOT fixed yet. Also completed this pass: the weekly DB-backup task (registered + test-fired,
+> did not exist before), a real `backupdb` run, and `BUILD-CONFLICTS.bat`'s first-ever real run. `main` is
+> at `[1.25.0]`; `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
+>
 > **Reconciliation note (2026-08-24):** this file had gone stale again — pinned to v1.14.0/2026-08-18 while
 > `CHANGELOG.md` had moved on to **v1.15.0** (2026-08-19), a 30-commit, ~25-hour session (2026-08-18 20:40 →
 > 2026-08-19 21:41) — the largest single body of undocumented work this project has carried at once, and
@@ -368,7 +380,7 @@ of the dev-team review (ACCURACY · VERIFY/OPS · UI · FEATURES) on top of the 
   + legacy parity; diagram `docs/diagrams/113-holistic-hardening.{svg,pdf}` (`_make_113_holistic.py`); iteration
   snapshot row appended (R10 **literal screenshot still pending host-side** — server not running in the sandbox).
 
-### RUN THESE ON THE HOST (updated 2026-08-24, was "2026-08-18")
+### RUN THESE ON THE HOST (updated 2026-08-30, was "2026-08-24")
 1. **`VERIFY.bat`** (→ `engine/tests/verify_all.py`) — ✅ **DONE, confirmed GREEN**, repeatedly through
    v1.13.4, every tier of the v1.14.0 audit run, and every commit of the v1.15.0 session — the range ends at
    **46/46, ALL GREEN** (`9b0e5b9`), up from 26/26 at the start of v1.14.0. CI (`.github/workflows/ci.yml`)
@@ -377,22 +389,39 @@ of the dev-team review (ACCURACY · VERIFY/OPS · UI · FEATURES) on top of the 
    themselves, plus made `verify_all.py` print full output on a suite failure instead of just its last 3 lines.
    `VERIFY-099.bat` still forwards to it.
 2. **R10 screenshot:** capture the running app (e.g. `/part` red one-use card, `/command` gap card, or home with the
-   operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Still not done as a saved artifact** — unchanged
-   by either the v1.14.0 audit run or the v1.15.0 session, both of which verified extensively live-in-browser but,
-   per the same established pattern, didn't save screenshots either. **To finish R10:** capture and save at least
-   one real screenshot per major page into `docs/screenshots/` using the `<version>-<page>.png` convention.
-3. Optional while OCR is paused: **`BUILD-CONFLICTS.bat`** (precompute the conflict sweep; append-only sidecar) —
-   still not run; `index/conflicts.db` doesn't exist yet.
-4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) has existed since v1.15.0, **and**
-   `register_snapshot_task.bat` now also registers a weekly automatic task
-   (`THE_VIEWER_WeeklyDBBackup`, Sunday 03:00) so the multi-GB `viewer.db` finally has *some* automatic
-   protection beyond the source-file snapshot vault. Neither has been confirmed run against the real
-   production index on this host yet — worth checking the scheduled task is actually registered
-   (`schtasks /query`) and has fired at least once.
-5. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, through v1.13.4 (baseline at that
+   operators hint) at `127.0.0.1:8765` → `docs/screenshots/`. **Still not done as a saved artifact** — a
+   2026-08-30 session (`[1.25.0]`) confirmed live-in-browser against the real running app once again
+   (session-modal + home page render correctly with real corpus counts) but had no tool available to
+   persist the actual PNG bytes to disk — same exact limitation every prior session has hit. **To finish
+   R10:** capture and save at least one real screenshot per major page into `docs/screenshots/` using the
+   `<version>-<page>.png` convention; needs either the Claude-in-Chrome extension or a manual save.
+3. ~~Optional while OCR is paused: **`BUILD-CONFLICTS.bat`**~~ — **RUN, `[1.25.0]`:** `index/conflicts.db`
+   now exists. First attempt was vacuous (0 conflicts, `n_values=0` everywhere) — this surfaced a critical
+   bug (see item 5 below), not a clean corpus. Re-run after the fix found real data, but its headline
+   "1548 of 2000 subjects flagged" is **not trustworthy as a safety-conflict list** — see item 5.
+4. ~~**`safeguard.py backupdb`**~~ — **DONE, `[1.25.0]`:** run for real (3.64 GB `VACUUM INTO`, verified via
+   `PRAGMA quick_check`, 147.5s); `THE_VIEWER_WeeklyDBBackup` scheduled task registered (it did not exist
+   before) and test-fired via `schtasks /Run` — confirmed it actually executes end-to-end.
+5. **`[1.25.0]` CRITICAL — the real `viewer.db` was missing 4 schema migrations (0009–0012)**, silently
+   breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) — every call into
+   `features/corpus.py`'s shared FTS retrieval hit `sqlite3.OperationalError: no such column:
+   p.ocr_confidence`, silently caught and turned into an empty result by that function's own "degrade
+   safe, never a 500" contract. Nothing caught it because the test suite runs against a synthetic fixture
+   DB with the correct schema, never the real corpus. **Fixed:** `python viewer_ingest.py migrate` (backs
+   up first, applies atomically) — `schema_meta` now `12`; confirmed live (`find_for_query('torque')`: 0 →
+   26 real cited results); `verify_all.py` re-run clean after (48/49, only the known pre-existing flake).
+   **Real follow-up this surfaced, deliberately not fixed:** `build_conflicts.py`'s subject selection picks
+   generic, corpus-wide phrases (e.g. "WINCH INSTALLATION") that FTS matches across hundreds of unrelated
+   documents/vehicles; `conflicts.detect()` pools every incidentally-matched value under that one subject
+   string with no per-document/per-part disambiguation, inflating its "conflict" rate with noise (spot-
+   checked: one flagged row pools values from 4 different manuals, almost certainly 4 different real
+   winches, not one part with disputed specs). The live `/api/conflicts?q=...` route has carried this same
+   scoping gap for any sufficiently generic query since v1.13.0 — this just made it visible at scale. See
+   `CHANGELOG.md` `[1.25.0]` for full detail.
+6. **Re-baseline the pre-OCR safeguard snapshot** — ✅ **DONE**, repeatedly, through v1.13.4 (baseline at that
    point: `SNAP_20260808_184421_v1.13.4-changelog`, 658/658 OK). Not confirmed re-baselined again during either
-   the v1.14.0 or v1.15.0 sessions — worth a fresh snapshot next time `safeguard.py` runs on the host, now that
-   v1.15.0's changes (including two new migrations, `0011`/`0012`) are on disk.
+   the v1.14.0 or v1.15.0 sessions until `[1.25.0]`'s real `backupdb`/`migrate` runs (2026-08-30), which each
+   took their own fresh, verified `viewer.db` backup as a side effect (`backups/db/`, 2 copies kept).
 
 ## v1.10 → v1.12.9 (2026-07-02 → 07-03) — compressed (full detail in CHANGELOG.md)
 - **1.10.0 Recommendations wave:** `rpstl.py` structured RPSTL import + `crossmethod.py` cross-method agreement

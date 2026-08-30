@@ -1,7 +1,8 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
-**Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, and again
-2026-08-29 (6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`).** This document
+**Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
+(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and again 2026-08-30 (a
+critical real-host fix: 4 missing schema migrations, `[1.25.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -12,8 +13,10 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.24.0, shipped 2026-08-29** (route-count re-audit, docs-only, see §6 item 9).
-Immediately prior: v1.15.0, shipped 2026-08-19, `main` @ `9b0e5b9`. 30 commits, ~25 hours, effectively one
+**True current state: v1.25.0, shipped 2026-08-30** (critical fix: 4 missing schema migrations applied to
+the real production DB, see §6 item 13). Immediately prior: v1.24.0, shipped 2026-08-29 (route-count
+re-audit, docs-only, see §6 item 9); before that v1.15.0, shipped 2026-08-19, `main` @ `9b0e5b9`. 30
+commits, ~25 hours, effectively one
 continuous session (2026-08-18 20:40 → 2026-08-19 21:41) — the largest single body of undocumented work this
 project has ever carried at once. See `CHANGELOG.md`'s `[1.15.0]` entry for the authoritative commit-by-commit
 summary (written from the actual diffs, not just commit messages); §4 below reconciles this file's feature
@@ -347,13 +350,12 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
    open — a blanket no-space-required guard would silently drop real "12V"/"5A"/"60W"-style fused
    electrical readings (standard, common notation in this corpus), a recall regression with no safe way
    to verify without the real corpus. Documented in `CHANGELOG.md` `[1.13.4]`.
-4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) and an automatic weekly scheduled
-   task (`THE_VIEWER_WeeklyDBBackup`) both shipped in v1.15.0, but neither has been confirmed to have actually
-   run against the real production index on the host yet.
-5. **OCR completion** — was ~43.8% at the v1.0.0 cut; **confirmed 94.4% as of the v1.13.4 session** (live
-   `/status` check, 2026-08-08: 1,745,197 of 1,848,465 pages searchable); not re-checked during v1.14.0 or
-   v1.15.0, both code-quality/feature passes rather than ingestion runs. Check current % via `/command` or
-   `/status` before assuming it's fully finished.
+4. ~~**`safeguard.py backupdb`**~~ — **DONE, `[1.25.0]`:** run for real (3.64 GB `VACUUM INTO`, verified via
+   `PRAGMA quick_check`, 147.5s); `THE_VIEWER_WeeklyDBBackup` scheduled task registered and test-fired via
+   `schtasks /Run` — confirmed it actually executes end-to-end (produced a second real backup file).
+5. ~~**OCR completion**~~ — **RE-CHECKED, `[1.25.0]`:** **94.62%** (1,749,089 of 1,848,465 pages have
+   `char_count > 0`), up slightly from 94.4% at v1.13.4. No OCR process currently running (confirmed via
+   process inspection).
 6. **A live analytics record still carries an old bad NSN** (dated 2026-06-01, traced during v1.13.4's
    live-driving pass to a since-fixed bad example-data bug) — real historical data, R6 append-only, left for the
    user to decide whether to touch.
@@ -391,6 +393,18 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     (per-word stays open, GPU-gated); `[1.22.0]` multi-column reading-order reconstruction (3+ column layouts
     not specifically detected; the row-alignment threshold is tuned against synthetic fixtures only, worth
     real-corpus validation if mis-detections surface). `[1.23.0]` (this entry) is documentation-only.
+13. **`[1.25.0]` — critical fix: the real `viewer.db` was missing 4 schema migrations (0009–0012)**,
+    silently breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) — the test
+    suite never caught it because it runs against a synthetic fixture DB with the correct schema. Fixed
+    via `python viewer_ingest.py migrate` (auto-backs up first, applies atomically); confirmed live
+    (`find_for_query('torque')`: 0 → 26 real cited results); `verify_all.py` re-run clean (48/49, only the
+    known pre-existing flake) after. **New follow-up surfaced while fixing this**: `BUILD-CONFLICTS.bat`'s
+    real first-ever sweep found data (unlike the pre-fix vacuous "0 conflicts" run), but its
+    1548-of-2000-subjects "conflict" rate is inflated by generic, corpus-wide subject phrases (e.g. "WINCH
+    INSTALLATION") pooling unrelated values from different vehicles/manuals under one subject string —
+    `conflicts.check_query()` has no per-document/per-part disambiguation. Not fixed in `[1.25.0]`; the
+    precomputed sidecar this produced should not be treated as a trustworthy safety-conflict list until
+    that scoping gap is addressed. See `CHANGELOG.md` `[1.25.0]` for full detail.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

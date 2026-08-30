@@ -1,10 +1,12 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.24.0 · 2026-08-29** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.25.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
-again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session, and
+again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`) — see the reconciliation notes below and §8 item 8/item 10). This document + `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
+re-audit (`[1.24.0]`), and updated again 2026-08-30 after a critical real-host fix — 4 pending schema
+migrations were never applied to production, silently breaking measures/ask/cautions/pmcs/oneuse
+(`[1.25.0]`) — see the reconciliation notes below and §8 item 12). This document + `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
 rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session hand-off) are everything a new machine —
@@ -325,12 +327,13 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
    (a bare "489A" with no preceding label) stays open on purpose: unlike the labeled fix, a blanket
    no-space-required guard would silently drop real "12V"/"5A"/"60W"-style fused electrical readings,
    a recall regression with no safe way to verify without the real corpus. Documented since `[1.13.4]`.
-4. **`safeguard.py backupdb`** — a manual entry point (`run_backupdb.bat`) and an automatic weekly scheduled
-   task (`THE_VIEWER_WeeklyDBBackup`, via `register_snapshot_task.bat`) both shipped in v1.15.0, but neither
-   has been confirmed to have actually run against the real production index on the host yet.
-5. **OCR completion** — confirmed **94.4%** as of the v1.13.4 session; not re-checked during either the
-   v1.14.0 or v1.15.0 sessions, both code-quality/feature passes rather than ingestion runs — check current %
-   via `/command` or `/status` before assuming fully finished either way.
+4. ~~**`safeguard.py backupdb`**~~ — **DONE, `[1.25.0]`:** run for real (3.64 GB `VACUUM INTO`, verified via
+   `PRAGMA quick_check`, 147.5s) and the `THE_VIEWER_WeeklyDBBackup` scheduled task registered + test-fired
+   via `schtasks /Run` — confirmed it actually executes end-to-end (produced a second real backup file), not
+   just that the underlying function works standalone. `backups/db/` now holds real, verified copies.
+5. ~~**OCR completion**~~ — **RE-CHECKED, `[1.25.0]`:** **94.62%** (1,749,089 of 1,848,465 pages), up
+   slightly from 94.4% at v1.13.4. No OCR process currently running (confirmed via process inspection, not
+   assumed — some `ocr_status='running'` rows are stale leftover state from a past interrupted run).
 6. ~~**Tiers 2, 5, 6 of the separate staleness Drift Report**~~ — **CORRECTED, `[1.24.0]`:** `[1.23.0]`'s
    "only 2/5/6 remain genuinely unstarted" claim was itself wrong. Direct git-history check
    (`git log --all --grep="Drift Report\|Tier"`) shows the Viewer Drift Report staleness audit only ever
@@ -362,6 +365,18 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     (per-word stays open, GPU-gated); `[1.22.0]` multi-column reading-order reconstruction (3+ column layouts
     not specifically detected; the row-alignment threshold is tuned against synthetic fixtures only, worth
     real-corpus validation if mis-detections surface). `[1.23.0]` (this entry) is documentation-only.
+11. ~~**Route count / Staleness Tiers 2,5,6**~~ — **DONE, `[1.24.0]`:** see items 8 and 6 above.
+12. **`[1.25.0]` — critical fix: the real `viewer.db` was missing 4 schema migrations (0009–0012)**,
+    silently breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` since v1.13.5 (~3 weeks) — nothing else
+    caught it because the test suite runs against a synthetic fixture DB with the correct schema. Fixed via
+    `python viewer_ingest.py migrate` (auto-backs up first, applies atomically); confirmed live
+    (`find_for_query('torque')`: 0 → 26 real cited results). **New follow-up surfaced while fixing this**:
+    `BUILD-CONFLICTS.bat`'s real first-ever sweep found data (unlike the pre-fix vacuous "0 conflicts"
+    run), but its 1548-of-2000-subjects "conflict" rate is inflated by generic, corpus-wide subject
+    phrases (e.g. "WINCH INSTALLATION") pooling unrelated values from different vehicles/manuals under one
+    subject string — `conflicts.check_query()` has no per-document/per-part disambiguation. Not fixed in
+    `[1.25.0]`; the precomputed sidecar this produced should not be treated as a trustworthy safety-conflict
+    list until that scoping gap is addressed. See `CHANGELOG.md` `[1.25.0]` for full detail.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

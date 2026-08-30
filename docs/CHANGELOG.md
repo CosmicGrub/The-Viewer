@@ -12,6 +12,50 @@ every change going forward.
 
 ---
 
+## [1.24.0] — 2026-08-29 — Route-count re-audit + Staleness-audit "Tiers 2/5/6" correction (both docs-only)
+**VERSION → `1.24.0`.** Documentation-only, two independent findings from the same reconciliation pass.
+
+### Route-count re-audit: 276 routes (250 GET + 26 POST), zero collisions, mechanically confirmed
+The "265 routes (244 GET + 21 POST)" figure carried in
+`PROJECT-SUMMARY.md`/`HANDOFF-NOTE.md`/`MASTER-RECONCILIATION.md` had gone stale since v1.14.0 — v1.15.0
+through v1.22.0 added a real batch of new routes but the count itself was never redone. Re-audited two ways,
+not just a live-dict count (which can't distinguish a real registration from a silent same-path overwrite):
+- **Live count** — imported `viewer_app` (which wires every `features/routes/*.py` module) and read
+  `features.registry.GET`/`POST` directly: **250 GET, 26 POST = 276 total**.
+- **Source-level collision check** — regex-extracted every `@get(...)`/`@post(...)` decorator's path
+  literal(s), including alias arguments, from `features/routes/*.py` (135 GET, 26 POST, no internal
+  duplicates in either), then separately extracted every path `static.py`'s `register_static()` registers
+  programmatically from its `_PAGES`/`_SCRIPTS` dicts + the hardcoded `/base.css` (115 GET, no internal
+  duplicates). `135 + 115 = 250` exactly matches the live GET count, and the two path sets have **zero
+  overlap** — confirming no route anywhere silently clobbers another's registration.
+- **New since v1.14.0's last count:** `GET /api/pageqa` (1.16.0), `GET /api/vlm` (1.17.0),
+  `GET /api/layout` (1.22.0), `GET /api/editions` / `GET /api/symbols` / `GET /api/symbols_page_image`
+  (1.15.0); `POST /api/airgap_export_decisions` / `POST /api/airgap_import_decisions` /
+  `POST /api/ingest_upload` / `POST /api/ocr_backlog_start` / `POST /api/symbols_template` (1.15.0),
+  `POST /api/analytics_log` (1.20.0).
+- **Docs:** `PROJECT-SUMMARY.md` §8 item 8, `MASTER-RECONCILIATION.md` §6 item 9, and `HANDOFF-NOTE.md`'s
+  "Known gotchas" route-collision paragraph all updated with the new figures and closed out (struck through,
+  per this project's established reconciliation convention — see `[1.23.0]`'s semantic-embeddings item for
+  precedent) rather than deleted, preserving the history of what was tracked and when it was resolved.
+  `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html` regenerated (`build_iteration_snapshot.py`); `VERSION`
+  bump. No code changed — this entry only re-verifies and documents the existing, already-shipped route set.
+
+### Staleness-audit "Tiers 2, 5, 6" correction: they were already done — there is no Tier 5 or 6
+`[1.23.0]`'s reconciliation pass stated "Tiers 3 and 4 of the Viewer Drift Report were actually done and
+never reconciled; only 2/5/6 remain genuinely unstarted." That claim was itself wrong, caught while this
+entry's route-count work was already re-verifying git history for unrelated reasons. A direct
+`git log --all --grep="Drift Report\|Tier"` shows the Viewer Drift Report staleness audit only ever had
+**4 tiers total, not 6**: Tier 1 (`3054dad`, deprecated `fitz` imports/test isolation/misc drift), Tier 2
+(`132132f` — the `[1.14.0]` documentation-reconciliation commit itself, missed by `[1.23.0]`'s check the same
+way Tiers 3/4 initially were), Tier 3 (`8f795bc`, dependency version bounds + Python/Actions CI hardening),
+Tier 4 (`1b3c6d8`, repo-bloat/env-var-docs/Windows-CI). Tier 4's own commit message states outright: "This
+closes out all 4 tiers of the Viewer Drift Report staleness audit run across this session." **All 4 tiers
+are complete and have been since 2026-08-18 — Tier 5 and Tier 6 never existed.** Corrected in
+`HANDOFF-NOTE.md` item 3, `MASTER-RECONCILIATION.md` §6 item 7, `PROJECT-SUMMARY.md` §8 item 6 — struck
+through and closed rather than deleted, same convention as the route-count item above.
+
+---
+
 ## [1.23.0] — 2026-08-25 — Reconcile CHANGELOG.md against 11 more undocumented commits (2026-08-18 → 08-24)
 
 A second reconciliation pass, same root cause the [1.15.0] entry already names at length: real work landed on

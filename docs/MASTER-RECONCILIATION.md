@@ -1,6 +1,7 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
-**Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, and again 2026-08-24.** This document
+**Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, and again
+2026-08-29 (6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -11,7 +12,8 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.15.0, shipped 2026-08-19, `main` @ `9b0e5b9`.** 30 commits, ~25 hours, effectively one
+**True current state: v1.24.0, shipped 2026-08-29** (route-count re-audit, docs-only, see §6 item 9).
+Immediately prior: v1.15.0, shipped 2026-08-19, `main` @ `9b0e5b9`. 30 commits, ~25 hours, effectively one
 continuous session (2026-08-18 20:40 → 2026-08-19 21:41) — the largest single body of undocumented work this
 project has ever carried at once. See `CHANGELOG.md`'s `[1.15.0]` entry for the authoritative commit-by-commit
 summary (written from the actual diffs, not just commit messages); §4 below reconciles this file's feature
@@ -355,17 +357,26 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
 6. **A live analytics record still carries an old bad NSN** (dated 2026-06-01, traced during v1.13.4's
    live-driving pass to a since-fixed bad example-data bug) — real historical data, R6 append-only, left for the
    user to decide whether to touch.
-7. **Staleness-audit Tiers 2, 5, 6** — `[1.23.0]`'s reconciliation found Tiers 3 (dependency/CI hardening,
-   `8f795bc`) and 4 (repo bloat/env vars/Windows CI, `1b3c6d8`) were actually done on 2026-08-18; the Tier-1
-   pass (`3054dad`) plus these two were simply never reconciled here until now. Only 2/5/6 remain genuinely
-   unstarted.
+7. ~~**Staleness-audit Tiers 2, 5, 6**~~ — **CORRECTED, `[1.24.0]`:** `[1.23.0]`'s "only 2/5/6 remain
+   genuinely unstarted" claim was itself wrong. `git log --all --grep="Drift Report\|Tier"` shows the Viewer
+   Drift Report staleness audit only ever had **4 tiers total, not 6**: Tier 1 (`3054dad`), Tier 2 (`132132f`
+   — the [1.14.0] documentation-reconciliation commit itself, missed by `[1.23.0]`'s check same as Tiers 3/4
+   initially were), Tier 3 (`8f795bc`, dependency/CI hardening), Tier 4 (`1b3c6d8`, repo bloat/env
+   vars/Windows CI) — whose commit message states outright: "This closes out all 4 tiers of the Viewer Drift
+   Report staleness audit run across this session." **All 4 tiers are complete; there is no Tier 5 or 6 and
+   never was.**
 8. **v1.15.0's own deliberately-deferred items:** `camelot_tables()` (3rd table-extraction engine pilot) stays
    unwired into `/api/tables_plus` — a documented cv2/opencv-python binary-collision risk on version skew, not
    just unmeasured benefit; `dedup.py` cross-TM-family duplicates aren't caught by design (the TM-family
    blocking that makes the O(n²) pass tractable at real corpus scale trades that away deliberately).
-9. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch of
-   new routes (`ocr_backlog_start`, `ingest_upload`, `airgap_export_decisions`/`import_decisions`, 3
-   `symbols_*` routes, `editions`); worth a fresh audit pass.
+9. ~~**Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0**~~ — **DONE, `[1.24.0]`:**
+   mechanically re-counted live against `engine/features/registry.py` — **276 routes (250 GET + 26 POST),
+   zero collisions**, verified at the source level (135 decorator-declared GET paths across
+   `features/routes/*.py` + 115 `static.py`-programmatic GET paths = 250 exactly, no overlap between the two
+   registration sources; 26 decorator POST paths, no internal duplicates). New since v1.14.0: `/api/pageqa`,
+   `/api/vlm`, `/api/layout`, `/api/editions`, `/api/symbols`, `/api/symbols_page_image` (GET);
+   `/api/airgap_export_decisions`, `/api/airgap_import_decisions`, `/api/analytics_log`,
+   `/api/ingest_upload`, `/api/ocr_backlog_start`, `/api/symbols_template` (POST). See `CHANGELOG.md` `[1.24.0]`.
 10. **~~Real semantic embeddings + hybrid ranking~~** — stale, corrected in `[1.23.0]`'s reconciliation:
     `hybrid.py` already does real RRF fusion of keyword (FTS) + `embed.py` semantic search, confirmed
     directly. The v1.14.0-Medium-tier `_box()` CAD-mesh-builder duplication (previously listed as still open

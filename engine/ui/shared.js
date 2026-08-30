@@ -182,8 +182,74 @@
     _footerNav();
   }
 
+  /* Roadmap Now-tier item 3 (a11y): a shared focus trap for modal dialogs, modeled on palette.js's
+     own inline Tab-trap/focus-restore/Escape handling (cmdk, the only correct implementation of
+     this in the codebase before now) but generalized so index.html's other modals (#sidegate,
+     #pnreview, #overlay, #setgate, #tsgate) don't each need to reimplement it. Those modals are
+     opened/closed from many scattered call sites throughout index.html (button handlers, not one
+     owned open()/close() pair) via a consistent style.display="flex"/"none" toggle -- confirmed by
+     grep before writing this -- so rather than requiring every call site to be touched, this
+     watches the container's own style attribute with a MutationObserver and reacts to the
+     none<->flex transition itself. Call once per modal container after the page defines it
+     (idempotent per element -- each call attaches its own observer+listener scoped to that one
+     element, so wiring multiple modals never cross-interferes). No-op (never throws) on a browser
+     without MutationObserver, or if the id/element isn't found. */
+  function trapFocus(idOrEl) {
+    var el = typeof idOrEl === "string" ? document.getElementById(idOrEl) : idOrEl;
+    if (!el || typeof window.MutationObserver !== "function") return;
+    var prevFocus = null;
+    function isVisible() { return el.style.display !== "none" && el.style.display !== ""; }
+    var wasVisible = isVisible();
+
+    function focusables() {
+      var cand = el.querySelectorAll('a[href],button,input,select,textarea,[tabindex]');
+      var out = [];
+      for (var i = 0; i < cand.length; i++) {
+        if (!cand[i].disabled && cand[i].getAttribute("tabindex") !== "-1" && cand[i].offsetParent !== null) {
+          out.push(cand[i]);
+        }
+      }
+      return out;
+    }
+
+    function onShow() {
+      prevFocus = document.activeElement;
+      var f = focusables();
+      if (f.length) { try { f[0].focus(); } catch (e) { /* ignore */ } }
+    }
+    function onHide() {
+      if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) { /* ignore */ } }
+      prevFocus = null;
+    }
+
+    try {
+      new MutationObserver(function () {
+        var v = isVisible();
+        if (v && !wasVisible) onShow();
+        else if (!v && wasVisible) onHide();
+        wasVisible = v;
+      }).observe(el, { attributes: true, attributeFilter: ["style"] });
+    } catch (e) { /* never break the host page over a11y wiring */ }
+
+    el.addEventListener("keydown", function (e) {
+      if (!isVisible()) return;
+      if (e.key === "Escape") {
+        /* matches this codebase's existing modal-close convention (every close call site sets
+           style.display="none" directly) -- generic equivalent, no per-modal cancel logic to call. */
+        e.preventDefault(); el.style.display = "none"; return;
+      }
+      if (e.key !== "Tab") return;
+      var f = focusables();
+      if (!f.length) { e.preventDefault(); return; }
+      var first = f[0], last = f[f.length - 1], act = document.activeElement;
+      if (e.shiftKey) { if (act === first || !el.contains(act)) { e.preventDefault(); last.focus(); } }
+      else { if (act === last || !el.contains(act)) { e.preventDefault(); first.focus(); } }
+    });
+  }
+
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
-             toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier };
+             toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
+             trapFocus: trapFocus };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

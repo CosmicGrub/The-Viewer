@@ -69,7 +69,7 @@ PASS palette.js           referenced by 45 pages, 5 assets
 PASS shared.js            referenced by 44 pages, 3 assets
 PASS deepzoom.js          referenced by 3 pages, 3 assets
 PASS scanner.js           referenced by 3 pages, 1 asset
-PASS readaloud.js         referenced by 0 pages, 1 asset
+PASS readaloud.js         referenced by 1 page, 1 asset
 
 [3] orphan UI pages (exist but no route)
 

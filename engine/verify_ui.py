@@ -96,4 +96,62 @@ if _bad:
     rc = 1
 else:
     print("console charset : all print() lines are cp1252-safe  OK")
+
+# --- WCAG text-contrast guard (v1.29, roadmap Now-tier item 5): base.css's --grn/--red are correct
+#     as decorative accents (3:1 non-text floor) but measured BELOW the 4.5:1 AA floor as actual TEXT
+#     against the two backgrounds the app's live confirmation/warning copy renders on (--panel,
+#     --panel2) -- --grn-tx/--red-tx are the lightened, text-safe siblings added alongside them for
+#     exactly that use. This locks the fix in: if either --panel/--panel2 or the -tx pair's hex ever
+#     drifts, this catches the regression instead of it silently shipping unreadable text again
+#     (which is exactly how the original 2.98:1/4.02:1 failures went unnoticed in the first place).
+def _hex_tokens(path):
+    txt = open(path, encoding="utf-8").read()
+    i = txt.find(":root{")
+    if i < 0:
+        return {}
+    j = txt.find("}", i)
+    block = txt[i:j]
+    return dict(re.findall(r"--([\w-]+)\s*:\s*(#[0-9a-fA-F]{6})", block))
+
+
+def _contrast(hex_a, hex_b):
+    def lin(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    def lum(h):
+        h = h.lstrip("#")
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+    l1, l2 = lum(hex_a), lum(hex_b)
+    hi, lo = max(l1, l2), min(l1, l2)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+_AA_TEXT_FLOOR = 4.5
+# (foreground token, background token, real call site) -- every pair this app actually renders as
+# live text today; index.html carries its own token copy (doesn't load base.css, see its :root
+# comment) so both sources are checked to catch either one drifting out of sync.
+_TEXT_PAIRS = [
+    ("grn-tx", "panel2", "index.html part-match 'Saved' confirmation"),
+    ("grn-tx", "panel", "index.html side-chooser operator badge / chapter-count status"),
+    ("red-tx", "panel2", "index.html barcode-vs-OCR NSN mismatch warning"),
+]
+for src_name in ("ui/base.css", "ui/index.html"):
+    toks = _hex_tokens(os.path.join(HERE, src_name))
+    if not toks:
+        print("wcag text-contrast : SKIP -- %s has no :root{} token block" % src_name)
+        continue
+    for fg, bg, where in _TEXT_PAIRS:
+        if fg not in toks or bg not in toks:
+            print("wcag text-contrast : SKIP -- %s missing --%s or --%s" % (src_name, fg, bg))
+            continue
+        r = _contrast(toks[fg], toks[bg])
+        if r < _AA_TEXT_FLOOR:
+            print("wcag text-contrast : FAIL -- %s: --%s on --%s (%s) is %.2f:1, below the %.1f:1 AA floor"
+                  % (src_name, fg, bg, where, r, _AA_TEXT_FLOOR))
+            rc = 1
+        else:
+            print("wcag text-contrast : %s --%s on --%s = %.2f:1  OK (%s)" % (src_name, fg, bg, r, where))
 sys.exit(rc)

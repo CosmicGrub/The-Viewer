@@ -327,11 +327,11 @@ def fuzzy_terms(con, word, cap=4, min_doc=1):
     return [t for _, t in cands[:cap]]
 
 
-def _alts(con, word, last, use_fuzzy):
+def _alts(con, word, last, use_fuzzy, fuzzy_cache=None):
     w = word.lower()
     alts = [w] + SYN.get(w, [])
     if use_fuzzy:
-        for f in fuzzy_terms(con, w):
+        for f in _cached_fuzzy_terms(con, w, fuzzy_cache):
             if f not in alts: alts.append(f)
     alts = alts[:6]
     quoted = []
@@ -341,16 +341,34 @@ def _alts(con, word, last, use_fuzzy):
     return "(" + " OR ".join(quoted) + ")"
 
 
-def _token_alts(con, toks, use_fuzzy):
+def _cached_fuzzy_terms(con, w, fuzzy_cache):
+    """v1.29 (search-latency fix): fuzzy_terms() is a real vocabulary scan (5-49ms measured per
+    word, not free) -- build_match() (via _alts()) and _token_alts() used to each call it fresh on
+    the SAME tokens within one search() request, unconditionally doubling every fuzzy query's cost
+    for zero behavior difference. fuzzy_cache is a plain dict scoped to ONE search() call (created
+    fresh per request, never persisted across requests -- this is a request-local memo, not a
+    cross-request cache; that's tracked separately as its own follow-up). fuzzy_cache=None (the
+    default) preserves the exact old behavior -- always call fresh -- for any caller that doesn't
+    opt in, so this is purely additive."""
+    if fuzzy_cache is None:
+        return fuzzy_terms(con, w)
+    if w not in fuzzy_cache:
+        fuzzy_cache[w] = fuzzy_terms(con, w)
+    return fuzzy_cache[w]
+
+
+def _token_alts(con, toks, use_fuzzy, fuzzy_cache=None):
     """Recommendations annex #13 (fuzzy-match-badge): per-token alt-term provenance, reusing exactly
     the same SYN.get()/fuzzy_terms() calls _alts() above already makes for the FTS expression --
     this just also keeps the raw alt lists (not folded into a quoted OR-expr string) so search()'s
     exact-boost pass can tell WHICH alternative actually matched a given result row, not just that
-    build_match() included one. Returns {lowercased token: {"syn": [...], "fuzzy": [...]}}."""
+    build_match() included one. Returns {lowercased token: {"syn": [...], "fuzzy": [...]}}.
+    Shares fuzzy_cache with build_match()'s own _alts() calls when the caller passes the same dict
+    (search() does, on the identical q_toks) -- see _cached_fuzzy_terms()."""
     out = {}
     for t in toks:
         w = t.lower()
-        out[w] = {"syn": SYN.get(w, []), "fuzzy": fuzzy_terms(con, w) if use_fuzzy else []}
+        out[w] = {"syn": SYN.get(w, []), "fuzzy": _cached_fuzzy_terms(con, w, fuzzy_cache) if use_fuzzy else []}
     return out
 
 
@@ -428,14 +446,16 @@ def suggest(q, limit=8):
     return res
 
 
-def build_match(con, q, match_any=False, use_fuzzy=True):
+def build_match(con, q, match_any=False, use_fuzzy=True, fuzzy_cache=None):
     """Build an FTS5 MATCH expression with synonym/fuzzy expansion, part-number phrase precision,
     and AND (default) or ANY/OR combination.
 
     v0.97.0 (C22) — explicit operators now pass through:
       "quoted phrase"   -> kept as an exact FTS phrase (adjacency), AND'd with the other terms
       a NEAR b          -> NEAR("a" "b", 10)   (terms within ten tokens of each other)
-    Queries without quotes/NEAR behave exactly as before."""
+    Queries without quotes/NEAR behave exactly as before.
+
+    fuzzy_cache: optional dict, see _cached_fuzzy_terms(). None (default) = old behavior."""
     nearm = re.match(r"^\s*([A-Za-z0-9]+)\s+NEAR\s+([A-Za-z0-9]+)\s*$", q or "")
     if nearm:
         return 'NEAR("%s" "%s", 10)' % (nearm.group(1), nearm.group(2))
@@ -449,7 +469,7 @@ def build_match(con, q, match_any=False, use_fuzzy=True):
         rest = re.sub(r'"[^"]*"?', " ", q)
     toks = re.findall(r"[A-Za-z0-9]+", rest)[:6]
     if not toks and not user_phrases: return None
-    groups = [_alts(con, t, idx == len(toks) - 1, use_fuzzy) for idx, t in enumerate(toks)]
+    groups = [_alts(con, t, idx == len(toks) - 1, use_fuzzy, fuzzy_cache) for idx, t in enumerate(toks)]
     if match_any:
         body = " OR ".join(g[1:-1] for g in groups) if groups else ""
         if user_phrases:
@@ -474,6 +494,9 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
     parse_operators in the route). All default None so every existing caller behaves identically.
     tm/vehicle filter the documents join (parameterized LIKE); nsn: with NO free text routes into the
     existing exact-NSN pipeline, otherwise it becomes a digits-normalized filter on d.nsn."""
+    fuzzy_cache = {}  # v1.29: request-scoped memo, see _cached_fuzzy_terms() -- shared by every
+                       # build_match()/_token_alts() call below so a fuzzy query's vocabulary scan
+                       # runs once per token per request, not 2-3x on the identical tokens.
     q = (q or "").strip()
     flt_where, flt_args = _doc_filters(tm=tm, vehicle=vehicle, nsn=(nsn if q else None))
     if nsn and not q:
@@ -523,7 +546,7 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
             seen.add(k); out.append(r)
         con.close(); return out[:limit]
     # 3) Enhanced predictive keyword search (synonyms + part#/FIG + ANY/OR + fuzzy)
-    match = build_match(con, q, match_any, use_fuzzy)
+    match = build_match(con, q, match_any, use_fuzzy, fuzzy_cache)
     if not match: con.close(); return []
     try: rows = _meta_rows(con, "pages_fts MATCH ?" + flt_where, [match] + flt_args, limit)
     except sqlite3.OperationalError:
@@ -545,7 +568,7 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
     if len(rows) < 3:
         seen = {(r["doc_id"], r["page_number"]) for r in rows}
         for variant in normalize_nomenclature(q):
-            vm = build_match(con, variant, match_any, use_fuzzy)
+            vm = build_match(con, variant, match_any, use_fuzzy, fuzzy_cache)
             if not vm: continue
             try: extra = _meta_rows(con, "pages_fts MATCH ?" + flt_where, [vm] + flt_args, limit)
             except sqlite3.OperationalError: extra = []
@@ -574,7 +597,7 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
     # this way and the row silently reads as literal -- an accepted false-negative, never a false
     # positive (never wrongly flags a genuinely literal hit as approximate).
     q_toks = re.findall(r"[A-Za-z0-9]+", q)[:6]
-    token_alts = _token_alts(con, q_toks, use_fuzzy) if q_toks else {}
+    token_alts = _token_alts(con, q_toks, use_fuzzy, fuzzy_cache) if q_toks else {}
     lit_lower = {t.lower() for t in q_toks}
     for r in rows:
         snip = (r.get("snip") or "").lower().replace("<<", "").replace(">>", "")

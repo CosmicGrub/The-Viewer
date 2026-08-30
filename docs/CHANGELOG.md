@@ -12,6 +12,75 @@ every change going forward.
 
 ---
 
+## [1.26.0] — 2026-08-30 — conflicts.py: fix cross-vehicle false positives without introducing a false-negative safety regression
+**VERSION → `1.26.0`.** Two implementation passes on one feature-quality fix, the second correcting a
+serious safety regression the first introduced — both caught by this session's adversarial-review
+discipline before either shipped to `main`.
+
+### The original bug (found while re-running `BUILD-CONFLICTS.bat` after `[1.25.0]`'s migration fix)
+`conflicts.detect()` grouped extracted measurement values purely by `(type, unit)`, with no regard for
+which vehicle/document a value came from. A generic FTS-matched subject (e.g. "WINCH INSTALLATION")
+pools numeric readings from whatever documents happen to match it; unrelated vehicles routinely share a
+subject string, so their naturally-different real specs got pooled and flagged as a false "conflict".
+Confirmed on the real corpus: a "WINCH INSTALLATION" sweep pooled 4 documents from 3 different vehicles
+into one group.
+
+### Pass 1 (implemented + 3-lens adversarially reviewed, NOT merged as originally designed)
+Grouped by `(type, unit, vehicle)` instead. Correctly separated the 3 unrelated WINCH-example vehicles.
+Adversarial review (correctness/safety-R13/test-coverage lenses, run via this session's Workflow tool)
+caught a serious regression, confirmed by direct reproduction against the real corpus and a synthetic
+case: "vehicle" is a raw ingest-folder name (`viewer_ingest.py`'s `vehicle = rel.split(os.sep)[0]`), not
+a canonical vehicle ID. The SAME real vehicle is sometimes filed under two different folder spellings
+(e.g. "HMMWV" vs "TM,S HUMMERS,ALL", both real folder names in this corpus) — hard-splitting by vehicle
+silently **dropped** a genuine cross-manual disagreement whenever that happened: `detect()` on a real
+35-vs-50-ft-lb torque disagreement returned `[]` once tagged with those two spellings, because they
+landed in separate groups of 1 and never got compared. Separately confirmed: ~86% of this corpus's
+39,683 documents sit under generic ingest-staging folders ("WORK" 65%, "ALL EMS VEIWER FILES" 17.6%,
+"Additional IMG Info" 2.9%) that mix genuinely unrelated real vehicles, so hard-splitting barely narrowed
+the original false-positive problem for most of the corpus anyway (an "ALTERNATOR" query still pooled an
+HMMWV torque spec against an unrelated MRAP-family spec, both tagged `vehicle="WORK"`). For a module
+whose whole purpose is catching cross-manual disagreements, a silent false negative is worse than the
+false positive it replaced — never shipped to `main`.
+
+### Pass 2 (shipped)
+Restores the **original `(type, unit)`-only grouping** — byte-identical recall to the pre-vehicle-scoping
+code, independently confirmed by a second, targeted adversarial review that diffed the change against
+`main` line-by-line — and instead **annotates** each flagged group with `vehicle` (single label if
+unambiguous, else `""`), `vehicles` (sorted distinct labels seen), `cross_vehicle` (bool). Nothing is
+ever hidden because of a vehicle mismatch; the original WINCH INSTALLATION example still gets flagged,
+now correctly marked `cross_vehicle: true` with all 3 vehicle labels listed instead of being silently
+absent or silently indistinguishable from a confirmed single-vehicle hit.
+That second review also found: sort order didn't deprioritize `cross_vehicle: true` groups (a spurious
+75%-spread 3-vehicle pooling could outrank and crowd out a confirmed 30%-spread real conflict in a UI
+that only shows the top N) — fixed, sort is now severity → vehicle-confirmed-before-ambiguous → spread; a
+defensive `str()` cast on the vehicle field (mirrors the existing type/unit idiom, not reachable via real
+production data, cheap to harden anyway); and two honesty gaps in the docstring, now disclosed: citations
+dedup by distinct value not by doc, so a vehicle named in `vehicles` can have zero backing citation in
+`values`; and `engine/ui/part.html` does not yet read any of the new fields — the annotation is available
+via the API but not yet surfaced to a technician, a separate, still-open follow-up.
+
+### Verified
+`python conflicts.py` (self-test, 7 checks) and new `engine/tests/test_conflicts.py` (34 checks) both
+green. Sabotage-tested: reverted the grouping key back to the Pass-1 design in place, confirmed 7 tests
+correctly fail, restored, confirmed all green again. `verify_all.py --snapshot`: 50/50, safeguard
+716/716 files OK, 0 damaged. A second independent adversarial review ran 7 of its own new cases (unicode
+vehicle names, 50-distinct-vehicle groups, mixed-case identical vehicles, whitespace-only vehicles,
+zero/negative values) plus the existing `test_newmodules.py` fuzz suite (500 cases) against this design
+and found no recall regression.
+
+### Operational follow-up (done as part of shipping this)
+`index/conflicts.db`'s existing sweep (run 2, from investigating the `[1.25.0]` migration bug) was built
+entirely against the pre-fix `detect()` and carries no `vehicle`/`cross_vehicle` data — re-swept via
+`BUILD-CONFLICTS.bat` after this merge so `/api/conflicts`'s precomputed cache reflects the fix (see
+`precomputed_for()`'s 45-day freshness window — it has no code-version awareness, so this re-sweep is
+what actually makes the fix visible to that route, not the code change alone).
+
+### Docs
+`docs/CHANGELOG.md` `[1.26.0]`; `VERSION` bump; `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html`
+regenerated.
+
+---
+
 ## [1.25.0] — 2026-08-30 — CRITICAL: applied 4 pending schema migrations the real viewer.db never had — measures/ask/cautions/pmcs/oneuse were silently returning nothing since v1.13.5
 **VERSION → `1.25.0`.** Host-operational fix, not a code change (migrations 0009–0012 already shipped in
 past releases as SQL files — this is the first time they were ever actually applied to the real,

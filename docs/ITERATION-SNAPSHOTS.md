@@ -6,8 +6,19 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 233 | 1.27.0 — part.html: surface conflicts.py's cross_vehicle/vehicles annotation to the technician | 141 |
+| 234 | 1.28.0 — Field-reliability quick wins: cart persistence, stepflow voice-nav, PORTING.md currency | 141 |
 
+
+---
+
+## [1.28.0] — 2026-08-30 — Field-reliability quick wins: cart persistence, stepflow voice-nav, PORTING.md currency
+`FEATURE`
+
+- **VERSION → `1.28.0`.** The first three "do now" items from a production-readiness/parity audit against fielded military IETM viewers (EMS-VIEWER/EMS-NG, IADS) and the search-accuracy landscape more broadly — each verified live in a real browser against the real running app, not just read.
+- **The parts-request cart now survives a crash, a closed tab, or a lost connection.** It was the one core workflow (the home page is laid out as Search | Parts-Request) with zero persistence — a plain in-memory array, no `localStorage` call anywhere, while the procedure checklist and the ingest job both already autosaved. `engine/ui/index.html`'s `CART` is now saved from the single choke-point every mutation already passes through (`renderCart()`, called after every add/remove/async-enrichment update) plus the one path that doesn't re-render on its own (an in-place field edit via `oninput`). Restored on load with a visible toast ("Restored N item(s) from your last session") so the persistence is honest, not silent. Verified live: added 2 items, confirmed them in real `localStorage`, edited a field and confirmed the edit persisted immediately, removed one and confirmed the array shrank, reloaded the page and confirmed both the remaining item and all its async-enriched sub-fields (FLIS reference, CAGE, price) survived intact.
+- **`stepflow.html`'s hands-free voice step-navigation now actually works.** This is the page explicitly built for following along at the vehicle, but `readaloud.js`'s step-nav bar (auto-injected app-wide by `palette.js`) never appeared there — it looks for `.step`/`.n`/`.body` inside `#stepwrap` or `#out`, and this page rendered its steps as `.node`/`.num`/`.body` instead. Fixed additively (`class="node step"`, `class="num n"` — both class names on the same elements, nothing renamed) since neither `step` nor `n` has a CSS rule defined anywhere in `base.css` or in this file, confirmed before shipping. Verified live: the hands-free `◀ prev / next ▶ / 🎤` bar now appears on a real `/stepflow?q=...` page and correctly reports step count and text (confirmed via `stepNodes()` finding 6 real steps, `.n`/`.body` extracting the right number and prose, `window.viewerNextStep()` correctly advancing) — 0 steps found before this fix, 6 after. New regression coverage in `engine/tests/test_readaloud_stepnav.py` (4 new checks) guards the additive class pair going forward.
+- **`docs/PORTING.md` — the exact document a new site would use to stand itself up cold — no longer says v1.13.2.** It was 14 minor versions and roughly six weeks of shipped work behind, and critically did not warn about the real `[1.25.0]` schema-migration gap (`viewer.db` missing migrations 0009–0012, silently breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse` for ~3 weeks) that a fresh copy could walk straight into. Updated to v1.28.0, route count (276), CI's existence, and a new explicit call-out of the migration trap with the one-line fix (`python viewer_ingest.py migrate`).
+- **Also regenerated**: `docs/feature_audit.txt` (`engine/audit_features.py`'s own output) had drifted to a stale route count (249 GET) from before `[1.24.0]`'s re-audit — refreshed to the real current 250 GET / 159 decorators / 68 reachable self-tested modules (adds `pageqa`, missing from the prior run). **Verified:** `engine/tests/verify_all.py --snapshot`: 49/50 (only the known pre-existing `test_ingest_routes.py` flake), `rps_lint.py` clean (a false-positive "ES6 class declaration" flag from a code comment using the phrase "class name" — not actual code — was caught and reworded before shipping), safeguard 719/719 files OK, 0 damaged.
 
 ---
 

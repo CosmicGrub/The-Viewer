@@ -1,9 +1,27 @@
 # PORTING THE VIEWER to a more powerful PC
 
-A complete checklist for moving the whole system. Current state: **v1.13.2** (2026-07-18; rewritten 2026-08-08 —
-see reconciliation note below), post-"THE RESTRUCTURE" + the v1.13.0 "HOLISTIC HARDENING" pass, CAD engine
-**CAD_VERSION 7** (colour + texture on every tier).
+A complete checklist for moving the whole system. Current state: **v1.27.0** (2026-08-30 — see reconciliation
+note below), post-"THE RESTRUCTURE" + the v1.13.0 "HOLISTIC HARDENING" pass, CAD engine **CAD_VERSION 7**
+(colour + texture on every tier). **276 routes** (250 GET + 26 POST, mechanically re-counted at `[1.24.0]`),
+schema at migration **0012**, and a real CI workflow (`.github/workflows/ci.yml`) running the same
+`verify_all.py` gate on every push/PR — none of that existed the last time this file was current.
 
+> **Reconciliation note (2026-08-30):** this file had gone stale at **v1.13.2** — 14 minor versions and
+> roughly six weeks of shipped work behind `docs/CHANGELOG.md`'s real newest entry, caught during a
+> production-readiness audit that flagged this as exactly the document a new site would use to stand itself
+> up cold, and exactly the document that would NOT have warned them about the trap in the paragraph below.
+> Rewritten against `docs/HANDOFF-NOTE.md`/`docs/MASTER-RECONCILIATION.md` (both already current). The copy
+> mechanics (§1–§4) were still accurate and untouched; what was stale was the version header and §8's
+> "current in-flight" snapshot, which still described 2026-08-08-era open items.
+>
+> **The one new trap worth knowing before you copy anything (see §6 step 0):** between v1.13.5 and
+> `[1.25.0]`, the real production `viewer.db` on the source machine may be missing schema migrations
+> 0009–0012 — this happened for real here, silently breaking `measures`/`ask`/`cautions`/`pmcs`/`oneuse`
+> for about three weeks before anyone noticed, precisely because nothing forces a migration check on
+> startup. `python viewer_ingest.py migrate` (which already runs as part of every CLI subcommand, including
+> a bare `migrate`) fixes this in seconds and auto-backs up first — just don't assume a copied `viewer.db`
+> is already current. Check `schema_meta.schema_version` (should read `12`) if in doubt.
+>
 > **Reconciliation note (2026-08-08):** this file had gone stale at "v0.98.0" — the same class of drift
 > `docs/PROJECT-SUMMARY.md` had, fixed in the same session (see that file's own reconciliation note). Rewritten
 > below against `docs/MASTER-RECONCILIATION.md` + `docs/CHANGELOG.md`. The copy mechanics (§1–§4) were already

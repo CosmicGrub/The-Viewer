@@ -1,11 +1,12 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
 **Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
-(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and twice more on
+(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and three more times on
 2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; `conflicts.py`'s
 cross-vehicle false-positive fix, itself needing a second pass after adversarial review caught a safety
-regression in the first, `[1.26.0]`; then wiring that fix's new fields into `engine/ui/part.html`,
-`[1.27.0]`).** This document
+regression in the first, `[1.26.0]`; wiring that fix's new fields into `engine/ui/part.html`, `[1.27.0]`;
+then, following a production-readiness/EMS-VIEWER-parity audit, 3 field-reliability quick wins,
+`[1.28.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -16,12 +17,13 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.27.0, shipped 2026-08-30** (`engine/ui/part.html` now shows `[1.26.0]`'s
-`cross_vehicle`/`vehicles` fields to a technician, see §6 item 14). Immediately prior: v1.26.0, shipped
-the same day (`conflicts.py`'s cross-vehicle false-positive fix); v1.25.0, shipped the same day (critical
-fix: 4 missing schema migrations applied to the real production DB, see §6 item 13); before that
-v1.24.0, shipped 2026-08-29 (route-count re-audit, docs-only, see §6 item 9); before that v1.15.0,
-shipped 2026-08-19, `main` @ `9b0e5b9`. 30
+**True current state: v1.28.0, shipped 2026-08-30** (3 field-reliability quick wins from a production-
+readiness/EMS-VIEWER-parity audit — cart persistence, stepflow voice-nav wiring, PORTING.md currency —
+see §6 item 15). Immediately prior, all the same day: v1.27.0 (`engine/ui/part.html` now shows
+`[1.26.0]`'s `cross_vehicle`/`vehicles` fields to a technician, see §6 item 14); v1.26.0 (`conflicts.py`'s
+cross-vehicle false-positive fix); v1.25.0 (critical fix: 4 missing schema migrations applied to the real
+production DB, see §6 item 13); before that v1.24.0, shipped 2026-08-29 (route-count re-audit, docs-only,
+see §6 item 9); before that v1.15.0, shipped 2026-08-19, `main` @ `9b0e5b9`. 30
 commits, ~25 hours, effectively one
 continuous session (2026-08-18 20:40 → 2026-08-19 21:41) — the largest single body of undocumented work this
 project has ever carried at once. See `CHANGELOG.md`'s `[1.15.0]` entry for the authoritative commit-by-commit
@@ -425,6 +427,19 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     `cross_vehicle: false` can still in principle mean two different real vehicles sharing one broad
     folder (e.g. "WORK", ~65% of the corpus). Both disclosed in `conflicts.py`'s own docstring, neither
     fixed. See `CHANGELOG.md` `[1.26.0]` for the full two-pass story.
+15. **`[1.28.0]` — 3 field-reliability quick wins from a production-readiness/EMS-VIEWER-parity audit.**
+    The audit itself: a source-cited comparison of THE VIEWER against fielded military IETM viewers
+    (EMS-VIEWER/EMS-NG, IADS) plus an honest search-accuracy scorecard, published as a standalone dossier.
+    Fixes shipped from its "do now" tier: the parts-request cart now persists to `localStorage` from
+    every mutation path (previously the app's other core workflow had zero autosave); `stepflow.html`
+    now actually triggers `readaloud.js`'s hands-free voice step-nav (additive class aliases, zero style
+    impact, confirmed); `docs/PORTING.md` updated from a 14-version-stale v1.13.2 to current, now
+    explicitly warning about the real `[1.25.0]` schema-migration trap. All three verified live in a
+    real browser. **Still open from the same audit**: semantic search is real but non-functional in
+    production today (no embedding model installed, stale index) — needs a decision, fix or hide; RRF
+    hybrid fusion has zero UI callers; ARIA/`<label>`s exist on only 2 of 45 UI pages; the home page's 6
+    modals lack real focus traps; no accounts/RBAC, TLS, offsite backup automation, or accreditation
+    artifacts exist for multi-site fielding. See the dossier and `CHANGELOG.md` `[1.28.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

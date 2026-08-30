@@ -4,6 +4,24 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30, fourth pass):** a production-readiness/end-user-friendliness audit
+> against fielded military IETM viewers (EMS-VIEWER/EMS-NG, IADS) plus an honest search-accuracy
+> scorecard was published this session as a standalone dossier. Three "do now" items from it shipped in
+> `[1.28.0]`: the parts-request cart (`engine/ui/index.html`) now persists to `localStorage` from every
+> mutation path and restores on load with a visible toast — previously the app's other core workflow had
+> zero autosave while the procedure checklist and ingest job both already had it; `stepflow.html` (the
+> page built for hands-free at-the-vehicle use) now actually triggers `readaloud.js`'s voice step-nav bar
+> via additive `class="node step"`/`class="num n"` aliases (confirmed zero style impact before shipping);
+> `docs/PORTING.md` — the document a new site would use to stand itself up cold — updated from a
+> 14-version-stale v1.13.2 to current, now explicitly warning about the real `[1.25.0]` schema-migration
+> trap. All three verified live in a real browser, not just read. **Genuinely still open from the same
+> audit** (see item 10 below and the dossier for the full prioritized list): semantic search is real but
+> non-functional in production today (no embedding model installed, stale index); RRF hybrid fusion has
+> zero UI callers; ARIA/`<label>`s exist on only 2 of 45 UI pages; the home page's 6 modals lack real
+> focus traps; no user accounts/RBAC, TLS, offsite backup automation, or accreditation artifacts exist
+> for multi-site fielding. `main` is at `[1.28.0]`; `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md`
+> updated in the same pass.
+>
 > **Reconciliation note (2026-08-30, third pass):** the UI-wiring follow-up the second-pass note below
 > flagged as "genuinely still open" is now done, in `[1.27.0]`: `engine/ui/part.html`'s `lazyConflicts()`
 > shows each disagreeing value's vehicle inline and a "⚠ Spans N different vehicle labels..." caveat when
@@ -697,5 +715,30 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
     correctly). Lower-priority, still open: the citation-completeness quirk and the "vehicle is a raw
     folder name, not a curated identity" limitation, both disclosed in `conflicts.py`'s own docstring
     (see `CHANGELOG.md` `[1.26.0]`/`[1.27.0]`).
+11. **Remaining items from the `[1.28.0]` production-readiness/EMS-VIEWER-parity dossier, roughly in
+    priority order:**
+    - **Semantic search: decide and act.** `embed.search()` returns `{ready:false, stale:true,
+      results:[]}` on this real corpus today — no `sentence-transformers` installed, the on-disk index
+      has no version stamp so it's treated as stale. Either install the model + rebuild the index so it
+      actually works, or pull its UI entry point (`/semantic`, the "🧠 Semantic search" nav link) until
+      it does — leaving it live-but-empty is the one finding in the whole audit that actively misleads.
+    - **Route the default search box through the real RRF hybrid-fusion code.** `hybrid.py`'s `fuse()`
+      is genuinely correct and self-tested, wired to `/api/search_hybrid` — but zero UI page has ever
+      called that route; the home search only calls plain `/api/search`. The fusion logic isn't broken,
+      it's disconnected.
+    - **A real accessibility pass, not another ad hoc fix.** ARIA attributes/`<label>`s exist on only 2
+      of 45 UI pages' own markup (the shared palette/toast components do it right); 6 of `index.html`'s
+      own modals declare `aria-modal="true"` with no actual focus trap; none of the 3 primary viewer
+      `<img>` tags set `alt`. Color tokens likely already pass WCAG AA (spot-checked, never formally run).
+    - **Offsite backup automation + one real restore drill.** The weekly `backupdb()` writes to the same
+      disk as the live data; `docs/IMPROVEMENT-BACKLOG.md` already lists automating the offsite mirror as
+      open. Nobody has ever actually restored the real 3.65GB+ index and served from it.
+    - **TLS for any non-loopback deployment.** The docs already instruct units to expose the server on a
+      LAN; that path currently sends the shared auth token and all manual content in cleartext.
+    - **Strategic, not incremental** (only worth starting if multi-site fielding becomes an actual near-
+      term goal): real user accounts + RBAC, a fleet update/version-inventory mechanism, load-testing at
+      10× today's corpus scale, and 508/VPAT + dependency-scanning + a real pen-test toward any future
+      accreditation package.
+    See the published Readiness Dossier and `CHANGELOG.md` `[1.28.0]` for full detail and citations.
 
 <!-- END OF FILE -->

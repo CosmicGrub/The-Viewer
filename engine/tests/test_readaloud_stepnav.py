@@ -14,6 +14,7 @@ sys.path.insert(0, ENGINE)
 
 READALOUD_JS = os.path.join(ENGINE, "ui", "readaloud.js")
 PROCEDURE_HTML = os.path.join(ENGINE, "ui", "procedure.html")
+STEPFLOW_HTML = os.path.join(ENGINE, "ui", "stepflow.html")
 
 
 def run():
@@ -90,6 +91,23 @@ def run():
     check("procedure_html_still_uses_dot_n_and_dot_body_classes", 'class="n"' in proc_src and 'class="body"' in proc_src)
     check("procedure_html_still_uses_chip_class_for_torque_fig_nsn",
           'class="chip' in proc_src)
+
+    # v1.28 fix: stepflow.html -- the page explicitly built for hands-free, at-the-vehicle use --
+    # rendered its steps as .node/.num/.body, not .step/.n/.body, so readaloud.js's step-nav bar
+    # (auto-injected app-wide by palette.js) silently never appeared there even though the exact
+    # same feature already worked on procedure.html. Fix: stepflow.html now emits BOTH class names
+    # on each element (additive, not a rename) -- confirmed live that this changes zero styling,
+    # since neither "step" nor "n" has a CSS rule anywhere in base.css or in this file. This is a
+    # real regression guard: it fails if that additive wiring is ever dropped, not just a "no crash"
+    # check -- run live in a real browser during the fix (see CHANGELOG [1.28.0]): stepNodes()
+    # found 6 real steps on a live /stepflow?q=... page after this change, 0 before it.
+    stepflow_src = open(STEPFLOW_HTML, encoding="utf-8").read()
+    check("stepflow_html_step_nodes_carry_the_dot_step_alias", 'class="node step"' in stepflow_src)
+    check("stepflow_html_step_numbers_carry_the_dot_n_alias", 'class="num n"' in stepflow_src)
+    check("stepflow_html_still_has_dot_body_for_step_text", 'class="body"' in stepflow_src)
+    # renders into #out (confirmed above stepNodes() already accepts #out as a fallback host --
+    # this page was never missing a host, only the per-node class names stepNodes()/stepText() read)
+    check("stepflow_html_renders_into_a_host_stepnodes_recognizes", 'id="out"' in stepflow_src)
 
     return passed, failed
 

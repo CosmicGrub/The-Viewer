@@ -567,13 +567,18 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
   Snapshot/verify HOST-SIDE (`safeguard.py` / root `VERIFY.bat`).
 - **Never** write the big `viewer.db` through the mount; sidecars are written by host-run builders only.
 - **LF-only .bat blink-crashes** — now gated mechanically by `engine/tools/check_crlf.py` (in VERIFY).
-- Duplicate route paths silently override — audited at 244 GET + 21 POST (265 total, no collisions) as of
-  v1.14.0; a real, mechanical check for a DIFFERENT bug class (built but never wired in — dead code, not a
-  collision) was added in v1.15.0 (`audit_features.py [7]`, 0 FAIL/0 WARN against the live repo as of that
-  session). The route COUNT itself hasn't been recounted since v1.15.0 added a real batch of new routes
-  (RPSTL/schematics/tables stages don't add routes, but `ocr_backlog_start`, `ingest_upload`,
-  `airgap_export_decisions`/`import_decisions`, and the 3 new `symbols_*` routes all do) — worth a fresh count
-  next time the audit runs.
+- Duplicate route paths silently override — re-audited `[1.24.0]` (2026-08-29): **276 routes (250 GET + 26
+  POST), zero collisions**, verified at the source level, not just the final live-dict size (which can't
+  distinguish a real registration from a silent same-path overwrite) — every `@get`/`@post` decorator path
+  across `features/routes/*.py` (135 GET + 26 POST, no internal duplicates) cross-checked against every path
+  `static.py`'s `register_static()` registers programmatically from `_PAGES`/`_SCRIPTS`/`/base.css` (115 GET,
+  no internal duplicates): `135 + 115 = 250` exactly, zero overlap. Up from 265 (244 GET + 21 POST) at
+  v1.14.0 — new routes since then: `/api/pageqa` (1.16.0), `/api/vlm` (1.17.0), `/api/layout` (1.22.0),
+  `/api/editions`/`/api/symbols`/`/api/symbols_page_image` (1.15.0) on GET; `/api/airgap_export_decisions`/
+  `/api/airgap_import_decisions`/`/api/ingest_upload`/`/api/ocr_backlog_start`/`/api/symbols_template`
+  (1.15.0), `/api/analytics_log` (1.20.0) on POST. A real, mechanical check for a DIFFERENT bug class (built
+  but never wired in — dead code, not a collision) already exists separately (`audit_features.py [7]`,
+  added v1.15.0).
 - Standing rules R1–R13 are **THE VIEWER-only**; do not carry them to other projects.
 
 ## Suggested next
@@ -589,13 +594,16 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
    so requiring whitespace there would silently drop real readings, a recall regression this module has
    no way to verify without the real corpus (the original reason this was deferred, still true for this
    narrower remaining piece). Flagged since `CHANGELOG.md` `[1.13.4]`.
-3. **Staleness-audit Tiers 2, 5, 6** — `[1.23.0]`'s reconciliation pass found Tiers 3 (dependency/CI
-   hardening) and 4 (repo bloat, env vars, Windows CI) were actually done on 2026-08-18 (`8f795bc`,
-   `1b3c6d8`) and simply never reconciled here — corrected. Only Tiers 2/5/6 remain genuinely unstarted (see
-   `docs/audit/` + the Viewer Drift Report artifact for what those cover). Note this is a DIFFERENT
-   deferred-items list from the "5 deferred items" v1.15.0 closed (item 4 below, and distinct again from
-   item 5's audit-reachability findings) — three separate tracking threads with similar names, easy to
-   conflate.
+3. ~~**Staleness-audit Tiers 2, 5, 6**~~ — **CORRECTED, `[1.24.0]`:** `[1.23.0]`'s "only Tiers 2/5/6 remain
+   genuinely unstarted" claim was itself wrong. `git log --all --grep="Drift Report\|Tier"` shows the Viewer
+   Drift Report staleness audit only ever had **4 tiers total, not 6** — Tier 1 (`3054dad`), Tier 2
+   (`132132f` — the [1.14.0] documentation-reconciliation commit itself, missed by `[1.23.0]`'s check the
+   same way Tiers 3/4 initially were), Tier 3 (`8f795bc`, dependency/CI hardening), Tier 4 (`1b3c6d8`, repo
+   bloat/env vars/Windows CI) — whose own commit message states outright: "This closes out all 4 tiers of
+   the Viewer Drift Report staleness audit run across this session." **All 4 tiers are complete; there is no
+   Tier 5 or 6 and never was.** Note this was a DIFFERENT deferred-items list from the "5 deferred items"
+   v1.15.0 closed (item 4 below, and distinct again from item 5's audit-reachability findings) — three
+   separate tracking threads with similar names, easy to conflate; now down to two.
 4. **5 Medium-tier findings deliberately deferred from the v1.14.0 audit** (see `CHANGELOG.md` `[1.14.0]`,
    Medium-tier entry) — the tier's own duplicated `_box()` CAD mesh-builder cleanup this item used to also
    list was fixed on 2026-08-18 (`37d909b`, which also consolidated two more duplicated helpers and split

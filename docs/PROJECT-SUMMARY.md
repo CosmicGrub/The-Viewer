@@ -1,9 +1,10 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.15.0 · 2026-08-19** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
-reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, and reconciled
-again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session — see the
-reconciliation notes below). This document + `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
+**State: v1.24.0 · 2026-08-29** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
+again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session, and
+reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
+re-audit (`[1.24.0]`) — see the reconciliation notes below and §8 item 8/item 10). This document + `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
 rewrite is sourced from) + `docs/HANDOFF-NOTE.md` (the living session hand-off) are everything a new machine —
@@ -330,17 +331,28 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
 5. **OCR completion** — confirmed **94.4%** as of the v1.13.4 session; not re-checked during either the
    v1.14.0 or v1.15.0 sessions, both code-quality/feature passes rather than ingestion runs — check current %
    via `/command` or `/status` before assuming fully finished either way.
-6. **Tiers 2, 5, 6 of the separate staleness Drift Report** — `[1.23.0]`'s reconciliation found Tiers 3
-   (dependency/CI hardening, `8f795bc`) and 4 (repo bloat/env vars/Windows CI, `1b3c6d8`) were actually done
-   on 2026-08-18 and simply never reconciled here; corrected. Only 2/5/6 remain genuinely unstarted. This is
-   a DIFFERENT tracking thread from item 7 below and from the v1.14.0 Medium-tier deferred findings — see
-   `HANDOFF-NOTE.md`'s "Suggested next" for the full disambiguation.
+6. ~~**Tiers 2, 5, 6 of the separate staleness Drift Report**~~ — **CORRECTED, `[1.24.0]`:** `[1.23.0]`'s
+   "only 2/5/6 remain genuinely unstarted" claim was itself wrong. Direct git-history check
+   (`git log --all --grep="Drift Report\|Tier"`) shows the Viewer Drift Report staleness audit only ever
+   had **4 tiers total, not 6** — Tier 1 (`3054dad`, deprecated imports/test isolation/misc drift), Tier 2
+   (`132132f` — the [1.14.0] documentation-reconciliation commit itself, missed by `[1.23.0]`'s check same as
+   Tiers 3/4 initially were), Tier 3 (`8f795bc`, dependency/CI hardening), Tier 4 (`1b3c6d8`, repo
+   bloat/env vars/Windows CI) — whose own commit message states outright: "This closes out all 4 tiers of
+   the Viewer Drift Report staleness audit run across this session." **All 4 tiers are complete; there is no
+   Tier 5 or 6 and never was.** This is a DIFFERENT tracking thread from item 7 below and from the v1.14.0
+   Medium-tier deferred findings — see `HANDOFF-NOTE.md`'s "Suggested next" for the full disambiguation.
 7. **v1.15.0's own deliberately-deferred items:** `camelot_tables()` (3rd table-extraction engine pilot) stays
    unwired into `/api/tables_plus` — a documented cv2/opencv-python binary-collision risk on version skew;
    `dedup.py` cross-TM-family duplicates aren't caught by design (the TM-family blocking that makes the O(n²)
    pass tractable at real corpus scale — 39,683 docs — trades that away deliberately).
-8. **Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0** — v1.15.0 added a real batch
-   of new routes (see §6); worth a fresh audit pass.
+8. ~~**Route count (265, 244 GET + 21 POST) hasn't been recounted since v1.14.0**~~ — **DONE, `[1.24.0]`:**
+   mechanically re-counted live against `engine/features/registry.py` — **276 routes (250 GET + 26 POST),
+   zero collisions**, verified at the source level (135 `@get`/`@post`-decorator GET paths + 115 `static.py`
+   programmatic GET paths = 250 exactly, no overlap between the two sources — not just trusting the final
+   live-dict size, which can't tell a real registration from a silent same-path overwrite). New since
+   v1.14.0: `/api/pageqa`/`/api/vlm`/`/api/layout`/`/api/editions`/`/api/symbols`/`/api/symbols_page_image`
+   (GET) and `/api/airgap_export_decisions`/`/api/airgap_import_decisions`/`/api/analytics_log`/
+   `/api/ingest_upload`/`/api/ocr_backlog_start`/`/api/symbols_template` (POST). See `CHANGELOG.md` `[1.24.0]`.
 9. **Tier-2 "learned search re-ranker" — Phase 1 (click instrumentation + heuristic re-rank) shipped in
    `[1.20.0]`; the actual learned model is still open**, now that a real click-through log exists to train it
    on (see `CHANGELOG.md` `[1.20.0]` / `HANDOFF-NOTE.md` item 8).

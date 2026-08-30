@@ -12,6 +12,36 @@ every change going forward.
 
 ---
 
+## [1.27.0] — 2026-08-30 — part.html: surface conflicts.py's cross_vehicle/vehicles annotation to the technician
+**VERSION → `1.27.0`.** The direct UI follow-up `[1.26.0]` left open: `conflicts.py`'s fix computes and
+returns `vehicle`/`vehicles`/`cross_vehicle` on every conflict, and `/api/conflicts` already sorts
+confirmed single-vehicle conflicts ahead of ambiguous ones — but nothing in `engine/ui/part.html`'s
+conflict card read any of it. A technician looking at `/part` had no way to tell a confirmed same-vehicle
+disagreement from an ambiguous one spanning several unrelated vehicles without reading the raw JSON.
+
+- **`lazyConflicts()`** (`engine/ui/part.html`) now: (1) shows each disagreeing value's own vehicle label
+  inline next to its TM/page citation when the conflict is `cross_vehicle: true` (unchanged, uncluttered
+  for the confirmed single-vehicle case); (2) adds a distinct `⚠ Spans N different vehicle labels (...)
+  — confirm these are really the same vehicle/serial before trusting this as one conflict` line, using the
+  existing `.warn` CSS class already used elsewhere on this page; (3) gives `cross_vehicle: true` entries
+  a left-border visual accent so they read as distinct from a confirmed hit at a glance. All new text goes
+  through the page's existing `esc()` helper — no new unescaped interpolation.
+- **Verified live**, not just read: started the real server, searched `/part` for the exact "WINCH
+  INSTALLATION" corpus example this whole `[1.25.0]`/`[1.26.0]` investigation started from. Confirmed:
+  the `electrical` and `weight` conflicts (7 and 5 distinct vehicle labels respectively) now show the
+  `⚠ Spans N different vehicle labels` caveat with every real vehicle listed (2.5 TON TRUCK, 5 TON,
+  M1113, M35AC, TM,S HUMMERS,ALL, UPDATED 1156A1, WORK); the `length (mm)` conflict on the same page
+  (a confirmed single-vehicle hit, `vehicle: "TM,S HEMMIT"`) correctly shows neither the per-value vehicle
+  labels nor the warning line, keeping the UI clean for the case that doesn't need a caveat. No console
+  errors.
+- **Docs:** closes out `[1.26.0]`'s own "genuinely still open" UI-wiring follow-up in
+  `HANDOFF-NOTE.md`/`MASTER-RECONCILIATION.md`/`PROJECT-SUMMARY.md` (struck through, per this project's
+  established convention). `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html` regenerated.
+- **Verified:** `engine/tests/verify_all.py --snapshot`: 49/50 (only the known pre-existing
+  `test_ingest_routes.py` flake), safeguard 719/719 files OK, 0 damaged.
+
+---
+
 ## [1.26.0] — 2026-08-30 — conflicts.py: fix cross-vehicle false positives without introducing a false-negative safety regression
 **VERSION → `1.26.0`.** Two implementation passes on one feature-quality fix, the second correcting a
 serious safety regression the first introduced — both caught by this session's adversarial-review

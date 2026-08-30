@@ -1,14 +1,15 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.26.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.27.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), updated again 2026-08-30 after a critical real-host fix — 4 pending schema
-migrations were never applied to production, silently breaking measures/ask/cautions/pmcs/oneuse
-(`[1.25.0]`) — and updated once more the same day after `conflicts.py`'s cross-vehicle false-positive
-fix, which itself needed two implementation passes after adversarial review caught a safety regression
-in the first (`[1.26.0]`) — see the reconciliation notes below and §8 items 12–13). This document +
+re-audit (`[1.24.0]`), and reconciled three more times the same day, 2026-08-30 — a critical real-host
+fix (4 pending schema migrations were never applied to production, silently breaking measures/ask/
+cautions/pmcs/oneuse, `[1.25.0]`); `conflicts.py`'s cross-vehicle false-positive fix, which itself needed
+two implementation passes after adversarial review caught a safety regression in the first (`[1.26.0]`);
+then wiring that fix's new fields into `engine/ui/part.html` (`[1.27.0]`) — see the reconciliation notes
+below and §8 items 12–13). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -384,11 +385,11 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     `cross_vehicle` instead of filtering by it, so nothing is ever silently dropped. Re-swept for real
     against production: 1548 conflicts unchanged (confirms recall didn't regress), **5,071 now correctly
     marked `cross_vehicle: true`** (ambiguous, needs human confirmation) vs **1,466 marked
-    `cross_vehicle: false`** (confirmed single-vehicle). **Genuinely still open**: `engine/ui/part.html`
-    does not yet read any of the new fields — the distinction is available via `/api/conflicts` but not
-    yet visible to a technician looking at `/part`. A cheap, well-scoped next step (surface a "⚠ spans N
-    vehicles, verify before trusting" caveat on `cross_vehicle: true` conflicts in that page). Also
-    genuinely open, lower priority: a pre-existing citation-completeness quirk (conflicts.py's citation
+    `cross_vehicle: false`** (confirmed single-vehicle). ~~**Genuinely still open**: `engine/ui/part.html`
+    does not yet read any of the new fields~~ — **DONE, `[1.27.0]`:** `lazyConflicts()` now shows each
+    value's vehicle inline and a "⚠ Spans N different vehicle labels..." caveat on `cross_vehicle: true`
+    conflicts; verified live against the real WINCH INSTALLATION example. Still genuinely open, lower
+    priority: a pre-existing citation-completeness quirk (conflicts.py's citation
     list dedups by distinct value, not by doc, so a vehicle named in a conflict's `vehicles` list can
     have zero backing citation in `values`) and the underlying fact that `vehicle` is a raw ingest-folder
     name, not a curated identity, so `cross_vehicle: false` can still in principle mean "two different

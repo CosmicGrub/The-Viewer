@@ -134,9 +134,18 @@
       var cs=(j.conflicts||[]); if(!cs.length) return;
       var h='<div class="alert obs" style="background:#2a1414;border-color:#8a1c1c"><b>⚠ Cross-manual conflict — verify before working</b>';
       cs.slice(0,5).forEach(function(c){
-        h+='<div style="margin-top:6px">'+esc(c.type)+' ('+esc(c.unit)+'): '
-          +c.values.map(function(v){return '<b>'+esc(v.value)+'</b>'+(v.tm?(' <span class="muted">'+esc(v.tm)+(v.page?(' p.'+esc(v.page)):'')+'</span>'):'');}).join(' &nbsp;vs&nbsp; ')
-          +' <span class="muted">('+esc(c.spread_pct)+'% apart, '+esc(c.severity)+')</span></div>';
+        // v1.26 (conflicts.py vehicle-annotation fix): cross_vehicle=true means the disagreeing
+        // values came from documents tagged with DIFFERENT vehicle labels — could be a genuine
+        // cross-manual conflict for one real vehicle filed under two folder names, or could be two
+        // unrelated vehicles that happen to share this search term (conflicts.py's own docstring: this
+        // is disclosed, not solved). Either way, show it — never hide it — but flag it distinctly from
+        // a confirmed single-vehicle hit so a technician knows to double-check the vehicle match first.
+        var cv=!!c.cross_vehicle;
+        h+='<div style="margin-top:6px'+(cv?';padding-left:8px;border-left:3px solid #d98c3f':'')+'">'+esc(c.type)+' ('+esc(c.unit)+'): '
+          +c.values.map(function(v){return '<b>'+esc(v.value)+'</b>'+(v.tm?(' <span class="muted">'+esc(v.tm)+(v.page?(' p.'+esc(v.page)):'')+(cv&&v.vehicle?(' — '+esc(v.vehicle)):'')+'</span>'):'');}).join(' &nbsp;vs&nbsp; ')
+          +' <span class="muted">('+esc(c.spread_pct)+'% apart, '+esc(c.severity)+')</span>'
+          +(cv?('<div class="warn" style="margin-top:2px">⚠ Spans '+(c.vehicles?c.vehicles.length:'multiple')+' different vehicle labels ('+esc((c.vehicles||[]).join(', '))+') — confirm these are really the same vehicle/serial before trusting this as one conflict.</div>'):'')
+          +'</div>';
       });
       h+='<div class="muted" style="margin-top:6px;color:#e39b95">The manuals disagree on these values. Use the one for YOUR vehicle/serial; when in doubt, the newest applicable TM governs.</div></div>';
       box.innerHTML=h;

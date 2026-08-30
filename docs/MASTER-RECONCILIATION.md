@@ -2,9 +2,10 @@
 
 **Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
 (6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and twice more on
-2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; then `conflicts.py`'s
+2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; `conflicts.py`'s
 cross-vehicle false-positive fix, itself needing a second pass after adversarial review caught a safety
-regression in the first, `[1.26.0]`).** This document
+regression in the first, `[1.26.0]`; then wiring that fix's new fields into `engine/ui/part.html`,
+`[1.27.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -15,11 +16,12 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.26.0, shipped 2026-08-30** (`conflicts.py`'s cross-vehicle false-positive fix,
-see §6 item 14). Immediately prior: v1.25.0, shipped the same day (critical fix: 4 missing schema
-migrations applied to the real production DB, see §6 item 13); before that v1.24.0, shipped 2026-08-29
-(route-count re-audit, docs-only, see §6 item 9); before that v1.15.0, shipped 2026-08-19, `main` @
-`9b0e5b9`. 30
+**True current state: v1.27.0, shipped 2026-08-30** (`engine/ui/part.html` now shows `[1.26.0]`'s
+`cross_vehicle`/`vehicles` fields to a technician, see §6 item 14). Immediately prior: v1.26.0, shipped
+the same day (`conflicts.py`'s cross-vehicle false-positive fix); v1.25.0, shipped the same day (critical
+fix: 4 missing schema migrations applied to the real production DB, see §6 item 13); before that
+v1.24.0, shipped 2026-08-29 (route-count re-audit, docs-only, see §6 item 9); before that v1.15.0,
+shipped 2026-08-19, `main` @ `9b0e5b9`. 30
 commits, ~25 hours, effectively one
 continuous session (2026-08-18 20:40 → 2026-08-19 21:41) — the largest single body of undocumented work this
 project has ever carried at once. See `CHANGELOG.md`'s `[1.15.0]` entry for the authoritative commit-by-commit
@@ -413,9 +415,11 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     merge. Pass 2 (shipped) restores byte-identical recall to the pre-bug code and instead annotates each
     conflict with `vehicle`/`vehicles`/`cross_vehicle`, never filtering by it. Re-swept for real: 1548
     conflicts unchanged (recall confirmed unregressed), 5,071 now marked `cross_vehicle: true` (ambiguous)
-    vs 1,466 `cross_vehicle: false` (confirmed single-vehicle). **Genuinely still open**:
-    `engine/ui/part.html` doesn't yet read any of the new fields — available via the API, not yet shown to
-    a technician. Also open, lower priority: a pre-existing citation-completeness quirk (citations dedup
+    vs 1,466 `cross_vehicle: false` (confirmed single-vehicle). ~~**Genuinely still open**:
+    `engine/ui/part.html` doesn't yet read any of the new fields~~ — **DONE, `[1.27.0]`:** the conflict
+    card now shows each value's vehicle inline plus a "⚠ Spans N different vehicle labels..." caveat on
+    `cross_vehicle: true` conflicts; verified live against the real WINCH INSTALLATION example. Still
+    open, lower priority: a pre-existing citation-completeness quirk (citations dedup
     by distinct value not by doc, so a vehicle named in `vehicles` can have zero backing citation in
     `values`) and the fact that `vehicle` is a raw ingest-folder name, not a curated identity, so
     `cross_vehicle: false` can still in principle mean two different real vehicles sharing one broad

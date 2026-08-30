@@ -1,9 +1,9 @@
 THE VIEWER — feature audit
 ============================================================
-registry: 249 GET · 26 POST · 46 page-routes · 16 served scripts
+registry: 250 GET · 26 POST · 46 page-routes · 16 served scripts
 
 [0] duplicate route paths (a dup silently drops one handler)
-PASS no duplicate route paths (158 decorators, all unique per method)
+PASS no duplicate route paths (159 decorators, all unique per method)
 
 [1] page & script files exist
 PASS page /                      -> ui/index.html
@@ -173,7 +173,8 @@ PASS macchart                   reachable from viewer_app/viewer_ingest
 PASS features/corpus            reachable from viewer_app/viewer_ingest
 PASS office                     reachable from viewer_app/viewer_ingest
 PASS flags                      reachable from viewer_app/viewer_ingest
-checked 67 self-tested modules for production reachability -- 0 flagged
+PASS pageqa                     reachable from viewer_app/viewer_ingest
+checked 68 self-tested modules for production reachability -- 0 flagged
 
 ============================================================
 SUMMARY: 0 FAIL · 0 WARN

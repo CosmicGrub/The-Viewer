@@ -981,6 +981,8 @@ if($("#skipBrowseBtn")) $("#skipBrowseBtn").onclick=skipToBrowsing;
 
 // On launch: ?side= deep link wins; ?onboard=1 forces the chooser; else remembered side; else first-run demo then chooser.
 window.addEventListener("load", function(){
+  loadCart(); renderCart();
+  if(CART.length) toast("Restored "+CART.length+" item"+(CART.length===1?"":"s")+" from your last session.", 4000);
   var urlSide=""; try{ var mm=location.search.match(/[?&]side=(operator|mechanic)/); if(mm) urlSide=mm[1]; }catch(e){}
   var force=false; try{ force=/[?&]onboard=1/.test(location.search); }catch(e){}
   var s=urlSide||getSavedSide();
@@ -1899,6 +1901,19 @@ document.addEventListener("keydown",e=>{if($("#viewer").style.display!=="none"){
   if(e.key==="Escape")$("#vclose").click();if(e.key==="ArrowLeft")$("#vprev").click();if(e.key==="ArrowRight")$("#vnext").click();}});
 
 // ---- cart ----
+// v1.28 (field-reliability fix): the cart used to live only in this in-memory array -- close the
+// tab, lose power, or crash the server mid-task, and a mechanic's whole parts request vanished with
+// no warning. Persisted the same way procedure.html's step checklist already is: localStorage,
+// saved from the one choke-point every mutation already passes through (renderCart(), called after
+// every push/splice/async-enrichment update) plus the one path that DOESN'T re-render on its own
+// (a field edited in-place via oninput, line ~1963).
+var CART_KEY="viewer_cart";
+function loadCart(){
+  try{ var raw=localStorage.getItem(CART_KEY); if(!raw) return;
+    var arr=JSON.parse(raw); if(Array.isArray(arr)) CART=arr;
+  }catch(e){ CART=[]; }
+}
+function saveCart(){ try{ localStorage.setItem(CART_KEY, JSON.stringify(CART)); }catch(e){} }
 function deriveName(r){
   if(r.item_name) return r.item_name;
   let s=(r.snip||"").replace(/<<|>>/g,"").replace(/…/g," ").replace(/\.\.\./g," ").replace(/\s+/g," ").trim();
@@ -1932,7 +1947,7 @@ async function enrichPart(it){
       renderCart(); }
   }catch(e){}
 }
-function renderCart(){const box=$("#cart");
+function renderCart(){const box=$("#cart");saveCart();
   if(!CART.length){box.innerHTML='<div class="empty">No parts added yet. Open a result and “Add to request”.</div>';updateCount();return;}
   box.innerHTML="";
   CART.forEach((it,i)=>{const e=document.createElement("div");e.className="item";
@@ -1960,7 +1975,7 @@ function renderCart(){const box=$("#cart");
       '<div class="adv"><label>Unit price (FEDLOG)</label><input data-k="unit_price"></div><div class="adv"><label>AAC</label><input data-k="aac"></div>'+
       '<div class="adv"><label>ARC</label><input data-k="arc"></div></div>'+
       ((it._refext&&it._refext.nsn&&/DIAMETER|LENGTH|HEIGHT|WIDTH|THICKNESS/i.test(it._refext.nsn.characteristics||''))?'<button class="d3btn">🧊 View representative 3D</button>':'');
-    e.querySelectorAll("input").forEach(inp=>{const k=inp.getAttribute("data-k");inp.value=it[k]||"";inp.oninput=()=>{it[k]=inp.value;};});
+    e.querySelectorAll("input").forEach(inp=>{const k=inp.getAttribute("data-k");inp.value=it[k]||"";inp.oninput=()=>{it[k]=inp.value;saveCart();};});
     e.querySelectorAll(".prefl").forEach(b=>b.onclick=()=>openViewer({doc_id:parseInt(b.getAttribute("data-doc")),page_number:parseInt(b.getAttribute("data-pg"))}));
     const _d3=e.querySelector(".d3btn"); if(_d3) _d3.onclick=()=>open3D(it);
     e.querySelector(".rm").onclick=()=>{CART.splice(i,1);renderCart();};box.appendChild(e);});

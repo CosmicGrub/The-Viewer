@@ -86,7 +86,14 @@ function render(d){
     if(p.tools&&p.tools.length){ h+='<div class="toolsbar"><span class="lbl">Tools</span>'; p.tools.forEach(function(t){h+='<span class="tool">🔧 '+esc(t)+'</span>';}); h+='</div>'; }
     if(p.steps&&p.steps.length){
       h+='<div class="flow">';
-      p.steps.forEach(function(s,i){ h+='<div class="node"><div class="num">'+(i+1)+'</div><div class="conn"></div><div class="body">'+esc(s)+'</div></div>'; });
+      // "step"/"n" are ADDITIVE aliases alongside this page's own "node"/"num" -- readaloud.js's
+      // hands-free step-nav (auto-injected by palette.js on every page) looks for .step/.n/.body
+      // inside #stepwrap or #out; this page renders into #out but used only "node"/"num", so the
+      // voice "next/back/repeat" bar never appeared here even though it's fully built and tested on
+      // procedure.html. Neither "step" nor "n" has a CSS rule defined anywhere (confirmed: not in
+      // base.css, not elsewhere in this file), so adding them changes zero visual styling -- pure
+      // wiring fix.
+      p.steps.forEach(function(s,i){ h+='<div class="node step"><div class="num n">'+(i+1)+'</div><div class="conn"></div><div class="body">'+esc(s)+'</div></div>'; });
       h+='</div>';
     } else h+='<div class="muted">No numbered steps parsed for this section — open the cited page.</div>';
     h+='</div>';

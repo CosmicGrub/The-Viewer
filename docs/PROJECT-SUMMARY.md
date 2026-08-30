@@ -1,15 +1,17 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.27.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.28.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), and reconciled three more times the same day, 2026-08-30 — a critical real-host
+re-audit (`[1.24.0]`), and reconciled four more times the same day, 2026-08-30 — a critical real-host
 fix (4 pending schema migrations were never applied to production, silently breaking measures/ask/
 cautions/pmcs/oneuse, `[1.25.0]`); `conflicts.py`'s cross-vehicle false-positive fix, which itself needed
 two implementation passes after adversarial review caught a safety regression in the first (`[1.26.0]`);
-then wiring that fix's new fields into `engine/ui/part.html` (`[1.27.0]`) — see the reconciliation notes
-below and §8 items 12–13). This document +
+wiring that fix's new fields into `engine/ui/part.html` (`[1.27.0]`); then, following a production-
+readiness/EMS-VIEWER-parity audit, three field-reliability quick wins — parts-request cart persistence,
+`stepflow.html`'s voice step-nav wiring, and `PORTING.md`'s currency (`[1.28.0]`) — see the reconciliation
+notes below and §8 items 12–14). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -395,6 +397,23 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     name, not a curated identity, so `cross_vehicle: false` can still in principle mean "two different
     real vehicles filed under the same broad folder" (e.g. "WORK", ~65% of the corpus) — both disclosed
     in `conflicts.py`'s own docstring, neither fixed.
+14. **`[1.28.0]` — 3 field-reliability quick wins from a production-readiness/EMS-VIEWER-parity audit**
+    (the audit itself: a source-cited comparison against fielded military IETM viewers, published as a
+    standalone dossier the same session). The parts-request cart (`engine/ui/index.html`) now persists
+    to `localStorage` from every mutation path, restoring on load with a visible confirmation toast —
+    previously the app's other core workflow had zero autosave while the procedure checklist and ingest
+    job both already had it. `stepflow.html` — the page built for hands-free at-the-vehicle use — now
+    actually triggers `readaloud.js`'s voice step-nav bar (additive `class="node step"`/`class="num n"`
+    aliases; confirmed neither class has any CSS rule anywhere, so this changes zero styling). Both
+    verified live in a real browser, not just read. `docs/PORTING.md` — the document a new site would
+    use to stand itself up cold — updated from a 14-version-stale v1.13.2 to current, with an explicit
+    new call-out of the real `[1.25.0]` schema-migration trap so a fresh copy doesn't walk into it blind.
+    **Still open from that same audit, not yet started**: semantic search is real but currently
+    non-functional in production (no embedding model installed, stale index) and needs a decision —
+    fix it for real or hide its UI entry point; the RRF hybrid-fusion route has zero UI callers; ARIA/
+    `<label>`s exist on only 2 of 45 UI pages; the home page's 6 modals lack real focus traps; no user
+    accounts/RBAC, no TLS, no offsite backup automation, no accreditation artifacts exist for multi-site
+    fielding. See the published dossier and `CHANGELOG.md` `[1.28.0]` for the complete, prioritized list.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

@@ -19,7 +19,9 @@ index look "fresh" to the new primary search endpoint, caught and fixed before r
 the full-corpus-rebuild prerequisite `[1.32.0]`'s own research flagged — `embed.build_index()`'s
 hardcoded 200,000-row cap made configurable, unbatched per-row encoding replaced with real chunked
 batching (~1.3x measured), and checkpointed/resumable so a killed mid-run process loses at most one
-chunk, code + tests only, `[1.36.0]`).** This document
+chunk, code + tests only, `[1.36.0]`; then `[1.33.0]`'s one deliberately-open item closed —
+`/api/ingest_scan` wired into `ingest.html` as a separate, honestly-captioned panel, `[1.37.0]`).** This
+document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -30,12 +32,15 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.36.0, shipped 2026-08-31** (`embed.py`'s full-rebuild prep — configurable row
-cap, batched encoding, resumable checkpointing, no full-corpus rebuild run yet — see §6 item 21).
-Immediately prior: v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank DA-2404/2407
-print-on-demand forms, one click away on `pmcs.html`/`jobcard.html`, plus confirmation that
-`/api/chapter_jump` genuinely isn't worth wiring — see §6 item 20). Immediately prior to that, all the
-same day (2026-08-30):
+**True current state: v1.37.0, shipped 2026-08-31** (`[1.33.0]`'s one deliberately-open item closed —
+`/api/ingest_scan` wired into `ingest.html` as a separate "Broader file scan" panel, never merged into
+the existing Preview panel; shipped copy briefly and incorrectly overclaimed Office-format coverage,
+caught by adversarial verification before merge and corrected — see §6 item 22). Immediately prior:
+v1.36.0, shipped 2026-08-31 (`embed.py`'s full-rebuild prep — configurable row cap, batched encoding,
+resumable checkpointing, no full-corpus rebuild run yet — see §6 item 21). Immediately prior to that:
+v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank DA-2404/2407 print-on-demand forms, one
+click away on `pmcs.html`/`jobcard.html`, plus confirmation that `/api/chapter_jump` genuinely isn't
+worth wiring — see §6 item 20). Immediately prior to that, all the same day (2026-08-30):
 v1.32.0 (CRITICAL, same-day fix — installing sentence-transformers to research semantic search's
 feasibility silently reclassified this repo's real, stale, pre-existing embeddings index as "fresh,"
 feeding near-noise cosine scores into `/api/search_hybrid`'s RRF fusion — the primary search endpoint as
@@ -617,6 +622,36 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     this item is code + `engine/tests/test_embed_checkpoint.py` (34 new checks) only, validated
     against small synthetic samples plus one 300-row pass against the real `index/viewer.db`
     (read-only). See `CHANGELOG.md` `[1.36.0]`.
+22. **`[1.37.0]` — `/api/ingest_scan` wired into the UI**, closing the one item `[1.33.0]` deliberately
+    left open. Shipped as a SEPARATE "Broader file scan" link + `#broaderOut` panel on `ingest.html`,
+    never merged into the existing Preview panel (`#out`) — exactly to avoid `[1.33.0]`'s named risk of
+    two silently-disagreeing "how many new files" counts. The panel's copy states, in plain language:
+    what it adds over Preview (`.txt`/`.html`/`.htm`/`.xml`/`.csv`/`.md`/`.tiff`/`.tif`/`.png`/`.jpg`/
+    `.jpeg` — the real `ingestpipe.SUPPORTED` set, vs. Preview's PDF-only coverage; **not**
+    `.docx`/`.xlsx`/`.pptx`/`.rtf`/`.bmp`/`.gif`, which an earlier draft of the shipped copy briefly and
+    incorrectly claimed — caught by adversarial verification before merge, confirmed live against a
+    running server, and corrected); what's still not covered (legacy `.doc`/`.xls`/`.ppt` and `.svg` —
+    discovered, a `documents` row is created, but never content-extracted by the real ingest job); that
+    `.xml`/`.csv`/`.md` are themselves only a partial win — `ingestpipe.SUPPORTED` counts and dedupes
+    them, but `viewer_ingest.py`'s `crawl()`/`classify_ext()`/`index_other()` has no extraction path for
+    them at all, so they land in the exact same "discovered, zero content" state as `.doc`/`.xls`/`.ppt`/
+    `.svg`; and that this scan's dedup method (content hash OR filename, via `ingestpipe.plan()`) differs
+    from Preview's (`os.path.realpath()` exact-string-match only), so a legitimate count mismatch between
+    the two panels is explained instead of left as an unexplained discrepancy. Separately traced whether
+    `/api/ingest_scan` needed the `_exposed_read_guard()` gate its `GET` siblings
+    (`/api/ingest_preview`/`/api/ingest_status`) carry — a gap an earlier research pass flagged as
+    "worth flagging separately" — and confirmed it does NOT: it's a `POST` route, and `viewer_app.py`'s
+    `do_POST` already requires the shared `X-Viewer-Token` for every `POST` when the server is
+    network-exposed, before any route handler runs at all. Left as a code comment on `r_ingest_scan`
+    (`engine/features/routes/ingest.py`) rather than adding a redundant guard call, so a future pass
+    doesn't re-flag and "fix" a non-bug. Verified live, twice: at initial ship
+    (`engine/tests/test_ingest_routes.py`'s real e2e `POST /api/ingest_scan` coverage, plus a direct
+    `ingestpipe.scan_folder()` call confirming the extension gap), and again after the copy correction
+    above (a real server, a temp folder with one file per extension across both the true-supported and
+    true-unsupported sets, a real POST to `/api/ingest_scan` — exactly the 12 real `SUPPORTED`
+    extensions came back, all 6 previously-misclaimed extensions correctly absent). **Still open**:
+    everything else from item 21's still-open list (4 of 5 dead columns, ~17 more orphaned routes beyond
+    the ones now wired, semantic search's full-corpus rebuild decision). See `CHANGELOG.md` `[1.37.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

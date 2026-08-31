@@ -6,8 +6,24 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 240 | 1.36.0 — embed.py full-rebuild prep: configurable cap, batched encoding, resumable checkpointing | 141 |
+| 241 | 1.37.0 — `/api/ingest_scan` wired into the UI, as a separate honest affordance | 141 |
 
+
+---
+
+## [1.37.0] — 2026-08-31 — `/api/ingest_scan` wired into the UI, as a separate honest affordance
+`FEATURE`
+
+- **VERSION → `1.37.0`.** Resolves the open item `[1.33.0]` deliberately left on the table: `/api/ingest_scan` (broader file-type coverage + hash/filename dedup) now has a UI entry point on `engine/ui/ingest.html` — but not by conflating it with the existing Preview button, which is exactly the risk `[1.33.0]` flagged.
+- Added a secondary **"Broader file scan"** link below the existing folder-path bar, next to Preview — its own `#broaderOut` panel, its own `broaderScan()` fetch, never written into `#out` (Preview's panel), so the two counts can never visually merge or silently overwrite one another.
+- The panel's copy is deliberately honest about what it does and doesn't cover, matching the gap this session's research pass confirmed against the real code (`ingestpipe.SUPPORTED` vs. what `viewer_ingest.py`'s `crawl()`/`classify_ext()`/`index_other()` actually extracts content from):
+- States plainly what it adds over Preview: `.txt`/`.html`/`.htm`/`.xml`/`.csv`/`.md`/`.tiff`/`.tif`/ `.png`/`.jpg`/`.jpeg`, in addition to Preview's PDF-only coverage (`ingestpipe.SUPPORTED`'s real contents — **not** `.docx`/`.xlsx`/`.pptx`/`.rtf`/`.bmp`/`.gif`, which `office.py`/`_IMAGE_EXTS` extract in the real ingest job but which this scan's own file-discovery step doesn't look for at all — an earlier draft of this entry and the shipped copy briefly claimed the opposite; caught by adversarial verification before merge, confirmed live against a running server, and corrected here).
+- States plainly what's still NOT covered: legacy `.doc`/`.xls`/`.ppt` and `.svg` are discovered (a `documents` row is created) but never content-extracted by the real ingest job — same degrade state on both scans, not fixed by this UI change.
+- Separately calls out that `.xml`/`.csv`/`.md` are themselves a partial win: `ingest_scan` counts and dedupes them, but the real ingest job has **no extraction path for them at all** — discovered, zero content, exactly like the `.doc`/`.xls`/`.ppt`/`.svg` case above, despite `ingestpipe.SUPPORTED` nominally listing them as "supported."
+- States plainly that this scan's dedup method (content hash OR filename) differs from Preview's (exact path match only), so the two "new to add" counts can legitimately disagree — explained instead of left as an unexplained discrepancy.
+- The new-to-add count, when present, offers the same `Index N new document(s) now` → `startRun()` flow Preview's own button already uses — one shared `/api/ingest` job, either scan can point it at the folder.
+- **Parity check, not a fix**: confirmed `/api/ingest_scan` (a `POST` route) does NOT need its own `_exposed_read_guard()` call the way `/api/ingest_preview`/`/api/ingest_status` (both `GET`) do — `do_POST` already requires the shared `X-Viewer-Token` for every POST route when the server is network-exposed, before the handler runs at all. An earlier research pass flagged the missing guard as a possible gap; traced against `viewer_app.py`'s `do_POST` and confirmed it isn't one. Left a code comment on `r_ingest_scan` (`engine/features/routes/ingest.py`) recording this so it isn't re-flagged and "fixed" incorrectly by a future pass.
+- Verified live, twice: once at initial ship (`engine/tests/test_ingest_routes.py`'s real e2e coverage of `POST /api/ingest_scan` re-run clean; the extension gap confirmed live with a direct `ingestpipe.scan_folder()` call against a real temp folder), and again after the copy correction above — a standalone script started the real server, built a temp folder with one file per extension across both the true-supported and true-unsupported sets, and POSTed to `/api/ingest_scan`: exactly the 12 `ingestpipe.SUPPORTED` extensions came back, all 6 previously-misclaimed extensions correctly absent. **Verified:** `engine/tests/verify_all.py --snapshot`: 56/56, ALL GREEN (including `test_ingest_routes.py` clean, no flake this run, and the safeguard vault check, 723/723 OK).
 
 ---
 

@@ -1,10 +1,10 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.29.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.30.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), and reconciled five more times the same day, 2026-08-30 — a critical real-host
+re-audit (`[1.24.0]`), and reconciled six more times the same day, 2026-08-30 — a critical real-host
 fix (4 pending schema migrations were never applied to production, silently breaking measures/ask/
 cautions/pmcs/oneuse, `[1.25.0]`); `conflicts.py`'s cross-vehicle false-positive fix, which itself needed
 two implementation passes after adversarial review caught a safety regression in the first (`[1.26.0]`);
@@ -13,8 +13,10 @@ readiness/EMS-VIEWER-parity audit, three field-reliability quick wins — parts-
 `stepflow.html`'s voice step-nav wiring, and `PORTING.md`'s currency (`[1.28.0]`); then the Build
 Roadmap's full "Now" tier — a missing-CSS-token bug worse than first scoped, a doubled fuzzy-search scan,
 5 modals with no real focus trap, 3 unlabeled viewer images, 3 real WCAG contrast failures, and the 10
-highest-traffic unlabeled controls (`[1.29.0]`) — see the reconciliation notes below and §8 items 12–15).
-This document +
+highest-traffic unlabeled controls (`[1.29.0]`); then the Roadmap's full "Next" tier — 5 previously-
+orphaned modules wired into the UI, a related-parts card, OCR-confidence/conflict signals in search
+results, symptom/"how do I" query routing, and `index.html` finally loading `/base.css` (`[1.30.0]`) —
+see the reconciliation notes below and §8 items 12–16). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -424,16 +426,31 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     `VW.trapFocus()` (modeled on `palette.js`'s own correct Tab-trap) is now wired into all 5 real modals
     — Tab-cycle containment, Escape-to-close, focus-restore, verified live. The 3 primary viewer images
     have `alt` text; the 10 highest-traffic controls (home + 8 tool search boxes + `collections.html`'s
-    form) have `aria-label`s. **Still open from the same roadmap** (Next/Later tiers, not yet started):
+    form) have `aria-label`s.
+16. **`[1.30.0]` — the Build Roadmap's full "Next" tier**, grounded in 4 parallel research passes
+    reading the real modules/routes/UI patterns before any code was written. The 5 orphaned modules
+    (`commonality.py`/`tmrev.py`/`harnesstrace.py`+`pinouts.py`/`macchart.py`/`crossmethod.py`) are wired
+    in on `part.html`/`procedure.html`; `commonality.py`'s placement was corrected from the roadmap's own
+    suggestion after confirming live that `readiness.html` is vehicle-scoped while the module does an
+    exact NSN/part lookup — a genuine shape mismatch. A "Related parts" card (`xref.py`) landed on both
+    `part.html` and `dossier.html`. `ocr_confidence` now reaches search results (a one-column SELECT
+    fix in `search_feature.py`) — though a real corpus check found this deployment has zero populated
+    values today, disclosed rather than glossed over. Cross-manual-conflict flags and symptom/"how do
+    I" query routing both shipped in a form measurement changed from the roadmap's own sketch:
+    `conflicts.py`'s `check_query()` measured 200+ms and `/api/ask` measured 900-1855ms on common
+    queries (both confirmed directly), too slow to bake into an automatic per-search fetch — both now
+    fire independently/on-demand instead of blocking or auto-running. `index.html` finally loads
+    `/base.css` (root cause of `[1.29.0]`'s token bug) via a real visual-diff pass, paired with a new
+    `--line-ctl` interactive-control border token (`--line` itself measured 1.05-1.45:1, far under the
+    3:1 UI floor). **Still open from the same roadmap** (Later tier, calendar/data-gated by design):
     semantic search is real but currently non-functional in production (no embedding model installed,
     stale index) and needs a decision — fix it for real or hide its UI entry point; the RRF hybrid-fusion
-    route has zero UI callers; 5 built-but-orphaned modules (`commonality.py`/`tmrev.py`/
-    `harnesstrace.py`+`pinouts.py`/`macchart.py`/`crossmethod.py`) have no UI entry point; a real learned
-    re-ranker is gated on click volume that doesn't exist yet (`index/analytics.jsonl` logs zero
-    `search`/`click` events today); the other 35 of 45 UI pages still carry no ARIA of their own; no user
-    accounts/RBAC, no TLS, no offsite backup automation, no accreditation artifacts exist for multi-site
-    fielding. See the published Build Roadmap and Readiness Dossier artifacts, plus `CHANGELOG.md`
-    `[1.28.0]`/`[1.29.0]`, for the complete, prioritized list.
+    route has zero UI callers (sequenced after the semantic-search fix); a real learned re-ranker is
+    gated on click volume that doesn't exist yet (`index/analytics.jsonl` logs zero `search`/`click`
+    events today); the other 35 of 45 UI pages still carry no ARIA of their own; no user accounts/RBAC,
+    no TLS, no offsite backup automation, no accreditation artifacts exist for multi-site fielding. See
+    the published Build Roadmap and Readiness Dossier artifacts, plus `CHANGELOG.md`
+    `[1.28.0]`–`[1.30.0]`, for the complete, prioritized list.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

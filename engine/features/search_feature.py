@@ -104,9 +104,14 @@ def _doc_filters(tm=None, vehicle=None, nsn=None):
 
 
 def _meta_rows(con, where, args, limit):
+    # v1.30 (roadmap Next-tier item 9): p.ocr_confidence added to the SELECT -- the column has existed
+    # on `pages` since migration 0009 and corpus.py already returns it (engine/features/corpus.py:20),
+    # but search()'s own row-building SQL never selected it, so every search result silently lost the
+    # signal. dict(r) below picks it up automatically (sqlite3.Row column-name mapping) -- no other
+    # code change needed for the key to reach the returned row.
     return [dict(r) for r in con.execute(
         "SELECT d.id AS doc_id, d.vehicle, d.tm_number, d.nsn, d.title, p.page_number, "
-        "snippet(pages_fts,0,'<<','>>','...',12) AS snip, p.source "
+        "snippet(pages_fts,0,'<<','>>','...',12) AS snip, p.source, p.ocr_confidence "
         "FROM pages_fts JOIN pages p ON p.id=pages_fts.rowid JOIN documents d ON d.id=p.document_id "
         "WHERE " + where + " ORDER BY rank LIMIT ?", args + [limit]).fetchall()]
 
@@ -558,7 +563,7 @@ def search(q, limit=25, mode=None, match_any=False, use_fuzzy=True, tm=None, veh
         like = "%" + q + "%"
         try:
             rows = [dict(r) for r in con.execute(
-                "SELECT d.id AS doc_id,d.vehicle,d.tm_number,d.nsn,d.title,p.page_number,substr(p.body_text,1,200) AS snip,p.source "
+                "SELECT d.id AS doc_id,d.vehicle,d.tm_number,d.nsn,d.title,p.page_number,substr(p.body_text,1,200) AS snip,p.source,p.ocr_confidence "
                 "FROM pages p JOIN documents d ON d.id=p.document_id WHERE p.body_text LIKE ?" + flt_where + " LIMIT ?",
                 [like] + flt_args + [min(limit, 100)]).fetchall()]
         except sqlite3.OperationalError:

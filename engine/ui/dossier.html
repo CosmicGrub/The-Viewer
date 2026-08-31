@@ -145,6 +145,7 @@ function render(q, part, ref, pd, pr){
   h+='<div class="card"><h3>Breakdown image (cited figure)</h3><div id="figb" class="empty">Looking for the manual figure…</div></div>';
   h+='<div class="card"><h3>Schematic &amp; 3-D</h3><div id="schb" class="empty">Looking for a schematic…</div><div id="d3b" class="empty" style="margin-top:6px">Looking for a 3-D model…</div></div>';
   h+='<div class="card"><h3>Approximate model (from dimensions)</h3><div id="dcadb" class="empty">Building a dimensional sketch…</div></div>';
+  h+='<div class="card"><h3>Related parts &amp; assemblies</h3><div id="xrefb" class="empty">Looking…</div></div>';
   h+='</div>';
   h+='<div class="ground">Every panel reads from the existing indexes and deep-links the real cited page — the manual stays the source of truth. Confirm the exact NSN (UOC) and any torque/sequence on the sheet before ordering or working. Sections fill in as OCR coverage grows.</div>';
   $("#out").innerHTML=h;
@@ -203,6 +204,27 @@ function render(q, part, ref, pd, pr){
       box.innerHTML='<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;max-width:460px">'+dc.svg+'</div>'
         +'<div class="muted" style="margin-top:4px">'+esc(dc.primitive)+' approximation · <a href="/api/dimscad?obj=1&q='+encodeURIComponent(nsn||nom)+'" target="_blank" style="color:var(--acc)">download .OBJ ↗</a> — a dimensional sketch, confirm against the cited figure.</div>';
     } else box.innerHTML='<span class="empty">Not enough named dimensional data yet (needs PUBLOG characteristics or Masterfile dims).</span>';
+  });
+  // v1.30 (roadmap Next-tier item 8): xref.py -- assemblies/siblings/see_also. Its own docstring
+  // already said it was meant to power "a related panel on the dossier" -- confirmed live this page
+  // never actually called it before now (only reachable via the standalone /related page).
+  gj("/api/xref?q="+encodeURIComponent(nsn||nom)).then(function(xr){ var box=$("#xrefb"); if(!box||!xr||!xr.found)return;
+    if(!(xr.assemblies&&xr.assemblies.length)&&!(xr.siblings&&xr.siblings.length)&&!(xr.see_also&&xr.see_also.length)){
+      box.innerHTML='<span class="empty">No related parts/assemblies found for this part.</span>'; return;
+    }
+    box.className=""; var hh="";
+    if(xr.assemblies&&xr.assemblies.length){ hh+='<div style="margin:4px 0"><b>On this figure:</b> '+xr.assemblies.slice(0,4).map(function(a){
+      var lbl=esc(a.fig_title||a.fig_no||"figure")+(a.page?(" p."+esc(a.page)):"");
+      return a.locate_url?('<a href="'+esc(a.locate_url)+'" target="_blank" style="color:var(--acc)">'+lbl+' ↗</a>'):lbl;
+    }).join(" · ")+'</div>'; }
+    if(xr.siblings&&xr.siblings.length){ hh+='<div style="margin:4px 0"><b>Same figure:</b> '+xr.siblings.slice(0,8).map(function(s){
+      var lbl=esc(s.name||s.part_number||s.nsn||"part");
+      return s.dossier_url?('<a href="'+esc(s.dossier_url)+'" target="_blank" style="color:var(--acc)">'+lbl+'</a>'):lbl;
+    }).join(" · ")+'</div>'; }
+    if(xr.see_also&&xr.see_also.length){ hh+='<div style="margin:4px 0"><b>See also:</b> '+xr.see_also.slice(0,8).map(function(s){
+      return '<a href="'+esc(s.dossier_url)+'" target="_blank" style="color:var(--acc)">'+esc(s.name||s.nsn)+'</a>';
+    }).join(" · ")+'</div>'; }
+    box.innerHTML=hh;
   });
   // threads / fits / MIL-SPEC / fluids (specparse, cited to the page)
   gj("/api/specs?q="+encodeURIComponent(nom)).then(function(sp){ var box=$("#specb"); if(!box)return;

@@ -26,6 +26,35 @@
 > doesn't exist yet — `index/analytics.jsonl` logs zero `search`/`click` events today). `main` is at
 > `[1.29.0]`; `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
 >
+> **Reconciliation note (2026-08-30, sixth pass):** the Build Roadmap's "Next" tier (all 6 items,
+> everything listed as open at the end of the fifth-pass note above) shipped in `[1.30.0]`, grounded in
+> 4 parallel research passes reading the real modules/routes/UI patterns before any code was written.
+> The 5 orphaned modules are wired in on `part.html`/`procedure.html`, each verified live; one placement
+> deviated from the roadmap's own suggestion (`commonality.py` moved from `readiness.html` to
+> `part.html` — confirmed live that `readiness.html` is vehicle-scoped end-to-end while `commonality.py`
+> does an exact NSN/name/part-number lookup, a genuine shape mismatch, not a nitpick). A "Related parts"
+> card (`xref.py`) landed on both `part.html` and `dossier.html`. OCR-confidence and cross-manual-
+> conflict signals now reach the search results list — `ocr_confidence` via a one-column SELECT fix in
+> `search_feature.py` (real corpus finding, disclosed honestly: this deployment has zero populated
+> `ocr_confidence` values across 53,391 OCR'd pages, so the fix is correct but currently invisible until
+> a data pipeline populates that column); the conflict flag redesigned from the roadmap's own sketch
+> after `conflicts.py`'s `check_query()` measured 200+ms on common queries (confirmed directly) — now an
+> independent, non-blocking client-side call instead of baked into `/api/search`'s own response, which
+> would have roughly doubled search latency. Symptom/"how do I" query routing shipped with the same
+> measurement-driven adjustment: `/api/ask` measured 900–1855ms (confirmed directly), so question-shaped
+> queries get an instant static suggestion link, never an automatic fetch — only `/api/faulttree`
+> (112–206ms, acceptable) fires inline for symptom-shaped queries. `index.html` finally loads
+> `/base.css` — a real visual-diff pass, not a blind strip-and-link: the fully-redundant `:root`/
+> `[hidden]` duplication is gone, but the kiosk-mode/touch-target rules stay (this page's buttons use
+> `a.ghost`, base.css's shared rule targets `a.btn` — confirmed `.ghost` is 69× local-only, not an
+> app-wide convention); a real checkbox-distortion bug this page's duplicate had inherited (already
+> fixed once in base.css) got fixed in the same pass. Paired with a new `--line-ctl` interactive-control
+> border token (`--line` itself measured 1.05–1.45:1, far under the 3:1 UI floor). **Genuinely still
+> open** (Later tier, calendar/data-gated by design): semantic search's non-functional production state,
+> RRF hybrid fusion's zero UI callers (sequenced after the semantic-search fix), and a real learned
+> re-ranker (gated on click volume that still doesn't exist). `main` is at `[1.30.0]`;
+> `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
+>
 > **Reconciliation note (2026-08-30, fourth pass):** a production-readiness/end-user-friendliness audit
 > against fielded military IETM viewers (EMS-VIEWER/EMS-NG, IADS) plus an honest search-accuracy
 > scorecard was published this session as a standalone dossier. Three "do now" items from it shipped in
@@ -744,9 +773,18 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
     viewer images have `alt` text; the 10 highest-traffic controls (home + 8 tool search boxes +
     `collections.html`'s form) have `aria-label`s. Still open: the other 35 of 45 UI pages carry no ARIA
     of their own beyond the shared palette/toast components.
-12. **Remaining items from the `[1.28.0]`/`[1.29.0]` production-readiness/EMS-VIEWER-parity work, roughly
-    in priority order (full detail + real benchmarks: the published Build Roadmap and Readiness Dossier
-    artifacts, plus `CHANGELOG.md` `[1.28.0]`/`[1.29.0]`):**
+12. ~~**5 orphaned-but-built modules with no UI entry point at all.**~~ — **DONE, `[1.30.0]`:**
+    `commonality.py`/`tmrev.py`/`harnesstrace.py`+`pinouts.py`/`macchart.py`/`crossmethod.py` all wired
+    in (`part.html`/`procedure.html`), each verified live against the real corpus or a synthetic
+    response where this corpus has no organic example. Also done in the same pass: a "Related parts"
+    card (`xref.py`) on `part.html`+`dossier.html`; OCR-confidence + cross-manual-conflict signals in
+    the search results list; symptom/"how do I" query-shape routing; `index.html` now loads
+    `/base.css`; a new `--line-ctl` interactive-control border token. See `CHANGELOG.md` `[1.30.0]` for
+    the full list, including where the shipped shape deviated from the roadmap's own sketch and why
+    (real measurements, not preference).
+13. **Remaining items from the production-readiness/EMS-VIEWER-parity work, roughly in priority order
+    (full detail + real benchmarks: the published Build Roadmap and Readiness Dossier artifacts, plus
+    `CHANGELOG.md` `[1.28.0]`–`[1.30.0]`):**
     - **Semantic search: decide and act.** `embed.search()` returns `{ready:false, stale:true,
       results:[]}` on this real corpus today — no `sentence-transformers` installed, the on-disk index
       has no version stamp so it's treated as stale. Either install the model + rebuild the index so it
@@ -757,8 +795,6 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
       called that route; the home search only calls plain `/api/search`. The fusion logic isn't broken,
       it's disconnected. Sequenced *after* the semantic-search fix above (fusion is only as good as its
       weakest input).
-    - **5 orphaned-but-built modules with no UI entry point at all:** `commonality.py`, `tmrev.py`,
-      `harnesstrace.py`+`pinouts.py`, `macchart.py`, `crossmethod.py`.
     - **A real learned re-ranker** — gated on click volume that doesn't exist yet: `index/analytics.jsonl`
       logs zero `search`/`click` events today (76 total logged events, none of that kind), confirmed by
       direct query. Not worth starting until real usage data accumulates.

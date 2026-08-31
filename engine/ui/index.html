@@ -4,29 +4,22 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>THE VIEWER — Maintenance Search</title>
 <script src="/shared.js"></script><!-- esc()/toast() one-copy helpers (v1.13.0 UI coherence) -->
+<link rel="stylesheet" href="/base.css"><!-- v1.30 (roadmap Next-tier item 11): this page was the only
+  one of 47 that hand-duplicated shared chrome (color tokens, the [hidden] guard, reduced-motion,
+  premium-mode, #vw-toast) instead of loading the real file -- root cause of the v1.29 --acc/--grn
+  bug (the duplicate silently drifted out of sync once already). Loading base.css here gives this
+  page the same single source of truth every other page already has. The <style> block below still
+  keeps index.html's OWN kiosk-mode/touch-target/focus-visible rules -- NOT redundant with base.css's:
+  this page's buttons use its own local "a.ghost" class, while base.css's shared selector list targets
+  "a.btn" (the convention every other page uses, confirmed: .ghost is used 69x here and nowhere else
+  but a stray 3x in threed.html; .btn is the real app-wide standard). base.css's generic rule genuinely
+  does not reach this page's buttons, so the local override stays -- see its own comment below. -->
 <style>
-  :root{--bg:#0f1419;--panel:#171d26;--panel2:#1f2733;--line:#2b333f;--txt:#e6e9ee;--sub:#9aa6b6;
-        --acc:#4f9dff;--accent:#4f9dff;--accent2:#2f7d4f;--warn:#caa24a;--chip:#243042;--mark:#5a4a1e;
-        --grn:#2f7d4f;--amb:#caa24a;--red:#e0564f;--teal:#1d9e75;--pur:#7f77dd;
-        --grn-tx:#4fae7a;--red-tx:#ec7a74;}
-  /* v1.29 fix: this :root never defined --acc (only --accent, its own separate name for the same
-     blue), but the :focus-visible rule below -- and the hover/pinned/card-accent rules further down
-     this same page -- all reference var(--acc) with NO fallback. Since this page doesn't load
-     base.css (which defines both --acc and --accent as aliases, see the comment at line 23), that
-     left every var(--acc) reference invalid: keyboard focus was silently invisible on the home page,
-     and several accent borders/text colors quietly dropped too. Confirmed live before fixing. */
-  /* v1.29 (WCAG contrast fix, roadmap Now-tier item 5): the SAME bug, worse -- this :root also never
-     defined --grn/--amb/--red/--teal/--pur at all. Confirmed live via getComputedStyle(): var(--grn),
-     var(--teal) and var(--amb) each silently resolved to the inherited body text color (#e6e9ee) on
-     this page, not their intended amber/green/teal -- the "operator"/"mechanic" side badges, the
-     "Saved" confirmations, and the chapter-count status text were rendering in plain white, not the
-     color the markup asked for. Restored the full base.css set here (this page still doesn't load
-     base.css, so it needs its own copy, same as --acc above). Also added --grn-tx/--red-tx (mirrors
-     base.css's new pair, see its :root comment) -- --grn and --red are correct once restored for
-     borders/backgrounds, but measured at only 2.98:1 (--grn on --panel2) / 3.36:1 (--grn on --panel)
-     / 4.02:1 (--red on --panel2) as actual TEXT, below the 4.5:1 AA floor; --teal/--amb, once
-     restored, pass AA as text on every real background they're used on here (5.00:1 / 6.29:1+) so
-     they didn't need a lightened sibling. */
+  /* v1.30: the local :root token duplicate that lived here (and caused two real bugs across v1.29 --
+     --acc, then --grn/--amb/--red/--teal/--pur, all silently undefined on this one page while every
+     var() reference to them quietly resolved to nothing) is GONE as of this version -- base.css,
+     now linked in <head> above, is the single source for every one of those tokens on this page too,
+     same as the other 46. Nothing here needs its own copy anymore. */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
   /* v0.97.0 (E39 fix): the header must WRAP at every width — 16 nav items used to force a
@@ -37,24 +30,24 @@
   .tg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;margin-left:auto;justify-content:flex-end;row-gap:6px}
   .tg a.ghost,.tg button{white-space:nowrap}   /* wrap BETWEEN buttons, never inside a label */
   /* v0.98.0: the Tools dropdown (nav consolidation) */
-  /* the HTML `hidden` attribute must ALWAYS win over any display rule (index.html doesn't load base.css) --
-     without this, .menupop{display:flex} below overrides [hidden] and the Tools menu stays open. */
-  [hidden]{display:none !important}
-  /* v1.13 a11y fix: the home page doesn't load base.css, so its kiosk/glove-mode + keyboard-focus rules
-     never reached the MOST-used screen (kiosk toggle was a silent no-op here). Inlined so bay-floor
-     touch targets + WCAG focus rings work on the front door too. */
-  :focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
-  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  /* v1.30: [hidden]{display:none!important} and :focus-visible's OUTLINE rule are gone from here --
+     base.css (linked in <head> above) now supplies both identically. What stays below is ONLY the
+     kiosk-mode/touch-target sizing that targets this page's own "a.ghost" class (base.css's shared
+     rule targets "a.btn", the convention every other page uses -- see the <link> comment in <head>). */
   body.kiosk-mode{font-size:16px}
-  body.kiosk-mode button,body.kiosk-mode a.ghost,body.kiosk-mode .chip,body.kiosk-mode input,body.kiosk-mode select{min-height:44px;padding-top:11px;padding-bottom:11px;font-size:15px}
+  /* v1.30 fix: base.css already fixed this exact bug once (see its own kiosk-mode comment) -- an
+     unscoped min-width on a checkbox/radio distorts it into a 44x44 square instead of just growing
+     taller. This page has no checkbox/radio input today (confirmed), so the bug was latent, not yet
+     visibly tripped -- but the @media(pointer:coarse) rule just below this one ALREADY excludes them
+     correctly, so this rule was the one inconsistent copy on this page. Fixed for consistency and so
+     the very next checkbox added here doesn't quietly inherit a stale, already-known bug. */
+  body.kiosk-mode button,body.kiosk-mode a.ghost,body.kiosk-mode .chip,
+  body.kiosk-mode input:not([type="checkbox"]):not([type="radio"]),body.kiosk-mode select{
+    min-height:44px;padding-top:11px;padding-bottom:11px;font-size:15px}
+  body.kiosk-mode input[type="checkbox"],body.kiosk-mode input[type="radio"]{
+    min-height:44px;padding-top:11px;padding-bottom:11px;font-size:15px}
   body.kiosk-mode a{text-decoration:underline}
   body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-size:15px}
-  /* Recommendations annex #7 (touch-target-consistency): base.css now carries a generic
-     @media(pointer:coarse) touch-sizing rule -- but per the SAME "doesn't load base.css" gap the
-     comment above already fixed once for kiosk-mode/focus-visible, this page never inherits it
-     either. Inlined here for the identical reason: without this, the fix that made every OTHER
-     page touch-friendly by default would have left the app's own front door as the one page still
-     reverted to desktop-mouse sizing on a bare touchscreen (no kiosk-mode toggle needed). */
   @media (pointer:coarse){
     button,a.ghost,.chip,input:not([type="checkbox"]):not([type="radio"]),select,[role="button"]{
       min-height:44px; min-width:44px; padding-top:11px; padding-bottom:11px;
@@ -100,7 +93,7 @@
   .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   .col h2{font-size:12px;letter-spacing:.6px;color:var(--sub);margin:0;padding:12px 16px;border-bottom:1px solid var(--line);text-transform:uppercase}
   .pad{padding:14px 16px}
-  .searchbar input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:11px 13px;font-size:15px}
+  .searchbar input{width:100%;background:var(--panel2);border:1px solid var(--line-ctl);color:var(--txt);border-radius:8px;padding:11px 13px;font-size:15px}
   .searchbar{position:relative}
   .ac{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:10px;max-height:300px;overflow:auto;box-shadow:0 10px 24px rgba(0,0,0,.45)}
   .ac .it{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;font-size:14px;color:var(--txt)}
@@ -121,6 +114,13 @@
   .conf.high{background:#1e3324;color:#7fd6a0}.conf.verify{background:#3a301a;color:#e8c07a}.conf.low{background:#3a2020;color:#e6a0a0}
   .badge.fav{background:#3a3320;color:#ecdca0}
   .badge.opened{background:#20323a;color:#a0d4ec}
+  /* v1.30 (roadmap Next-tier item 9): cross-manual conflict flag -- own dark chip + var(--red-tx),
+     matching the existing .conf.* chips above (own background, not the page/panel bg, so it clears
+     AA regardless of --panel vs --panel2 hover state). Filled in by renderConflictFlags() below,
+     which fires independently after the results list renders (see runSearch()) -- conflicts.py's
+     check_query() measured 200+ms on common single-word queries (confirmed directly), too slow to
+     bake into search()'s own response without roughly doubling every search's latency. */
+  .badge.conflict{background:#3a1414;color:var(--red-tx)}
   .snip{color:#cfd6df;font-size:13px;line-height:1.45}
   .snip mark{background:var(--mark);color:#ffe9a8;padding:0 2px;border-radius:2px}
   .rowbtns{margin-top:8px;display:flex;gap:8px}
@@ -146,7 +146,7 @@
   .item{border:1px solid var(--line);border-radius:9px;padding:10px;margin:10px 16px;background:var(--panel2)}
   .item .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
   .item label{font-size:10.5px;color:var(--sub);display:block;margin-bottom:2px}
-  .item input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 8px;font-size:12.5px}
+  .item input{width:100%;background:var(--panel);border:1px solid var(--line-ctl);color:var(--txt);border-radius:6px;padding:6px 8px;font-size:12.5px}
   .item .full{grid-column:1 / -1}
   .item .rm{float:right;background:transparent;color:#d98a8a;border:1px solid #50343a;padding:3px 8px;font-size:11px}
   .pref{font-size:10.5px;color:var(--sub);margin-bottom:7px;line-height:1.55}
@@ -181,7 +181,7 @@
   .sheetprev .v{color:#1c1a17}.sheetprev .e{color:#a8a293}
   @media (max-width:620px){ .mgrid{grid-template-columns:repeat(2,1fr)} .mgrid .third{grid-column:span 1} }
   .modal label{font-size:11px;color:var(--sub);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
-  .modal input,.modal textarea,.modal select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
+  .modal input,.modal textarea,.modal select{width:100%;background:var(--panel2);border:1px solid var(--line-ctl);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
   .modal select{appearance:none;cursor:pointer}
   .tsev{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:9px 11px;margin-bottom:8px}
   .tsev .cite{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:3px;cursor:pointer}
@@ -208,7 +208,7 @@
   .vstage img{max-width:96%;background:#fff;border-radius:6px;box-shadow:0 6px 30px rgba(0,0,0,.5)}
   .vstage .ld{color:var(--sub);margin-top:40px}
   .pgctl{display:flex;align-items:center;gap:8px}
-  .pgctl input{width:64px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 7px;text-align:center}
+  .pgctl input{width:64px;background:var(--panel2);border:1px solid var(--line-ctl);color:var(--txt);border-radius:6px;padding:5px 7px;text-align:center}
   /* vehicle hub + nsn banner */
   .hub{position:fixed;inset:0;background:rgba(4,8,12,.92);display:none;flex-direction:column;z-index:65}
   .hubbar{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
@@ -284,7 +284,7 @@
   #legacyHome ul{margin:0;padding-left:20px;line-height:1.9}
   #legacyHome .note{font-size:12.5px;color:var(--sub)}
   #legacyHome input[type=text]{width:100%;padding:11px;font-size:15px;background:var(--panel2);
-    border:1px solid var(--line);border-radius:6px;color:var(--txt)}
+    border:1px solid var(--line-ctl);border-radius:6px;color:var(--txt)}
   #legacyHome .lresult{padding:10px 0;border-bottom:1px solid var(--line)}
   #legacyHome .lresult a{color:var(--accent);text-decoration:none;font-weight:600}
   #legacyHome button.go,#legacyHome button.ghost{min-height:44px}
@@ -1236,6 +1236,69 @@ function looksMeasureShaped(q){
   var s=(q||'').toLowerCase();
   return /\btorque\b|\btighten\b|\bclearance\b|\bpressure\b|\bcapacity\b|\btemperature\b|\bthread\b|\bdiameter\b|\bweight\b|\bvoltage\b|\bamperage\b|ft-?lbs?\b|in-?lbs?\b|\bpsi\b|\bn[\s·-]?m\b/.test(s);
 }
+// v1.30 (roadmap Next-tier item 10): same "deliberately keyword-gated, purely additive suggestion
+// card, never a redirect" pattern as looksMeasureShaped() above -- confirmed before writing this
+// that NO query-shape classifier of any kind existed anywhere else in the codebase (search_feature.py
+// does fielded-operator syntax parsing, not intent detection). Symptom-shaped -> /troubleshoot
+// (faulttree.py, confirmed correct). "How do I / how to" question-shaped -> /ask (ask.py, confirmed
+// correct) -- but /api/ask itself measured 900-1850ms on this host (confirmed directly: 926ms/1855ms/
+// 1137ms across 3 real questions), far too slow to fire automatically on every keystroke-triggered
+// search the way looksMeasureShaped's inline fetch does. So the question-shaped path only shows a
+// static, instant suggestion link -- the expensive extractive answer only runs if the mechanic
+// actually clicks through to /ask, never as a silent background cost on every search.
+function looksSymptomShaped(q){
+  var s=(q||'').toLowerCase();
+  return /\bwon'?t\s+(start|run|crank|turn\s+over|shift|engage|stop|charge|hold)\b|\bwill\s+not\s+(start|run|crank|shift|engage|stop|charge|hold)\b|\b(leak(ing|s)?|overheat(s|ing)?|stall(s|ing)?|grind(s|ing)?|no\s+power|no\s+start|dead\s+batter(y|ies)|not\s+charging|smok(e|es|ing)|vibrat(es|ing|ion)|rattl(e|es|ing)|check\s+engine|warning\s+light|hard\s+start(ing)?|rough\s+idle|backfir(e|es|ing))\b/.test(s);
+}
+function looksHowToShaped(q){
+  var s=(q||'').trim();
+  return /^how\s+(do|can)\s+i\b|^how\s+to\b|^how\s+does\b/i.test(s) || /\?\s*$/.test(s);
+}
+function renderSymptomMatch(q){
+  var host=$("#results"); var old=document.getElementById('symptommatch'); if(old) old.parentNode.removeChild(old);
+  if(!host||!looksSymptomShaped(q)) return;
+  fetch('/api/faulttree?q='+encodeURIComponent(q)+'&limit=5').then(function(r){return r.json();}).then(function(j){
+    if(!j||!j.count) return;
+    var card=document.createElement('div'); card.id='symptommatch';
+    card.style.cssText='border:1px solid var(--acc);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px';
+    card.innerHTML='<div style="font-size:12px;color:var(--sub)">SYMPTOM MATCH</div>'+
+      '<div style="font-size:15px;font-weight:700;margin-top:2px">🔧 Guided troubleshooting — '+j.count+' malfunction tree'+(j.count===1?'':'s')+' found for this symptom</div>'+
+      '<a href="/troubleshoot?q='+encodeURIComponent(q)+'" style="display:inline-block;margin-top:8px;font-size:12px;padding:5px 10px;border:1px solid var(--line-ctl);border-radius:8px;color:var(--txt);text-decoration:none;cursor:pointer">Open guided troubleshooting →</a>';
+    var pm=document.getElementById('partmatch'), mm=document.getElementById('measurematch');
+    host.insertBefore(card, (mm&&mm.nextSibling)||(pm&&pm.nextSibling)||host.firstChild);
+  }).catch(function(){});
+}
+function renderHowToSuggestion(q){
+  var host=$("#results"); var old=document.getElementById('howtosuggest'); if(old) old.parentNode.removeChild(old);
+  if(!host||!looksHowToShaped(q)) return;
+  var card=document.createElement('div'); card.id='howtosuggest';
+  card.style.cssText='border:1px solid var(--line-ctl);background:var(--panel2);border-radius:12px;padding:12px;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap';
+  card.innerHTML='<div><div style="font-size:12px;color:var(--sub)">QUESTION DETECTED</div>'+
+    '<div style="font-size:14px;margin-top:2px">This reads like a question — ask the manuals directly for a cited, extractive answer.</div></div>'+
+    '<a href="/ask?q='+encodeURIComponent(q)+'" style="font-size:12px;padding:5px 10px;border:1px solid var(--line-ctl);border-radius:8px;color:var(--txt);text-decoration:none;white-space:nowrap;cursor:pointer">💬 Ask the manuals →</a>';
+  host.insertBefore(card, host.firstChild);
+}
+// v1.30 (roadmap Next-tier item 9): surface conflicts.py's data directly in the results list, not just
+// on part.html's dedicated conflict card. Fires independently after the results already rendered (never
+// blocks them -- check_query() measured 200+ms on common single-word queries, confirmed directly: 216ms
+// for "brake", 227ms for "gasket" -- baking that into search()'s own response would roughly double every
+// search's latency). Tags matching rows via the data-doc/data-page attributes renderList() now sets,
+// rather than assuming DOM order matches ALL (the results list can be filtered by vehicle/type/source).
+function renderConflictFlags(q){
+  fetch('/api/conflicts?q='+encodeURIComponent(q)+'&limit=60').then(function(r){return r.json();}).then(function(j){
+    var cs=(j&&j.conflicts)||[]; if(!cs.length) return;
+    var flagged={};
+    cs.forEach(function(c){ (c.values||[]).forEach(function(v){ if(v.doc!=null&&v.page!=null) flagged[v.doc+":"+v.page]=c; }); });
+    if(!Object.keys(flagged).length) return;
+    document.querySelectorAll("#rlist .result[data-doc][data-page]").forEach(function(el){
+      var key=el.getAttribute("data-doc")+":"+el.getAttribute("data-page");
+      var c=flagged[key]; if(!c) return;
+      var b=el.querySelector(".badge.conflict"); if(!b) return;
+      b.style.display="";
+      b.title="The manuals disagree on this "+esc(c.type)+" value ("+esc(c.spread_pct)+"% apart) — verify on the cited page before trusting it.";
+    });
+  }).catch(function(){});
+}
 function renderMeasureMatch(q){
   var host=$("#results"); var old=document.getElementById('measurematch'); if(old) old.parentNode.removeChild(old);
   if(!host||!looksMeasureShaped(q)) return;
@@ -1322,6 +1385,9 @@ async function runSearch(q, autojump, mode){
     renderSearchHints(d, q);            // v1.5: acronym-glossary expansion + fuzzy NSN 'did you mean'
     renderPartMatch(q);                 // PART NUMBER -> show its correlative breakdown image up top
     renderMeasureMatch(q);              // annex #6: torque/measurement-shaped query -> cited values inline
+    renderConflictFlags(q);             // v1.30 (roadmap item 9): tag any already-rendered rows with a known cross-manual conflict
+    renderSymptomMatch(q);              // v1.30 (roadmap item 10): symptom-shaped query -> guided troubleshooting suggestion
+    renderHowToSuggestion(q);           // v1.30 (roadmap item 10): "how do I..." question-shaped query -> ask-the-manuals suggestion
     if(ALL.length) pushRecent(q);
     if(autojump && ALL[0] && ALL[0].nsn_query){ if(ALL[0].nsn_kind==="vehicle") openVehicle(ALL[0].nsn_query); else openViewer(ALL[0]); }}
   catch(err){$("#results").innerHTML='<div class="empty">Search error: '+esc(String(err))+'</div>';}
@@ -1399,7 +1465,19 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
   if(!rows.length){box.innerHTML='<div class="empty">No results match the active filter.</div>';return;}
   box.innerHTML="";
   rows.forEach(r=>{const d=document.createElement("div");d.className="result";
+    // v1.30 (roadmap Next-tier item 9): data-doc/data-page let renderConflictFlags() (fired
+    // independently after this list renders, see runSearch()) find and tag the right row later
+    // without re-deriving DOM order against a possibly-filtered `rows` array.
+    if(r.doc_id!=null) d.setAttribute("data-doc", r.doc_id);
+    if(r.page_number!=null) d.setAttribute("data-page", r.page_number);
     const snip=esc(r.snip||"").replaceAll("&lt;&lt;","<mark>").replaceAll("&gt;&gt;","</mark>");
+    // v1.30 (roadmap Next-tier item 9): OCR-confidence tier, reusing VW.confTier() -- the same
+    // helper renderPartMatch()/pdRenderMatches() already use -- now that p.ocr_confidence actually
+    // reaches this row (search_feature.py's SELECT was missing the column; the OCR badge above only
+    // ever said a page WAS OCR'd, never how confidently). Only shown for OCR pages with a real low/
+    // verify tier -- a clean text-layer page has no ocr_confidence at all (NULL), and a high-tier OCR
+    // page needs no extra badge beyond the existing plain "OCR" one.
+    const ocrTier = (r.source==="ocr" && r.ocr_confidence!=null) ? VW.confTier(r.ocr_confidence) : null;
     d.innerHTML='<div class="meta"><span class="badge vbadge" title="Open vehicle breakdown">'+esc(r.vehicle||"?")+'</span>'+
       (r.boosted?'<span class="badge fav" title="Requested before">★ requested</span>':'')+
       (r.clicked?'<span class="badge opened" title="Opened from a search result before">↺ opened before</span>':'')+
@@ -1408,7 +1486,9 @@ function renderList(rows){ const box=$("#rlist"); if(!box)return;
       (r.nsn?'<span class="badge">NSN '+esc(r.nsn)+'</span>':'')+
       '<span class="badge pg">p.'+(r.page_number||"?")+'</span>'+
       (r.source==="ocr"?'<span class="badge ocr" title="Machine-read text (OCR) — this page has no clean text layer; wording may contain scan errors. Verify against the page image.">OCR</span>':'')+
-      (r.approx?('<span class="badge approx" title="Matched via '+esc(r.matched_via||"synonym")+': \''+esc(r.matched_term||"")+'\' — not a literal match on your exact words">≈ approx</span>'):'')+'</div>'+
+      (ocrTier&&ocrTier.key!=="high"?('<span class="conf '+ocrTier.key+'" title="'+esc(ocrTier.note||ocrTier.label)+'">'+esc(ocrTier.label)+'</span>'):'')+
+      (r.approx?('<span class="badge approx" title="Matched via '+esc(r.matched_via||"synonym")+': \''+esc(r.matched_term||"")+'\' — not a literal match on your exact words">≈ approx</span>'):'')+
+      '<span class="badge conflict" style="display:none" title="">⚠ conflict</span></div>'+
       '<div class="snip">'+snip+'</div>'+
       '<div class="rowbtns"><button class="ghost vbtn">📄 View page</button><button class="ghost abtn">+ Add to request</button></div>';
     d.querySelector(".vbtn").onclick=ev=>{ev.stopPropagation();logResultClick(r,rows);openViewer(r);};

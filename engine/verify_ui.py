@@ -131,12 +131,25 @@ def _contrast(hex_a, hex_b):
 
 _AA_TEXT_FLOOR = 4.5
 # (foreground token, background token, real call site) -- every pair this app actually renders as
-# live text today; index.html carries its own token copy (doesn't load base.css, see its :root
-# comment) so both sources are checked to catch either one drifting out of sync.
+# live text today. Through v1.29, index.html carried its own separate token copy (didn't load
+# base.css) so both sources needed checking to catch either one drifting out of sync -- as of v1.30
+# (roadmap Next-tier item 11) index.html loads base.css directly and no longer has its own :root at
+# all, so checking it below now correctly SKIPs (no token block to check) rather than failing; kept
+# in the loop rather than dropped so a FUTURE local :root re-added to index.html gets caught again.
 _TEXT_PAIRS = [
     ("grn-tx", "panel2", "index.html part-match 'Saved' confirmation"),
     ("grn-tx", "panel", "index.html side-chooser operator badge / chapter-count status"),
     ("red-tx", "panel2", "index.html barcode-vs-OCR NSN mismatch warning"),
+]
+_AA_UI_FLOOR = 3.0
+# (border token, background token, real call site) -- v1.30 (roadmap Next-tier item 12): --line is
+# 1.05-1.45:1 everywhere (fine for a decorative divider, no floor applies) but was ALSO the visible
+# border of every real <input>/<select>/<textarea> in index.html -- a UI component, 3:1 floor, which
+# --line badly fails. --line-ctl is the lightened sibling for control borders only; --line is
+# untouched for its decorative uses (so it is deliberately NOT checked against the 3:1 floor here).
+_UI_BORDER_PAIRS = [
+    ("line-ctl", "panel2", "index.html .searchbar/.modal/.pgctl/#legacyHome input borders"),
+    ("line-ctl", "panel", "index.html .item input borders"),
 ]
 for src_name in ("ui/base.css", "ui/index.html"):
     toks = _hex_tokens(os.path.join(HERE, src_name))
@@ -154,4 +167,15 @@ for src_name in ("ui/base.css", "ui/index.html"):
             rc = 1
         else:
             print("wcag text-contrast : %s --%s on --%s = %.2f:1  OK (%s)" % (src_name, fg, bg, r, where))
+    for fg, bg, where in _UI_BORDER_PAIRS:
+        if fg not in toks or bg not in toks:
+            print("wcag ui-contrast : SKIP -- %s missing --%s or --%s" % (src_name, fg, bg))
+            continue
+        r = _contrast(toks[fg], toks[bg])
+        if r < _AA_UI_FLOOR:
+            print("wcag ui-contrast : FAIL -- %s: --%s on --%s (%s) is %.2f:1, below the %.1f:1 UI floor"
+                  % (src_name, fg, bg, where, r, _AA_UI_FLOOR))
+            rc = 1
+        else:
+            print("wcag ui-contrast : %s --%s on --%s = %.2f:1  OK (%s)" % (src_name, fg, bg, r, where))
 sys.exit(rc)

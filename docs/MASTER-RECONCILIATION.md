@@ -1,14 +1,16 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
 **Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
-(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and four more times on
+(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and five more times on
 2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; `conflicts.py`'s
 cross-vehicle false-positive fix, itself needing a second pass after adversarial review caught a safety
 regression in the first, `[1.26.0]`; wiring that fix's new fields into `engine/ui/part.html`, `[1.27.0]`;
 then, following a production-readiness/EMS-VIEWER-parity audit, 3 field-reliability quick wins,
 `[1.28.0]`; then a second scoping audit's Build Roadmap "Now" tier — a missing-CSS-token bug worse than
 first scoped, a doubled fuzzy-search scan, 5 modals with no real focus trap, 3 unlabeled viewer images,
-3 real WCAG contrast failures, 10 unlabeled controls, `[1.29.0]`).** This document
+3 real WCAG contrast failures, 10 unlabeled controls, `[1.29.0]`; then the same roadmap's "Next" tier —
+5 orphaned modules wired in, a related-parts card, search-result OCR/conflict signals, symptom query
+routing, `index.html` finally loading `/base.css`, `[1.30.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -19,10 +21,13 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.29.0, shipped 2026-08-30** (the Build Roadmap's full "Now" tier — restored
+**True current state: v1.30.0, shipped 2026-08-30** (the Build Roadmap's full "Next" tier — 5 orphaned
+modules wired into the UI, a related-parts card, OCR-confidence/conflict signals in search results,
+symptom/"how do I" query routing, `index.html` finally loading `/base.css` + a new control-border token
+— see §6 item 17). Immediately prior, all the same day: v1.29.0 (the Roadmap's "Now" tier — restored
 missing/undefined CSS color tokens on the home page, 3 real WCAG contrast fixes, a doubled fuzzy-search
 scan fixed, focus traps on all 5 real modals, alt text on the 3 primary viewer images, ARIA labels on the
-10 highest-traffic controls — see §6 item 16). Immediately prior, all the same day: v1.28.0 (3
+10 highest-traffic controls — see §6 item 16); v1.28.0 (3
 field-reliability quick wins from a production-readiness/EMS-VIEWER-parity audit — cart persistence,
 stepflow voice-nav wiring, PORTING.md currency — see §6 item 15); v1.27.0 (`engine/ui/part.html` now shows
 `[1.26.0]`'s `cross_vehicle`/`vehicles` fields to a technician, see §6 item 14); v1.26.0 (`conflicts.py`'s
@@ -457,15 +462,38 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     `palette.js`'s own correct Tab-trap) is now wired into all 5 real modals — Tab-cycle containment,
     Escape-to-close, focus-restore, each verified live. The 3 primary viewer images have `alt` text; the
     10 highest-traffic controls (home + 8 tool search boxes + `collections.html`'s form) have
-    `aria-label`s. **Still open from the same roadmap** (Next/Later tiers): semantic search is real but
-    non-functional in production today (no embedding model installed, stale index) — needs a decision,
-    fix or hide; RRF hybrid fusion has zero UI callers; 5 built-but-orphaned modules
-    (`commonality.py`/`tmrev.py`/`harnesstrace.py`+`pinouts.py`/`macchart.py`/`crossmethod.py`) have no UI
-    entry point; a learned re-ranker is gated on click volume that doesn't exist yet
-    (`index/analytics.jsonl` logs zero `search`/`click` events); the other 35 of 45 UI pages still carry
-    no ARIA of their own; no accounts/RBAC, TLS, offsite backup automation, or accreditation artifacts
-    exist for multi-site fielding. See the Build Roadmap and Readiness Dossier artifacts, plus
-    `CHANGELOG.md` `[1.28.0]`/`[1.29.0]`.
+    `aria-label`s. ~~**Still open from the same roadmap**: 5 built-but-orphaned modules...~~ — see
+    item 17.
+17. **`[1.30.0]` — the Build Roadmap's full "Next" tier**, grounded in 4 parallel research passes
+    reading the real modules/routes/UI patterns before any code was written (not the roadmap's own
+    summary text). The 5 orphaned modules (`commonality.py`/`tmrev.py`/`harnesstrace.py`+
+    `pinouts.py`/`macchart.py`/`crossmethod.py`) are wired in on `part.html`/`procedure.html`, each
+    verified live or via synthetic data where this corpus has no organic example. `commonality.py`'s
+    placement was corrected from the roadmap's own suggestion: confirmed live that `readiness.html` is
+    vehicle-scoped end to end while `commonality.py` does an exact NSN/name/part-number lookup — a
+    genuine shape mismatch, shipped on `part.html` instead. A "Related parts" card (`xref.py`) landed
+    on `part.html` and `dossier.html`. `p.ocr_confidence` now reaches every search result (a one-column
+    SELECT fix in `search_feature.py`'s `search()`) — though a real corpus check found this deployment
+    has zero populated `ocr_confidence` values across 53,391 OCR'd pages, disclosed honestly rather than
+    glossed over. The conflict-flag and symptom/"how do I" query-routing items both shipped in a form
+    measurement changed from the roadmap's own sketch: `conflicts.py`'s `check_query()` measured
+    200-227ms and `/api/ask` measured 900-1855ms on common queries (both confirmed directly on this
+    host) — too slow to bake into `/api/search`'s own response or fire automatically on every keystroke,
+    so both now run independently/on-demand instead. `index.html` finally loads `/base.css` — a real
+    visual-diff pass, not a blind strip-and-link: the fully-redundant `:root`/`[hidden]` duplication is
+    gone, the kiosk-mode/touch-target rules stay (this page's `a.ghost` class isn't covered by
+    base.css's shared `a.btn` selector — confirmed `.ghost` is 69× local-only), and a real latent
+    checkbox-distortion bug in this page's duplicate (already fixed once in base.css) got fixed in the
+    same pass. Paired with a new `--line-ctl` interactive-control border token (`--line` itself measured
+    1.05-1.45:1, far under the 3:1 UI floor), locked in by a new guard in `engine/verify_ui.py`.
+    **Still open from the same roadmap** (Later tier, calendar/data-gated by design): semantic search is
+    real but non-functional in production today (no embedding model installed, stale index) — needs a
+    decision, fix or hide; RRF hybrid fusion has zero UI callers (sequenced after the semantic-search
+    fix); a learned re-ranker is gated on click volume that doesn't exist yet (`index/analytics.jsonl`
+    logs zero `search`/`click` events); the other 35 of 45 UI pages still carry no ARIA of their own; no
+    accounts/RBAC, TLS, offsite backup automation, or accreditation artifacts exist for multi-site
+    fielding. See the Build Roadmap and Readiness Dossier artifacts, plus `CHANGELOG.md`
+    `[1.28.0]`–`[1.30.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

@@ -1,10 +1,10 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.30.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.31.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), and reconciled six more times the same day, 2026-08-30 — a critical real-host
+re-audit (`[1.24.0]`), and reconciled seven more times the same day, 2026-08-30 — a critical real-host
 fix (4 pending schema migrations were never applied to production, silently breaking measures/ask/
 cautions/pmcs/oneuse, `[1.25.0]`); `conflicts.py`'s cross-vehicle false-positive fix, which itself needed
 two implementation passes after adversarial review caught a safety regression in the first (`[1.26.0]`);
@@ -15,8 +15,11 @@ Roadmap's full "Now" tier — a missing-CSS-token bug worse than first scoped, a
 5 modals with no real focus trap, 3 unlabeled viewer images, 3 real WCAG contrast failures, and the 10
 highest-traffic unlabeled controls (`[1.29.0]`); then the Roadmap's full "Next" tier — 5 previously-
 orphaned modules wired into the UI, a related-parts card, OCR-confidence/conflict signals in search
-results, symptom/"how do I" query routing, and `index.html` finally loading `/base.css` (`[1.30.0]`) —
-see the reconciliation notes below and §8 items 12–16). This document +
+results, symptom/"how do I" query routing, and `index.html` finally loading `/base.css` (`[1.30.0]`);
+then a Gap Sweep audit's 5 priority items — RapidOCR installed, `/api/search_hybrid` made parameter-
+complete and switched on as the primary search endpoint, one genuinely-fixable dead column filled, 3
+more orphans wired (including a brand-new `/handover` page), and a real `"search"` analytics event
+(`[1.31.0]`) — see the reconciliation notes below and §8 items 12–17). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -451,6 +454,28 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     no TLS, no offsite backup automation, no accreditation artifacts exist for multi-site fielding. See
     the published Build Roadmap and Readiness Dossier artifacts, plus `CHANGELOG.md`
     `[1.28.0]`–`[1.30.0]`, for the complete, prioritized list.
+17. **`[1.31.0]` — Gap Sweep: the 5 priority items**, from a 5-agent parallel research audit that
+    directly answered "what's going on with OCR confidence, and what other gaps exist." RapidOCR
+    installed and independently re-verified live — the confidence write path in `viewer_ingest.py` was
+    already correct; this machine's OCR engine (Tesseract fallback, which captures no confidence at all)
+    was the real gap. `/api/search_hybrid` — the item 16 above left open — is now the search box's
+    primary endpoint, but only after a second research pass found the route was silently dropping
+    side/match_any/fuzzy/mode/tm:/vehicle:/nsn: operators entirely; fixed first (`hybrid.hybrid_search()`
+    + `r_search_hybrid` gained full parity with `/api/search`), then verified extensively (100%
+    result-count parity across ~20 diverse queries, a genuine glossary-aware ranking improvement for
+    acronym queries confirmed live) before switching. Of the 5 dead columns Gap Sweep found, only
+    `ref_nsn.superseded` was genuinely trivial (its value was already parsed, just never bound to the
+    column) — the other 4 need real cross-database integration or brand-new extraction logic, correctly
+    left open. 3 more orphaned routes wired in: `rpstl.py` (part.html card), `partspdf.py` (jobcard.html
+    button), and `handover.py` — a genuinely new page (`/handover`), since none of the 3 candidate
+    existing pages fit its "shop-wide, since last shift" scope. A real `"search"` analytics event kind
+    added — declared-valid since `analytics.py`'s `_VALID` set was first written, but never actually
+    logged; `top_searches` had always been silently empty. **Still open**: 4 of the 5 dead columns; 19
+    more orphaned routes the Sweep found beyond the 8 now wired (standouts: `/api/handover`-class
+    features like `/api/chapter_jump`, the DA-2404/2407 forms, `/api/ingest_scan`); semantic search still
+    non-functional (now the clear, sole remaining prerequisite for hybrid fusion's full value — the route
+    itself is ready); everything else from item 16's still-open list. See the Gap Sweep artifact and
+    `CHANGELOG.md` `[1.31.0]` for the complete, prioritized list.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

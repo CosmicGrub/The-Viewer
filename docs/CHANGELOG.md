@@ -12,6 +12,77 @@ every change going forward.
 
 ---
 
+## [1.31.0] — 2026-08-30 — Gap Sweep: RapidOCR installed, /api/search_hybrid is now primary search, one dead column filled, 3 more orphans wired, real "search" analytics
+**VERSION → `1.31.0`.** All 5 priority items from a Gap Sweep audit (a 5-agent parallel research pass
+answering "what's going on with OCR confidence, and what other gaps exist" — itself a follow-up to
+`[1.29.0]`/`[1.30.0]`'s Build Roadmap). Two items shipped narrower or reshaped from how the Sweep's own
+priority list framed them, in both cases because a second, implementation-time research pass found the
+literal framing would have been unsafe or premature — documented below, not glossed over.
+
+- **RapidOCR installed and verified live** (`rapidocr-onnxruntime` 1.2.3) — `ocr_one()`'s confidence-
+  scoring write path was already correct; this machine's OCR engine was the actual gap (Tesseract
+  fallback captures no confidence at all). Confirmed via `_have_rapid()` returning `True` post-install,
+  independently re-verified in this session's own process (not just the installing agent's self-report).
+  Documented in `requirements.txt`'s OPTIONAL block and `INSTALL.bat`. The historical 53,391-page OCR
+  backlog still needs a real re-OCR pass to backfill — there was never a confidence score computed for
+  those pages to retroactively recover; only *future* OCR runs get it automatically now.
+- **`/api/search_hybrid` is now the home search box's primary endpoint** — its own real, self-tested RRF
+  fusion had zero UI callers. Unsafe to switch to as originally framed: research found the route silently
+  dropped `side`/`match_any`/`use_fuzzy`/`mode`/`tm:`/`vehicle:`/`nsn:` operators entirely, which would
+  have broken the SIDE toggle, the offline `did_you_mean`, and `mode="text"` outright. Fixed first —
+  `hybrid.hybrid_search()` gained the missing parameters and now threads them through to
+  `search_feature.search()` exactly like `/api/search` already does; `r_search_hybrid` gained the
+  identical side-filter over-fetch, operator parsing, `did_you_mean` fallback, and LRU cache `/api/search`
+  already had. Verified extensively before switching: 100% of ~20 diverse test queries return the
+  identical result *count*; where top-ranked results differ, it's either the route's own glossary/
+  acronym-aware ranking genuinely surfacing better matches (confirmed live: a "CTIS" query now ranks
+  pages mentioning "Central Tire Inflation System" too) or a benign tie-break artifact of the route's own
+  pre-existing 2×-candidate-pool overfetch — never a result-count or quality loss. Semantic search is
+  still non-functional in this deployment (no embeddings index), so results additionally degrade to
+  exactly the keyword rows the UI already knew how to render; once semantic search ships, richer fused
+  results reach the search box with no further UI change needed.
+- **The one genuinely fixable dead column** — of the 5 the Sweep found (`parts.cagec`/`smr`/`uoc`,
+  `ref_nsn.data_date`/`superseded`), a second research pass found only `ref_nsn.superseded` at the FLIS
+  ingest site was a trivial fix: its value (`subs`, the cancellation/cross-reference string) was already
+  parsed, just never bound to the column `index.html`'s own cart-panel enrichment has been ready to
+  render since migration `0008`. Fixed additively (bound alongside the pre-existing `substitutes` write,
+  not replacing it). **The other 4 stay open, correctly** — `cagec`/`smr` are extracted by a real parser
+  (`rpstl_feature.py`) that feeds a *different* database file (`rpstl.db`'s `parts_rows`, not the main
+  `parts` table), requiring real cross-database integration, not a column-list edit; `uoc` and
+  `data_date` have no extraction logic anywhere in the codebase at all. Forcing a rushed fix for any of
+  these four would have meant either untested new parsing logic or a real ingest-pipeline redesign —
+  scoped out for dedicated follow-up work instead.
+- **3 more orphaned routes wired in.** `rpstl.py`'s base lookup (distinct from the already-wired
+  `/api/rpstl_review`/`/api/rpstl_override` admin queues, a substring-collision false match caught before
+  shipping) — a new card on `part.html`, same lazy pattern as `[1.30.0]`'s other additions.
+  `partspdf.py`'s scannable-barcode parts-request PDF — a new "🖨 Print parts-request sheet" button on
+  `jobcard.html`, gated on `jobcard_preview`'s own real parts-found count. `handover.py`'s shift-handover
+  digest — a genuinely new page, `engine/ui/handover.html` at `/handover`, since none of the 3 candidate
+  existing pages fit (confirmed by reading each: `status.html`/`ops.html` are admin/corpus-health tools,
+  `jobcard.html` is single-task-scoped, none carry a shop-wide "what's pending since last shift" view).
+  Added to `index.html`'s Tools menu and the command palette. `handover.py`'s own response has **no
+  `ok` key at all** (`build_digest()`'s dict is sent verbatim) — a real gotcha caught before writing the
+  page's fetch guard.
+- **A real `"search"` analytics event, finally.** `"search"` has been a declared-valid kind in
+  `analytics.py`'s own `_VALID` set since it was first written — `summary()`'s `top_searches` panel has
+  always called `top(index_dir, "search", 8)` — but nothing anywhere ever logged one (confirmed by
+  grepping every `analytics.log(` call site in the repo before this fix: only `"gap"` and `"click"`
+  existed). Now logged once per real (non-cached) search, in both `/api/search` and `/api/search_hybrid`
+  so switching the primary endpoint above doesn't silently blank the panel again. Measured cost: ~0.08ms/
+  call, ~0.05% of a typical search's own latency — confirmed not a regression risk before shipping, not
+  assumed. `analytics.py`'s own self-test now shows real `top_searches` data for the first time.
+
+**Verified:** `engine/tests/verify_all.py --snapshot`: 54/55 (only the pre-existing
+`test_ingest_routes.py` real-subprocess-e2e flake), safeguard `725/725 OK, 0 damaged`, `rps_lint.py`
+clean. New coverage: `test_search_analytics.py` (11 checks), `test_ref_nsn_superseded.py` (10 checks,
+including the `ON CONFLICT DO UPDATE` path), `test_hybrid_search_parity.py` (13 checks, proving every
+parameter actually reaches `core.search()` via a recording fake, not just "doesn't crash"). Every claim
+in this entry checked live against the real running app, the real corpus, or (for states this specific
+deployment doesn't organically exercise — `crossmethod.py`'s "confirmed" status, a populated
+`ref_nsn.superseded`) a synthetic response/fixture proven to exercise the real code path.
+
+---
+
 ## [1.30.0] — 2026-08-30 — Build Roadmap "Next" tier: 5 orphaned modules wired, related-parts card, search-result flags, symptom routing, base.css linked
 **VERSION → `1.30.0`.** All 6 "Next" items from the Build Roadmap — grounded in real research (4
 parallel exploration passes reading the actual modules/routes/UI patterns before writing any code, not

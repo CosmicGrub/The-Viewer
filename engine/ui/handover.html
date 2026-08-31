@@ -1,0 +1,111 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Shift Handover</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:24px}
+h1{font-size:22px;font-weight:600;margin:0 0 2px}.muted{color:var(--sub);font-size:13px}
+a{color:var(--acc);text-decoration:none}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0}
+input{background:var(--p2);color:var(--txt);border:1px solid var(--line-ctl,var(--line));border-radius:8px;padding:9px 11px;width:90px}
+button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 13px;cursor:pointer}
+button:hover{background:var(--p2);border-color:var(--acc)}
+.banner{border-radius:12px;padding:16px 18px;margin:14px 0;border:1px solid var(--line)}
+.banner.red{background:rgba(224,86,79,.1);border-color:var(--red)}
+.banner.amber{background:rgba(202,162,74,.1);border-color:var(--amb)}
+.banner.green{background:rgba(47,125,79,.1);border-color:var(--grn,var(--accent2))}
+.banner h2{margin:0 0 8px;font-size:15px}
+.banner ul{margin:0;padding-left:20px}
+.banner li{margin:3px 0;font-size:13.5px}
+.sec{margin-top:22px}
+.sec h2{font-size:15px;font-weight:600;margin:0 0 8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--sub);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+tbody tr:last-child td{border-bottom:none}
+.none{color:var(--sub);font-size:12.5px;padding:14px 12px}
+.fwd{color:var(--sub);font-size:12px;margin-top:6px}
+.k{font-weight:600}
+</style><script src="/rps.js"></script></head><body><div class="wrap">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
+  <div><h1>🔄 Shift handover</h1>
+    <div class="muted">What's awaiting sign-off, what's new since last shift, what's coming due — one screen, shop-wide.</div></div>
+  <div><a href="/">← back to search</a></div>
+</div>
+
+<div class="bar">
+  <label class="muted" for="hours">Since (hours)</label>
+  <input id="hours" type="number" min="1" max="720" value="24">
+  <button id="go">↻ Refresh</button>
+  <span class="muted" id="gen"></span>
+</div>
+
+<div id="bannerbox"></div>
+
+<div class="sec"><h2>Pending sign-off <span class="muted" id="rev_count"></span></h2>
+  <div class="card"><div id="revbox"></div></div></div>
+
+<div class="sec"><h2>Recent field notes <span class="muted" id="notes_count"></span></h2>
+  <div class="card"><div id="notesbox"></div></div></div>
+
+<div class="sec"><h2>Cross-manual conflicts <span class="muted" id="conf_count"></span></h2>
+  <div class="card"><div id="confbox"></div></div>
+  <div class="fwd">Not yet wired into this digest server-side — see part.html's own conflict card for what's on file per part today.</div></div>
+
+<div class="sec"><h2>Services coming due <span class="muted" id="due_count"></span></h2>
+  <div class="card"><div id="duebox"></div></div>
+  <div class="fwd">Not yet wired into this digest server-side — see readiness.html for service intervals per vehicle today.</div></div>
+
+<script>
+function $(s){return document.querySelector(s);}
+/* esc()/toast() from /shared.js */
+function fmtRow(cells){
+  return '<tr>'+cells.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+}
+function loadAll(){
+  var hours=parseInt($('#hours').value,10)||24;
+  $('#gen').textContent='loading…';
+  fetch('/api/handover?hours='+hours).then(function(r){return r.json();}).then(function(j){
+    // v1.31 (gap-sweep item 4): handover.py's build_digest() response has NO "ok" key at all --
+    // confirmed live before writing this -- guard on the object's own real fields instead.
+    if(!j || !j.summary){ $('#gen').textContent='Could not load.'; return; }
+    $('#gen').textContent='Generated '+esc(j.generated||'')+' · last '+hours+'h';
+
+    var pri=j.priority||'green';
+    var h='<div class="banner '+esc(pri)+'"><h2>'+(pri==='red'?'🔴':pri==='amber'?'🟡':'🟢')+' '+esc(pri.toUpperCase())+'</h2><ul>'
+      +(j.summary||[]).map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul></div>';
+    $('#bannerbox').innerHTML=h;
+
+    var revs=j.pending_reviews||[];
+    $('#rev_count').textContent=revs.length?('('+revs.length+')'):'';
+    $('#revbox').innerHTML=revs.length
+      ? '<table><tr><th>Kind</th><th>Key</th><th>Value</th><th>By</th><th>When</th></tr>'
+        +revs.map(function(r){return fmtRow([esc(r.kind||''),'<span class="k">'+esc(r.key||'')+'</span>',esc(r.value||''),esc(r.by||''),esc(r.ts||'')]);}).join('')+'</table>'
+      : '<div class="none">Nothing awaiting sign-off.</div>';
+
+    var notes=j.recent_notes||[];
+    $('#notes_count').textContent=notes.length?('('+notes.length+')'):'';
+    $('#notesbox').innerHTML=notes.length
+      ? '<table><tr><th>Subject</th><th>Note</th><th>By</th><th>When</th></tr>'
+        +notes.map(function(n){return fmtRow(['<span class="k">'+esc(n.subject||'')+'</span>',esc(n.text||''),esc(n.by||''),esc(n.ts||'')]);}).join('')+'</table>'
+      : '<div class="none">No new field notes in this window.</div>';
+
+    var confs=j.open_conflicts||[];
+    $('#conf_count').textContent=confs.length?('('+confs.length+')'):'';
+    $('#confbox').innerHTML=confs.length
+      ? '<table>'+confs.map(function(c){return fmtRow([esc(JSON.stringify(c))]);}).join('')+'</table>'
+      : '<div class="none">None reported.</div>';
+
+    var dues=j.due_services||[];
+    $('#due_count').textContent=dues.length?('('+dues.length+')'):'';
+    $('#duebox').innerHTML=dues.length
+      ? '<table>'+dues.map(function(d){return fmtRow([esc(JSON.stringify(d))]);}).join('')+'</table>'
+      : '<div class="none">None reported.</div>';
+  }).catch(function(){ $('#gen').textContent='Could not load.'; });
+}
+$('#go').onclick=loadAll;
+$('#hours').addEventListener('keydown',function(e){ if(e.key==='Enter') loadAll(); });
+loadAll();
+</script><script src="/palette.js"></script></body></html>

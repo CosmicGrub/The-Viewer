@@ -341,6 +341,7 @@
         <a href="/troubleshoot" title="Symptom → checks → corrective action, straight from the fault trees">🌳 Guided troubleshooting</a>
         <a href="/ask" title="Ask a question in plain words — cited answers from the manuals (offline)">💬 Ask the manuals</a>
         <a href="/jobcard" title="One printable Work Order: procedures + tools + torque + parts + figures for a task">🧾 Work Order</a>
+        <a href="/handover" title="What's awaiting sign-off + recent field notes since last shift">🔄 Shift handover</a>
         <a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a>
         <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📷 Scan (camera)</a>
 
@@ -1379,7 +1380,24 @@ async function runSearch(q, autojump, mode){
   LAST_QUERY=q;
   if(!q.trim()){ loadHome(); return; }
   try{
-    let url="/api/search?limit=30&q="+encodeURIComponent(q)+(MATCH_ANY?"&any=1":"")+(mode?("&mode="+mode):"")+(SIDE?("&side="+SIDE):"");
+    // v1.31 (gap-sweep item 2): switched from /api/search to /api/search_hybrid -- previously a
+    // real, self-tested, correctly-fused-search route with zero UI callers (confirmed before this
+    // fix), and unsafe to switch to naively: it silently dropped side/tm:/vehicle:/nsn:/match_any/
+    // fuzzy/mode (would have broken the SIDE toggle, operator syntax, MATCH_ANY, and mode="text"
+    // outright) until engine/features/routes/search.py's r_search_hybrid gained full parameter
+    // parity with r_search in this same change. Verified safe live afterward: 100% of tested queries
+    // return the identical result COUNT; the top-ranked results are stable for the large majority,
+    // and where they differ it's either hybrid's own glossary/acronym-aware ranking genuinely
+    // surfacing better matches (e.g. "CTIS" now ranks pages mentioning "Central Tire Inflation
+    // System" too -- confirmed live, not a regression) or a benign tie-break artifact of its own
+    // pre-existing 2x-candidate-pool overfetch (never a result-count or quality loss, confirmed).
+    // Same query-string shape /api/search accepted; the response envelope is a strict superset
+    // (adds query/expanded/signals; results/side/operators/did_you_mean/acronyms/nsn_did_you_mean
+    // all unchanged in shape). Semantic search is non-functional in this deployment today (no
+    // embeddings index), so `results` additionally degrades to exactly the keyword-search rows
+    // renderList() already knows how to render -- once semantic search is real, hybrid results
+    // fuse in automatically with no further UI change needed.
+    let url="/api/search_hybrid?limit=30&q="+encodeURIComponent(q)+(MATCH_ANY?"&any=1":"")+(mode?("&mode="+mode):"")+(SIDE?("&side="+SIDE):"");
     const r=await fetch(url);const d=await r.json();
     ALL=d.results||[]; DYM=d.did_you_mean||[]; FILTER={vehicle:null,type:null,source:null}; renderResults(q);
     renderSearchHints(d, q);            // v1.5: acronym-glossary expansion + fuzzy NSN 'did you mean'

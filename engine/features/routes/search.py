@@ -50,6 +50,20 @@ def r_search(h, qs):
     if side in ("operator", "mechanic"):
         results = [r for r in results
                    if core._side_classify(r.get("doc_id"), r.get("tm_number") or "", r.get("title") or "").get(side)][:limit]
+    # v1.31 (gap-sweep item 5): "search" has been a _VALID analytics kind since that set was written,
+    # but nothing ever logged one -- summary()'s own top_searches panel has always silently returned
+    # []. Logs the RAW q (what the user actually typed, same value LAST_QUERY uses client-side for the
+    # click beacon), not q_free, and the final side-filtered result count. Placed after the LRU cache's
+    # early-return above (like "gap" below), so a cached repeat of an identical query is never
+    # re-logged. Measured cost: ~0.08ms/call, ~0.05% of a typical search's own latency -- not a
+    # regression risk (see docs/CHANGELOG.md [1.31.0]).
+    if (q or "").strip():
+        try:
+            import analytics
+            analytics.log(core.INDEX_DIR, "search", (q or "").strip(), {"n": len(results)})
+        except Exception:
+            try: core.log_exception("search-log")
+            except Exception: pass
     resp = {"results": results, "side": side or None}
     if ops:
         resp["operators"] = ops
@@ -104,9 +118,68 @@ def r_findindoc(h, qs):
 def r_search_hybrid(h, qs):
     # Glossary-expanded keyword search fused (RRF) with semantic search + fuzzy NSN 'did you mean'.
     # Degrades to keyword-only when embeddings aren't built; always returns keyword hits at minimum.
+    #
+    # v1.31 (gap-sweep item 2): full parameter parity with r_search above, added deliberately -- this
+    # route previously accepted only q/limit and silently dropped mode/match_any/fuzzy/side/tm:/
+    # vehicle:/nsn: operators (confirmed via research before this fix; the route's own smoke test only
+    # ever exercised a bare ?q=, which is why the gap went unnoticed). Mirrors r_search's logic
+    # field-for-field -- including the identical side-filter over-fetch, the identical did_you_mean
+    # fallback, and the identical LRU cache (shared dict/lock, keyed with a "hybrid" discriminator so
+    # a plain-search cache hit can never leak into a hybrid response or vice versa) -- so the two
+    # routes stay behaviorally equivalent except for the keyword-only vs RRF-fused `results` list
+    # itself. This parity is the prerequisite the research flagged before /api/search_hybrid could
+    # safely become the home search box's primary endpoint (see engine/ui/index.html's own comment).
     import hybrid
+    mode = (qs.get("mode") or [None])[0]
+    match_any = qflag(qs, "any")
+    use_fuzzy = qstr(qs, "fuzzy", "1") != "0"
     q = qstr(qs, "q"); limit = qint(qs, "limit", 25, 1, 200)
-    h._send(200, hybrid.hybrid_search(q, core, core.INDEX_DIR, limit))
+    side = qstr(qs, "side")
+    from features import search_feature as _sf
+    q_free, ops = _sf.parse_operators(q)
+    if ops.get("side") and side not in ("operator", "mechanic"):
+        side = ops["side"]
+    key = (q, limit, mode, match_any, use_fuzzy, side, "hybrid")
+    now = time.time()
+    with _SEARCH_LRU_LOCK:
+        ent = _SEARCH_LRU.get(key)
+    if ent is not None and (now - ent[0]) < _SEARCH_LRU_TTL:
+        h._send(200, ent[1]); return
+    fetch_limit = min(max(limit * 10, 200), 500) if side in ("operator", "mechanic") else limit
+    resp = hybrid.hybrid_search(q_free, core, core.INDEX_DIR, fetch_limit, mode, match_any, use_fuzzy,
+                                 tm=ops.get("tm"), vehicle=ops.get("vehicle"), nsn=ops.get("nsn"))
+    results = resp.get("results") or []
+    if side in ("operator", "mechanic"):
+        results = [r for r in results
+                   if core._side_classify(r.get("doc_id"), r.get("tm_number") or "", r.get("title") or "").get(side)][:limit]
+    resp["results"] = results
+    resp["side"] = side or None
+    if ops:
+        resp["operators"] = ops
+    if not results and (q_free or "").strip():
+        dym = core.did_you_mean(q_free)
+        if dym: resp["did_you_mean"] = dym
+    # same "search"/"gap" analytics writes as r_search -- if the UI ever calls this route as its
+    # PRIMARY search endpoint instead of /api/search, top_searches/gaps must not silently go dark.
+    if (q or "").strip():
+        try:
+            import analytics
+            analytics.log(core.INDEX_DIR, "search", (q or "").strip(), {"n": len(results)})
+        except Exception:
+            try: core.log_exception("search-log")
+            except Exception: pass
+    if not results and len((q or "").strip()) >= 3:
+        try:
+            import analytics
+            analytics.log(core.INDEX_DIR, "gap", (q or "").strip())
+        except Exception:
+            try: core.log_exception("searchgap-log")
+            except Exception: pass
+    with _SEARCH_LRU_LOCK:
+        _SEARCH_LRU[key] = (now, resp); _SEARCH_LRU_ORDER.append(key)
+        while len(_SEARCH_LRU_ORDER) > _SEARCH_LRU_MAX:
+            old = _SEARCH_LRU_ORDER.pop(0); _SEARCH_LRU.pop(old, None)
+    h._send(200, resp)
 
 
 @get("/api/semantic")

@@ -31,6 +31,7 @@
     {ic:"🖨",label:"Job packet",hint:"printable take-to-the-bay sheet",url:"/packet"},
     {ic:"📋",label:"Part dossier",hint:"everything about one part",url:"/dossier"},
     {ic:"🧾",label:"Work Order",hint:"procedures + torque + parts + figures",url:"/jobcard"},
+    {ic:"🔄",label:"Shift handover",hint:"pending sign-offs + recent field notes, shop-wide",url:"/handover"},
     {ic:"🧭",label:"Find a part",hint:"every figure & page that calls it out",url:"/locate"},
     {ic:"🔩",label:"Torque quick-reference",hint:"cited values + ft-lb/in-lb/N·m converter",url:"/torque"},
     {ic:"🔣",label:"Decode a code (NSN/SMR/CAGE/MS)",hint:"paste any code off a page — says what it means",url:"/decode"},

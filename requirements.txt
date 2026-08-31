@@ -27,6 +27,21 @@ python-pptx>=0.6,<2     # .pptx slide + table text, one page per slide
 
 # ---- OPTIONAL (heavy / GPU / niche — install only if you need them; see INSTALL.bat) --------------
 # easyocr                 # GPU OCR pipeline for scanned pages (pulls in torch — large; matches your RTX 4050)
+# rapidocr-onnxruntime    # PAGE OCR (v1.31, gap-sweep item 1): the confidence-scoring engine ocr_one()
+#                          # already prefers over the Tesseract fallback — auto-detected purely by import
+#                          # success, no config flag (engine/viewer_ingest.py _have_rapid()/_build_rapid(),
+#                          # ~line 196-315). Without it, every OCR page silently falls back to Tesseract's
+#                          # plain-text mode, which captures no confidence at all -- ocr_one() writes
+#                          # ocr_confidence=None regardless of the column existing and being correctly
+#                          # read app-wide (see docs/CHANGELOG.md [1.30.0]/[1.31.0]). With it installed,
+#                          # RapidOCR returns a genuine per-line detection score (0.0-1.0) that ocr_one()
+#                          # averages into a real page-level ocr_confidence, no other code change needed.
+#                          # The newer unified `rapidocr` package (PP-OCRv5) is tried FIRST by the same
+#                          # detection and used instead if THAT'S the one installed -- install `rapidocr`
+#                          # rather than this line for the newer engine. Pulls in onnxruntime, Shapely,
+#                          # pyclipper, PyYAML, protobuf (~60MB); reuses opencv-python/numpy/Pillow above.
+#                          # No torch. Verified installable 2026-08-30 (pip install rapidocr-onnxruntime
+#                          # -> v1.2.3, clean, no errors).
 # Vision-language page QA (engine/vlm_backend.py, catalog §10.1, "🔎 Ask this page") -- genuinely
 # optional, not just gracefully-degrading: unlike office.py's deps just above (small, CPU-only, safe
 # to install unconditionally), torch is the heaviest single install in this file, so it stays

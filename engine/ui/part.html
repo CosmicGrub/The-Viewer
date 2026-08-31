@@ -60,7 +60,7 @@
       // v1.30 (roadmap Next-tier item 7): 3 real, self-tested, route-registered modules that had
       // zero UI callers for 16-18 versions -- confirmed live before wiring, same lazy pattern as
       // every card above.
-      lazyCrossmethod(q); lazyMac(q); lazyWiring(q); lazyCommonality(q); lazyXref(q);
+      lazyCrossmethod(q); lazyMac(q); lazyWiring(q); lazyCommonality(q); lazyXref(q); lazyRpstl(q);
     });
   }
 
@@ -117,7 +117,7 @@
       +s.procedures.map(function(p){return '<div class="proc"><span class="kind">'+esc(p.kind||'')+'</span>'+esc(p.vehicle||'')+(p.page?(' · p.'+esc(p.page)):'')+' <span class="muted">— '+(p.n_steps||0)+' steps · '+(p.n_tools||0)+' tools</span> <a href="/procedure?q='+enc+'" target="_blank" style="color:#4f9dff">open ↗</a></div>';}).join('')+'</div>'; }
 
     h+='<div id="svccard"></div><div id="seqcard"></div><div id="kitcard"></div><div id="notescard"></div>';
-    h+='<div id="modelcard"></div><div id="maccard"></div><div id="wirecard"></div><div id="commoncard"></div><div id="xrefcard"></div>';
+    h+='<div id="modelcard"></div><div id="maccard"></div><div id="rpstlcard"></div><div id="wirecard"></div><div id="commoncard"></div><div id="xrefcard"></div>';
     h+='<div class="muted" style="margin-top:16px">Assembled from the cited manuals + PUBLOG. Verify torque, sequence &amp; CAUTIONS on the actual page before working.</div>';
     $('#out').innerHTML=h;
   }
@@ -258,6 +258,18 @@
         return '<a href="'+esc(s.dossier_url)+'" target="_blank" style="color:#4f9dff">'+esc(s.name||s.nsn)+'</a>';
       }).join(' · ')+'</div>'; }
       h+='</div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyRpstl(q){
+    // v1.31 (gap-sweep item 4): rpstl.py's own base lookup (/api/rpstl) -- distinct from the
+    // already-wired /api/rpstl_review and /api/rpstl_override admin-queue routes (a naive grep for
+    // "/api/rpstl" false-positives on those two calls elsewhere in this file). Same shape gap as
+    // commonality/crossmethod before this fix -- a real, self-tested route with zero UI callers.
+    gj('/api/rpstl?q='+encodeURIComponent(q)).then(function(j){ var box=$('#rpstlcard'); if(!box||!j||!j.ok||!j.rows||!j.rows.length)return;
+      var h='<h2>RPSTL breakdown <span class="muted" style="font-weight:400">— figure/item/SMR from the parts list</span></h2><div class="card"><table><tr><th>Fig</th><th>Item</th><th>SMR</th><th>CAGEC</th><th>P/N</th><th>NSN</th><th>Qty</th><th>Nomenclature</th></tr>'
+        +j.rows.slice(0,15).map(function(r){return '<tr><td>'+esc(r.figure||'—')+'</td><td>'+esc(r.item||'—')+'</td><td>'+esc(r.smr||'—')+'</td><td>'+esc(r.cagec||'—')+'</td><td>'+esc(r.part_number||'—')+'</td><td>'+esc(r.nsn||'—')+'</td><td>'+esc(r.qty!=null?String(r.qty):'—')+'</td><td class="muted">'+esc(r.nomenclature||'')+'</td></tr>';}).join('')
+        +'</table><div class="muted" style="margin-top:4px">Parsed from the manual\'s own Repair Parts &amp; Special Tools List table — confirm SMR/qty on the cited figure before ordering.</div></div>';
       box.innerHTML=h;
     });
   }

@@ -4,6 +4,23 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30, seventh pass):** a Gap Sweep audit (5-agent parallel research
+> answering "what's going on with OCR confidence, and what other gaps exist" after `[1.30.0]`) shipped
+> its 5 priority items in `[1.31.0]`. RapidOCR installed and independently re-verified live (the
+> confidence write path was already correct; this machine's OCR engine — Tesseract fallback — was the
+> real gap). `/api/search_hybrid` is now the home search box's primary endpoint — but only after a
+> second research pass found the route silently dropped side/operators/match_any/fuzzy/mode entirely
+> (would have broken the SIDE toggle and offline did-you-mean outright); fixed first, then verified
+> extensively (100% result-count parity across ~20 diverse queries) before switching. Of the 5 dead
+> columns the Sweep found, only `ref_nsn.superseded` at the FLIS site was genuinely trivial (value
+> already parsed, never bound to the column) — the other 4 need real cross-database integration or new
+> extraction logic entirely, correctly left open rather than rushed. 3 more orphaned routes wired in:
+> `rpstl.py` (part.html card), `partspdf.py` (jobcard.html button), `handover.py` (a genuinely new page,
+> `/handover` — none of the 3 candidate existing pages fit). A real `"search"` analytics event added —
+> `"search"` had been a declared-valid kind since `analytics.py`'s `_VALID` set was first written, but
+> nothing had ever logged one; `top_searches` was always silently empty. `main` is at `[1.31.0]`;
+> `PROJECT-SUMMARY.md`/`MASTER-RECONCILIATION.md` updated in the same pass.
+>
 > **Reconciliation note (2026-08-30, fifth pass):** a second scoping audit (companion to the fourth-pass
 > dossier below — real benchmarks + a real programmatic WCAG contrast audit run on this host) produced a
 > 19-item, 4-tier Build Roadmap; all 6 "Now" items shipped in `[1.29.0]`, each re-verified live before
@@ -782,27 +799,42 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
     `/base.css`; a new `--line-ctl` interactive-control border token. See `CHANGELOG.md` `[1.30.0]` for
     the full list, including where the shipped shape deviated from the roadmap's own sketch and why
     (real measurements, not preference).
-13. **Remaining items from the production-readiness/EMS-VIEWER-parity work, roughly in priority order
-    (full detail + real benchmarks: the published Build Roadmap and Readiness Dossier artifacts, plus
-    `CHANGELOG.md` `[1.28.0]`–`[1.30.0]`):**
+13. ~~**Route the default search box through the real RRF hybrid-fusion code.**~~ — **DONE, `[1.31.0]`:**
+    `/api/search_hybrid` gained full parameter parity with `/api/search` (it was silently dropping side/
+    match_any/fuzzy/mode/tm:/vehicle:/nsn: entirely — fixed first, not glossed over) and is now the home
+    search box's primary endpoint, verified extensively before switching (100% result-count parity
+    across ~20 diverse queries; genuine glossary-aware ranking improvement for acronym queries, confirmed
+    live). Effectively also closes RapidOCR (installed + independently re-verified) and one real
+    analytics gap (a `"search"` event kind that had been declared-valid since `analytics.py` was written
+    but never actually logged — `top_searches` was always silently empty). See `CHANGELOG.md` `[1.31.0]`.
+14. **Remaining items from the production-readiness/EMS-VIEWER-parity work, roughly in priority order
+    (full detail + real benchmarks: the published Build Roadmap, Readiness Dossier, and Gap Sweep
+    artifacts, plus `CHANGELOG.md` `[1.28.0]`–`[1.31.0]`):**
     - **Semantic search: decide and act.** `embed.search()` returns `{ready:false, stale:true,
       results:[]}` on this real corpus today — no `sentence-transformers` installed, the on-disk index
       has no version stamp so it's treated as stale. Either install the model + rebuild the index so it
       actually works, or pull its UI entry point (`/semantic`, the "🧠 Semantic search" nav link) until
       it does — leaving it live-but-empty is the one finding in the whole audit that actively misleads.
-    - **Route the default search box through the real RRF hybrid-fusion code.** `hybrid.py`'s `fuse()`
-      is genuinely correct and self-tested, wired to `/api/search_hybrid` — but zero UI page has ever
-      called that route; the home search only calls plain `/api/search`. The fusion logic isn't broken,
-      it's disconnected. Sequenced *after* the semantic-search fix above (fusion is only as good as its
-      weakest input).
+      Now the real prerequisite for hybrid fusion to deliver its full value (the route itself is already
+      wired and safe, per item 13 above — semantic hits will fuse in automatically once this ships).
+    - **4 of the 5 dead columns the Gap Sweep found, still genuinely open** (only `ref_nsn.superseded`
+      was trivial, fixed in `[1.31.0]`): `parts.cagec`/`smr` are extracted by a real parser
+      (`rpstl_feature.py`) that feeds a *different* database file (`rpstl.db`'s `parts_rows`), needing
+      real cross-database integration to reach the main `parts` table; `parts.uoc` and `ref_nsn.data_date`
+      have no extraction logic anywhere in the codebase at all.
     - **A real learned re-ranker** — gated on click volume that doesn't exist yet: `index/analytics.jsonl`
-      logs zero `search`/`click` events today (76 total logged events, none of that kind), confirmed by
-      direct query. Not worth starting until real usage data accumulates.
+      logged zero `search`/`click` events as of the last check, though `"search"` events now log for real
+      as of `[1.31.0]` (previously declared-valid but never actually written) — worth re-checking after
+      real field usage accumulates.
     - **Offsite backup automation + one real restore drill.** The weekly `backupdb()` writes to the same
       disk as the live data; `docs/IMPROVEMENT-BACKLOG.md` already lists automating the offsite mirror as
       open. Nobody has ever actually restored the real 3.65GB+ index and served from it.
     - **TLS for any non-loopback deployment.** The docs already instruct units to expose the server on a
       LAN; that path currently sends the shared auth token and all manual content in cleartext.
+    - **19 more orphaned routes the Gap Sweep found, beyond the 8 now wired** (5 from `[1.30.0]`, 3 from
+      `[1.31.0]`): standouts include `/api/chapter_jump`, `/api/tables_plus`, `/api/ingest_scan`, the
+      DA-2404/2407 blank-form PDFs, and `/api/schemgraph_review`. See the Gap Sweep artifact for the full,
+      prioritized list with placement recommendations.
     - **Strategic, not incremental** (only worth starting if multi-site fielding becomes an actual near-
       term goal): real user accounts + RBAC, a fleet update/version-inventory mechanism, load-testing at
       10× today's corpus scale, and 508/VPAT + dependency-scanning + a real pen-test toward any future

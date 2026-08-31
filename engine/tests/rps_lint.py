@@ -46,6 +46,11 @@ MODERN_BY_DESIGN = {
     # v1.4.0: /kg — a discovery/analysis tool (fetch + free-text query against /api/kg), same class
     # as related.html/semantic.html/ask.html above, not one of the core ES5-required mechanic tools.
     "kg.html",
+    # v1.31 (gap-sweep item 4): /handover — a shop-wide shift-digest ops tool, same class as
+    # readiness.html/jobcard.html just above (fetch-driven, admin/leadership-facing rather than a
+    # core at-the-vehicle mechanic tool) -- ES5-clean today regardless (var/function throughout,
+    # confirmed by this same gate), but grouped here for consistency with its closest siblings.
+    "handover.html",
 }
 
 # ES6 syntax patterns that are NOT polyfillable (each would SyntaxError on a true ES5 engine).

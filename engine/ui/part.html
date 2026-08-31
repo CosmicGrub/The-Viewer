@@ -57,6 +57,10 @@
       $('#head').textContent=''; render(q, j.summary||{});
       lazyModel(q); lazyConflicts(q); lazyValidate(q); lazyOneuse(q);
       lazyServiceability(q); lazyTorqueSeq(q); lazyKit(q); lazyNotes(q);
+      // v1.30 (roadmap Next-tier item 7): 3 real, self-tested, route-registered modules that had
+      // zero UI callers for 16-18 versions -- confirmed live before wiring, same lazy pattern as
+      // every card above.
+      lazyCrossmethod(q); lazyMac(q); lazyWiring(q); lazyCommonality(q); lazyXref(q);
     });
   }
 
@@ -76,7 +80,7 @@
       +'<a class="btn" href="/dossier?q='+enc+'" target="_blank">📋 Dossier</a>'
       +'<a class="btn" href="/packet?q='+enc+'" target="_blank">🖨 Packet</a></div></div>';
 
-    h+='<div id="conflictcard"></div><div id="oneusecard"></div>';
+    h+='<div id="conflictcard"></div><div id="oneusecard"></div><div id="crossmethodcard"></div>';
     h+='<div class="grid2">';
     // parts to order
     h+='<div><h2>Part to order</h2>';
@@ -113,7 +117,7 @@
       +s.procedures.map(function(p){return '<div class="proc"><span class="kind">'+esc(p.kind||'')+'</span>'+esc(p.vehicle||'')+(p.page?(' · p.'+esc(p.page)):'')+' <span class="muted">— '+(p.n_steps||0)+' steps · '+(p.n_tools||0)+' tools</span> <a href="/procedure?q='+enc+'" target="_blank" style="color:#4f9dff">open ↗</a></div>';}).join('')+'</div>'; }
 
     h+='<div id="svccard"></div><div id="seqcard"></div><div id="kitcard"></div><div id="notescard"></div>';
-    h+='<div id="modelcard"></div>';
+    h+='<div id="modelcard"></div><div id="maccard"></div><div id="wirecard"></div><div id="commoncard"></div><div id="xrefcard"></div>';
     h+='<div class="muted" style="margin-top:16px">Assembled from the cited manuals + PUBLOG. Verify torque, sequence &amp; CAUTIONS on the actual page before working.</div>';
     $('#out').innerHTML=h;
   }
@@ -165,6 +169,95 @@
           +'</span></div>';
       });
       h+='<div class="muted" style="margin-top:6px;color:#e39b95">Each flag is the manual’s exact sentence with its page cite. Verify on the cited page; order replacements before starting the job.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyCrossmethod(q){
+    // v1.30 (roadmap Next-tier item 7): crossmethod.py -- the positive counterpart to the conflict
+    // card above. conflicts.py compares MANUALS; this compares independent EXTRACTION METHODS for
+    // the same value (e.g. measures-parsed text vs PUBLOG characteristics) -- if they agree, that's
+    // real corroboration worth showing; if they disagree, crossmethod already classifies it a
+    // "conflict" too (conflicts.py's own conflict card already covers manual-vs-manual disagreement,
+    // so this card only surfaces the CONFIRMED/agreement rows -- showing its own conflicts again
+    // here would just duplicate the alert above for no new information).
+    gj('/api/crossmethod?q='+encodeURIComponent(q)).then(function(j){ var box=$('#crossmethodcard'); if(!box||!j||!j.ok)return;
+      var rows=(j.reconciled||[]).filter(function(r){return r.status==='confirmed';}); if(!rows.length) return;
+      var h='<div class="card" style="border-color:#1c4a2e"><b style="color:#7fd6a0">✓ Independently confirmed</b> — the same value was extracted two different ways and they agree:';
+      rows.slice(0,6).forEach(function(r){
+        h+='<div class="proc">'+esc(r.type)+': <span class="val">'+esc(r.consensus)+'</span> '+esc(r.unit||'')
+          +' <span class="muted">— confirmed by '+(r.methods||[]).map(esc).join(' + ')+'</span></div>';
+      });
+      h+='</div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyMac(q){
+    // v1.30 (roadmap Next-tier item 7): macchart.py -- Maintenance Allocation Chart rows (at what
+    // level do you replace this, and how long does it take). Route is /api/mac, not /api/macchart.
+    gj('/api/mac?q='+encodeURIComponent(q)).then(function(j){ var box=$('#maccard'); if(!box||!j||!j.ok||!j.rows||!j.rows.length)return;
+      var h='<h2>Maintenance allocation <span class="muted" style="font-weight:400">— who fixes this, and how long</span></h2><div class="card"><table><tr><th>Component</th><th>Task</th><th>Level</th><th>Hours</th></tr>'
+        +j.rows.slice(0,10).map(function(r){return '<tr><td>'+esc(r.component||'')+'</td><td>'+esc(r.function||'')+'</td><td>'+esc(r.level_name||r.level||'')+'</td><td>'+esc(r.man_hours||'—')+'</td></tr>';}).join('')+'</table>'
+        +'<div class="muted" style="margin-top:4px">Extracted from the TM MAC line — verify the level/hours against the actual chart.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyWiring(q){
+    // v1.30 (roadmap Next-tier item 7): harnesstrace.py (continuity across connectors) + pinouts.py
+    // (per-connector pin/wire-color tables) -- harnesstrace's own response already includes the full
+    // connectors[] breakdown pinouts.py would return on its own, plus the nets[] continuity inference
+    // on top, so one call covers both modules' real value without a redundant second fetch.
+    gj('/api/harnesstrace?q='+encodeURIComponent(q)).then(function(j){ var box=$('#wirecard'); if(!box||!j||!j.ok)return;
+      var nets=(j.nets||[]), cons=(j.connectors||[]); if(!nets.length && !cons.length) return;
+      var h='<h2>Wiring / pinouts <span class="muted" style="font-weight:400">— connector pins &amp; continuity</span></h2><div class="card">';
+      if(nets.length){ h+=nets.slice(0,8).map(function(n){
+        return '<div class="proc"><b>'+esc(n.signal||'')+'</b> — '+(n.points||[]).map(function(p){return esc(p.connector)+'-'+esc(p.pin);}).join(', ')
+          +' <span class="muted">('+esc(n.method||'')+', '+esc(n.confidence||'')+' confidence)</span></div>';
+      }).join(''); }
+      else { h+=cons.slice(0,6).map(function(c){
+        return '<div class="proc"><b>'+esc(c.connector||'')+'</b> — '+(c.pins||[]).slice(0,8).map(function(p){return esc(p.pin)+':'+esc(p.signal||p.wire_color||'');}).join(', ')+'</div>';
+      }).join(''); }
+      h+='<div class="muted" style="margin-top:4px">Continuity inferred from the pinout tables (shared signal), not measured — confirm with a meter before trusting a net as continuous.</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyCommonality(q){
+    // v1.30 (roadmap Next-tier item 7, placement corrected): commonality.py answers "which vehicles
+    // use THIS part, and is it fleet-common or single-platform" -- a part-scoped question, so it
+    // belongs here alongside every other part-scoped card, not on readiness.html (vehicle-scoped:
+    // /api/fluids & /api/intervals both take a VEHICLE, and commonality.py's own /api/commonality
+    // does an EXACT nsn/name/part_number lookup -- confirmed live it returns commonality:"unknown"
+    // for a vehicle-shaped query). The roadmap's own nav-tooltip citation ("readiness.html already
+    // promises fleet shared-parts, by vehicle") describes a DIFFERENT, unbuilt aggregate view -- not
+    // simply calling this module -- so that promise stays open rather than being force-fit here.
+    gj('/api/commonality?q='+encodeURIComponent(q)).then(function(j){ var box=$('#commoncard'); if(!box||!j||!j.ok||!j.n||j.commonality==='unknown')return;
+      var lbl={'fleet-common':'Fleet-common — used across many platforms, worth stocking deep',
+                'shared':'Shared — used on a handful of platforms',
+                'single-platform':'Single-platform — not shared with other vehicles in this corpus'};
+      var h='<h2>Fleet commonality</h2><div class="card"><div class="proc">'+esc(lbl[j.commonality]||j.commonality)
+        +'</div><div class="muted" style="margin-top:2px">Seen on: '+(j.vehicles||[]).map(esc).join(', ')+'</div></div>';
+      box.innerHTML=h;
+    });
+  }
+  function lazyXref(q){
+    // v1.30 (roadmap Next-tier item 8): xref.py -- assemblies/siblings/see_also, previously only
+    // reachable via the standalone /related page (its own docstring already said it was meant to
+    // power "a related panel on the dossier" -- neither part.html nor dossier.html called it before
+    // now). Rendering logic mirrors related.html's own three sections.
+    gj('/api/xref?q='+encodeURIComponent(q)).then(function(j){ var box=$('#xrefcard'); if(!box||!j||!j.found)return;
+      if(!(j.assemblies&&j.assemblies.length)&&!(j.siblings&&j.siblings.length)&&!(j.see_also&&j.see_also.length)) return;
+      var h='<h2>Related parts &amp; assemblies</h2><div class="card">';
+      if(j.assemblies&&j.assemblies.length){ h+='<div class="proc"><b>On this figure:</b> '+j.assemblies.slice(0,4).map(function(a){
+        var lbl=esc(a.fig_title||a.fig_no||'figure')+(a.page?(' p.'+esc(a.page)):'');
+        return a.locate_url?('<a href="'+esc(a.locate_url)+'" target="_blank" style="color:#4f9dff">'+lbl+' ↗</a>'):lbl;
+      }).join(' · ')+'</div>'; }
+      if(j.siblings&&j.siblings.length){ h+='<div class="proc"><b>Same figure (siblings):</b> '+j.siblings.slice(0,10).map(function(s){
+        var lbl=esc(s.name||s.part_number||s.nsn||'part');
+        return s.dossier_url?('<a href="'+esc(s.dossier_url)+'" target="_blank" style="color:#4f9dff">'+lbl+'</a>'):lbl;
+      }).join(' · ')+'</div>'; }
+      if(j.see_also&&j.see_also.length){ h+='<div class="proc"><b>See also:</b> '+j.see_also.slice(0,10).map(function(s){
+        return '<a href="'+esc(s.dossier_url)+'" target="_blank" style="color:#4f9dff">'+esc(s.name||s.nsn)+'</a>';
+      }).join(' · ')+'</div>'; }
+      h+='</div>';
       box.innerHTML=h;
     });
   }

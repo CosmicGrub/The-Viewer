@@ -66,6 +66,7 @@ function render(d){
   var h='<div class="cols"><div class="steps">';
   h+='<div class="card"><h2 style="font-size:16px;margin:0 0 2px">'+esc(d.title||'Procedure')+' <span class="muted">('+esc(d.kind||'')+')</span></h2>'+
      '<div class="muted">from '+esc(src.tm||src.vehicle||'the manual')+(src.page?(' &middot; p.'+esc(src.page)):'')+' &middot; verbatim, OCR-sourced</div></div>';
+  h+='<div id="tmrevbar"></div>';
   /* Recommendations annex #11 (cautions-single-page): three distinct states, not one collapsed
      "nothing to show" -- d.warnings_error (procedure_full()'s own signal, set when the adjacent-page
      fetch fails) means the extraction may have missed something and must not read the same as a
@@ -105,6 +106,22 @@ function render(d){
   var figs=$("out").querySelectorAll('.chip.fig');
   for(var g=0;g<figs.length;g++){ figs[g].onclick=function(){ if(src.doc_id) window.open('/page?doc='+src.doc_id+'&page='+(src.page||1)+'&dpi=200&hl='+encodeURIComponent('FIG '+this.getAttribute('data-fig')),'_blank'); }; }
   enrichProcParts(d);
+  if(src.tm) lazyTmrev(src.tm);
+}
+// v1.30 (roadmap Next-tier item 7): tmrev.py -- currency tracking, wired here per the roadmap's own
+// framing ("banner on procedure.html — TM number already in hand", src.tm from the procedure's own
+// source). NOTE (confirmed live before writing this): /api/tmrev's response has NO "ok" field at all
+// -- currency() returns {tm, current, superseded, n} directly, unlike every other route on this page
+// -- so the guard checks j.current/j.superseded, not j.ok.
+function lazyTmrev(tm){
+  xget('/api/tmrev?tm='+encodeURIComponent(tm), function(j){
+    var box=$('tmrevbar'); if(!box||!j||!j.current||!j.superseded||!j.superseded.length) return;
+    var cur=j.current;
+    var n=j.superseded.length;
+    box.innerHTML='<div class="warn NOTE"><b>TM CURRENCY:</b> '+n+' superseded '+(n===1?'copy':'copies')
+      +' of this manual '+(n===1?'exists':'exist')+' in this repository. Current: <b>'+esc(cur.title||cur.tm_number||'')+'</b>'
+      +(cur.date?(' &middot; '+esc(cur.date)):'')+'. Confirm the page above is from the CURRENT copy before working from it.</div>';
+  }, function(){});
 }
 // Cross-reference the procedure's parts: resolved name + vehicles per NSN (offline xref).
 function enrichProcParts(d){

@@ -17,6 +17,15 @@
      4.5:1+ against both --panel2 and --panel (grn-tx: 5.49:1 / 6.18:1, red-tx: 5.44:1 / 6.13:1) --
      the darker --grn/--red stay untouched for every existing border/background use. */
   --grn-tx:#4fae7a; --red-tx:#ec7a74;
+  /* v1.30 (roadmap Next-tier item 12): --line is doing two jobs with two different WCAG obligations --
+     a subtle panel/section divider (fine, no contrast floor applies to a purely decorative line) AND
+     the actual visible boundary of every real <input>/<select>/<textarea> in the app (a UI component,
+     3:1 floor). Measured directly against this file's own hex values: --line is 1.45:1 on --bg,
+     1.33:1 on --panel, 1.18:1 on --panel2 -- badly under 3:1 everywhere. --line-ctl is a second,
+     lighter token for control borders ONLY -- clears 3:1 against every real background (4.08:1 on --bg,
+     3.73:1 on --panel, 3.32:1 on --panel2) -- while --line itself is untouched for every existing
+     decorative-divider use. */
+  --line-ctl:#6c7690;
 }
 *{box-sizing:border-box}
 /* APP-WIDE GUARANTEE: the HTML `hidden` attribute ALWAYS wins over any display rule.

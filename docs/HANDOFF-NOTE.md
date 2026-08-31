@@ -4,6 +4,23 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30, eighth pass — CRITICAL fix):** while researching semantic search's
+> feasibility as a `[1.31.0]` follow-up, a real `pip install sentence-transformers` on this host
+> silently reclassified the pre-existing, unstamped, hash-fallback-built `index/embeddings.npy` as
+> "not stale" — `embed._index_is_stale()` only ever compared the *current* backend against itself,
+> never against what actually built the index. That stale index started feeding through
+> `/api/search_hybrid`'s RRF fusion — **the primary search endpoint as of `[1.31.0]`** — as
+> near-noise cosine scores (0.18–0.19, confirmed live) treated as a legitimate semantic signal. Fixed
+> the same day, before reaching any real user: `_index_is_stale()` now requires proof (a meta stamp)
+> that an index was built by the backend that's currently active. Also fixed: `embed.py`'s own
+> self-test had silently stopped exercising this exact check once a real model backend became
+> available (was gated behind `if backend()=="hash-fallback"`), and two other tests
+> (`test_routes.py`/`test_pageqa.py`) had baked in the same "transformers/torch never installed"
+> environment assumption. `main` is at `[1.32.0]`. **Lesson for future sessions**: installing any
+> optional heavy dependency (sentence-transformers, easyocr, camelot, etc.) can change more than the
+> one thing being tested for — re-run the full suite and think through what else reads `backend()`-
+> or `available()`-style environment probes before trusting a "looks fine" result.
+>
 > **Reconciliation note (2026-08-30, seventh pass):** a Gap Sweep audit (5-agent parallel research
 > answering "what's going on with OCR confidence, and what other gaps exist" after `[1.30.0]`) shipped
 > its 5 priority items in `[1.31.0]`. RapidOCR installed and independently re-verified live (the

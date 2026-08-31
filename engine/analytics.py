@@ -41,6 +41,17 @@ def log(index_dir, kind, key, extra=None):
                     rec["rank"] = str(int(extra["rank"]))
                 except Exception:
                     pass
+            # v1.31 (gap-sweep item 5): "n" -- the result count for a "search" event. "search" has been
+            # a _VALID kind since this set was written, but nothing ever logged one (confirmed by
+            # grepping the whole engine/ tree for analytics.log( before adding the one real call site,
+            # routes/search.py's r_search) -- summary()'s own top_searches panel below has always
+            # silently returned []. Named "n" for consistency with this module's own existing API
+            # (top(index_dir, kind, n=10), hot_docs(n=20), gaps(n=12)).
+            if extra.get("n") is not None:
+                try:
+                    rec["n"] = int(extra["n"])
+                except Exception:
+                    pass
         with open(_path(index_dir), "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         return True

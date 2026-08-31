@@ -1,7 +1,7 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
 **Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
-(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and five more times on
+(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and six more times on
 2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; `conflicts.py`'s
 cross-vehicle false-positive fix, itself needing a second pass after adversarial review caught a safety
 regression in the first, `[1.26.0]`; wiring that fix's new fields into `engine/ui/part.html`, `[1.27.0]`;
@@ -10,7 +10,9 @@ then, following a production-readiness/EMS-VIEWER-parity audit, 3 field-reliabil
 first scoped, a doubled fuzzy-search scan, 5 modals with no real focus trap, 3 unlabeled viewer images,
 3 real WCAG contrast failures, 10 unlabeled controls, `[1.29.0]`; then the same roadmap's "Next" tier —
 5 orphaned modules wired in, a related-parts card, search-result OCR/conflict signals, symptom query
-routing, `index.html` finally loading `/base.css`, `[1.30.0]`).** This document
+routing, `index.html` finally loading `/base.css`, `[1.30.0]`; then a Gap Sweep audit's 5 priority items
+— RapidOCR installed, `/api/search_hybrid` made parameter-complete and switched on as primary search,
+one dead column filled, 3 more orphans wired, a real `"search"` analytics event, `[1.31.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -21,10 +23,14 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.30.0, shipped 2026-08-30** (the Build Roadmap's full "Next" tier — 5 orphaned
-modules wired into the UI, a related-parts card, OCR-confidence/conflict signals in search results,
-symptom/"how do I" query routing, `index.html` finally loading `/base.css` + a new control-border token
-— see §6 item 17). Immediately prior, all the same day: v1.29.0 (the Roadmap's "Now" tier — restored
+**True current state: v1.31.0, shipped 2026-08-30** (a Gap Sweep audit's 5 priority items — RapidOCR
+installed, `/api/search_hybrid` made parameter-complete and switched on as the primary search endpoint,
+one genuinely-fixable dead column filled, 3 more orphaned routes wired (including a brand-new
+`/handover` page), a real `"search"` analytics event — see §6 item 18). Immediately prior, all the same
+day: v1.30.0 (the Build Roadmap's full "Next" tier — 5 orphaned modules wired into the UI, a
+related-parts card, OCR-confidence/conflict signals in search results, symptom/"how do I" query
+routing, `index.html` finally loading `/base.css` + a new control-border token — see §6 item 17); v1.29.0
+(the Roadmap's "Now" tier — restored
 missing/undefined CSS color tokens on the home page, 3 real WCAG contrast fixes, a doubled fuzzy-search
 scan fixed, focus traps on all 5 real modals, alt text on the 3 primary viewer images, ARIA labels on the
 10 highest-traffic controls — see §6 item 16); v1.28.0 (3
@@ -488,12 +494,37 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     1.05-1.45:1, far under the 3:1 UI floor), locked in by a new guard in `engine/verify_ui.py`.
     **Still open from the same roadmap** (Later tier, calendar/data-gated by design): semantic search is
     real but non-functional in production today (no embedding model installed, stale index) — needs a
-    decision, fix or hide; RRF hybrid fusion has zero UI callers (sequenced after the semantic-search
-    fix); a learned re-ranker is gated on click volume that doesn't exist yet (`index/analytics.jsonl`
-    logs zero `search`/`click` events); the other 35 of 45 UI pages still carry no ARIA of their own; no
-    accounts/RBAC, TLS, offsite backup automation, or accreditation artifacts exist for multi-site
-    fielding. See the Build Roadmap and Readiness Dossier artifacts, plus `CHANGELOG.md`
-    `[1.28.0]`–`[1.30.0]`.
+    decision, fix or hide; ~~RRF hybrid fusion has zero UI callers~~ — see item 18; a learned re-ranker
+    is gated on click volume that doesn't exist yet (`index/analytics.jsonl` logs zero `search`/`click`
+    events); the other 35 of 45 UI pages still carry no ARIA of their own; no accounts/RBAC, TLS,
+    offsite backup automation, or accreditation artifacts exist for multi-site fielding.
+18. **`[1.31.0]` — Gap Sweep: the 5 priority items**, from a 5-agent parallel research audit answering
+    "what's going on with OCR confidence, and what other gaps exist." RapidOCR installed
+    (`rapidocr-onnxruntime` 1.2.3) and independently re-verified live in this session's own process, not
+    just the installing agent's self-report — `viewer_ingest.py`'s confidence write path was already
+    correct; this machine's OCR engine (Tesseract fallback, zero confidence captured) was the real gap.
+    `/api/search_hybrid` — item 17's own still-open finding — is now the home search box's primary
+    endpoint, closing that gap for real: a second research pass first found the route silently dropped
+    side/match_any/fuzzy/mode/tm:/vehicle:/nsn: operators entirely (would have broken the SIDE toggle
+    and offline did-you-mean outright if switched naively), so `hybrid.hybrid_search()` and
+    `r_search_hybrid` gained full parameter parity with `/api/search` first, then the switch was verified
+    extensively — 100% result-count parity across ~20 diverse test queries, plus a genuine glossary-aware
+    ranking improvement for acronym queries confirmed live (a "CTIS" query now also ranks pages
+    mentioning "Central Tire Inflation System"). Of the 5 dead columns Gap Sweep found (same "read but
+    never written" shape as `ocr_confidence`), only `ref_nsn.superseded` at the FLIS site was genuinely
+    trivial — its value was already parsed, just never bound to the column; the other 4
+    (`parts.cagec`/`smr`/`uoc`, `ref_nsn.data_date`) need real cross-database integration or brand-new
+    extraction logic, correctly left open rather than rushed. 3 more orphaned routes wired in: `rpstl.py`
+    (a new card on `part.html`), `partspdf.py` (a new button on `jobcard.html`), and `handover.py` — a
+    genuinely new page, `/handover`, since none of the 3 candidate existing pages (`status.html`,
+    `ops.html`, `jobcard.html`) fit its shop-wide "since last shift" scope. A real `"search"` analytics
+    event kind added — declared-valid in `analytics.py`'s `_VALID` set since it was first written, but
+    nothing had ever logged one; `top_searches` had always been silently empty. **Still open**: 4 of the
+    5 dead columns; 19 more orphaned routes beyond the 8 now wired across `[1.30.0]`/`[1.31.0]`
+    (standouts: `/api/chapter_jump`, `/api/tables_plus`, `/api/ingest_scan`, the DA-2404/2407 forms,
+    `/api/schemgraph_review`); semantic search still non-functional (now the sole remaining prerequisite
+    for hybrid fusion's full value, since the route itself is ready); everything else from item 17's
+    still-open list. See the Gap Sweep artifact and `CHANGELOG.md` `[1.28.0]`–`[1.31.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

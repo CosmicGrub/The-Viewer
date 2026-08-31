@@ -37,6 +37,7 @@
     <input id="q" placeholder="replace the alternator  ·  2920-00-054-7819  ·  ALTERNATOR" aria-label="Search for a job card by task, NSN, or part name" autofocus>
     <button class="go" id="go">Preview</button>
     <button class="wo" id="wo" disabled>🧾 Generate Work Order</button>
+    <a class="btn" id="partspdf" href="#" target="_blank" style="pointer-events:none;opacity:.45">🖨 Print parts-request sheet</a>
     <a class="btn" href="/">← search</a>
   </div>
   <div id="intent" class="chips"></div>
@@ -101,6 +102,16 @@
       var total=j.n_procedures+j.n_torque+j.n_parts+j.n_figures+(j.n_dimensions||0);
       $('#head').textContent=total?('Ready — '+total+' items found. Generate the work order below.'):'Nothing resolved for that task. Try a part name or NSN.';
       $('#wo').disabled=!total;
+      // v1.31 (gap-sweep item 4): partspdf.py's own scannable-barcode parts-request sheet
+      // (/api/partspdf) had no UI entry point anywhere. Gated on j.n_parts specifically (not the
+      // combined `total`) since partspdf.py runs its OWN independent exact nsn/name/part_number
+      // lookup server-side -- gating on n_parts keeps the button's enabled state truthful about
+      // whether the printed sheet will actually contain anything. "inline" Content-Disposition means
+      // it opens in a new tab rather than downloading, so a plain target="_blank" link is correct
+      // here (same convention this page's own /api/jobcard link below already uses).
+      var pp=$('#partspdf');
+      if(j.n_parts){ pp.href='/api/partspdf?q='+encodeURIComponent(last); pp.style.pointerEvents=''; pp.style.opacity=1; }
+      else { pp.href='#'; pp.style.pointerEvents='none'; pp.style.opacity=.45; }
     }).catch(function(){ $('#head').textContent='Preview failed.'; });
   }
   $('#go').onclick=preview;

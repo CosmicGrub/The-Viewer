@@ -2122,15 +2122,26 @@ def enrich_flis(con, folder):
             ("Also called: " + coll) if coll else "",
             ("Unit price $" + pr) if pr else ""] if x)
         if not any([itnm, pno, cg, ac, ch, subs, altp]): continue
-        con.execute("INSERT INTO ref_nsn_log(nsn,item_name,description,part_no,cagec,characteristics,aac,substitutes,alt_parts,source,source_url,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,datetime('now'))",
-                    (nsn, itnm, desc, pno, cg, ch, ac, subs, altp, SRC, URL))
-        con.execute("INSERT INTO ref_nsn(nsn,item_name,description,part_no,cagec,characteristics,aac,substitutes,alt_parts,source,source_url,fetched_at,official) VALUES(?,?,?,?,?,?,?,?,?,?,?,datetime('now'),1) "
+        # v1.31 (gap-sweep item 3): `subs` (parsed from V_FLIS_CANCELLED_NIIN.CSV just above, e.g.
+        # "status X, repl NIIN Y") is exactly the "cancellation / interchangeable / current-NSN
+        # cross-ref" data migration 0008 (engine/migrations/0008_supersession_date.sql:7) added the
+        # `superseded` column to hold -- but that column has never been written anywhere, while
+        # index.html's own cart-panel enrichment (renderCart(), `if(rn.superseded) parts.push(...)`)
+        # has been ready to render it since before this fix. Bound alongside the existing
+        # `substitutes` write (kept as-is -- not read anywhere client-side today, confirmed, but
+        # removing a working write with no confirmed-safe reason to is not this fix's job) rather than
+        # replacing it, so this is purely additive: the same real value now also reaches the column
+        # actually designed and already wired to display it.
+        con.execute("INSERT INTO ref_nsn_log(nsn,item_name,description,part_no,cagec,characteristics,aac,substitutes,superseded,alt_parts,source,source_url,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))",
+                    (nsn, itnm, desc, pno, cg, ch, ac, subs, subs, altp, SRC, URL))
+        con.execute("INSERT INTO ref_nsn(nsn,item_name,description,part_no,cagec,characteristics,aac,substitutes,superseded,alt_parts,source,source_url,fetched_at,official) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),1) "
                     "ON CONFLICT(nsn) DO UPDATE SET "
                     "item_name=COALESCE(NULLIF(excluded.item_name,''),item_name),description=COALESCE(NULLIF(excluded.description,''),description),"
                     "part_no=COALESCE(NULLIF(excluded.part_no,''),part_no),cagec=COALESCE(NULLIF(excluded.cagec,''),cagec),"
                     "characteristics=COALESCE(NULLIF(excluded.characteristics,''),characteristics),aac=COALESCE(NULLIF(excluded.aac,''),aac),"
-                    "substitutes=COALESCE(NULLIF(excluded.substitutes,''),substitutes),alt_parts=COALESCE(NULLIF(excluded.alt_parts,''),alt_parts),source=excluded.source,source_url=excluded.source_url,fetched_at=excluded.fetched_at",
-                    (nsn, itnm, desc, pno, cg, ch, ac, subs, altp, SRC, URL))
+                    "substitutes=COALESCE(NULLIF(excluded.substitutes,''),substitutes),superseded=COALESCE(NULLIF(excluded.superseded,''),superseded),"
+                    "alt_parts=COALESCE(NULLIF(excluded.alt_parts,''),alt_parts),source=excluded.source,source_url=excluded.source_url,fetched_at=excluded.fetched_at",
+                    (nsn, itnm, desc, pno, cg, ch, ac, subs, subs, altp, SRC, URL))
         n += 1
     con.commit()
     log(f"enrich_flis: enriched {n} NSNs from the FLIS Reading Room catalog (append-only, R6)")

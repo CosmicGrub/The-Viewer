@@ -30,6 +30,7 @@ _PAGES = {  # route(+aliases) -> ui file
     ("/coverage", "/coverage.html"): ("coverage.html", "no-cache"),
     ("/locate", "/locate.html"): ("locate.html", "no-cache"),
     ("/jobcard", "/jobcard.html"): ("jobcard.html", "no-cache"),
+    ("/handover", "/handover.html"): ("handover.html", "no-cache"),  # v1.31 (gap-sweep item 4): handover.py had zero UI callers
     ("/torque", "/torque.html"): ("torque.html", "no-cache"),
     ("/decode", "/decode.html", "/reference-codes"): ("decode.html", "no-cache"),
     ("/bench", "/bench.html"): ("bench.html", "no-cache"),

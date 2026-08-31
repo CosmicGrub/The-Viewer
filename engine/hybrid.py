@@ -109,13 +109,24 @@ def fuse(lists, k=60):
     return ordered
 
 
-def hybrid_search(q, core, index_dir, limit=25) -> dict:
+def hybrid_search(q, core, index_dir, limit=25, mode=None, match_any=False, use_fuzzy=True,
+                   tm=None, vehicle=None, nsn=None) -> dict:
     """Glossary-expanded keyword search fused with semantic search. `core` is viewer_app (has .search &
-    .DB_PATH); `index_dir` is where the embeddings live. Always returns keyword hits at minimum."""
+    .DB_PATH); `index_dir` is where the embeddings live. Always returns keyword hits at minimum.
+
+    v1.31 (gap-sweep item 2): mode/match_any/use_fuzzy/tm/vehicle/nsn added -- confirmed via research
+    before this fix that r_search_hybrid (the /api/search_hybrid route) called this with ONLY (q, limit),
+    silently dropping every one of these even though r_search (the plain /api/search route) already
+    threads all of them through to search_feature.search(). Switching the UI from /api/search to this
+    route without this fix would have broken mode="text" (the LAST-4 banner's "Search all manuals"
+    button), the MATCH_ANY/fuzzy toggle, and tm:/vehicle:/nsn: operator-filtered search outright.
+    Defaults match search_feature.search()'s own defaults exactly, so an un-migrated caller (this
+    function's own self-test below, or any future direct caller) behaves identically to before."""
     q = (q or "").strip()
     exp = expand_query(q, getattr(core, "DB_PATH", ""))
     try:
-        fts = core.search(exp["expanded"], limit * 2) or []
+        fts = core.search(exp["expanded"], limit * 2, mode, match_any, use_fuzzy,
+                           tm=tm, vehicle=vehicle, nsn=nsn) or []
     except Exception:
         fts = []
     sem = []

@@ -44,6 +44,7 @@ echo.
 
 echo ============ OPTIONAL (install by hand only if you need them) ============
 echo   GPU OCR for scanned pages : %PY% -m pip install easyocr
+echo   Faster OCR (RapidOCR)     : %PY% -m pip install rapidocr-onnxruntime
 echo   True semantic search      : %PY% -m pip install sentence-transformers
 echo   1-D barcodes / DataMatrix : %PY% -m pip install pyzbar
 echo.

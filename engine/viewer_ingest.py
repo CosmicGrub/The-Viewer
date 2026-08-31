@@ -89,6 +89,22 @@ RPSTL_SCAN = flags.scan_toggle("VIEWER_RPSTL_SCAN", "rpstl",
     "RPSTL parts-list row extraction (rpstl_feature.parse_page()). Cheap: no PDF re-open, pure regex "
     "over text already in the `pages` table.",
     attr="RPSTL_SCAN", ns=globals())
+# parts.cagec / parts.smr cross-database correlation -- the last 2 of the 5 dead columns a prior Gap
+# Sweep audit found (docs/MASTER-RECONCILIATION.md item 20): 0 of 227,908 real `parts` rows have ever
+# had cagec/smr populated, even though index/rpstl.db's parts_rows sidecar (built by RPSTL_SCAN/
+# build_rpstl.py) has real, OCR-extracted values for both on ~1.4M rows. This stage joins the two on
+# the confirmed-reliable (document_id, page, nsn) key -- both DBs share the same `documents.id`
+# numbering, since extract_rpstl_for_doc() is called with the SAME con/doc_id used to build `parts` --
+# and filters every candidate CAGEC through index/cage.json (the real CAGE registry) before writing
+# anything: a bare CAGEC_RE/SMR_RE regex match is just "5 alnum chars"/"letter+4 alnum chars", so raw
+# candidates include real garbage (vehicle model numbers, RPSTL boilerplate words) that happens to fit
+# the shape. See correlate_parts_cagec()'s own docstring for the full algorithm and why this MUST run
+# full-corpus every time, never scoped like the other _TOUCHED_DOC_IDS stages above.
+CAGEC_CORRELATE_SCAN = flags.scan_toggle("VIEWER_CAGEC_CORRELATE_SCAN", "cagec_correlate",
+    "parts.cagec/parts.smr cross-database correlation (correlate_parts_cagec()): joins index/rpstl.db's "
+    "parts_rows into `parts` on (document_id, page, nsn), filtered through index/cage.json. Always "
+    "full-corpus (extract_parts() rebuilds the whole `parts` table every run), not _TOUCHED_DOC_IDS-scoped.",
+    attr="CAGEC_CORRELATE_SCAN", ns=globals())
 # Header/footer/running-title stripping (pagetrim.py's statistical boilerplate detector) -- a
 # fully built, self-tested, cataloged module (docs/EXTRACTION-METHODS-CATALOG.md Sec2.6) that had
 # zero live callers anywhere: its own docstring says it's meant to run "before measures/specs/
@@ -1963,6 +1979,121 @@ def _run_pagetrim_ocr_stage(con):
                         extracted=dict(_EXTRACT_TALLY))
 
 
+def correlate_parts_cagec(con):
+    """Cross-database CAGEC/SMR correlation: fills `parts.cagec`/`parts.smr` (both 100% dead --
+    0 of 227,908 real rows populated, confirmed) from index/rpstl.db's `parts_rows` sidecar (built
+    by RPSTL_SCAN / build_rpstl.py), joined on the confirmed-reliable (document_id, page, nsn) key --
+    both DBs share the same `documents.id` numbering (extract_rpstl_for_doc() is called with the SAME
+    con/doc_id used to build `parts`) -- and filtered through index/cage.json (the real CAGE registry,
+    ~12k entries) before anything is written.
+
+    Why the cage.json filter is load-bearing, not defensive theater: rpstl_feature.parse_page()'s
+    CAGEC_RE is just "5 alphanumeric chars", so a raw candidate can be a vehicle model number
+    ("M35A3"), a nomenclature word ("WINCH", "SCREW"), or RPSTL boilerplate ("WHERE", "EXCEPT") that
+    happens to fit the shape -- confirmed on the real corpus: ~0.2% of matched candidates are exactly
+    this kind of garbage. Unfiltered, that's still hundreds of wrong CAGE codes reaching a mechanic
+    via jobcard.py's printed "CAGE <code>" line.
+
+    SMR is trusted ONLY when that SAME candidate row's cagec passed the cage.json filter -- SMR has
+    no ground-truth validator of its own, so it rides on cagec's validation rather than being judged
+    independently. This is an exact pairing, not a best-effort one: cagec and smr are two columns of
+    the SAME parts_rows record.
+
+    A key with more than one DISTINCT valid cagec candidate is genuinely ambiguous and is skipped
+    entirely, never guessed at (confirmed: 49 of 4,768 multi-candidate keys on the real corpus).
+    When multiple valid candidates agree on the same cagec, the highest-confidence occurrence's smr
+    is used.
+
+    Idempotent, additive-only re-run contract: a row is only ever written when THIS pass found a
+    valid, unambiguous match for it; a key with no current match is left exactly as-is, never blanked.
+    Since this pair of columns has never had any other writer anywhere in this codebase (0/227,908
+    populated before this feature existed), there is no other "legitimate data" a re-run could ever
+    clobber -- re-running with unchanged inputs recomputes and re-writes the same answers, a no-op in
+    practice; re-running after rpstl.db/cage.json change picks up the improved answer for that key.
+
+    MUST run full-corpus, every single time -- deliberately NOT scoped to _TOUCHED_DOC_IDS like
+    _run_schematic_stage()/_run_tables_stage()/_run_rpstl_stage() above. extract_parts() unconditionally
+    `DELETE`s and rebuilds the ENTIRE `parts` table on every run (see its own docstring), not just the
+    touched documents' rows -- every row's cagec/smr comes back NULL after that rebuild. A
+    _TOUCHED_DOC_IDS-scoped correlate pass here would silently leave every OTHER document's parts
+    permanently NULL again the moment any ingest run touches just one unrelated document. Must also run
+    AFTER extract_parts() (so `parts` reflects this run's fresh rebuild) and after RPSTL_SCAN's stage
+    (so rpstl.db reflects this run's OCR) -- see the `run`/`ocrall` wiring in main() below, where this
+    is the final stage before "done".
+
+    Best-effort throughout, same as every other extraction toggle in this file: any failure (missing
+    or unreadable cage.json, missing rpstl.db, a malformed row) degrades to "correlate nothing" rather
+    than guessing or raising -- this is pure enrichment, nothing downstream depends on it running.
+
+    Also callable standalone against an already-ingested DB via `python viewer_ingest.py cagec
+    [--db PATH]` -- the same idempotent-backfill contract `parts`/extract_parts() already has, useful
+    for a corpus that was ingested before this feature existed.
+
+    Returns the number of `parts` rows written this pass (0 on any early-out or if nothing correlates)."""
+    if not CAGEC_CORRELATE_SCAN:
+        return 0
+    dbdir = _db_dir(con)
+    if not dbdir:
+        return 0
+    try:
+        with open(os.path.join(dbdir, "cage.json"), "r", encoding="utf-8") as f:
+            cage_keys = set(k.strip().upper() for k in (json.load(f) or {}).keys())
+    except Exception:
+        return 0
+    if not cage_keys:
+        return 0
+    rpstl_path = os.path.join(dbdir, "rpstl.db")
+    if not os.path.exists(rpstl_path):
+        return 0
+    try:
+        # Same read-only URI-connect convention as rpstl_feature._connect_ro()/build_rpstl.py's
+        # _ro_connect() -- a plain os.path.join'd path works fine as a sqlite "file:" URI on this
+        # platform (verified directly, including with the space in this repo's own folder name).
+        rdb = sqlite3.connect("file:%s?mode=ro" % rpstl_path, uri=True)
+    except Exception:
+        return 0
+    log("correlating parts.cagec/parts.smr against rpstl.db + cage.json...")
+    index = {}
+    try:
+        for doc_id, page, nsn, cagec, smr, conf in rdb.execute(
+                "SELECT doc_id, page, nsn, cagec, smr, confidence FROM parts_rows "
+                "WHERE nsn IS NOT NULL AND nsn<>'' AND cagec IS NOT NULL AND cagec<>''"):
+            index.setdefault((doc_id, page, nsn), []).append((cagec, smr, conf or 0.0))
+    except Exception:
+        rdb.close(); return 0
+    rdb.close()
+    if not index:
+        return 0
+    n = 0; batch = []
+    # .fetchall() up front, same convention extract_parts() itself already uses for its main query
+    # -- NOT a bare `for ... in con.execute(...)` cursor. Confirmed the hard way against this repo's
+    # real 227,908-row corpus during verification: batching UPDATEs on `con` while a SELECT cursor
+    # against that SAME `con`/table is still actively stepping (i.e. once `batch` first hits 1000,
+    # well before the cursor is exhausted) raises `sqlite3.OperationalError: database is locked` --
+    # SQLite refuses to write a table a connection is still mid-read on. Materializing the row list
+    # first closes that read before any write happens, exactly like extract_parts() already does.
+    rows = con.execute(
+        "SELECT id, document_id, page, nsn FROM parts WHERE nsn IS NOT NULL AND nsn<>''").fetchall()
+    for pid, doc_id, page, nsn in rows:
+        cands = index.get((doc_id, page, nsn))
+        if not cands:
+            continue
+        valid = [(c, s, cf) for c, s, cf in cands if c.strip().upper() in cage_keys]
+        if not valid:
+            continue
+        if len({c.strip().upper() for c, s, cf in valid}) > 1:
+            continue   # genuinely ambiguous -- multiple different valid CAGECs for this key; refuse, don't guess
+        cagec, smr, cf = max(valid, key=lambda t: t[2])   # highest-confidence occurrence wins
+        batch.append((cagec, smr or None, pid)); n += 1
+        if len(batch) >= 1000:
+            con.executemany("UPDATE parts SET cagec=?, smr=? WHERE id=?", batch); batch = []
+    if batch:
+        con.executemany("UPDATE parts SET cagec=?, smr=? WHERE id=?", batch)
+    con.commit()
+    log(f"cagec: {n} parts rows correlated to a validated CAGEC (of {len(index)} candidate keys in rpstl.db)")
+    return n
+
+
 _HW_SEED = [
     # (size, series, major_in, major_mm, tpi_or_pitch, tap_drill, torque_ref_lbft)  -- public-domain facts
     ("1/4-20 UNC","UNC",0.250,None,"20","#7 (.201)","8"),
@@ -2263,7 +2394,7 @@ def enrich(con, gsa_csv=None, publog_csv=None, publog_dir=None):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["migrate","crawl","ocr","ocrall","prefilter","prioritize","parts","enrich","rollback","run","status","search","cleanup","prune","flags"])
+    ap.add_argument("cmd", choices=["migrate","crawl","ocr","ocrall","prefilter","prioritize","parts","cagec","enrich","rollback","run","status","search","cleanup","prune","flags"])
     ap.add_argument("query", nargs="?", default="")
     ap.add_argument("--root", default=os.environ.get("VIEWER_ROOT",""))
     ap.add_argument("--db", default=os.environ.get("VIEWER_DB", os.path.join(here,"..","index","viewer.db")))
@@ -2341,6 +2472,7 @@ def main():
     elif args.cmd == "ocr": ocr(con, args.limit, args.workers)
     elif args.cmd == "prioritize": prioritize(con)
     elif args.cmd == "parts": extract_parts(con)
+    elif args.cmd == "cagec": correlate_parts_cagec(con)   # standalone backfill for an already-ingested DB
     elif args.cmd == "enrich": enrich(con, args.gsa or None, args.publog or None, args.publog_dir or None)
     elif args.cmd == "rollback": rollback(con, args.yes)
     elif args.cmd == "prefilter": prefilter(con, args.limit if args.limit and args.limit>200 else 100000)
@@ -2352,14 +2484,15 @@ def main():
         _run_tables_stage(con)      # 5th stage: table extraction, same scoping
         _run_rpstl_stage(con)       # 6th stage: RPSTL parts-list row extraction, same scoping
         _run_pagetrim_ocr_stage(con)  # 7th stage: boilerplate stripping, now that OCR has finished
+        correlate_parts_cagec(con)    # 8th stage: parts.cagec/smr correlation -- full-corpus every time
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "run":
         # the in-app "Add documents" scan/OCR job (features/ingest_feature.py's ingest_start())
         # launches exactly this subcommand -- crawl/ocr()/extract_parts()/_run_schematic_stage()/
-        # _run_tables_stage()/_run_rpstl_stage()/_run_pagetrim_ocr_stage() each stamp their own
-        # stage into ingest_progress.json as they go (see _write_progress() calls inside each), so
-        # the only thing left to mark here is the final "done" once every stage has actually
-        # finished, for the polling UI to stop showing a stage and show a completion state instead.
+        # _run_tables_stage()/_run_rpstl_stage()/_run_pagetrim_ocr_stage()/correlate_parts_cagec()
+        # each stamp their own stage into ingest_progress.json as they go (see _write_progress() calls
+        # inside each), so the only thing left to mark here is the final "done" once every stage has
+        # actually finished, for the polling UI to stop showing a stage and show a completion state.
         crawl(con, args.root)
         while ocr(con, 200, args.workers) > 0 and args.ocr_limit > 0: args.ocr_limit -= 200
         extract_parts(con)
@@ -2367,6 +2500,7 @@ def main():
         _run_tables_stage(con)      # 5th stage: table extraction, same scoping
         _run_rpstl_stage(con)       # 6th stage: RPSTL parts-list row extraction, same scoping
         _run_pagetrim_ocr_stage(con)  # 7th stage: boilerplate stripping, now that OCR has finished
+        correlate_parts_cagec(con)    # 8th stage: parts.cagec/smr correlation -- full-corpus every time
         _write_progress(_db_dir(con), stage="done", current=None, extracted=dict(_EXTRACT_TALLY))
     elif args.cmd == "status": status(con)
     elif args.cmd == "search": search(con, args.query)

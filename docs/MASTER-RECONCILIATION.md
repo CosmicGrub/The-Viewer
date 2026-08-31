@@ -20,8 +20,11 @@ the full-corpus-rebuild prerequisite `[1.32.0]`'s own research flagged — `embe
 hardcoded 200,000-row cap made configurable, unbatched per-row encoding replaced with real chunked
 batching (~1.3x measured), and checkpointed/resumable so a killed mid-run process loses at most one
 chunk, code + tests only, `[1.36.0]`; then `[1.33.0]`'s one deliberately-open item closed —
-`/api/ingest_scan` wired into `ingest.html` as a separate, honestly-captioned panel, `[1.37.0]`).** This
-document
+`/api/ingest_scan` wired into `ingest.html` as a separate, honestly-captioned panel, `[1.37.0]`; then
+`parts.cagec`/`parts.smr` cross-database correlation — the design `[1.33.0]` scoped but deliberately
+didn't start, implemented and verified against this repo's own real corpus at 48.0% yield, catching and
+fixing a real production-breaking `executemany()`-inside-an-open-cursor "database is locked" bug before
+it shipped, `[1.38.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -32,15 +35,21 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.37.0, shipped 2026-08-31** (`[1.33.0]`'s one deliberately-open item closed —
-`/api/ingest_scan` wired into `ingest.html` as a separate "Broader file scan" panel, never merged into
-the existing Preview panel; shipped copy briefly and incorrectly overclaimed Office-format coverage,
-caught by adversarial verification before merge and corrected — see §6 item 22). Immediately prior:
-v1.36.0, shipped 2026-08-31 (`embed.py`'s full-rebuild prep — configurable row cap, batched encoding,
-resumable checkpointing, no full-corpus rebuild run yet — see §6 item 21). Immediately prior to that:
-v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank DA-2404/2407 print-on-demand forms, one
-click away on `pmcs.html`/`jobcard.html`, plus confirmation that `/api/chapter_jump` genuinely isn't
-worth wiring — see §6 item 20). Immediately prior to that, all the same day (2026-08-30):
+**True current state: v1.38.0, shipped 2026-09-01** (`parts.cagec`/`parts.smr` cross-database
+correlation — `correlate_parts_cagec()` joins `index/rpstl.db` into `parts` on `(document_id, page,
+nsn)`, filtered through `index/cage.json`; 48.0% yield measured against a real 4,000-row sample of this
+repo's own corpus; a real bug caught during verification and fixed before shipping, not after;
+independently adversarially verified before merge, 0 incorrect writes found across ~5,300 audited real
+writes — see §6 item 23). Immediately prior: v1.37.0, shipped 2026-08-31 (`[1.33.0]`'s one
+deliberately-open item closed — `/api/ingest_scan` wired into `ingest.html` as a separate "Broader file
+scan" panel, never merged into the existing Preview panel; shipped copy briefly and incorrectly
+overclaimed Office-format coverage, caught by adversarial verification before merge and corrected — see
+§6 item 22). Immediately prior to that: v1.36.0, shipped 2026-08-31 (`embed.py`'s full-rebuild prep —
+configurable row cap, batched encoding, resumable checkpointing, no full-corpus rebuild run yet — see §6
+item 21). Immediately prior to that: v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank
+DA-2404/2407 print-on-demand forms, one click away on `pmcs.html`/`jobcard.html`, plus confirmation that
+`/api/chapter_jump` genuinely isn't worth wiring — see §6 item 20). Immediately prior to that, all the
+same day (2026-08-30):
 v1.32.0 (CRITICAL, same-day fix — installing sentence-transformers to research semantic search's
 feasibility silently reclassified this repo's real, stale, pre-existing embeddings index as "fresh,"
 feeding near-noise cosine scores into `/api/search_hybrid`'s RRF fusion — the primary search endpoint as
@@ -179,7 +188,11 @@ Unified part dossier (0.52) · **Look-Alike Parts recognizer** `/partdiff` — N
 (0.43) · RPSTL parts-list parsing → PN↔figure correlation + breakdown images (0.78, structured import 1.10.0) ·
 cross-reference engine (PN+CAGEC→NSN, manufacturer, vehicles, interchange/supersession, 0.67/0.79) ·
 correlations sidecar + NIIN-drift review queue · most-common-nomenclature answer (0.72.1) · cross-method
-agreement scoring (`crossmethod.py`, 1.10.0) · **PUBLOG/FLIS federal catalog** — ~16 GB DLA export → NIIN-keyed
+agreement scoring (`crossmethod.py`, 1.10.0) · **`parts.cagec`/`parts.smr` cross-database correlation**
+(`correlate_parts_cagec()`, 1.34.0) — joins `rpstl.db`'s parts_rows into `parts` on
+`(document_id, page, nsn)`, filtered through the real `cage.json` CAGE registry, feeding
+`jobcard.py`'s printed CAGE/SMR lines and the look-alike-parts CAGEC/SMR discriminator, both
+previously always-empty · **PUBLOG/FLIS federal catalog** — ~16 GB DLA export → NIIN-keyed
 `index/publog.db`, `/publog` page, `/api/publog` (1.5.0) · hand-scanner + camera barcode routing (`scanner.js`,
 `/scan`, 1.5.0) · **`publogdiff.py`** — characteristics diff + fit-fingerprint %, GREEN/AMBER/RED interchangeability
 verdict, RNCC/RNVC decode, inactive-vendor flag, PUBLOG↔TM crosslink, nickname reconciliation, `/binaudit` shelf
@@ -652,6 +665,53 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     extensions came back, all 6 previously-misclaimed extensions correctly absent). **Still open**:
     everything else from item 21's still-open list (4 of 5 dead columns, ~17 more orphaned routes beyond
     the ones now wired, semantic search's full-corpus rebuild decision). See `CHANGELOG.md` `[1.37.0]`.
+23. **`[1.38.0]` — `parts.cagec`/`parts.smr` cross-database correlation**, the design item 20 scoped but
+    deliberately didn't start. `correlate_parts_cagec()` joins `index/rpstl.db`'s `parts_rows` into the
+    main `parts` table on the confirmed-reliable `(document_id, page, nsn)` key (both DBs share the same
+    `documents.id` numbering), filtered through `index/cage.json` (the real ~12k-entry CAGE registry)
+    before anything is written — confirmed directly against this repo's own real `rpstl.db` that the
+    filter is load-bearing: raw `CAGEC_RE` matches include real garbage (vehicle model numbers like
+    `M35A3`, nomenclature words like `WINCH`/`SCREW`/`LIGHT`, RPSTL boilerplate like `WHERE`/`EXCEPT`)
+    that happens to fit the "5 alphanumeric characters" shape. SMR is trusted only when that SAME
+    candidate row's cagec passed validation; a key with 2+ distinct valid cagec candidates is genuinely
+    ambiguous and is skipped, never guessed at (49 of 4,768 real multi-candidate keys). Wired as the new
+    8th/final ingest stage, deliberately full-corpus every run (NOT `_TOUCHED_DOC_IDS`-scoped like its
+    neighbors, since `extract_parts()` rebuilds the whole `parts` table every time) plus a standalone
+    `python viewer_ingest.py cagec [--db PATH]` backfill for an already-ingested corpus. **A real,
+    production-breaking bug was caught during verification, never shipped**: the first draft batched
+    `UPDATE`s via `executemany()` INSIDE the same `SELECT` cursor loop it was reading from — invisible at
+    small synthetic scale, reproduced immediately as `sqlite3.OperationalError: database is locked`
+    against this repo's real 227,908-row `parts` table (which has never been under the 1,000-row
+    batch-flush threshold that triggers it — this would have crashed the stage on every real ingest run).
+    Fixed via `.fetchall()` before writing, matching `extract_parts()`'s own existing convention. **Real
+    yield, measured against this repo's own corpus** (a random 4,000-row sample of the real 227,908, not
+    the full corpus — see below): **48.0%**, closely matching item 20's ~48.2% full-corpus estimate;
+    every written cagec round-tripped as genuinely present in the real `cage.json`, no known-garbage
+    token ever reached a written column. New test file `engine/tests/test_cagec_smr_correlation.py`
+    (38 checks): synthetic-fixture isolation tests plus real-data checks against this repo's actual
+    `index/` DBs (read-only throughout, located via a worktree-aware path resolver since the real,
+    gitignored `index/` doesn't exist inside a `.claude/worktrees/<id>` checkout). Sampled rather than
+    full-corpus in the test suite for a measured reason, not convenience: per-row `UPDATE` cost on this
+    dev host is dominated by real-time antivirus scanning of SQLite's small writes (confirmed via
+    `Get-MpComputerStatus` — real-time protection on, zero exclusions configured), making a full
+    227,908-row write pass take 15+ minutes of pure AV overhead. One caveat flagged, not fixed:
+    `index/rpstl.db`'s mtime is ~7 weeks older than `index/viewer.db`'s on this deployment — worth a
+    fresh `python build_rpstl.py` before trusting the first real backfill's yield as current. Real,
+    previously-inert downstream consumers now live: `figureparts.py`→`jobcard.py`'s printed "CAGE"/"SMR"
+    lines on the mechanic-facing job-card PDF, `partlocate.py`, `parts_feature.py`'s look-alike-parts
+    CAGEC/SMR discriminator, `jobpack.py`'s JSON export — none needed code changes, only real data.
+    **Independently adversarially verified before merge** (own scripts, disposable read-only-sourced DB
+    copies, not the implementer's own test harness): 0 incorrect writes found across ~5,300 independently
+    audited real writes, two full samples, exhaustively checked; a targeted attack rebuilding the
+    candidate index from the FULL unsampled `rpstl.db` found all 49 genuinely-ambiguous real keys
+    correctly refused (0 written); idempotency confirmed via two full runs (0 drift) plus a deliberately
+    hand-corrupted row correctly recomputed back to the right value on a third run — clarifying the real
+    contract is "recompute and correct when a candidate exists," not "never touch a populated row." One
+    non-blocking note: the write loop has no try/except, matching `extract_parts()`'s own existing
+    precedent in the same file, not a new regression. **Still open**: 2 of the original 5 Gap Sweep dead
+    columns (`parts.uoc`, `ref_nsn.data_date`); semantic search's full-corpus rebuild (NO-GO without a
+    human go-ahead, per item 20); ~17 more orphaned routes; everything else from item 22's still-open
+    list. See `CHANGELOG.md` `[1.38.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

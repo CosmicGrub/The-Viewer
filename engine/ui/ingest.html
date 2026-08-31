@@ -75,7 +75,7 @@
   <div id="recent" class="chips"></div>
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
   <div id="out"></div>
-  <div class="muted" style="margin-top:6px"><a href="#" id="broaderScanLink" onclick="broaderScan();return false;">Broader file scan (also checks .docx/.xlsx/.pptx/.rtf/.bmp/.gif/.xml/.csv/.md) →</a></div>
+  <div class="muted" style="margin-top:6px"><a href="#" id="broaderScanLink" onclick="broaderScan();return false;">Broader file scan (checks .pdf/.txt/.html/.htm/.xml/.csv/.md/.tiff/.tif/.png/.jpg/.jpeg) →</a></div>
   <div id="broaderOut"></div>
   <div class="ground">How it works: a safeguard snapshot is taken, then the tested pipeline walks the folder, adds new documents, extracts embedded text, OCRs every page that needs it, and rebuilds the parts index — one job, start to finish. Nothing is deleted or overwritten (R1/R6).</div>
 
@@ -148,7 +148,7 @@ function broaderScan(){
       h+='<div class="num new"><div class="v">'+(counts.new||0)+'</div><div class="l">new to add</div></div>';
       h+='<div class="num"><div class="v">'+(counts.duplicate||0)+'</div><div class="l">duplicate / already in corpus</div></div></div>';
       if(d.new && d.new.length){ h+='<div class="sample">new files include: '; d.new.slice(0,8).forEach(function(f){ h+='<span>'+esc(f.name||"")+'</span>'; }); h+='</div>'; }
-      h+='<div class="muted" style="margin-top:10px">Also checks: Word/Excel/PowerPoint (.docx/.xlsx/.pptx), .rtf, .bmp, .gif, .xml, .csv, .md — in addition to PDFs, images, .txt, and .html.</div>';
+      h+='<div class="muted" style="margin-top:10px">Checks: PDFs, images (.png/.jpg/.jpeg/.tif/.tiff), .txt, .html/.htm, .xml, .csv, and .md.</div>';
       h+='<div class="muted" style="margin-top:4px">Still not covered: legacy .doc/.xls/.ppt and .svg files — the ingest job can discover these but can\'t read their content yet. And of the extra types this scan counts, .xml/.csv/.md are discovered here but the ingest job does not actually extract any content from them either.</div>';
       h+='<div class="muted" style="margin-top:4px">Unlike the Preview count above (exact path match only), this scan also detects duplicates by content hash and filename — so its numbers may legitimately differ from Preview\'s.</div>';
       if(!d.found){ h+='<div class="muted" style="margin-top:10px">No supported files found (or folder not accessible from the server).</div>'; }

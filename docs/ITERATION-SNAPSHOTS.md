@@ -6,8 +6,20 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 238 | 1.32.0 — CRITICAL: stale embeddings index was silently reclassified as fresh, feeding near-noise semantic scores into the primary search endpoint | 141 |
+| 239 | 1.33.0 — 2 more orphaned routes wired: blank DA-2404/2407 forms, one click away | 141 |
 
+
+---
+
+## [1.33.0] — 2026-08-30 — 2 more orphaned routes wired: blank DA-2404/2407 forms, one click away
+`FEATURE`
+
+- **VERSION → `1.33.0`.** A follow-up to `[1.31.0]`'s orphan-route sweep, picking up 2 of the 3 remaining candidates a research pass identified this session (the third, `/api/chapter_jump`, was confirmed genuinely not worth wiring — see below; the fourth candidate area, `/api/ingest_scan`, needs a product decision and stays open on purpose).
+- **`GET /api/form_2404`** (blank DA-2404/5988-E PMCS deficiency worksheet) — a real, tested route (`engine/features/routes/ingest.py`) with zero UI entry point; its `POST` sibling that fills a worksheet from logged faults was already reachable programmatically but the blank print-on-demand form had no button anywhere. Added as an always-enabled "🖨 Print blank PMCS worksheet (DA 2404)" link on `pmcs.html`, next to the existing "Find PMCS" search — deliberately not gated on search results, since a blank worksheet needs no prior lookup.
+- **`GET /api/form_2407`** (blank DA-2407/5990-E maintenance-request worksheet) — same gap, same fix: an always-enabled "🖨 Print blank maintenance request (DA 2407)" link on `jobcard.html`, placed right after the existing gated "🖨 Print parts-request sheet" button (`[1.31.0]`'s `partspdf.py` wiring) but deliberately *without* that button's disabled/opacity gating — the blank form doesn't depend on a search having resolved anything.
+- Both links verified live before shipping: real `curl` requests against both routes return genuine single-page PDFs (`file` confirms valid PDF headers), not error bodies.
+- **`/api/chapter_jump` confirmed NOT worth wiring in** (the research pass's third candidate) — `index.html`'s `openViewer()` already calls the richer `/api/chapters`, which `chapter_jump` is a thin subset of; `renderChapterBanner()` needs the fuller response (`ranges`, both `operator_page`/ `mechanic_page`) regardless, so wiring in `chapter_jump` would only add a second round-trip returning data already in hand — zero benefit, correctly left alone.
+- **`/api/ingest_scan` stays open, on purpose** — a real, distinct capability (broader file-type coverage plus hash/filename dedup vs. the existing PDF-only exact-path `/api/ingest_preview`) but its own supported-extension list (`ingestpipe.SUPPORTED`) is narrower than what the real ingest job actually processes (missing `.docx`/`.xlsx`/`.pptx`/`.rtf`/`.bmp`/`.gif` — confirmed against `viewer_ingest.py`'s `_IMAGE_EXTS`/`_DOCX_EXTS`/etc.), so a UI surfacing it as a trustworthy pre-check would overclaim completeness, and it risks showing two legitimately-disagreeing "how many new files" counts next to the existing Preview button with no explanation. Needs a product decision, not a unilateral UI addition.
 
 ---
 

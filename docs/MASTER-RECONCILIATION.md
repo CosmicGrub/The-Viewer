@@ -15,7 +15,8 @@ routing, `index.html` finally loading `/base.css`, `[1.30.0]`; then a Gap Sweep 
 one dead column filled, 3 more orphans wired, a real `"search"` analytics event, `[1.31.0]`; then a
 same-day CRITICAL fix — installing sentence-transformers silently made a stale, pre-existing embeddings
 index look "fresh" to the new primary search endpoint, caught and fixed before reaching any real user,
-`[1.32.0]`).** This document
+`[1.32.0]`; then 2 more orphaned routes wired — blank DA-2404/2407 print-on-demand forms, `[1.33.0]`).**
+This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -26,11 +27,13 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.32.0, shipped 2026-08-30** (CRITICAL, same-day fix — installing
-sentence-transformers to research semantic search's feasibility silently reclassified this repo's real,
-stale, pre-existing embeddings index as "fresh," feeding near-noise cosine scores into
-`/api/search_hybrid`'s RRF fusion — the primary search endpoint as of `[1.31.0]` — until caught and
-fixed; see §6 item 19). Immediately prior, all the same day: v1.31.0 (a Gap Sweep audit's 5 priority
+**True current state: v1.33.0, shipped 2026-08-30** (2 more orphaned routes wired — blank DA-2404/2407
+print-on-demand forms, one click away on `pmcs.html`/`jobcard.html`, plus confirmation that
+`/api/chapter_jump` genuinely isn't worth wiring — see §6 item 20). Immediately prior, all the same day:
+v1.32.0 (CRITICAL, same-day fix — installing sentence-transformers to research semantic search's
+feasibility silently reclassified this repo's real, stale, pre-existing embeddings index as "fresh,"
+feeding near-noise cosine scores into `/api/search_hybrid`'s RRF fusion — the primary search endpoint as
+of `[1.31.0]` — until caught and fixed; see §6 item 19); v1.31.0 (a Gap Sweep audit's 5 priority
 items — RapidOCR installed, `/api/search_hybrid` made parameter-complete and switched on as the primary
 search endpoint, one genuinely-fixable dead column filled, 3 more orphaned routes wired (including a
 brand-new `/handover` page), a real `"search"` analytics event — see §6 item 18); v1.30.0 (the Build
@@ -556,6 +559,34 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     time and ~2.6GB disk on this host, and needs a source-code change first (the 200,000-row cap is
     hardcoded, covering only ~12% of the corpus) — a real go/no-go decision for a human, not something
     to launch unattended. See `CHANGELOG.md` `[1.32.0]`.
+20. **`[1.33.0]` — 2 more orphaned routes wired**, picked up from item 18's still-open list. `GET
+    /api/form_2404`/`/api/form_2407` (blank DA-2404 PMCS worksheet / DA-2407 maintenance-request
+    worksheet) were real, tested routes with zero UI entry point — each already had a working `POST`
+    sibling to fill a worksheet from logged data, but the blank print-on-demand form had no button
+    anywhere. Now an always-enabled print link on `pmcs.html`/`jobcard.html` respectively, deliberately
+    ungated (unlike `[1.31.0]`'s `partspdf.py` button) since a blank form needs no prior search; both
+    verified live via `curl` returning genuine single-page PDFs before shipping. `/api/chapter_jump` —
+    one of item 18's named standouts — was investigated and confirmed genuinely NOT worth wiring:
+    `index.html`'s `openViewer()` already calls the richer `/api/chapters`, which `chapter_jump` is a
+    strict subset of, and `renderChapterBanner()` needs the fuller response regardless, so wiring it in
+    would only add a second round-trip for data already in hand. `/api/ingest_scan` — another named
+    standout — stays open on purpose, pending a product decision: its own supported-extension list
+    (`ingestpipe.SUPPORTED`) undercounts what the real ingest job actually processes (missing
+    `.docx`/`.xlsx`/`.pptx`/`.rtf`/`.bmp`/`.gif`), and a UI addition next to the existing Preview button
+    risks showing two legitimately-disagreeing "how many new files" counts with no explanation. Also
+    scoped this session but explicitly NOT started: a design for `parts.cagec`/`smr` cross-database
+    correlation (join `rpstl.db`'s `parts_rows` into the main `parts` table via the confirmed-reliable
+    `(document_id, page, nsn)` key, filtering garbage CAGEC values via the existing `index/cage.json`
+    registry — sized at ~1 focused day of implementation + verification, not a same-day fix, given real
+    data-quality landmines already investigated); and a full semantic-search corpus rebuild (the one-time
+    `sentence-transformers` package install is done and verified working end-to-end — real
+    `embed_text()`/`encode()` calls, cosine 0.725 for related text vs. 0.070 for unrelated — but a true
+    full rebuild is an explicit ~9–12 hour unattended commitment plus ~2.6GB disk, an explicit NO-GO for
+    autonomous execution per the research agent's own recommendation, adopted rather than overridden).
+    **Still open**: 4 of the 5 dead columns; ~17 more orphaned routes beyond the 10 now wired across
+    `[1.30.0]`/`[1.31.0]`/`[1.33.0]` (standouts: `/api/tables_plus`, `/api/ingest_scan`,
+    `/api/schemgraph_review`); semantic search still non-functional pending the rebuild decision above;
+    everything else from item 18's still-open list. See `CHANGELOG.md` `[1.33.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

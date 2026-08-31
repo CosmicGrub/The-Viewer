@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.32.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.33.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -22,7 +22,8 @@ more orphans wired (including a brand-new `/handover` page), and a real `"search
 (`[1.31.0]`); then a same-day CRITICAL fix — installing sentence-transformers had silently made a
 stale, pre-existing embeddings index look "fresh" to the new primary search endpoint, feeding
 near-noise semantic scores into live search results; caught and fixed before reaching any real user
-(`[1.32.0]`) — see the reconciliation notes below and §8 items 12–18). This document +
+(`[1.32.0]`); then 2 more orphaned routes wired in — blank DA-2404/2407 print-on-demand forms, one click
+away on `pmcs.html`/`jobcard.html` (`[1.33.0]`) — see the reconciliation notes below and §8 items 12–19). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -496,6 +497,20 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     baked in. **Lesson for future work**: installing any optional heavy dependency can change more
     than the one thing being tested — re-run the full suite and think through every `backend()`-style
     environment probe before trusting a "looks fine" result.
+19. **`[1.33.0]` — 2 more orphaned routes wired**: `GET /api/form_2404`/`/api/form_2407` (blank DA-2404
+    PMCS worksheet / DA-2407 maintenance-request worksheet) were real, tested routes with zero UI entry
+    point — each now has an always-enabled print link on `pmcs.html`/`jobcard.html`, deliberately ungated
+    since a blank form needs no prior search; both verified live via `curl` returning genuine single-page
+    PDFs before shipping. `/api/chapter_jump` — one of the remaining candidates — was investigated and
+    confirmed genuinely not worth wiring: `index.html`'s `openViewer()` already calls the richer
+    `/api/chapters`, which `chapter_jump` is a strict subset of. `/api/ingest_scan` stays open on purpose,
+    pending a product decision (its own supported-extension list undercounts what the real ingest job
+    processes; a naive UI addition risks two disagreeing "how many new files" counts next to the existing
+    Preview button). **Still open**: 4 of the 5 dead columns (`parts.cagec`/`smr` scoped this session as a
+    real cross-database correlation design, ~1 focused day of implementation, not started); semantic
+    search (the one-time model install is done and verified working end-to-end, but a true full-corpus
+    rebuild is an explicit ~9–12 hour unattended commitment, NO-GO without a human go-ahead); ~17 more
+    orphaned routes; everything else from item 18's still-open list. See `CHANGELOG.md` `[1.33.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

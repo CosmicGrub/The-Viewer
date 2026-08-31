@@ -4,6 +4,21 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-30, ninth pass):** picked up 2 of the 3 remaining orphan-route
+> candidates a follow-up research pass identified after `[1.31.0]`: `GET /api/form_2404`/`/api/form_2407`
+> (blank DA-2404 PMCS worksheet / DA-2407 maintenance-request worksheet) were real, tested routes with
+> zero UI entry point — each got an always-enabled print link on `pmcs.html`/`jobcard.html` respectively,
+> deliberately ungated since a blank form needs no prior search. Both verified live via `curl` returning
+> genuine single-page PDFs before shipping. The third candidate, `/api/chapter_jump`, was confirmed
+> genuinely not worth wiring — `index.html`'s `openViewer()` already calls the richer `/api/chapters`,
+> which `chapter_jump` is a strict subset of, so wiring it in would add a second round-trip for data
+> already in hand. `/api/ingest_scan` stays open on purpose (needs a product decision — its own supported-
+> extension list undercounts what the real ingest job processes, and a naive UI addition risks two
+> disagreeing "how many new files" counts). Shipped as `[1.33.0]`, branched off `main` before `[1.32.0]`'s
+> critical stale-embeddings-index fix merged, then rebased on top of it once that PR went green — a
+> straightforward doc-reconciliation rebase, same pattern as this repo's prior
+> `docs/reconcile-changelog-*` branches. `main` is at `[1.33.0]`.
+>
 > **Reconciliation note (2026-08-30, eighth pass — CRITICAL fix):** while researching semantic search's
 > feasibility as a `[1.31.0]` follow-up, a real `pip install sentence-transformers` on this host
 > silently reclassified the pre-existing, unstamped, hash-fallback-built `index/embeddings.npy` as
@@ -16,10 +31,10 @@
 > self-test had silently stopped exercising this exact check once a real model backend became
 > available (was gated behind `if backend()=="hash-fallback"`), and two other tests
 > (`test_routes.py`/`test_pageqa.py`) had baked in the same "transformers/torch never installed"
-> environment assumption. `main` is at `[1.32.0]`. **Lesson for future sessions**: installing any
-> optional heavy dependency (sentence-transformers, easyocr, camelot, etc.) can change more than the
-> one thing being tested for — re-run the full suite and think through what else reads `backend()`-
-> or `available()`-style environment probes before trusting a "looks fine" result.
+> environment assumption. **Lesson for future sessions**: installing any optional heavy dependency
+> (sentence-transformers, easyocr, camelot, etc.) can change more than the one thing being tested for —
+> re-run the full suite and think through what else reads `backend()`- or `available()`-style
+> environment probes before trusting a "looks fine" result.
 >
 > **Reconciliation note (2026-08-30, seventh pass):** a Gap Sweep audit (5-agent parallel research
 > answering "what's going on with OCR confidence, and what other gaps exist" after `[1.30.0]`) shipped
@@ -848,10 +863,12 @@ v1.15.0/CHANGELOG reconciliation on 2026-08-24.
       open. Nobody has ever actually restored the real 3.65GB+ index and served from it.
     - **TLS for any non-loopback deployment.** The docs already instruct units to expose the server on a
       LAN; that path currently sends the shared auth token and all manual content in cleartext.
-    - **19 more orphaned routes the Gap Sweep found, beyond the 8 now wired** (5 from `[1.30.0]`, 3 from
-      `[1.31.0]`): standouts include `/api/chapter_jump`, `/api/tables_plus`, `/api/ingest_scan`, the
-      DA-2404/2407 blank-form PDFs, and `/api/schemgraph_review`. See the Gap Sweep artifact for the full,
-      prioritized list with placement recommendations.
+    - **~17 more orphaned routes the Gap Sweep found, beyond the 10 now wired** (5 from `[1.30.0]`, 3 from
+      `[1.31.0]`, 2 from `[1.33.0]`): standouts include `/api/tables_plus`, `/api/ingest_scan` (needs a
+      product decision — see the eighth-pass note above), and `/api/schemgraph_review`. `/api/chapter_jump`
+      was investigated and confirmed genuinely not worth wiring (redundant with `/api/chapters`, already
+      called); the DA-2404/2407 blank-form PDFs were wired in `[1.33.0]`. See the Gap Sweep artifact for
+      the full, prioritized list with placement recommendations.
     - **Strategic, not incremental** (only worth starting if multi-site fielding becomes an actual near-
       term goal): real user accounts + RBAC, a fleet update/version-inventory mechanism, load-testing at
       10× today's corpus scale, and 508/VPAT + dependency-scanning + a real pen-test toward any future

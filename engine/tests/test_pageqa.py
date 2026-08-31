@@ -174,17 +174,22 @@ UNRELATED_TEXT = "This page covers coolant capacity, fan belt replacement, and b
 
 
 # =====================================================================================================
-# Section 0 -- a REAL, genuinely spawned `python build_pageqa.py` OS subprocess, completely unmocked:
-# no VIEWER_VLM set, and neither transformers nor torch importable in this environment (confirmed by
-# vlm_backend.py's own module docstring's isolation-boundary design -- its two heavy imports are
-# unguarded on purpose, so importing it is the CI-safety gate itself). pageqa.available() must report
-# False cleanly (vlm.available() is False first -- _gpu_tier() is never even reached) and build_pageqa.py
-# must exit 2 with a clear message, writing nothing -- exactly what this repo's own CI runners do today.
+# Section 0 -- a REAL, genuinely spawned `python build_pageqa.py` OS subprocess, completely unmocked.
+#
+# v1.32 fix: this used to rely on the AMBIENT environment never having transformers/torch importable
+# (this repo's CI, but not necessarily every dev environment -- confirmed live this exact session:
+# installing sentence-transformers pulls in the same transformers+torch packages vlm_backend.py needs,
+# which flips pageqa.available() to True and changes build_pageqa.py's exit-2 reason from "no backend"
+# to a LATER, different failure ("viewer.db not found") -- a real, environment-dependent test flake,
+# not a code regression). Forcing VIEWER_VLM to a module name that genuinely does not exist makes
+# vlm._load_backend()'s `__import__(name)` fail deterministically regardless of what's actually
+# installed, so this test exercises the exact "no backend" code path in every environment, not just
+# ones that happen to lack transformers/torch.
 # =====================================================================================================
 try:
     d0 = tempfile.mkdtemp(prefix="pageqa_nobackend_")
     env0 = dict(os.environ)
-    env0.pop("VIEWER_VLM", None)
+    env0["VIEWER_VLM"] = "definitely_not_a_real_vlm_backend_module_xyz123"
     env0["VIEWER_DB"] = os.path.join(d0, "viewer.db")      # never actually touched -- available() gates first
     env0["PAGEQA_DB"] = os.path.join(d0, "pageqa.db")
     p0 = subprocess.run([sys.executable, os.path.join(ENGINE, "build_pageqa.py"), "--max-pages", "0"],

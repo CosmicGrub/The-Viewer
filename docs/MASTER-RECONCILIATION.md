@@ -1,7 +1,7 @@
 # THE VIEWER — Master Reconciliation (all chats, all versions → one record)
 
 **Compiled 2026-08-08, updated 2026-08-09, reconciled again 2026-08-18, again 2026-08-24, again 2026-08-29
-(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and six more times on
+(6 PRs merged, `[1.18.0]`–`[1.23.0]`, plus a route-count re-audit, `[1.24.0]`), and seven more times on
 2026-08-30 (a critical real-host fix: 4 missing schema migrations, `[1.25.0]`; `conflicts.py`'s
 cross-vehicle false-positive fix, itself needing a second pass after adversarial review caught a safety
 regression in the first, `[1.26.0]`; wiring that fix's new fields into `engine/ui/part.html`, `[1.27.0]`;
@@ -12,7 +12,10 @@ first scoped, a doubled fuzzy-search scan, 5 modals with no real focus trap, 3 u
 5 orphaned modules wired in, a related-parts card, search-result OCR/conflict signals, symptom query
 routing, `index.html` finally loading `/base.css`, `[1.30.0]`; then a Gap Sweep audit's 5 priority items
 — RapidOCR installed, `/api/search_hybrid` made parameter-complete and switched on as primary search,
-one dead column filled, 3 more orphans wired, a real `"search"` analytics event, `[1.31.0]`).** This document
+one dead column filled, 3 more orphans wired, a real `"search"` analytics event, `[1.31.0]`; then a
+same-day CRITICAL fix — installing sentence-transformers silently made a stale, pre-existing embeddings
+index look "fresh" to the new primary search endpoint, caught and fixed before reaching any real user,
+`[1.32.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -23,11 +26,15 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.31.0, shipped 2026-08-30** (a Gap Sweep audit's 5 priority items — RapidOCR
-installed, `/api/search_hybrid` made parameter-complete and switched on as the primary search endpoint,
-one genuinely-fixable dead column filled, 3 more orphaned routes wired (including a brand-new
-`/handover` page), a real `"search"` analytics event — see §6 item 18). Immediately prior, all the same
-day: v1.30.0 (the Build Roadmap's full "Next" tier — 5 orphaned modules wired into the UI, a
+**True current state: v1.32.0, shipped 2026-08-30** (CRITICAL, same-day fix — installing
+sentence-transformers to research semantic search's feasibility silently reclassified this repo's real,
+stale, pre-existing embeddings index as "fresh," feeding near-noise cosine scores into
+`/api/search_hybrid`'s RRF fusion — the primary search endpoint as of `[1.31.0]` — until caught and
+fixed; see §6 item 19). Immediately prior, all the same day: v1.31.0 (a Gap Sweep audit's 5 priority
+items — RapidOCR installed, `/api/search_hybrid` made parameter-complete and switched on as the primary
+search endpoint, one genuinely-fixable dead column filled, 3 more orphaned routes wired (including a
+brand-new `/handover` page), a real `"search"` analytics event — see §6 item 18); v1.30.0 (the Build
+Roadmap's full "Next" tier — 5 orphaned modules wired into the UI, a
 related-parts card, OCR-confidence/conflict signals in search results, symptom/"how do I" query
 routing, `index.html` finally loading `/base.css` + a new control-border token — see §6 item 17); v1.29.0
 (the Roadmap's "Now" tier — restored
@@ -522,9 +529,33 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     nothing had ever logged one; `top_searches` had always been silently empty. **Still open**: 4 of the
     5 dead columns; 19 more orphaned routes beyond the 8 now wired across `[1.30.0]`/`[1.31.0]`
     (standouts: `/api/chapter_jump`, `/api/tables_plus`, `/api/ingest_scan`, the DA-2404/2407 forms,
-    `/api/schemgraph_review`); semantic search still non-functional (now the sole remaining prerequisite
-    for hybrid fusion's full value, since the route itself is ready); everything else from item 17's
-    still-open list. See the Gap Sweep artifact and `CHANGELOG.md` `[1.28.0]`–`[1.31.0]`.
+    `/api/schemgraph_review`); ~~semantic search still non-functional~~ — see item 19; everything else
+    from item 17's still-open list. See the Gap Sweep artifact and `CHANGELOG.md` `[1.28.0]`–`[1.31.0]`.
+19. **`[1.32.0]` — CRITICAL, same-day fix: a stale embeddings index was silently reclassified as
+    fresh.** While researching semantic search's real feasibility (a genuine `pip install
+    sentence-transformers`, not a simulation — item 18's still-open list flagged this as the sole
+    remaining blocker), `embed.backend()` started returning `"sentence-transformers"` instead of
+    `"hash-fallback"`. `embed._index_is_stale()`'s no-meta-stamp check only ever compared the
+    *current* backend against itself (`return backend() == "hash-fallback"`) — never against what the
+    index was actually built with — so this repo's real, pre-existing, unstamped
+    `index/embeddings.npy` (built under the old hash-bucket math, since sentence-transformers had
+    never been installed here before) was silently reclassified from stale to fresh. It then started
+    feeding through `/api/search_hybrid`'s RRF fusion — the primary search endpoint as of `[1.31.0]`
+    — as near-noise cosine scores (0.18–0.19, confirmed live against real corpus queries, nowhere near
+    the 0.7+ a genuine semantic match produces) blended into real search results as if they were a
+    legitimate corroborating signal. Fixed the same day, before reaching any real user:
+    `_index_is_stale()` now requires a meta stamp proving an index was built by the backend that is
+    *currently* active, in both directions of mismatch. `embed.py`'s own self-test had also silently
+    stopped exercising this exact check once a real model backend became available (gated behind
+    `if backend()=="hash-fallback"`) — now runs unconditionally. Two more tests
+    (`test_routes.py`'s `/api/pageqa` content check, `test_pageqa.py`'s "no backend" subprocess test)
+    had the same "transformers/torch never installed" assumption baked in — fixed to compute the
+    expected value live / force a genuinely nonexistent `VIEWER_VLM` module, making both deterministic
+    regardless of what's installed. **Separately confirmed via the same research pass** (not yet
+    acted on): a true full-corpus embeddings rebuild would cost ~9-12 hours of continuous CPU wall
+    time and ~2.6GB disk on this host, and needs a source-code change first (the 200,000-row cap is
+    hardcoded, covering only ~12% of the corpus) — a real go/no-go decision for a human, not something
+    to launch unattended. See `CHANGELOG.md` `[1.32.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

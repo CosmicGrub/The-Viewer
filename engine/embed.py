@@ -151,25 +151,44 @@ def build_index(db_path, index_dir, limit=200000, min_chars=60):
 
 
 def _index_is_stale(index_dir):
-    """True if embeddings.npy needs a rebuild before it can be trusted: it was built by the
-    hash-fallback backend under a different (or unrecorded/unknown) bucket-mapping version than
-    HASH_ALGO_VERSION. A sentence-transformers-built index is never considered stale by this check
-    -- the hash-bucket versioning doesn't apply to it."""
+    """True if embeddings.npy needs a rebuild before it can be trusted.
+
+    v1.32 fix -- a real, live bug caught and reproduced in this exact session: the previous version
+    of this function only ever checked `backend() == "hash-fallback"` (current-backend-only, both for
+    the no-meta-stamp case and, via the hash_algo_version branch, implicitly for the meta-stamped
+    case too) -- it never compared the CURRENT active backend against what the index was actually
+    BUILT with. The moment `pip install sentence-transformers` succeeded mid-session, `backend()`
+    started returning "sentence-transformers", which silently reclassified a pre-existing, meta-less
+    200,000-row index -- built under the OLD hash-fallback bucket math, since sentence-transformers
+    had never been installed before -- as "not stale". That index then started being served through
+    hybrid_search()'s RRF fusion on the live PRIMARY search endpoint: real hash-bucket vectors
+    compared against real sentence-transformer query embeddings, producing near-noise cosine scores
+    (~0.18-0.19, confirmed live) that got blended into real search results as if they were a
+    legitimate corroborating semantic signal. The correct invariant is: an index is trustworthy ONLY
+    if we have a stamp proving it was built by the SAME backend that is currently active -- not just
+    "some backend was active when we happened to check just now"."""
     meta_path = _meta_path(index_dir)
+    cur = backend()
     if not os.path.exists(meta_path):
         # No stamp at all: either predates this version-tracking entirely, or a build that never
-        # finished. Can't assume it's fine -- only the hash-fallback backend is actually at risk,
-        # so that's the only case treated as stale-by-default (conservative: forces a rebuild
-        # rather than silently trusting unverifiable old data).
-        return backend() == "hash-fallback"
+        # finished. Unverifiable provenance -- always stale, regardless of which backend is active
+        # right now (the bug above was specifically this branch returning False once the active
+        # backend happened to no longer be "hash-fallback").
+        return True
     try:
         import json
         meta = json.load(open(meta_path, encoding="utf-8"))
     except Exception:
-        return backend() == "hash-fallback"
-    if meta.get("backend") != "hash-fallback":
-        return False   # built with sentence-transformers -- the hash-bucket change doesn't apply
-    return meta.get("hash_algo_version") != HASH_ALGO_VERSION
+        return True
+    built = meta.get("backend")
+    if built != cur:
+        # Built under a DIFFERENT backend than is active now -- its vectors live in a different,
+        # incompatible embedding space from whatever embed_text() would compute for a fresh query
+        # today. Always stale, regardless of which direction the mismatch runs.
+        return True
+    if built == "hash-fallback":
+        return meta.get("hash_algo_version") != HASH_ALGO_VERSION
+    return False   # built with, and currently running, the same real model backend -- trust it
 
 
 def _load_arrays(index_dir, npy, tsv):
@@ -246,28 +265,42 @@ if __name__ == "__main__":
     assert abs(cosine(a, a) - 1.0) < 1e-5, "self-cosine != 1"
     assert ab > ac, "related text should score higher than unrelated (even in fallback)"
 
-    # Staleness detection: a hash-fallback index with no meta stamp at all (predates version
-    # tracking, or the exact shape a pre-crc32-fix index would have) must be treated as stale;
-    # once build_index() stamps it, search() must accept it.
+    # Staleness detection -- runs UNCONDITIONALLY now (previously gated on `backend()=="hash-fallback"`,
+    # which meant this whole block silently stopped running the moment sentence-transformers became
+    # available -- exactly the environment change that let the real bug below ship undetected by this
+    # same self-test earlier in this session). A meta-less index (predates version tracking, or a build
+    # that never finished) must be treated as stale; a meta-stamped index whose recorded build-backend
+    # no longer matches the CURRENTLY active backend must also be stale (the actual live bug: installing
+    # sentence-transformers mid-session silently reclassified an old hash-fallback index as fresh); once
+    # build_index() stamps an index with the backend that's actually running, search() must accept it.
     import tempfile, json as _json
     with tempfile.TemporaryDirectory() as td:
         _np.save(os.path.join(td, "embeddings.npy"), _np.zeros((1, DIM), dtype=_np.float32))
         open(os.path.join(td, "embeddings_ids.tsv"), "w").write("doc1\t1\n")
-        if backend() == "hash-fallback":
-            r_missing_meta = search("alternator", td)
-            assert r_missing_meta.get("stale") is True and r_missing_meta["ready"] is False, r_missing_meta
-            print("staleness check (no meta stamp) OK -> ready=False")
 
+        r_missing_meta = search("alternator", td)
+        assert r_missing_meta.get("stale") is True and r_missing_meta["ready"] is False, r_missing_meta
+        print("staleness check (no meta stamp) OK -> ready=False, regardless of active backend")
+
+        other_backend = "sentence-transformers" if backend() == "hash-fallback" else "hash-fallback"
+        with open(_meta_path(td), "w") as f:
+            _json.dump({"backend": other_backend, "hash_algo_version": HASH_ALGO_VERSION}, f)
+        r_wrong_backend = search("alternator", td)
+        assert r_wrong_backend.get("stale") is True, r_wrong_backend
+        print("staleness check (meta backend != active backend) OK -> ready=False "
+              "(this is the exact live bug this fix closes)")
+
+        if backend() == "hash-fallback":
             with open(_meta_path(td), "w") as f:
                 _json.dump({"backend": "hash-fallback", "hash_algo_version": "some-old-version"}, f)
             r_old_version = search("alternator", td)
             assert r_old_version.get("stale") is True, r_old_version
-            print("staleness check (mismatched version) OK -> ready=False")
+            print("staleness check (mismatched hash version) OK -> ready=False")
 
-            with open(_meta_path(td), "w") as f:
-                _json.dump({"backend": "hash-fallback", "hash_algo_version": HASH_ALGO_VERSION}, f)
-            r_current = search("alternator", td)
-            assert r_current.get("stale") is not True and r_current["ready"] is True, r_current
-            print("staleness check (current version) OK -> ready=True")
+        with open(_meta_path(td), "w") as f:
+            _json.dump({"backend": backend(), "hash_algo_version": HASH_ALGO_VERSION}, f)
+        r_current = search("alternator", td)
+        assert r_current.get("stale") is not True and r_current["ready"] is True, r_current
+        print("staleness check (meta backend == active backend, current version) OK -> ready=True")
     print("embed self-test OK")
 # END OF FILE

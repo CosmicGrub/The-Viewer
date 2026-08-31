@@ -130,11 +130,18 @@ try:
         ENP.save(npy_p, ENP.zeros((2, EMB.DIM), dtype=ENP.float32))
         with open(tsv_p, "w", encoding="utf-8") as f:
             f.write("docA\t1\ndocB\t2\n")
-        # Meta stamped as "sentence-transformers" so _index_is_stale() short-circuits to False
-        # regardless of which backend is actually active in this environment (the hash-bucket
-        # version check only applies to hash-fallback indexes) -- irrelevant to what's under test here.
+        # v1.32 fix: _index_is_stale() now requires the meta stamp's backend to match the backend
+        # that's CURRENTLY active (see embed.py -- this is the real bug that fix closes: an index
+        # built by one backend must never be silently trusted while a different backend is running).
+        # This test isn't about staleness at all -- it just needs the index treated as fresh
+        # regardless of which backend happens to be installed in whatever environment this runs in
+        # (dev box with sentence-transformers, or CI with only hash-fallback) -- so stamp whatever
+        # backend is REALLY active right now, not a hardcoded guess. Previously hardcoded
+        # "sentence-transformers", which only ever matched by coincidence on a dev machine that
+        # happened to have it installed -- silently mismatched (and would have failed) in CI, where
+        # this repo's real backend is hash-fallback.
         with open(EMB._meta_path(ed), "w", encoding="utf-8") as f:
-            _json.dump({"backend": "sentence-transformers", "hash_algo_version": None}, f)
+            _json.dump({"backend": EMB.backend(), "hash_algo_version": EMB.HASH_ALGO_VERSION}, f)
 
         EMB._ARR_CACHE.clear()
         with mock.patch.object(EMB._np, "load", wraps=ENP.load) as m_load:
@@ -193,10 +200,11 @@ try:
         with open(tsv_p3, "w", encoding="utf-8") as f:
             for i in range(5):
                 f.write("doc%d\t%d\n" % (i, i + 1))
-        # meta stamped "sentence-transformers" so _index_is_stale() short-circuits False regardless
-        # of the real active backend here -- same rationale as the embed_cache block above.
+        # v1.32 fix: stamp whatever backend is REALLY active right now (not a hardcoded guess) --
+        # same rationale as the embed_cache block above; this test isn't about staleness, it needs
+        # the index treated as fresh regardless of which backend happens to be installed here.
         with open(EMB3._meta_path(ed3), "w", encoding="utf-8") as f:
-            _json3.dump({"backend": "sentence-transformers", "hash_algo_version": None}, f)
+            _json3.dump({"backend": EMB3.backend(), "hash_algo_version": EMB3.HASH_ALGO_VERSION}, f)
 
         class _CoreModern:
             RPS_MODE = "modern"

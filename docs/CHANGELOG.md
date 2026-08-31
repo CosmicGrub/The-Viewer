@@ -12,6 +12,54 @@ every change going forward.
 
 ---
 
+## [1.32.0] — 2026-08-30 — CRITICAL: stale embeddings index was silently reclassified as fresh, feeding near-noise semantic scores into the primary search endpoint
+**VERSION → `1.32.0`.** A real, live production bug — introduced by this same session's own
+`[1.31.0]` work, caught and fixed within the same day, before it reached any real user. Documented in
+full because the failure mode (a stale-detection check that only ever compared the *current* backend
+against itself, never against what actually built the data it's guarding) is a real, generally-useful
+lesson, not just a one-off.
+
+- **What happened:** while researching semantic search's feasibility (a `[1.31.0]` follow-up), a real
+  `pip install sentence-transformers` succeeded on this host. The moment it did, `embed.backend()`
+  started returning `"sentence-transformers"` instead of `"hash-fallback"` — and
+  `embed._index_is_stale()`'s no-meta-stamp branch, `return backend() == "hash-fallback"`, silently
+  flipped from `True` to `False`. This repo's real `index/embeddings.npy` predates version tracking
+  entirely (no `embeddings.meta.json`) and was built under the old hash-bucket math, since
+  sentence-transformers had never been installed here before — so it got reclassified as "not stale"
+  and started being served through `hybrid_search()`'s RRF fusion on **`/api/search_hybrid`, the
+  primary search endpoint as of `[1.31.0]`**. Confirmed live before fixing: real hash-bucket vectors
+  compared against real sentence-transformer query embeddings produced cosine scores of 0.18–0.19 —
+  near-noise, nowhere close to the 0.7+ a genuine semantic match produces — which `fuse()` was treating
+  as a legitimate corroborating signal and blending into live search results.
+- **The fix:** `_index_is_stale()` now requires a meta stamp proving the index was built by the *same*
+  backend that is *currently* active — not just "some backend happened to be active when checked."
+  Both directions of mismatch (hash-fallback-built-but-now-running-real-model, and the reverse) are
+  caught; the no-meta-stamp case is now unconditionally stale regardless of which backend happens to be
+  installed. Verified live end-to-end: `/api/search_hybrid?q=alternator` now correctly reports
+  `"signals":{"semantic":0}` again (the honest, safe state) instead of silently blending in the stale
+  vectors.
+- **A related coverage gap, also fixed:** `embed.py`'s own self-test had gated its entire
+  staleness-check block behind `if backend() == "hash-fallback":` — meaning the test that should have
+  caught this exact bug silently stopped running the moment sentence-transformers became available,
+  which is precisely the environment change that triggered it. Now runs unconditionally, with a new
+  assertion specifically covering the "meta backend ≠ active backend" case.
+- **Two more tests fixed for the same underlying reason** (an environment assumption baked into a test
+  became false once `transformers`/`torch` — shared dependencies of `sentence-transformers` — were
+  installed): `test_routes.py`'s `/api/pageqa` content check hardcoded `available:false`; now computes
+  the expected value from `pageqa.available()` directly. `test_pageqa.py`'s "no backend" subprocess
+  test relied on the ambient environment never having `transformers`/`torch`; now forces a genuinely
+  nonexistent `VIEWER_VLM` module name, making the test deterministic regardless of what happens to be
+  installed.
+
+**Verified:** `engine/tests/verify_all.py --snapshot`: 55/56 (only the pre-existing
+`test_ingest_routes.py` real-subprocess-e2e flake), safeguard `726/726 OK, 0 damaged`, `rps_lint.py`
+clean. New coverage: `test_embed_staleness.py` (9 checks, including a direct reproduction of the live
+bug and an end-to-end `embed.search()` check). Every claim in this entry — the live bug, the fix, and
+both dependent test fixes — verified by direct reproduction, not assumed from a research pass's
+self-report.
+
+---
+
 ## [1.31.0] — 2026-08-30 — Gap Sweep: RapidOCR installed, /api/search_hybrid is now primary search, one dead column filled, 3 more orphans wired, real "search" analytics
 **VERSION → `1.31.0`.** All 5 priority items from a Gap Sweep audit (a 5-agent parallel research pass
 answering "what's going on with OCR confidence, and what other gaps exist" — itself a follow-up to

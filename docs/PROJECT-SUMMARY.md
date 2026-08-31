@@ -1,10 +1,10 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.31.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.32.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
-re-audit (`[1.24.0]`), and reconciled seven more times the same day, 2026-08-30 — a critical real-host
+re-audit (`[1.24.0]`), and reconciled eight more times the same day, 2026-08-30 — a critical real-host
 fix (4 pending schema migrations were never applied to production, silently breaking measures/ask/
 cautions/pmcs/oneuse, `[1.25.0]`); `conflicts.py`'s cross-vehicle false-positive fix, which itself needed
 two implementation passes after adversarial review caught a safety regression in the first (`[1.26.0]`);
@@ -19,7 +19,10 @@ results, symptom/"how do I" query routing, and `index.html` finally loading `/ba
 then a Gap Sweep audit's 5 priority items — RapidOCR installed, `/api/search_hybrid` made parameter-
 complete and switched on as the primary search endpoint, one genuinely-fixable dead column filled, 3
 more orphans wired (including a brand-new `/handover` page), and a real `"search"` analytics event
-(`[1.31.0]`) — see the reconciliation notes below and §8 items 12–17). This document +
+(`[1.31.0]`); then a same-day CRITICAL fix — installing sentence-transformers had silently made a
+stale, pre-existing embeddings index look "fresh" to the new primary search endpoint, feeding
+near-noise semantic scores into live search results; caught and fixed before reaching any real user
+(`[1.32.0]`) — see the reconciliation notes below and §8 items 12–18). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -476,6 +479,23 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     non-functional (now the clear, sole remaining prerequisite for hybrid fusion's full value — the route
     itself is ready); everything else from item 16's still-open list. See the Gap Sweep artifact and
     `CHANGELOG.md` `[1.31.0]` for the complete, prioritized list.
+18. **`[1.32.0]` — CRITICAL, same-day fix: a stale embeddings index was silently reclassified as
+    fresh.** While researching semantic search's real feasibility (installing `sentence-transformers`
+    as a genuine test, not a simulation), `embed.backend()` started returning `"sentence-transformers"`
+    instead of `"hash-fallback"` — and `_index_is_stale()`'s no-meta-stamp check, which only ever
+    compared the *current* backend against itself, silently flipped from stale to not-stale for the
+    real, pre-existing, unstamped `index/embeddings.npy` (built under the old hash-bucket math, since
+    sentence-transformers had never been installed here before). That index then started feeding
+    through `/api/search_hybrid`'s RRF fusion — the primary search endpoint as of `[1.31.0]` — as
+    near-noise cosine scores (0.18–0.19, confirmed live) blended into real search results as if they
+    were a legitimate semantic signal. Fixed the same day, before reaching any real user:
+    `_index_is_stale()` now requires a meta stamp proving an index was built by the backend that's
+    *currently* active. Also fixed: `embed.py`'s own self-test had silently stopped exercising this
+    exact check once a real model backend became available; two other tests
+    (`test_routes.py`/`test_pageqa.py`) had the same "transformers/torch never installed" assumption
+    baked in. **Lesson for future work**: installing any optional heavy dependency can change more
+    than the one thing being tested — re-run the full suite and think through every `backend()`-style
+    environment probe before trusting a "looks fine" result.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

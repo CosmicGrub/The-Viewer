@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.33.0 · 2026-08-30** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.36.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -23,7 +23,10 @@ more orphans wired (including a brand-new `/handover` page), and a real `"search
 stale, pre-existing embeddings index look "fresh" to the new primary search endpoint, feeding
 near-noise semantic scores into live search results; caught and fixed before reaching any real user
 (`[1.32.0]`); then 2 more orphaned routes wired in — blank DA-2404/2407 print-on-demand forms, one click
-away on `pmcs.html`/`jobcard.html` (`[1.33.0]`) — see the reconciliation notes below and §8 items 12–19). This document +
+away on `pmcs.html`/`jobcard.html` (`[1.33.0]`); then `embed.py`'s full-rebuild prep — the hardcoded
+200,000-row cap made configurable, unbatched encoding replaced with real chunked batching (~1.3x measured),
+and resumable checkpointing so a killed mid-run process loses at most one chunk, code + tests only, no
+full-corpus rebuild run (`[1.36.0]`) — see the reconciliation notes below and §8 items 12–20). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -511,6 +514,21 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     search (the one-time model install is done and verified working end-to-end, but a true full-corpus
     rebuild is an explicit ~9–12 hour unattended commitment, NO-GO without a human go-ahead); ~17 more
     orphaned routes; everything else from item 18's still-open list. See `CHANGELOG.md` `[1.33.0]`.
+20. **`[1.36.0]` — `embed.py` full-rebuild prep**: the one remaining prerequisite item 19 flagged —
+    `build_index()`'s `limit=200000` was hardcoded, covering only ~11.9% of the real 1,682,054 eligible
+    pages — now configurable via `VIEWER_EMBED_LIMIT` (byte-identical default behavior for the sole
+    existing caller). Unbatched per-row `embed_text()` calls replaced with real chunked
+    `model.encode(list, batch_size=...)` calls — measured ~40 pages/sec unbatched vs. ~53–54 pages/sec
+    batched on this host (~1.3x, re-confirming item 19's own benchmark). Checkpointed/resumable: each
+    completed chunk lands in shard files plus a progress marker keyed on the query's real `ORDER BY id`
+    cursor, so a killed mid-run process resumes from its last completed chunk — verified directly via a
+    real fault injected mid-loop, confirming the resumed run's final output is byte-identical to an
+    uninterrupted run over the same sample. The `[1.32.0]` safety invariant (an incomplete build can
+    never look "fresh") is preserved structurally: `embeddings.meta.json` is still written exactly once,
+    after the shard merge succeeds, nowhere else — zero changes needed to `_index_is_stale()` itself.
+    **No full-corpus rebuild was run** — stays a separate, human-supervised ~9–12 hour action per item
+    19's own NO-GO finding; this item is code + `engine/tests/test_embed_checkpoint.py` (34 new checks)
+    only. See `CHANGELOG.md` `[1.36.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

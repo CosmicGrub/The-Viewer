@@ -1,9 +1,37 @@
-# THE VIEWER — Handoff Note (reconciled 2026-08-30)
+# THE VIEWER — Handoff Note (reconciled 2026-08-31)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-31, tenth pass):** implemented the one remaining prerequisite the
+> eighth pass's research flagged and left open — `embed.build_index()`'s row cap was hardcoded at
+> `limit=200000`, covering only ~11.9% of this deployment's real 1,682,054 eligible pages. Now
+> `limit=None` resolves to `VIEWER_EMBED_LIMIT` (env var, default 200000, same convention as
+> `VIEWER_DB`/`VIEWER_OCR_PAGE_TIMEOUT`) — byte-identical behavior for the sole existing caller
+> (`BUILD-EMBEDDINGS.bat`, which sets no override and now prints the effective cap). Unbatched
+> per-row `embed_text()` calls inside the build loop replaced with real chunked
+> `model.encode(list, batch_size=...)` calls — re-measured fresh on this host against real corpus
+> text: ~40 pages/sec unbatched vs. ~53–54 pages/sec batched, ~1.3x, matching the eighth pass's own
+> standalone benchmark almost exactly. Checkpointed/resumable: each completed chunk (default 5,000
+> rows) lands in shard files (`index/_embed_build/`) plus a progress marker
+> (`index/embeddings.progress.json`) keyed on the query's `ORDER BY id` cursor (`pages.id`, the real
+> rowid) and the run's own parameters, so a killed mid-run process resumes from its last completed
+> chunk instead of restarting — verified directly by injecting a real fault mid-loop (not a mock),
+> confirming the resumed run's final `embeddings.npy`/`embeddings_ids.tsv` is byte-identical to an
+> uninterrupted run over the same sample. **The `[1.32.0]` safety invariant needed zero changes to
+> `_index_is_stale()` itself** — `embeddings.meta.json` is still written exactly once, immediately
+> after the shard merge succeeds and nowhere else in `build_index()`, so a process killed at any
+> earlier point never produces a meta stamp and the existing no-meta-stamp-means-stale branch keeps
+> refusing an incomplete build, structurally, the same way it always has. New coverage:
+> `engine/tests/test_embed_checkpoint.py` (34 checks, including the direct interrupt-then-resume
+> reproduction). **No full-corpus rebuild was run as part of this pass** — that stays an explicit
+> ~9–12 hour unattended, ~2.6GB commitment for a human to launch separately, per the eighth pass's own
+> NO-GO-for-autonomous-execution finding, which this pass adopted rather than revisited. Shipped as
+> `[1.36.0]`. `main` is at `[1.36.0]` once this PR merges (branched from `origin/main` at `[1.33.0]`;
+> other PRs may land on `main` concurrently, in which case a human reconciles the version number at
+> merge time per this repo's established parallel-PR pattern).
+>
 > **Reconciliation note (2026-08-30, ninth pass):** picked up 2 of the 3 remaining orphan-route
 > candidates a follow-up research pass identified after `[1.31.0]`: `GET /api/form_2404`/`/api/form_2407`
 > (blank DA-2404 PMCS worksheet / DA-2407 maintenance-request worksheet) were real, tested routes with

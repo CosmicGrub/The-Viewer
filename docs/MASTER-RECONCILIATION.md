@@ -15,8 +15,11 @@ routing, `index.html` finally loading `/base.css`, `[1.30.0]`; then a Gap Sweep 
 one dead column filled, 3 more orphans wired, a real `"search"` analytics event, `[1.31.0]`; then a
 same-day CRITICAL fix — installing sentence-transformers silently made a stale, pre-existing embeddings
 index look "fresh" to the new primary search endpoint, caught and fixed before reaching any real user,
-`[1.32.0]`; then 2 more orphaned routes wired — blank DA-2404/2407 print-on-demand forms, `[1.33.0]`).**
-This document
+`[1.32.0]`; then 2 more orphaned routes wired — blank DA-2404/2407 print-on-demand forms, `[1.33.0]`; then
+the full-corpus-rebuild prerequisite `[1.32.0]`'s own research flagged — `embed.build_index()`'s
+hardcoded 200,000-row cap made configurable, unbatched per-row encoding replaced with real chunked
+batching (~1.3x measured), and checkpointed/resumable so a killed mid-run process loses at most one
+chunk, code + tests only, `[1.36.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -27,9 +30,12 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.33.0, shipped 2026-08-30** (2 more orphaned routes wired — blank DA-2404/2407
+**True current state: v1.36.0, shipped 2026-08-31** (`embed.py`'s full-rebuild prep — configurable row
+cap, batched encoding, resumable checkpointing, no full-corpus rebuild run yet — see §6 item 21).
+Immediately prior: v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank DA-2404/2407
 print-on-demand forms, one click away on `pmcs.html`/`jobcard.html`, plus confirmation that
-`/api/chapter_jump` genuinely isn't worth wiring — see §6 item 20). Immediately prior, all the same day:
+`/api/chapter_jump` genuinely isn't worth wiring — see §6 item 20). Immediately prior to that, all the
+same day (2026-08-30):
 v1.32.0 (CRITICAL, same-day fix — installing sentence-transformers to research semantic search's
 feasibility silently reclassified this repo's real, stale, pre-existing embeddings index as "fresh,"
 feeding near-noise cosine scores into `/api/search_hybrid`'s RRF fusion — the primary search endpoint as
@@ -587,6 +593,30 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     `[1.30.0]`/`[1.31.0]`/`[1.33.0]` (standouts: `/api/tables_plus`, `/api/ingest_scan`,
     `/api/schemgraph_review`); semantic search still non-functional pending the rebuild decision above;
     everything else from item 18's still-open list. See `CHANGELOG.md` `[1.33.0]`.
+21. **`[1.36.0]` — `embed.py` full-rebuild prep: configurable cap, batched encoding, resumable
+    checkpointing.** The one remaining prerequisite item 19 left open — `build_index()`'s
+    `limit=200000` was hardcoded, covering only ~11.9% of this deployment's real 1,682,054 eligible
+    pages — implemented and tested. Three changes: (1) `limit=None` now resolves to
+    `VIEWER_EMBED_LIMIT` (env var, default 200000, same convention as `VIEWER_DB`/
+    `VIEWER_OCR_PAGE_TIMEOUT`), byte-identical behavior for the sole existing caller
+    (`BUILD-EMBEDDINGS.bat`, which sets no override); (2) rows are processed in chunks and each
+    chunk's texts go to `model.encode()` as one batched call instead of one `embed_text()` call per
+    row — measured ~40 pages/sec unbatched vs. ~53–54 pages/sec batched on this host, real corpus
+    text, real model (~1.3x, re-confirming item 19's own research-pass benchmark); (3) each completed
+    chunk is checkpointed to shard files (`index/_embed_build/`) plus a progress marker
+    (`index/embeddings.progress.json`) keyed on the query's real `ORDER BY id` cursor, so a killed
+    mid-run process resumes from its last completed chunk instead of restarting from zero — verified
+    directly via a real fault injected mid-loop (not a mock), confirming the resumed run's final
+    output is byte-identical (ids + vectors) to an uninterrupted run over the same sample. **The
+    safety invariant `[1.32.0]` depends on is preserved structurally, not by new logic in
+    `_index_is_stale()`**: `embeddings.meta.json` is written exactly once, after the shard merge
+    succeeds, nowhere else — a process killed at any earlier point never touches it, so the existing
+    no-meta-stamp-means-stale branch keeps refusing an incomplete build with zero changes to that
+    function. **No full-corpus rebuild was run** — that ~9–12 hour, ~2.6GB commitment stays a
+    separate, human-supervised action per item 19/20's own NO-GO-for-autonomous-execution finding;
+    this item is code + `engine/tests/test_embed_checkpoint.py` (34 new checks) only, validated
+    against small synthetic samples plus one 300-row pass against the real `index/viewer.db`
+    (read-only). See `CHANGELOG.md` `[1.36.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

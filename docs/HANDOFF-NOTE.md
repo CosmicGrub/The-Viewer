@@ -4,6 +4,36 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, thirteenth pass — CRITICAL fix):** adversarial verification of the
+> tenth pass's `[1.36.0]` (embed.py full-rebuild prep), before the full-corpus rebuild it gates was
+> actually launched, found a real defect: `build_index()` snapshotted `cur_backend = backend()` once,
+> before the chunk loop, and stamped it into `embeddings.meta.json` unconditionally — but if a
+> chunk's `model.encode()` call threw (bad input, transient OOM), the bare per-row
+> `except Exception: hash-fallback` pattern silently substituted hash vectors for THAT CHUNK ONLY
+> while the meta stamp still claimed a pure `"sentence-transformers"` index. **Confirmed
+> pre-existing, not introduced by the tenth pass** — the original unbatched `embed_text()` had the
+> identical bare fallback and the old `build_index()` also stamped the backend after the fact with no
+> per-row correlation; batching just enlarged one failure event's blast radius from 1 row to up to
+> `chunk_size` (5,000) rows. This is the `[1.32.0]` failure mode again (real vectors compared against
+> incompatible vectors → near-noise cosine scores silently trusted), now possible at row/chunk
+> granularity inside an otherwise-valid build, with zero warning or trace. **Fixed**: every chunk
+> whose encode() call actually raised is tracked in `fallback_events`, persisted through
+> `embeddings.progress.json` so the record survives an interrupt+resume; if any remain once the
+> shard merge succeeds, `embeddings.meta.json` is deliberately withheld (any stale one from a prior
+> clean build is removed) — reusing `_index_is_stale()`'s existing no-meta-stamp-means-stale branch,
+> zero new per-row staleness logic — and `embeddings.fallback.json` records exactly which rows are
+> suspect. `BUILD-EMBEDDINGS.bat` now prints an explicit warning instead of a bare success line when
+> this happens. Directly verified with a real injected mid-build encode() failure (not a mock),
+> confirming the meta stamp is withheld, staleness/`search()` both refuse the index end-to-end, the
+> on-disk array genuinely mixes real vectors and hash vectors only where expected, the record
+> survives a genuine interrupt+resume, and a clean rebuild clears the stale fallback report — see
+> `engine/tests/test_embed_partial_fallback.py` (32 new checks). **No full-corpus rebuild was run** —
+> this PR is code + tests only; the rebuild stays a separate, human-supervised action once this fix is
+> on `main`. Shipped as `[1.39.0]` (branched from `origin/main` at `[1.36.0]`, rebased onto `[1.38.0]`
+> once `[1.37.0]` and `[1.38.0]` both merged ahead of it — a straightforward doc-reconciliation rebase,
+> no logic-file overlap with either, same pattern as this repo's prior `docs/reconcile-changelog-*`
+> branches). `main` is at `[1.39.0]`.
+>
 > **Reconciliation note (2026-09-01, twelfth pass):** implemented the `parts.cagec`/`parts.smr` cross-
 > database correlation design `[1.33.0]` scoped but deliberately didn't start. `correlate_parts_cagec()`
 > joins `index/rpstl.db`'s `parts_rows` into `parts` on `(document_id, page, nsn)`, filtered through

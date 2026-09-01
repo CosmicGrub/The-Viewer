@@ -119,6 +119,10 @@ def _progress_path(index_dir):
     return os.path.join(index_dir, "embeddings.progress.json")
 
 
+def _fallback_path(index_dir):
+    return os.path.join(index_dir, "embeddings.fallback.json")
+
+
 def _shard_dir(index_dir):
     return os.path.join(index_dir, "_embed_build")
 
@@ -151,7 +155,7 @@ def build_index(db_path, index_dir, limit=None, min_chars=60, batch_size=64, chu
        every row has been processed with no error -- see the meta-stamp write below for why this
        ordering is the whole point.
 
-    SAFETY INVARIANT (do not weaken): `embeddings.meta.json` -- the ONLY thing `_index_is_stale()`
+    SAFETY INVARIANT #1 (do not weaken): `embeddings.meta.json` -- the ONLY thing `_index_is_stale()`
     trusts as proof an index is complete and fresh (see its docstring re: the `[1.32.0]` bug class) --
     is written exactly once, after the shard merge succeeds, and nowhere else in this function. If the
     process dies at any point before that (including mid-chunk, mid-merge, or between merge and this
@@ -159,6 +163,26 @@ def build_index(db_path, index_dir, limit=None, min_chars=60, batch_size=64, chu
     a PRIOR successful run stays exactly as fresh/stale as it already was, and a NEW, still-in-progress
     build is never mistakable for a complete one -- `_index_is_stale()` needs no new logic to keep
     doing the right thing here; the invariant is structural (see engine/tests/test_embed_checkpoint.py).
+
+    SAFETY INVARIANT #2 (do not weaken): `cur_backend` is snapshotted ONCE, up front, and stamped into
+    `embeddings.meta.json` as "the backend" for the WHOLE index -- but `embed_text()`'s per-row (here,
+    per-chunk) `model.encode()` call has its own bare `except Exception: fall back to _hash_vec()`.
+    A chunk that hits that fallback (bad input, transient OOM, whatever) silently gets hash vectors
+    while `cur_backend` still says "sentence-transformers", and nothing before this fix ever recorded
+    that fact anywhere -- an index could end up with up to `chunk_size` (default 5,000) incompatible
+    hash-fallback rows mixed into an otherwise-real embedding space, stamped fresh and trusted whole by
+    `_index_is_stale()`. This is the exact `[1.32.0]` failure mode (real vectors compared against
+    incompatible vectors -> near-noise cosine scores silently trusted), just at row/chunk granularity
+    inside a single index instead of across a whole rebuild. Fixed the same way `[1.32.0]` fixed the
+    whole-index case: every chunk whose `model.encode()` call actually raised is recorded (shard index,
+    row count, doc/page range, error) in `fallback_events`, persisted through `embeddings.progress.json`
+    so it survives an interrupt+resume (see SAFETY INVARIANT #1) exactly like every other piece of
+    build state. If `fallback_events` is non-empty once the merge succeeds, `embeddings.meta.json` is
+    NOT written (and any stale one from a PRIOR clean build is removed) -- reusing invariant #1's
+    existing no-meta-stamp-means-stale branch in `_index_is_stale()` rather than inventing new
+    per-row staleness logic there. `embeddings.fallback.json` is written instead, naming exactly which
+    rows are suspect, for an operator to inspect before deciding to just re-run the build (transient
+    fault) or investigate further (e.g. malformed body_text). See engine/tests/test_embed_partial_fallback.py.
     """
     if limit is None:
         limit = int(os.environ.get("VIEWER_EMBED_LIMIT", 200000))
@@ -192,10 +216,16 @@ def build_index(db_path, index_dir, limit=None, min_chars=60, batch_size=64, chu
         last_id = 0
         rows_done = 0
         shard_idx = 0
+        fallback_events = []
     else:
         last_id = int(progress.get("last_id", 0))
         rows_done = int(progress.get("rows_done", 0))
         shard_idx = int(progress.get("shard_idx", 0))
+        # Carry forward any chunk-level hash-fallback events a PRIOR (interrupted) run of this same
+        # build already recorded -- see SAFETY INVARIANT #2. Without this, resuming after a crash
+        # that happened to land right after a bad chunk would silently drop the record of that
+        # chunk's fallback, and a mixed-content index could get stamped fresh after all.
+        fallback_events = list(progress.get("fallback_events", []))
 
     con = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True)
     try:
@@ -214,8 +244,20 @@ def build_index(db_path, index_dir, limit=None, min_chars=60, batch_size=64, chu
                 try:
                     raw = m.encode(texts, normalize_embeddings=True, batch_size=batch_size)
                     vecs = _np.asarray(raw, dtype=_np.float32)
-                except Exception:
+                except Exception as _enc_err:
+                    # This chunk's real-model encode() failed (bad input, transient OOM, etc.) and
+                    # embed_text()'s bare per-row fallback pattern applies here too -- see SAFETY
+                    # INVARIANT #2. Anomalous ONLY because a model IS loaded (cur_backend ==
+                    # "sentence-transformers"); the `else` branch below (no model at all) is the
+                    # ordinary, fully-consistent hash-fallback backend and never counts as a
+                    # mixed-backend event.
                     vecs = _np.vstack([_hash_vec(t) for t in texts]).astype(_np.float32)
+                    fallback_events.append({
+                        "shard_idx": shard_idx, "rows": len(rows),
+                        "first_doc_page": [ids_chunk[0][0], ids_chunk[0][1]],
+                        "last_doc_page": [ids_chunk[-1][0], ids_chunk[-1][1]],
+                        "error": "%s: %s" % (type(_enc_err).__name__, str(_enc_err)[:200]),
+                    })
             else:
                 vecs = _np.vstack([_hash_vec(t) for t in texts]).astype(_np.float32)
             _np.save(os.path.join(shard_dir, "shard_%06d.npy" % shard_idx), vecs)
@@ -227,11 +269,14 @@ def build_index(db_path, index_dir, limit=None, min_chars=60, batch_size=64, chu
             shard_idx += 1
             # Progress marker is the ONLY on-disk trace of an in-flight build besides the shards
             # themselves -- deliberately separate from embeddings.meta.json (see docstring above).
+            # fallback_events rides along here too so an interrupt+resume can never lose track of a
+            # chunk that already fell back before the crash (SAFETY INVARIANT #2).
             with open(progress_path, "w", encoding="utf-8") as f:
                 json.dump({
                     "last_id": last_id, "rows_done": rows_done, "db_path": db_path,
                     "limit": limit, "min_chars": min_chars, "backend": cur_backend,
                     "chunk_size": chunk_size, "shard_idx": shard_idx,
+                    "fallback_events": fallback_events,
                 }, f)
             if len(rows) < take:
                 break  # source exhausted mid-chunk
@@ -260,17 +305,46 @@ def build_index(db_path, index_dir, limit=None, min_chars=60, batch_size=64, chu
                 out.write(f.read())
     os.replace(tmp_tsv, os.path.join(index_dir, "embeddings_ids.tsv"))
 
-    # Stamp which backend (and, for hash-fallback, which bucket-mapping version) built this index.
-    # Without this, an operator who upgrades but forgets to re-run BUILD-EMBEDDINGS.bat gets no
-    # signal at all -- search() previously only checked file existence, so a pre-crc32-fix index
-    # (built under the old, process-random hash() mapping) kept being served forever with no error,
-    # silently returning the exact near-random similarity results the fix was meant to eliminate.
-    # THIS WRITE MUST STAY HERE: after the merge above, on the success path only -- see docstring.
-    with open(_meta_path(index_dir), "w", encoding="utf-8") as f:
-        json.dump({
-            "backend": cur_backend,
-            "hash_algo_version": HASH_ALGO_VERSION if cur_backend == "hash-fallback" else None,
-        }, f)
+    fallback_path = _fallback_path(index_dir)
+    if fallback_events:
+        # SAFETY INVARIANT #2 -- see docstring. At least one chunk's real-model encode() failed and
+        # silently substituted hash vectors mid-build while `cur_backend` was "sentence-transformers"
+        # for the run as a whole, so embeddings.npy now mixes real sentence-transformer vectors with
+        # incompatible hash-bucket vectors in the SAME array -- no single "backend" label can
+        # honestly describe it. Do NOT write embeddings.meta.json, and remove any stale one left over
+        # from a PRIOR successful build: leaving it in place would let _index_is_stale() vouch for
+        # THIS run's mixed-content embeddings.npy (already swapped in above via os.replace) using a
+        # stamp that only ever described the old, uniform one. This reuses the EXISTING
+        # no-meta-stamp-means-stale branch in _index_is_stale() (see its docstring) rather than
+        # inventing new per-row staleness logic there -- an index this function itself won't vouch
+        # for is indistinguishable, on purpose, from a build that never finished.
+        try:
+            os.remove(_meta_path(index_dir))
+        except OSError:
+            pass
+        with open(fallback_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "backend_intended": cur_backend,
+                "total_rows": rows_done,
+                "fallback_rows": sum(e["rows"] for e in fallback_events),
+                "fallback_chunks": fallback_events,
+            }, f, indent=2)
+    else:
+        # Stamp which backend (and, for hash-fallback, which bucket-mapping version) built this index.
+        # Without this, an operator who upgrades but forgets to re-run BUILD-EMBEDDINGS.bat gets no
+        # signal at all -- search() previously only checked file existence, so a pre-crc32-fix index
+        # (built under the old, process-random hash() mapping) kept being served forever with no error,
+        # silently returning the exact near-random similarity results the fix was meant to eliminate.
+        # THIS WRITE MUST STAY HERE: after the merge above, on the success path only -- see docstring.
+        with open(_meta_path(index_dir), "w", encoding="utf-8") as f:
+            json.dump({
+                "backend": cur_backend,
+                "hash_algo_version": HASH_ALGO_VERSION if cur_backend == "hash-fallback" else None,
+            }, f)
+        try:
+            os.remove(fallback_path)   # clear any stale fallback report left by a prior bad run
+        except OSError:
+            pass
 
     # Success -- the shard dir and progress marker have served their purpose; clear them so a
     # subsequent run doesn't mistake them for still-in-flight progress, and so nothing lingers that
@@ -300,14 +374,22 @@ def _index_is_stale(index_dir):
     (~0.18-0.19, confirmed live) that got blended into real search results as if they were a
     legitimate corroborating semantic signal. The correct invariant is: an index is trustworthy ONLY
     if we have a stamp proving it was built by the SAME backend that is currently active -- not just
-    "some backend was active when we happened to check just now"."""
+    "some backend was active when we happened to check just now".
+
+    v1.37 addition -- this same no-meta-stamp branch also catches build_index()'s SAFETY INVARIANT #2:
+    a mid-build model.encode() failure that silently substituted hash vectors for one chunk while the
+    rest of the index is real sentence-transformer vectors. build_index() deliberately withholds the
+    meta stamp (and removes any stale one) for exactly that case, so a partial-fallback index falls
+    into this same "unverifiable provenance -- always stale" branch with zero new logic needed here."""
     meta_path = _meta_path(index_dir)
     cur = backend()
     if not os.path.exists(meta_path):
-        # No stamp at all: either predates this version-tracking entirely, or a build that never
-        # finished. Unverifiable provenance -- always stale, regardless of which backend is active
-        # right now (the bug above was specifically this branch returning False once the active
-        # backend happened to no longer be "hash-fallback").
+        # No stamp at all: either predates this version-tracking entirely, a build that never
+        # finished, or a build that finished but had at least one chunk silently fall back to hash
+        # vectors mid-run (see build_index()'s SAFETY INVARIANT #2 and embeddings.fallback.json).
+        # Unverifiable provenance -- always stale, regardless of which backend is active right now
+        # (the v1.32 bug above was specifically this branch returning False once the active backend
+        # happened to no longer be "hash-fallback").
         return True
     try:
         import json

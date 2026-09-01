@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.48.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.49.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -90,8 +90,11 @@ mismatch and `review.html`'s omission, corrected to the real 31-page list everyw
 result (`[1.47.0]`); then two more `transformers`/`torch`-never-installed env-assumption self-test
 failures — the same bug class this session already fixed twice — found by `VERIFY.bat`'s per-module
 self-test loop (a check `verify_all.py --snapshot` doesn't cover) in `engine/vlm.py` and
-`engine/pageqa.py`, fixed the same way as `test_pageqa.py` (`[1.48.0]`) — see the reconciliation notes
-below and §8 items 25–31). This document +
+`engine/pageqa.py`, fixed the same way as `test_pageqa.py` (`[1.48.0]`); then a real hang bug found in
+the project's own `tests/mutate.py` mutation-testing tool — a mutant-induced infinite loop survived its
+own `--timeout` for 5+ hours on Windows because killing the intermediary shell process left the actual
+hung test process running as an orphaned grandchild, fixed by killing the whole process tree on timeout
+instead (`[1.49.0]`) — see the reconciliation notes below and §8 items 25–32). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -811,6 +814,19 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     applied to `test_pageqa.py`. Verified: both self-tests pass cleanly post-fix; the full 68-module
     self-test loop is clean; `verify_all.py --snapshot` clean per the now-3 documented pre-existing
     flakes. See `CHANGELOG.md` `[1.48.0]`.
+32. **`[1.49.0]` — `tests/mutate.py` could hang for hours past its own `--timeout`, on Windows.** Running
+    `RUN-MUTATION.bat`'s 7-step sequence as direct commands (pre-release verification) hit a mutant in
+    `procedure_feature.py` (`i += 1` → `i -= 1` in a blank-line-skip loop) that puts the parser into a
+    genuine infinite loop — and `run_test()`'s `subprocess.run(cmd, shell=True, timeout=...)` only killed
+    the intermediary `cmd.exe` on Windows timeout, leaving the actual hung test process running as an
+    orphaned grandchild holding the stdout pipe open, so `communicate()` never saw EOF and the timeout
+    never actually returned. Hung silently for 5+ hours before being caught. A second run (`rps.py`) was
+    killed pre-emptively before repeating it. Fixed by killing the whole process tree on timeout
+    (`taskkill /F /T` on Windows) instead of the single intermediary process. Verified: a deliberately
+    hanging grandchild now times out in ~3s under a 3s cap; normal pass/fail exit codes unaffected; a
+    full real run against `patterns.py` still restores source and passes SHA-256 verification. Both
+    source files left mutated on disk by the hang were restored from their `.orig` backups first. See
+    `CHANGELOG.md` `[1.49.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

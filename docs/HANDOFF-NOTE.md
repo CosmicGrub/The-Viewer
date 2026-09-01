@@ -4,6 +4,22 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, twenty-second pass):** running `RUN-MUTATION.bat`'s 7-step
+> mutation-testing sequence as direct commands (pre-release verification) surfaced a real bug in the
+> project's own test tooling: `tests/mutate.py --target procedure_feature.py` hung for 5+ hours past its
+> own `--timeout 60`, silently, with no crash and no output. Root cause: a mutant (`i += 1` → `i -= 1` in
+> the blank-line-skip branch of `parse_procedure()`) puts the parser into a genuine infinite loop, and
+> `run_test()`'s `subprocess.run(cmd, shell=True, timeout=...)` only kills the intermediary `cmd.exe` on
+> Windows timeout — the real hung test process survives as an orphaned grandchild holding the stdout pipe
+> open, so `communicate()` never sees EOF and never returns. A second run (`rps.py`, step 4/7) was killed
+> pre-emptively before repeating the same hang once the pattern was recognized. **Fixed**: `run_test()`
+> now kills the whole process tree on timeout (`taskkill /F /T` on Windows). Verified directly: a
+> deliberately-hanging grandchild now times out in ~3s under a 3s cap (previously unbounded); normal
+> pass/fail exit codes unaffected; a full real run against `patterns.py` still restores source and passes
+> SHA-256 verification. Both mutated source files (`procedure_feature.py`, `rps.py`) were left corrupted
+> on disk mid-run by the hang and were restored from their `.orig` backups before anything else touched
+> them. Shipped as `[1.49.0]`. `main` is at `[1.49.0]`.
+>
 > **Reconciliation note (2026-09-01, twenty-first pass):** running `VERIFY.bat`'s full per-module
 > self-test loop (~68 modules) as part of pre-release verification — a check `verify_all.py --snapshot`
 > doesn't cover — surfaced two more instances of the exact env-assumption bug this session already fixed

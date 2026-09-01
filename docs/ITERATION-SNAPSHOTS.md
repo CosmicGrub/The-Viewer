@@ -6,8 +6,16 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 251 | 1.48.0 — two more module self-tests hit the same env-assumption bug this session already found twice | 141 |
+| 252 | 1.49.0 — `tests/mutate.py` could hang for hours past its own `--timeout`, on Windows | 141 |
 
+
+---
+
+## [1.49.0] — 2026-09-01 — `tests/mutate.py` could hang for hours past its own `--timeout`, on Windows
+`FEATURE`
+
+- Running the full `RUN-MUTATION.bat` sequence (part of pre-release verification) as direct commands surfaced a real bug in the project's own mutation-testing tool, not the code under test: a mutant that turns `engine/procedure_feature.py`'s blank-line-skip `i += 1` into `i -= 1` puts `parse_procedure()` into a genuine infinite loop (`i` walks negative forever without ever raising, since Python indexing wraps). `mutate.py --timeout 60` is supposed to kill that within a minute. Instead it hung for 5+ hours, silently, with zero output past the prior target's summary — caught only because the wall-clock made no sense, not because anything crashed or reported an error. **Root cause**: `run_test()` used `subprocess.run(cmd, shell=True, timeout=timeout)`. On Windows, `shell=True` spawns an intermediary `cmd.exe`; when `TimeoutExpired` fires, `subprocess.run()` only kills that intermediary, not the real test process running underneath it as a grandchild. The orphaned grandchild keeps running (and keeps the inherited stdout pipe open), so `communicate()`'s wait for pipe-EOF never returns — the very timeout mechanism that exists to prevent an unbounded hang was itself unbounded. A second run (`rps.py`, step 4/7) was caught and killed pre-emptively before it could repeat the same failure, once the pattern was recognized. **Fix**: `run_test()` now launches via `Popen` directly and, on timeout, kills the whole process tree (`taskkill /F /T /PID <pid>` on Windows, `Popen.kill()` elsewhere) instead of the single intermediary process. Verified directly: a deliberately-hanging grandchild process (`python -c "time.sleep(30)"` run through a shell wrapper) now returns `"timeout"` in ~3s under a 3s cap — previously this exact shape of command would have hung indefinitely; normal pass/fail exit codes are unaffected (checked against both a `sys.exit(0)` and `sys.exit(1)` case); a full real run against `patterns.py` still restores the source and passes its SHA-256 verification afterward.
+- **`engine/tests/mutate.py`**: `run_test()` rewritten as above. This doesn't change any mutation *results* — it changes whether the tool can finish reporting them. Filed as its own fix rather than folded into the mutation-testing pass it was found during, since it's a defect in test tooling `VERIFY.bat`/`RUN-ALL-VERIFY.bat` depend on, not in the application.
 
 ---
 

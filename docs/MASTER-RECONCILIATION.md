@@ -67,21 +67,35 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.43.0, shipped 2026-08-31** (TLS support for LAN-exposed deployments — a
-LAN-exposed VIEWER (`--host 0.0.0.0`) had `VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` authentication
-hardening but crossed the network in plaintext; fixed with new off-by-default `--tls`/`--cert`/`--key`
-flags (`engine/viewer_app.py`) wrapping the server's listening socket in stdlib `ssl.SSLContext`
-(TLS 1.2+) once at startup, with zero changes to `Handler` or the bounded-worker semaphore, and a
-fail-fast (never-falls-back-to-plaintext) refusal when `--tls` is passed with no cert/key resolvable.
-New one-time cert CLI `engine/gen_cert.py` (RSA-2048, 10-year self-signed, SAN auto-detects LAN IPs),
-gated behind an optional `cryptography` import — matching the existing `sentence-transformers`/
-`rapidocr-onnxruntime`/`pyzbar` pattern rather than an `openssl` shell-out (no guaranteed `openssl.exe`
-on this app's documented Win7/Vista floor) or a vendored ASN.1/X.509 encoder. `safe_public_base()`
+**True current state: v1.48.0, shipped 2026-09-01** (two more `transformers`/`torch`-never-installed
+self-test failures — the same env-assumption bug class this session already fixed twice — caught by
+`VERIFY.bat`'s per-module self-test loop (a check `verify_all.py --snapshot` doesn't cover) in
+`engine/vlm.py` and `engine/pageqa.py`, fixed the same way as `test_pageqa.py` — see §6 item 32).
+Immediately prior, all shipped 2026-08-31 → 2026-09-01 as part of a real-world-readiness push following
+an independent 6-dimension audit: the first real backup restore drill (`[1.44.0]`, item 28); TLS support
+for LAN-exposed deployments (`[1.43.0]`, item 27); a stale-running-server visibility fix
+(`[1.42.0]`, item 26); a `part.html` failed-request/not-found conflation fix (`[1.41.0]`, item 25); a
+degraded-search-signal UI addition (`[1.45.0]`, item 29); accessibility work extended beyond `index.html`
+— real contrast fixes, modal focus traps, a generalized (then adversarially-caught-and-fixed) contrast
+guard (`[1.46.0]`/`[1.47.0]`, item 30). See each item below and their `CHANGELOG.md` entries for full
+detail — this paragraph was itself caught stale (still describing only `[1.43.0]`) while reconciling
+`[1.48.0]`, the exact documentation-drift pattern this file's own opening section describes recurring.
+
+Full detail on the TLS work specifically: a LAN-exposed VIEWER (`--host 0.0.0.0`) had
+`VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` authentication hardening but crossed the network in plaintext;
+fixed with new off-by-default `--tls`/`--cert`/`--key` flags (`engine/viewer_app.py`) wrapping the
+server's listening socket in stdlib `ssl.SSLContext` (TLS 1.2+) once at startup, with zero changes to
+`Handler` or the bounded-worker semaphore, and a fail-fast (never-falls-back-to-plaintext) refusal when
+`--tls` is passed with no cert/key resolvable. New one-time cert CLI `engine/gen_cert.py` (RSA-2048,
+10-year self-signed, SAN auto-detects LAN IPs), gated behind an optional `cryptography` import —
+matching the existing `sentence-transformers`/`rapidocr-onnxruntime`/`pyzbar` pattern rather than an
+`openssl` shell-out (no guaranteed `openssl.exe` on this app's documented Win7/Vista floor) or a
+vendored ASN.1/X.509 encoder. `safe_public_base()`
 (feeds `/api/qr`) now emits `https://` when TLS is active; the scheme-check reading its output was
 made scheme-agnostic to match. New test `test_tls.py`: a real cert, a real TLS handshake (not
 mocked) confirming `https://` succeeds, plain `http://` on the same port is rejected, an untrusting
 client is rejected, the plain-HTTP path is unaffected when `--tls` is never passed, and `main()`
-fails fast on a missing cert. New doc `docs/TLS-LAN-SETUP.md`). Immediately prior: v1.42.0, shipped
+fails fast on a missing cert. New doc `docs/TLS-LAN-SETUP.md`. Immediately prior: v1.42.0, shipped
 2026-08-31 (version-staleness detection — a server left running across a `git pull` looked completely
 healthy while quietly running stale code, since nothing recorded when it started or whether its code
 still matched disk; fixed with `STARTUP_VERSION`/`STARTUP_TIME` captured once at import, a TTL-cached
@@ -1018,6 +1032,28 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     pre-existing `/api/ask` timeout, reproduced standalone), an earlier run flagged `test_http.py`'s
     equally pre-existing `/api/pageqa` timeout instead — corrected to report the real results
     honestly. See `CHANGELOG.md` `[1.47.0]`.
+32. **`[1.48.0]` — two more `transformers`/`torch`-never-installed self-test failures, the exact env-
+    assumption bug class this session already fixed twice.** `VERIFY.bat`'s per-module self-test loop
+    (~68 modules, `python -B <module>.py`) — a check `verify_all.py --snapshot` never runs — surfaced
+    `engine/vlm.py`'s and `engine/pageqa.py`'s own `__main__` self-tests hardcoding the same stale
+    assumption `test_routes.py`/`test_pageqa.py` already hardcoded and had fixed earlier this session.
+    `vlm.py`'s self-test called `ask()`/`ground()` with no explicit backend, expecting `_load_backend()`
+    to find nothing; once `vlm_backend.py`'s default Florence-2 backend became importable (a side effect
+    of `sentence-transformers` pulling in `transformers`/`torch`), `available` flipped from the expected
+    `False` to `True`, breaking the hardcoded `assert ... is False` calls. `pageqa.py`'s failure was a
+    subtler cascade: `pageqa.available()` is `vlm.available() and _gpu_tier()`, so once `vlm.available()`
+    flipped, that gate silently passed on this real GPU-equipped dev machine and fell through to a real
+    page-render attempt for a doc/page that doesn't exist in the self-test's fixture-free context,
+    surfacing as a confusing "could not render doc 1 page 1" note instead of the intended "no backend"
+    one. Both fixed by forcing `VIEWER_VLM` to a genuinely-nonexistent module name before the "no
+    backend" assertions, making `_load_backend()`'s `__import__()` fail deterministically regardless of
+    what happens to be installed — the identical fix already applied to `test_pageqa.py`. **Not found by
+    any test suite until now** — `verify_all.py --snapshot` (run dozens of times across this session)
+    never exercises these two modules' own `__main__` self-test blocks, only `VERIFY.bat`'s dedicated
+    per-module self-test loop does — a concrete argument for keeping that gate in the pre-release
+    checklist rather than treating `verify_all.py --snapshot` alone as sufficient. Verified: both
+    self-tests pass cleanly post-fix, the full 68-module self-test loop is clean, `verify_all.py
+    --snapshot` clean per the now-3 documented pre-existing flakes. See `CHANGELOG.md` `[1.48.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

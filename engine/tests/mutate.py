@@ -59,11 +59,32 @@ def apply_one(src, site):
 
 
 def run_test(cmd, cwd, timeout):
+    # v1.49: shell=True spawns an intermediary cmd.exe on Windows. When a mutant hangs the real
+    # test process (e.g. a mutated loop bound that never terminates), subprocess.run()'s TimeoutExpired
+    # handler only kills that intermediary shell -- the actual hung Python test process is its
+    # grandchild, survives the kill, and keeps the inherited stdout pipe open. communicate() then
+    # blocks forever waiting for EOF on that pipe, so the timeout we asked for never actually returns
+    # control to us. Observed directly: a mutant in procedure_feature.py's blank-line skip (i += 1 ->
+    # i -= 1) hung the whole mutation run for 5+ hours past its --timeout 60. Fix: launch with our own
+    # handle, and on timeout kill the whole process TREE (taskkill /T on Windows) instead of just the
+    # immediate child.
     try:
-        p = subprocess.run(cmd, cwd=cwd, shell=True, stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT, timeout=timeout)
+        p = subprocess.Popen(cmd, cwd=cwd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    except Exception:
+        return "timeout"
+    try:
+        p.communicate(timeout=timeout)
         return p.returncode
     except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            p.kill()
+        try:
+            p.communicate(timeout=5)
+        except Exception:
+            pass
         return "timeout"
 
 

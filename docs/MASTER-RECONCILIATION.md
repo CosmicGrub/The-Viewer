@@ -67,19 +67,25 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.48.0, shipped 2026-09-01** (two more `transformers`/`torch`-never-installed
-self-test failures — the same env-assumption bug class this session already fixed twice — caught by
-`VERIFY.bat`'s per-module self-test loop (a check `verify_all.py --snapshot` doesn't cover) in
-`engine/vlm.py` and `engine/pageqa.py`, fixed the same way as `test_pageqa.py` — see §6 item 32).
-Immediately prior, all shipped 2026-08-31 → 2026-09-01 as part of a real-world-readiness push following
-an independent 6-dimension audit: the first real backup restore drill (`[1.44.0]`, item 28); TLS support
+**True current state: v1.49.0, shipped 2026-09-01** (a real hang bug found in the project's own
+`tests/mutate.py` mutation-testing tool while running `RUN-MUTATION.bat`'s sequence as part of
+pre-release verification: a mutant-induced infinite loop survived its own `--timeout` for 5+ hours on
+Windows because killing the intermediary `cmd.exe` left the actual hung test process running as an
+orphaned grandchild; fixed by killing the whole process tree on timeout instead — see §6 item 33).
+Immediately prior: two more `transformers`/`torch`-never-installed self-test failures — the same
+env-assumption bug class this session already fixed twice — caught by `VERIFY.bat`'s per-module
+self-test loop (a check `verify_all.py --snapshot` doesn't cover) in `engine/vlm.py` and
+`engine/pageqa.py`, fixed the same way as `test_pageqa.py` (`[1.48.0]`, item 32). Before that, all
+shipped 2026-08-31 → 2026-09-01 as part of a real-world-readiness push following an independent
+6-dimension audit: the first real backup restore drill (`[1.44.0]`, item 28); TLS support
 for LAN-exposed deployments (`[1.43.0]`, item 27); a stale-running-server visibility fix
 (`[1.42.0]`, item 26); a `part.html` failed-request/not-found conflation fix (`[1.41.0]`, item 25); a
 degraded-search-signal UI addition (`[1.45.0]`, item 29); accessibility work extended beyond `index.html`
 — real contrast fixes, modal focus traps, a generalized (then adversarially-caught-and-fixed) contrast
 guard (`[1.46.0]`/`[1.47.0]`, item 30). See each item below and their `CHANGELOG.md` entries for full
-detail — this paragraph was itself caught stale (still describing only `[1.43.0]`) while reconciling
-`[1.48.0]`, the exact documentation-drift pattern this file's own opening section describes recurring.
+detail — the previous version of this very paragraph was itself caught stale (still describing only
+`[1.43.0]`) while reconciling `[1.48.0]`, the exact documentation-drift pattern this file's own opening
+section describes recurring.
 
 Full detail on the TLS work specifically: a LAN-exposed VIEWER (`--host 0.0.0.0`) had
 `VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` authentication hardening but crossed the network in plaintext;
@@ -1054,6 +1060,28 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     checklist rather than treating `verify_all.py --snapshot` alone as sufficient. Verified: both
     self-tests pass cleanly post-fix, the full 68-module self-test loop is clean, `verify_all.py
     --snapshot` clean per the now-3 documented pre-existing flakes. See `CHANGELOG.md` `[1.48.0]`.
+33. **`[1.49.0]` — `tests/mutate.py` could hang for hours past its own `--timeout`, on Windows.** Running
+    `RUN-MUTATION.bat`'s 7-step sequence as direct commands (pre-release verification) hit a mutant in
+    `procedure_feature.py`'s blank-line-skip branch (`i += 1` → `i -= 1`) that puts `parse_procedure()`
+    into a genuine infinite loop — Python's negative-index wraparound means it never raises, it just
+    walks `i` backward forever. `run_test()`'s `subprocess.run(cmd, shell=True, timeout=timeout)` is
+    supposed to kill anything that takes longer than `--timeout`; on Windows, `shell=True` spawns an
+    intermediary `cmd.exe`, and `TimeoutExpired`'s kill only reaches that intermediary — the real hung
+    test process survives as an orphaned grandchild holding the inherited stdout pipe open, so
+    `communicate()`'s wait for pipe-EOF never returns and the timeout mechanism never actually fires.
+    Hung silently for 5+ hours (zero output, zero crash) before being caught purely because the wall-clock
+    made no sense. A second run (`rps.py`, step 4/7) was killed pre-emptively before it could repeat the
+    same failure, once the pattern was recognized. **Fixed**: `run_test()` now launches via `Popen`
+    directly and, on timeout, kills the whole process tree (`taskkill /F /T /PID <pid>` on Windows,
+    `Popen.kill()` elsewhere) instead of the single intermediary process. Verified directly: a
+    deliberately-hanging grandchild (`python -c "time.sleep(30)"` run through a shell wrapper) now times
+    out in ~3s under a 3s cap — previously this exact shape of command hung indefinitely; normal pass/fail
+    exit codes unaffected (checked against both `sys.exit(0)` and `sys.exit(1)`); a full real run against
+    `patterns.py` still restores the source and passes SHA-256 verification afterward. Both source files
+    left mutated on disk mid-run by the hang (`procedure_feature.py`, `rps.py`) were restored from their
+    `.orig` backups before anything else touched them. This is a defect in test tooling
+    `VERIFY.bat`/`RUN-ALL-VERIFY.bat` depend on, not in the application — filed as its own fix rather than
+    folded into the mutation-testing pass it was found during. See `CHANGELOG.md` `[1.49.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

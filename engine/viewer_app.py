@@ -33,7 +33,15 @@ try:
 except Exception:
     fitz = None
 
-VERSION = "1.41.0"
+VERSION = "1.42.0"
+
+# v1.42.0: version-staleness detection. STARTUP_VERSION/STARTUP_TIME are captured once, here, at
+# import time -- they never change for the life of the process, even if the code on disk changes
+# under it (e.g. a `git pull` onto a running server). Comparing them against a fresh read of the
+# on-disk VERSION line lets /healthz and /api/ops (and the UI banner they feed) tell an operator
+# "this running process is older than what's on disk -- restart it" instead of staying silent.
+STARTUP_VERSION = VERSION
+STARTUP_TIME = time.strftime("%Y-%m-%dT%H:%M:%S")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -201,6 +209,36 @@ def doc_path(doc_id):
         return (r["path"] if r else None)
     except Exception:
         return None
+
+
+# ---- version-staleness detection (v1.42.0) ---------------------------------------------------
+# Cheap regex re-read of this file's VERSION= line, cached with a short TTL so a burst of /healthz
+# or /api/ops polling doesn't do a file read per request. This is a plain `open()` + regex on a few
+# hundred bytes of THIS file -- never a re-import (sys.modules is untouched, the running
+# feature-module DI graph is undisturbed), and never `git` (the app runs stdlib-only on fielded
+# legacy machines; see the module docstring).
+_DISK_VERSION_RE = re.compile(r'VERSION\s*=\s*"([^"]+)"')
+_DISK_VERSION_TTL = 30.0
+_disk_version_cache = {"t": 0.0, "version": STARTUP_VERSION}
+
+
+def current_disk_version():
+    """Return the VERSION string currently on disk for this file, TTL-cached. Fails open: any
+    read/parse error just returns the last known value (or STARTUP_VERSION on the very first call)
+    instead of raising -- a health check must never break because of this."""
+    now = time.time()
+    if now - _disk_version_cache["t"] < _DISK_VERSION_TTL:
+        return _disk_version_cache["version"]
+    try:
+        with open(os.path.abspath(__file__), "r", encoding="utf-8") as f:
+            head = f.read(4096)
+        m = _DISK_VERSION_RE.search(head)
+        if m:
+            _disk_version_cache["version"] = m.group(1)
+    except Exception:
+        pass
+    _disk_version_cache["t"] = now
+    return _disk_version_cache["version"]
 
 
 # ---- exposure posture (v1.13): loopback is the mechanics' normal path and is unaffected. When the

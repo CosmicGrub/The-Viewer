@@ -182,6 +182,52 @@
     _footerNav();
   }
 
+  /* v1.42.0: version-staleness banner. /healthz now reports started_with_version/code_changed_since_start
+     (see engine/viewer_app.py's STARTUP_VERSION + current_disk_version()) -- a *running* process whose
+     code on disk has since been changed (e.g. a git pull'd over a server nobody restarted) otherwise looks
+     completely healthy: it answers requests fine, it just isn't running the fix anyone thinks it is. Shown
+     on EVERY page (unlike _footerNav, which skips home) since this is a team-wide correctness signal, not
+     per-page chrome. Deliberately NOT dismissible / no localStorage suppression -- a banner a mechanic can
+     click away and never see again defeats the point; it persists every load until the process is actually
+     restarted, at which point started_with_version naturally matches version again and this stops firing. */
+  function _staleBanner() {
+    try {
+      function paint(data) {
+        if (!data || !data.code_changed_since_start) return;
+        if (document.getElementById("vw-stalebanner")) return;
+        if (!document.body) return;
+        var b = document.createElement("div");
+        b.id = "vw-stalebanner";
+        b.setAttribute("role", "alert");
+        var msg = "⚠ Running code is stale — server started on v" +
+          (data.started_with_version || "?") + ", disk now has v" + (data.version || "?") +
+          ". Restart the server to pick up the fix.";
+        if (!document.querySelector('link[href="/base.css"]')) {
+          b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;" +
+            "background:#2a1210;color:#f5b8b3;border-bottom:1px solid #e0564f;" +
+            "padding:8px 14px;font:12px/1.4 -apple-system,Segoe UI,Arial,sans-serif;" +
+            "text-align:center";
+        } else {
+          b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;" +
+            "background:var(--red);color:#2a0d0b;border-bottom:1px solid var(--red);" +
+            "padding:8px 14px;font-size:12px;text-align:center;font-weight:600";
+        }
+        b.textContent = msg;
+        document.body.appendChild(b);
+      }
+      function check() {
+        getJSON("/healthz", paint, function () { /* transient failure -- never break the host page */ });
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", check);
+      } else {
+        check();
+      }
+      setInterval(check, 5 * 60 * 1000);   // v1.42.0: re-poll every 5 min, same cadence as this codebase's other background polls
+    } catch (e) { /* never break the host page over a staleness banner */ }
+  }
+  _staleBanner();
+
   /* Roadmap Now-tier item 3 (a11y): a shared focus trap for modal dialogs, modeled on palette.js's
      own inline Tab-trap/focus-restore/Escape handling (cmdk, the only correct implementation of
      this in the codebase before now) but generalized so index.html's other modals (#sidegate,

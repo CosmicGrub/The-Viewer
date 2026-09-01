@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.41.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.42.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -43,8 +43,13 @@ its `fetch()` call sites, so a technician had no visible sign that a failed conf
 fastener check had happened at all, not merely found nothing; `gj()` now resolves an honest
 `{ok,status,body}`, every site shows a distinct "couldn't load" vs. honest-empty message, and two real
 bugs (an always-truthy `s.title` empty-test, and a shared-card overwrite race) were caught live while
-verifying and fixed before shipping (`[1.41.0]`) — see the reconciliation notes below and §8 items
-12–23). This document +
+verifying and fixed before shipping (`[1.41.0]`); then version-staleness detection — a server left
+running across a `git pull` looked completely healthy while quietly running stale code, with nothing
+recording when it started or whether its code still matched disk; fixed with `STARTUP_VERSION`/
+`STARTUP_TIME` captured once at import, a TTL-cached on-disk `VERSION=` re-read (never a re-import,
+never `git`), new fields on `/healthz`/`/api/ops`, and a non-dismissible whole-site banner in
+`shared.js` that clears itself once the process is actually restarted (`[1.42.0]`) — see the
+reconciliation notes below and §8 item 25). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -649,6 +654,25 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     all 15 call sites in-browser, each showing its own distinct failure message. No real browser/JS
     test harness exists for any UI page in this repo (confirmed) — new coverage follows the existing
     static-source-text-assertion convention instead. See `CHANGELOG.md` `[1.41.0]`.
+25. **`[1.42.0]` — version-staleness detection: a stale running server is now visible, not silent**:
+    nothing anywhere recorded when the process started or whether its code still matched disk, so a
+    server left running across a `git pull` (or any on-disk edit that never got a restart) answered
+    every request fine while quietly running stale code. Fixed by capturing `STARTUP_VERSION`/
+    `STARTUP_TIME` once, at import (`engine/viewer_app.py`), and adding `current_disk_version()` — a
+    TTL-cached (30s) plain `open()`+regex re-read of just the `VERSION =` line, never a re-import
+    (`sys.modules`/the running DI graph are untouched) and never `git` (stdlib-only by design). New
+    `started_with_version`/`started_at`/`code_changed_since_start` fields on `/healthz` and `/api/ops`
+    (the existing `version` field is unchanged — still the in-memory version actually running). A
+    non-dismissible banner self-injects from `shared.js` (`#vw-stalebanner`, the `_footerNav`
+    self-injecting/id-guarded pattern) on every page, polling `/healthz` on load and every 5 minutes,
+    with deliberately no dismiss/`localStorage` suppression — the exact "silent for weeks" failure mode
+    this closes — clearing itself automatically once the process is actually restarted. `ops.html` gets
+    a dedicated "Code freshness" stat card. New test `test_version_staleness.py`: real
+    `ThreadingHTTPServer`, confirms no mismatch on a fresh process, safely rewrites the real on-disk
+    `VERSION =` line (saved/restored in `try`/`finally`), confirms the mismatch **is** reported on both
+    endpoints, confirms a second genuinely-fresh subprocess against that same changed file reports
+    **no** mismatch, and confirms the TTL cache keeps 20 back-to-back `/healthz` calls fast. See
+    `CHANGELOG.md` `[1.42.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

@@ -4,6 +4,20 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, twenty-first pass):** running `VERIFY.bat`'s full per-module
+> self-test loop (~68 modules) as part of pre-release verification — a check `verify_all.py --snapshot`
+> doesn't cover — surfaced two more instances of the exact env-assumption bug this session already fixed
+> twice the same day (`test_routes.py`, `test_pageqa.py`): a hardcoded assumption that
+> `transformers`/`torch` are never installed, broken once `sentence-transformers` pulled them in earlier
+> this session. `engine/vlm.py`'s self-test called `ask()`/`ground()` with no explicit backend, relying
+> on `_load_backend()` finding nothing — once `vlm_backend.py`'s default Florence-2 backend became
+> importable, `available` flipped from the expected `False` to `True`. `engine/pageqa.py`'s self-test hit
+> a subtler cascade: `pageqa.available()` is `vlm.available() and _gpu_tier()`, so once `vlm.available()`
+> flipped, that gate silently passed on this real GPU-equipped machine and fell through to a real
+> page-render attempt instead of the intended "no backend" short-circuit. Same fix both places: force
+> `VIEWER_VLM` to a genuinely-nonexistent module name before the "no backend" assertions, matching the
+> identical fix already applied to `test_pageqa.py`. Shipped as `[1.48.0]`. `main` is at `[1.48.0]`.
+>
 > **Reconciliation note (2026-09-01, twentieth pass):** an adversarial-verification pass on the
 > nineteenth-pass accessibility work (`[1.46.0]`, directly below) found three real, confirmed,
 > blocking issues, all fixed here and shipped as `[1.47.0]`. **(1) The "generalized" contrast guard

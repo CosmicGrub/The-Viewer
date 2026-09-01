@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.47.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.48.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -87,7 +87,11 @@ guard's own headline claim was never true (fixed, adversarially re-verified by i
 corrected state 146 pairs/117 OK/0 FAIL/29 SKIP); the zero-ARIA disclosure list's "27 vs. 30 names"
 mismatch and `review.html`'s omission, corrected to the real 31-page list everywhere; and the false
 "0 flakes / 61/61 GREEN" claim, corrected to the real, honestly-reported `verify_all.py --snapshot`
-result (`[1.47.0]`) — see the reconciliation notes below and §8 items 25–30). This document +
+result (`[1.47.0]`); then two more `transformers`/`torch`-never-installed env-assumption self-test
+failures — the same bug class this session already fixed twice — found by `VERIFY.bat`'s per-module
+self-test loop (a check `verify_all.py --snapshot` doesn't cover) in `engine/vlm.py` and
+`engine/pageqa.py`, fixed the same way as `test_pageqa.py` (`[1.48.0]`) — see the reconciliation notes
+below and §8 items 25–31). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -793,6 +797,20 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     no-concurrent-edits run got 60/61 (`test_routes.py`'s pre-existing `/api/ask` timeout, reproduced
     standalone), another run flagged `test_http.py`'s equally pre-existing `/api/pageqa` timeout
     instead — corrected to report reality. See `CHANGELOG.md` `[1.47.0]`.
+31. **`[1.48.0]` — two more `transformers`/`torch`-never-installed self-test failures, same bug class
+    already fixed twice this session.** `VERIFY.bat`'s per-module self-test loop (~68 modules) — a check
+    `verify_all.py --snapshot` never runs — surfaced `engine/vlm.py`'s and `engine/pageqa.py`'s own
+    `__main__` self-tests hardcoding the assumption that `transformers`/`torch` are never installed.
+    `vlm.py`'s self-test called `ask()`/`ground()` with no explicit backend, expecting `_load_backend()`
+    to find nothing; once `vlm_backend.py`'s default Florence-2 backend became importable, `available`
+    flipped from the expected `False` to `True`. `pageqa.py`'s failure was a subtler cascade:
+    `pageqa.available()` is `vlm.available() and _gpu_tier()`, so once `vlm.available()` flipped, that
+    gate silently passed on this real GPU-equipped machine and fell through to a real page-render
+    attempt instead of the intended "no backend" short-circuit. Both fixed by forcing `VIEWER_VLM` to a
+    genuinely-nonexistent module name before the "no backend" assertions — the identical fix already
+    applied to `test_pageqa.py`. Verified: both self-tests pass cleanly post-fix; the full 68-module
+    self-test loop is clean; `verify_all.py --snapshot` clean per the now-3 documented pre-existing
+    flakes. See `CHANGELOG.md` `[1.48.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

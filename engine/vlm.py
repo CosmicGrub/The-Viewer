@@ -116,6 +116,16 @@ def ground(image, phrase, _backend=None):
 
 
 if __name__ == "__main__":
+    # v1.47: force a genuinely-nonexistent VIEWER_VLM module name for the "no backend" checks below,
+    # rather than relying on the ambient environment never having a real vlm_backend/transformers/torch
+    # installed. That ambient-absence assumption broke for real this session: once sentence-transformers
+    # (and its transformers/torch deps) got installed, vlm_backend's default Florence-2 backend became
+    # importable, so _load_backend() started returning a real (if ultimately failing-to-load) backend --
+    # available flipped to True and these hardcoded "available is False" asserts failed. Forcing the env
+    # var here makes _load_backend()'s __import__() fail deterministically regardless of what happens to
+    # be installed, matching the same fix already applied to engine/tests/test_pageqa.py.
+    os.environ["VIEWER_VLM"] = "definitely_not_a_real_vlm_backend_module_xyz123"
+
     # with no backend installed, it must degrade cleanly (never crash)
     r = ask("anything.png", "what is this?")
     assert r["available"] is False and r["answer"] is None and "§10.1" in r["note"], r

@@ -6,8 +6,17 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 250 | 1.47.0 — adversarial verification of [1.46.0]: 3 real, confirmed, blocking issues fixed | 141 |
+| 251 | 1.48.0 — two more module self-tests hit the same env-assumption bug this session already found twice | 141 |
 
+
+---
+
+## [1.48.0] — 2026-09-01 — two more module self-tests hit the same env-assumption bug this session already found twice
+`FIX`
+
+- **VERSION → `1.48.0`.** Running `VERIFY.bat`'s full per-module self-test loop (~68 modules, `python -B <module>.py`) as part of pre-release verification — a check `verify_all.py`'s own suite doesn't cover — surfaced two more instances of the exact bug class this session already found and fixed twice this same day (`test_routes.py`, `test_pageqa.py`): a module's own `__main__` self-test hardcoding the assumption that `transformers`/`torch` are never installed in this environment, which broke for real once `sentence-transformers` (and its `transformers`/`torch` deps) got installed earlier this session.
+- **`engine/vlm.py`**: its self-test called `ask()`/`ground()` with no explicit `_backend=`, relying on `_load_backend()` finding nothing. Once `vlm_backend.py`'s default Florence-2 backend became importable, `_load_backend()` started returning a real (if ultimately failing-to-load) backend — `available` flipped from the expected `False` to `True`, and the hardcoded `assert ... is False` calls failed. Fixed by forcing `VIEWER_VLM` to a genuinely-nonexistent module name before the "no backend" assertions, making `_load_backend()`'s `__import__()` fail deterministically regardless of what happens to be installed — the identical fix already applied to `test_pageqa.py`.
+- **`engine/pageqa.py`**: a subtler cascade of the same root cause. `pageqa.available()` is `vlm.available() and _gpu_tier()` — once `vlm.available()` started returning `True`, that gate silently passed on this real GPU-equipped dev machine, skipping straight past the intended "no backend installed" short-circuit and falling through to a real page-render attempt for a doc/page that doesn't exist in the self-test's fixture-free context — surfacing as a confusing "could not render doc 1 page 1" note instead of the intended "no backend" one. Same fix: force `VIEWER_VLM` to a nonexistent module name before the self-test's "no backend" assertions. **Not found by any test suite until now** — `verify_all.py --snapshot` (run dozens of times across this session) never exercises these two modules' own `__main__` self-test blocks; only `VERIFY.bat`'s dedicated per-module self-test loop does. A real, concrete argument for keeping that gate in the pre-release checklist rather than treating `verify_all.py --snapshot` as sufficient on its own. **Verified:** `python -B vlm.py` and `python -B pageqa.py` both pass cleanly post-fix; the full 68-module self-test loop (`VERIFY.bat`'s gate 6) is clean; `engine/tests/verify_all.py --snapshot` clean per the now-3 documented pre-existing flakes.
 
 ---
 

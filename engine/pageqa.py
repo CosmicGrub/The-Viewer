@@ -401,8 +401,21 @@ def ask(doc_id, page, question, mode="text", strict=False, db_path=None, _backen
 # no real backend/DB/PDF needed -- graceful degrade + an injectable fake)     #
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
-    # no backend installed (this dev/CI environment has neither transformers nor a GPU) -> must degrade
-    # cleanly, never crash, same contract vlm.py itself already guarantees one layer down.
+    # v1.47: force a genuinely-nonexistent VIEWER_VLM module name, rather than relying on the ambient
+    # environment never having transformers/torch installed. That assumption broke for real this session:
+    # once sentence-transformers (and its transformers/torch deps) got installed, vlm.available() started
+    # returning True -- and since this module's own available() is `vlm.available() and _gpu_tier()`, on
+    # a real GPU-equipped dev machine that whole gate silently passed, skipping straight past the "no
+    # backend" short-circuit (line ~360) into a real page-render attempt for a doc/page that doesn't
+    # exist in this self-test's fixture-free context, surfacing as a confusing "could not render doc 1
+    # page 1" note instead of the intended "no backend installed" one. Forcing the env var here makes
+    # vlm.available() -- and therefore this module's available() -- return False deterministically
+    # regardless of what happens to be installed or which GPU this host has, matching the identical fix
+    # already applied to engine/vlm.py's own self-test and engine/tests/test_pageqa.py.
+    os.environ["VIEWER_VLM"] = "definitely_not_a_real_vlm_backend_module_xyz123"
+
+    # no backend installed -> must degrade cleanly, never crash, same contract vlm.py itself already
+    # guarantees one layer down.
     r = ask(1, 1, "what is this?")
     assert r["available"] is False and r["answer_text"] is None and r["trust_tier"] is None, r
     assert r["verified"] is False and r["region"] is None, r

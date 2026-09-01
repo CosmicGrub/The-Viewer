@@ -139,7 +139,16 @@ def _hex_tokens(path):
     return dict(re.findall(r"--([\w-]+)\s*:\s*(#[0-9a-fA-F]{6})", block))
 
 
-_CLASS_TOKEN_RE = re.compile(r"^\.[A-Za-z0-9_-]+$")
+# v1.47: was `^\.[A-Za-z0-9_-]+$` -- the character class had no `.` in it, so a compound-class
+# token like `.tag.bad` (a SECOND `.` before "bad") could never match at all. Since _parse_css_rules()
+# gates BOTH the single- and compound-selector branches behind this one check, every compound-selector
+# rule on every page was silently discarded before parsing -- `compound` was provably always empty and
+# that whole code path was dead, directly contradicting this scanner's own stated purpose of catching
+# a regression to a real compound-selector failure like status.html's `.tag.bad`. Fixed: match one OR
+# MORE `.class` segments concatenated with no separator (`(\.[A-Za-z0-9_-]+)+`), which still matches a
+# lone `.tag` (one repetition) and now also matches `.tag.bad` (two repetitions) -- `_classes_in()`
+# already knows how to pull every class out of either shape via `_CLASS_FIND_RE.findall()`.
+_CLASS_TOKEN_RE = re.compile(r"^(?:\.[A-Za-z0-9_-]+)+$")
 _CLASS_FIND_RE = re.compile(r"\.[A-Za-z0-9_-]+")
 _VAR_RE = re.compile(r"var\(\s*--([\w-]+)")
 _STYLE_BLOCK_RE = re.compile(r"<style[^>]*>(.*?)</style>", re.S)

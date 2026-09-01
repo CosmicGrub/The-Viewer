@@ -4,6 +4,53 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, twentieth pass):** an adversarial-verification pass on the
+> nineteenth-pass accessibility work (`[1.46.0]`, directly below) found three real, confirmed,
+> blocking issues, all fixed here and shipped as `[1.47.0]`. **(1) The "generalized" contrast guard
+> couldn't actually catch compound-selector failures.** `verify_ui.py`'s `_is_pure_class_selector()`
+> used the regex `^\.[A-Za-z0-9_-]+$`, which has no `.` in its character class — it could never match
+> a multi-class token like `.tag.bad` (a second `.` before "bad"). `_parse_css_rules()` gated *both*
+> the single- and compound-selector branches behind this one check, so every compound-selector rule on
+> every page was silently discarded before parsing — the `compound` dict was provably always empty and
+> that code path was dead, directly contradicting `[1.46.0]`'s own claim of closing "exactly the gap
+> that let `status.html`'s real `.tag.bad` failure ship invisibly before" (`.tag.bad` **is** a compound
+> selector). Confirmed via a real adversarial test: injecting a genuine severe-contrast rule as
+> `.injectedbad.contrast{color:#333333;background:#222222}` into `status.html` was **not** caught (the
+> scan's own pair count stayed at 146, 0 FAIL) before the fix. **Fixed**: the regex now matches
+> one-or-more `.class` segments (`^(?:\.[A-Za-z0-9_-]+)+$`), so a single class still matches (one
+> repetition) and a compound chain now also matches (two-plus repetitions) — `_classes_in()` already
+> knew how to pull every class out of either shape. Re-ran the identical adversarial test after the
+> fix: the pair count rose to 147 and the injected rule was correctly flagged `FAIL -- 1.26:1, below
+> the 4.5:1 floor`; the injection was then fully reverted (`git diff` on `status.html` clean, 146/0
+> FAIL restored). The scanner's real, corrected final state across the real 48 pages is **146
+> class/descendant pairs, 117 OK, 0 FAIL, 29 SKIP** (vs. `[1.46.0]`'s claimed-but-never-actually-live
+> 67/51/0/16). **(2) A disclosure-list count/list mismatch, repeated across all 5 canonical docs.**
+> Every doc said "27 pages still carry zero ARIA" while enumerating exactly 30 names (`CHANGELOG.md`
+> even self-flagged this: "that's 30 names", unresolved). Separately, `review.html` is genuinely
+> zero-ARIA (confirmed: zero occurrences of `aria-`/`role=`), was untouched by `[1.46.0]`, and was
+> absent from every one of the "named in full" lists in all 5 docs — despite `[1.46.0]`'s own stated
+> ethos being "not silently implied as covered." **Fixed**: recounted the real zero-ARIA page set
+> directly from `ui/*.html` (fresh grep, not trusted from the prior draft) — **31 pages** (32 total
+> zero-ARIA pages minus `cadtex_test.html`, excluded on the same unreachable-route basis `[1.46.0]`
+> already established), the 30 original names plus `review.html`. The number and the enumerated list
+> now agree everywhere: `CHANGELOG.md`, `PROJECT-SUMMARY.md`, `MASTER-RECONCILIATION.md`,
+> `HANDOFF-NOTE.md` (this file, nineteenth-pass note below), `ITERATION-SNAPSHOTS.md` (regenerated via
+> `build_iteration_snapshot.py` from the corrected `CHANGELOG.md`, never hand-edited). **(3) A false
+> "0 flakes / 61/61 GREEN" claim.** `[1.46.0]`'s PR body, `CHANGELOG.md`, this file, `PROJECT-SUMMARY.md`,
+> and `ITERATION-SNAPSHOTS.md` all identically claimed "61/61 GREEN, 0 failures... no flakes needed
+> this run." Three independent re-runs of `verify_all.py --snapshot` this pass never once reproduced
+> that exact "0 flakes" outcome: the authoritative run (zero files touched anywhere in the repo for its
+> whole duration) got **60/61**, `test_routes.py`'s pre-existing `/api/ask` timeout — re-ran
+> `test_routes.py` standalone immediately after and reproduced the same timeout. An earlier run flagged
+> `test_http.py`'s equally pre-existing `/api/pageqa` timeout instead; both are already documented as
+> pre-existing, load-sensitive flakes in this repo's house rules, alongside `test_ingest_routes.py`.
+> The specific "no flakes occurred" claim was still false as stated, whichever of the two actually
+> fired on a given run. **Fixed**: this pass's own three `verify_all.py --snapshot` runs are reported
+> exactly as observed, not assumed clean — see `CHANGELOG.md` `[1.47.0]` for the literal results,
+> including the two runs whose `safeguard verify` failures were this pass's own concurrent doc edits
+> (not real corruption) and the third, clean run that confirms it. No app behavior changed by this pass
+> beyond `engine/verify_ui.py`'s regex fix; everything else is documentation correction.
+>
 > **Reconciliation note (2026-09-01, nineteenth pass):** a research pass re-verified `[1.29.0]`'s own
 > accessibility disclosure against the real files (grepping all 48 pages for `aria-`/`role=`, reading
 > `verify_ui.py`/`shared.js` in full) and found a correction to its own numbers: `status.html`'s
@@ -39,14 +86,20 @@
 > `aria-live="polite"` result regions, dialog semantics) landed on 10 pages — `collections`, `threed`,
 > `status`, `schematics`, `verify`, `jobcard`, `part`, `visual`, `procedure`, `demo` — scoped from
 > real (thin) click-analytics traffic plus the pages already open for the contrast/modal work above.
-> **Honestly left open, same disclosure convention as `[1.29.0]`**: 27 pages still carry zero ARIA of
-> their own, named in full in `CHANGELOG.md` `[1.46.0]`; `cadtex_test.html` confirmed unreachable
-> through any route in `static.py`'s dispatch table and excluded from the ARIA pass on that basis.
-> Shipped as `[1.46.0]`. Verified: `engine/tests/verify_all.py --snapshot` — **61/61 GREEN, 0
-> failures**, no flakes needed this run. One pre-existing, unrelated failure found (not fixed, out of
-> scope) while running `verify_ui.py` standalone: `index.html` declares an inline `function esc(...)`
-> while also loading `/shared.js`, tripping the separate shared.js-dedup guard — confirmed present on
-> `origin/main` before this branch, not reachable from `verify_all.py --snapshot`'s own suite.
+> **Honestly left open, same disclosure convention as `[1.29.0]`**: 31 pages still carry zero ARIA of
+> their own, named in full in `CHANGELOG.md` `[1.46.0]` (including `review.html`, restored to the
+> list by a follow-up adversarial-verification fix — it was genuinely zero-ARIA but had been omitted
+> from every one of the 5 canonical docs' lists in the original pass); `cadtex_test.html` confirmed
+> unreachable through any route in `static.py`'s dispatch table and excluded from the ARIA pass on
+> that basis.
+> Shipped as `[1.46.0]`. Verified (as originally claimed when this pass shipped): `engine/tests/
+> verify_all.py --snapshot` — **61/61 GREEN, 0 failures**, no flakes needed this run. **See the
+> twentieth-pass note above: this "no flakes" claim, and the WCAG scan's compound-selector coverage
+> claim above, were both found false by adversarial verification and corrected in `[1.47.0]`.**
+> One pre-existing, unrelated failure found (not fixed, out of scope) while running `verify_ui.py`
+> standalone: `index.html` declares an inline `function esc(...)` while also loading `/shared.js`,
+> tripping the separate shared.js-dedup guard — confirmed present on `origin/main` before this branch,
+> not reachable from `verify_all.py --snapshot`'s own suite.
 >
 > **Reconciliation note (2026-09-01, eighteenth pass):** `hybrid.hybrid_search()` (behind
 > `/api/search_hybrid`, the search UI's primary endpoint) called `embed.search()` but kept only

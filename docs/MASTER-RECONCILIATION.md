@@ -994,10 +994,30 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     `aria-live` result regions, dialog semantics) landed on 10 pages this pass — `collections`,
     `threed`, `status`, `schematics`, `verify`, `jobcard`, `part`, `visual`, `procedure`, `demo` —
     scoped from real (thin) click-analytics traffic plus the pages already open for the contrast/modal
-    work. **Honestly left open, same disclosure convention as `[1.29.0]`**: 27 pages still carry zero
-    ARIA (named in full in `CHANGELOG.md` `[1.46.0]`); `cadtex_test.html` confirmed unreachable through
-    any route and excluded on that basis. `verify_all.py --snapshot`: 61/61 GREEN, no flakes needed.
+    work. **Honestly left open, same disclosure convention as `[1.29.0]`**: 31 pages still carry zero
+    ARIA (named in full in `CHANGELOG.md` `[1.46.0]`, including `review.html` — omitted from every
+    one of the 5 canonical docs' lists in the original pass and restored by a follow-up adversarial
+    fix); `cadtex_test.html` confirmed unreachable through any route and excluded on that basis.
     See `CHANGELOG.md` `[1.46.0]`.
+31. **`[1.47.0]` — adversarial verification of `[1.46.0]` found 3 real, confirmed, blocking issues;
+    all fixed.** (1) `verify_ui.py`'s "generalized" contrast guard's `_is_pure_class_selector()` regex
+    had no `.` in its character class, so it could never match a compound-class token like `.tag.bad`
+    — `_parse_css_rules()` gated both the single- and compound-selector branches behind that one
+    check, so every compound-selector rule on every page was silently discarded before parsing,
+    directly contradicting `[1.46.0]`'s claim of closing the gap that let `status.html`'s real
+    `.tag.bad` failure ship invisibly. Confirmed via a real adversarial test (injecting
+    `.injectedbad.contrast{color:#333333;background:#222222}` into `status.html` — not caught before
+    the fix); fixed (regex now matches one-or-more `.class` segments) and re-verified the same way
+    (pair count 146→147, correctly flagged `FAIL -- 1.26:1`, injection then fully reverted). Real
+    corrected scan state: 146 pairs, 117 OK, 0 FAIL, 29 SKIP. (2) The zero-ARIA disclosure list said
+    "27 pages" while enumerating 30 names, and omitted `review.html` (genuinely zero-ARIA, untouched
+    by `[1.46.0]`) from every one of the 5 canonical docs' lists — recounted directly from
+    `ui/*.html`; the real count is 31, list corrected everywhere. (3) `[1.46.0]`'s "61/61 GREEN, 0
+    failures... no flakes needed this run" claim was false — three re-runs this pass never once
+    reproduced 0 flakes: the authoritative run (no concurrent edits) got 60/61 (`test_routes.py`'s
+    pre-existing `/api/ask` timeout, reproduced standalone), an earlier run flagged `test_http.py`'s
+    equally pre-existing `/api/pageqa` timeout instead — corrected to report the real results
+    honestly. See `CHANGELOG.md` `[1.47.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

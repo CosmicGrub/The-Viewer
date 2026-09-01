@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.45.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.47.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -80,8 +80,14 @@ itself since both gates toggle via CSS class rather than inline style; `verify_u
 rewritten from a 3-pair hardcoded list to a real per-page scan across all 48 UI pages with
 cascade-aware token resolution, catching 2 more previously-unknown real failures in the process; and
 baseline ARIA landed on 10 more pages with the remaining zero-ARIA pages honestly named as still
-open, matching `[1.29.0]`'s own disclosure convention (`[1.46.0]`) — see the reconciliation notes
-below and §8 items 25–29). This document +
+open, matching `[1.29.0]`'s own disclosure convention (`[1.46.0]`); then an adversarial-verification
+pass on that work found 3 real, confirmed, blocking issues and fixed all three — the WCAG scanner's
+compound-selector regex that could never actually match a token like `.tag.bad`, so the "generalized"
+guard's own headline claim was never true (fixed, adversarially re-verified by injection/revert, real
+corrected state 146 pairs/117 OK/0 FAIL/29 SKIP); the zero-ARIA disclosure list's "27 vs. 30 names"
+mismatch and `review.html`'s omission, corrected to the real 31-page list everywhere; and the false
+"0 flakes / 61/61 GREEN" claim, corrected to the real, honestly-reported `verify_all.py --snapshot`
+result (`[1.47.0]`) — see the reconciliation notes below and §8 items 25–30). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -776,6 +782,17 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     `procedure`, `demo` — with the remaining zero-ARIA pages honestly named as still open in
     `CHANGELOG.md` `[1.46.0]`, matching `[1.29.0]`'s own disclosure convention rather than implying
     full coverage. See `CHANGELOG.md` `[1.46.0]`.
+30. **`[1.47.0]` — adversarial verification of `[1.46.0]` found 3 real, confirmed, blocking issues;
+    all fixed.** The WCAG contrast guard's compound-selector regex could never actually match a token
+    like `.tag.bad`, so its own headline claim (closing the gap that let `status.html`'s real
+    `.tag.bad` failure ship invisibly) was never true — confirmed by adversarial injection, fixed, and
+    re-verified the same way (real corrected scan state: 146 pairs, 117 OK, 0 FAIL, 29 SKIP). The
+    zero-ARIA disclosure list's "27 vs. 30 names" mismatch and `review.html`'s omission from every one
+    of the 5 canonical docs, corrected to the real 31-page list everywhere. The "0 flakes / 61/61
+    GREEN" claim was false — three re-runs this pass never reproduced it: the authoritative
+    no-concurrent-edits run got 60/61 (`test_routes.py`'s pre-existing `/api/ask` timeout, reproduced
+    standalone), another run flagged `test_http.py`'s equally pre-existing `/api/pageqa` timeout
+    instead — corrected to report reality. See `CHANGELOG.md` `[1.47.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

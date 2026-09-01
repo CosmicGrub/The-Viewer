@@ -19,17 +19,22 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
 th{color:var(--sub);font-weight:500}
 .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--p2);color:var(--sub);border:1px solid var(--line)}
-.tag.warn{color:var(--amb);border-color:#5a4a1f}.tag.ok{color:var(--grn);border-color:#1f5a37}.tag.bad{color:var(--red);border-color:#5a2420}
+.tag.warn{color:var(--amb);border-color:#5a4a1f}.tag.ok{color:var(--grn);border-color:#1f5a37}
+/* v1.45: .tag.bad's text was var(--red) (base #e0564f) on .tag's var(--p2) background -- 4.18:1,
+   below the 4.5:1 AA text floor. --red-tx is the existing text-safe sibling (docs/CHANGELOG.md v1.29).
+   NOTE: .tag.ok is intentionally left untouched -- this page's own :root above overrides --grn to a
+   brighter #2f9d63 that already clears 4.5:1 against --p2 (4.56:1); it is not a real failure. */
+.tag.bad{color:var(--red-tx);border-color:#5a2420}
 button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
 button:hover{background:var(--p2)}input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:240px}
 .pill{font-size:12px;color:var(--sub)}
-</style><script src="/rps.js"></script></head><body><div class="wrap">
+</style><script src="/rps.js"></script></head><body><div class="wrap" role="main" aria-label="System status dashboard">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>THE VIEWER — System Status</h1><div class="muted" id="gen">loading…</div></div>
   <div><a href="/">← back to search</a> &nbsp; <button onclick="loadAll()">↻ Refresh</button></div>
 </div>
 
-<div class="row" id="metrics"></div>
+<div class="row" id="metrics" aria-live="polite"></div>
 
 <div class="sec card" id="rpscard">
   <h2>Run mode <span class="pill" id="rpsnow">…</span></h2>
@@ -65,13 +70,13 @@ button:hover{background:var(--p2)}input{background:var(--p2);color:var(--txt);bo
   <div class="muted" style="margin-bottom:8px">Same NIIN written as different NSN strings. <span class="tag bad">FSC conflict</span> = different supply class on one NIIN (likely an extraction error). Your decisions are saved append-only (history kept); the main index is never changed.</div>
   <div style="margin-bottom:8px"><button id="niinfilter" onclick="toggleNiin()">Show: pending</button>
     <span class="pill" id="niinprog" style="margin-left:8px"></span></div>
-  <table id="niintbl"><thead><tr><th>NIIN</th><th>variants</th><th>flag</th><th>decision</th></tr></thead><tbody></tbody></table>
+  <table id="niintbl" aria-live="polite"><thead><tr><th>NIIN</th><th>variants</th><th>flag</th><th>decision</th></tr></thead><tbody></tbody></table>
 </div>
 
 <div class="sec card">
   <h2>Fault → parts (predictive, from your logged history)</h2>
-  <div style="margin:6px 0"><input id="faultq" placeholder="e.g. brake air leak" onkeydown="if(event.key==='Enter')loadFault()"> <button onclick="loadFault()">Suggest parts</button></div>
-  <div id="faultout" class="muted">Type a fault to see the parts most often requested for similar faults.</div>
+  <div style="margin:6px 0"><input id="faultq" placeholder="e.g. brake air leak" aria-label="Fault description to look up commonly-requested parts" onkeydown="if(event.key==='Enter')loadFault()"> <button onclick="loadFault()">Suggest parts</button></div>
+  <div id="faultout" class="muted" aria-live="polite">Type a fault to see the parts most often requested for similar faults.</div>
 </div>
 
 <div class="muted" style="margin-top:24px">Read-only dashboard. Counts come from the live index; correlations from the optional sidecar. Run <code>engine\run_safeguard.bat snapshot</code> on Windows to protect your files.</div>

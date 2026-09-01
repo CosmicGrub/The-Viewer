@@ -965,6 +965,59 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     simulated. Test server killed by PID matched via `netstat` to its own port only; the pre-existing
     background rebuild was never touched. Verified: `verify_all.py --snapshot` clean except the three
     now-documented pre-existing flakes. See `CHANGELOG.md` `[1.45.0]`.
+30. **`[1.46.0]` — accessibility work extended beyond `index.html`: real contrast fixes, modal focus
+    traps, a generalized contrast guard.** A research pass re-verified `[1.29.0]`'s own accessibility
+    disclosure against the real files and found a correction to its numbers: `status.html`'s `.tag.ok`
+    was carried on prior lists as a 3.10:1 WCAG failure, but that figure is base.css's un-overridden
+    `--grn` — this page's own local `--grn:#2f9d63` override actually measures 4.56:1, a genuine pass,
+    left untouched here. `demo.html`'s full local `:root` token override (shadowing all 12 of
+    base.css's tokens, plus `--grn2`, which base.css lacked) is gone — every value matched base.css
+    exactly except `--red` (`#c4585a` vs. base's `#e0564f`), the direct cause of a real
+    `.warn .n` contrast failure (3.94:1 → 6.13:1 fixed via the existing `--red-tx` token). Two more
+    confirmed real failures fixed the same way: `status.html` `.tag.bad` (4.18:1 → 5.65:1) and
+    `index.html`'s 2 remaining inline `color:var(--red)` stragglers (4.53:1, a narrow existing pass,
+    swapped to `--red-tx` anyway for consistency, now 6.13:1). `schematics.html`/`threed.html`'s gate
+    modals now carry `role="dialog" aria-modal="true"` + `VW.trapFocus()`, which required generalizing
+    `shared.js`'s `trapFocus()` itself: both pages toggle their gate via `classList.add/remove('on')`
+    against a CSS rule, never touching the inline `style` attribute `trapFocus()` originally watched —
+    attaching it as-is would have silently never trapped focus. `isVisible()` now reads
+    `getComputedStyle()`, the `MutationObserver` now watches both `style` and `class`, and Escape
+    detects which convention is live before closing — verified live in a real browser for both pages,
+    `index.html`'s 5 existing modals confirmed unaffected. `verify_ui.py`'s WCAG guard rewritten from a
+    3-pair hardcoded list (that only ever opened `base.css`/`index.html`) to a real per-page scan
+    across all 48 `ui/*.html` pages with cascade-aware token resolution (each page's own `:root{}`
+    override layered on `base.css`'s) — exactly the gap that let `status.html`'s real failure ship
+    invisibly. The new scan itself caught 2 more previously-unknown real failures while being built
+    (`index.html`'s `.sheetprev .e`, `measures.html`'s `.em .tagx`, both fixed) and one bug in the
+    scanner's own logic (a descendant selector's self-declared background was being ignored in favor
+    of its ancestor's, caught and fixed before landing). Baseline ARIA (`role="main"`, `aria-label`s,
+    `aria-live` result regions, dialog semantics) landed on 10 pages this pass — `collections`,
+    `threed`, `status`, `schematics`, `verify`, `jobcard`, `part`, `visual`, `procedure`, `demo` —
+    scoped from real (thin) click-analytics traffic plus the pages already open for the contrast/modal
+    work. **Honestly left open, same disclosure convention as `[1.29.0]`**: 31 pages still carry zero
+    ARIA (named in full in `CHANGELOG.md` `[1.46.0]`, including `review.html` — omitted from every
+    one of the 5 canonical docs' lists in the original pass and restored by a follow-up adversarial
+    fix); `cadtex_test.html` confirmed unreachable through any route and excluded on that basis.
+    See `CHANGELOG.md` `[1.46.0]`.
+31. **`[1.47.0]` — adversarial verification of `[1.46.0]` found 3 real, confirmed, blocking issues;
+    all fixed.** (1) `verify_ui.py`'s "generalized" contrast guard's `_is_pure_class_selector()` regex
+    had no `.` in its character class, so it could never match a compound-class token like `.tag.bad`
+    — `_parse_css_rules()` gated both the single- and compound-selector branches behind that one
+    check, so every compound-selector rule on every page was silently discarded before parsing,
+    directly contradicting `[1.46.0]`'s claim of closing the gap that let `status.html`'s real
+    `.tag.bad` failure ship invisibly. Confirmed via a real adversarial test (injecting
+    `.injectedbad.contrast{color:#333333;background:#222222}` into `status.html` — not caught before
+    the fix); fixed (regex now matches one-or-more `.class` segments) and re-verified the same way
+    (pair count 146→147, correctly flagged `FAIL -- 1.26:1`, injection then fully reverted). Real
+    corrected scan state: 146 pairs, 117 OK, 0 FAIL, 29 SKIP. (2) The zero-ARIA disclosure list said
+    "27 pages" while enumerating 30 names, and omitted `review.html` (genuinely zero-ARIA, untouched
+    by `[1.46.0]`) from every one of the 5 canonical docs' lists — recounted directly from
+    `ui/*.html`; the real count is 31, list corrected everywhere. (3) `[1.46.0]`'s "61/61 GREEN, 0
+    failures... no flakes needed this run" claim was false — three re-runs this pass never once
+    reproduced 0 flakes: the authoritative run (no concurrent edits) got 60/61 (`test_routes.py`'s
+    pre-existing `/api/ask` timeout, reproduced standalone), an earlier run flagged `test_http.py`'s
+    equally pre-existing `/api/pageqa` timeout instead — corrected to report the real results
+    honestly. See `CHANGELOG.md` `[1.47.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

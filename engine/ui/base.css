@@ -17,6 +17,13 @@
      4.5:1+ against both --panel2 and --panel (grn-tx: 5.49:1 / 6.18:1, red-tx: 5.44:1 / 6.13:1) --
      the darker --grn/--red stay untouched for every existing border/background use. */
   --grn-tx:#4fae7a; --red-tx:#ec7a74;
+  /* v1.45 (a11y extension pass): demo.html carried a full local :root token override (all 12 base
+     tokens redefined verbatim, plus this one -- --grn2, a lightened decorative green used for .kbd
+     text / .meter text / .prog>i's gradient stop) that base.css had no equivalent for. Removing that
+     override (so demo.html inherits base.css's cascade like every other page) meant --grn2 needed a
+     home here instead -- same #7fd6a6 value, same decorative (non-text-safety) role as --grn2 always
+     had on that page; not a -tx pair, just a lighter accent green for decorative UI chrome. */
+  --grn2:#7fd6a6;
   /* v1.30 (roadmap Next-tier item 12): --line is doing two jobs with two different WCAG obligations --
      a subtle panel/section divider (fine, no contrast floor applies to a purely decorative line) AND
      the actual visible boundary of every real <input>/<select>/<textarea> in the app (a UI component,

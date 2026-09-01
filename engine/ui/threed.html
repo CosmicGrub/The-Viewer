@@ -32,23 +32,23 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 .k{color:var(--sub);font-weight:600;margin-top:8px}
 .note{color:var(--sub);font-size:11px;margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
 .gside mark{background:rgba(202,162,74,.32);color:#fff;border-radius:3px;padding:0 2px}
-</style><script src="/rps.js"></script></head><body><div class="wrap">
+</style><script src="/rps.js"></script></head><body><div class="wrap" role="main" aria-label="3D parts library">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>🧊 3D Library <span class="muted" id="count"></span></h1>
     <div class="muted">CAD images of every part — shape inferred from the name/NSN, scaled to FLIS dimensions, textured by material. Click a part for the interactive 3-D and the cited manual figure.</div></div>
   <div><a href="/">← back to search</a></div>
 </div>
 <div class="bar">
-  <input id="q" placeholder="Search the 3D library by NSN, name, or part #…" autocomplete="off">
+  <input id="q" placeholder="Search the 3D library by NSN, name, or part #…" aria-label="Search the 3D library by NSN, name, or part number" autocomplete="off">
   <button onclick="search()">Search</button>
   <label class="muted" style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><input type="checkbox" id="showall"> include parts without a manual figure</label>
   <span class="muted" id="hint">showing the collection</span>
 </div>
-<div class="grid" id="grid"></div>
+<div class="grid" id="grid" aria-live="polite"></div>
 <div style="text-align:center;margin:18px 0"><button id="more" style="display:none" onclick="loadMore()">Load more</button></div>
 </div>
 
-<div class="gate" id="gate">
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-label="3-D part viewer">
   <div class="gbar"><div style="flex:1;font-size:14px" id="gtitle"></div>
     <span class="muted">drag to rotate · scroll to zoom · double-click to reset</span>
     <button id="greset" title="Reset view">⟲ Reset</button><button id="gclose">Close ✕</button></div>
@@ -570,6 +570,10 @@ function loadRefs(m){
   s.addEventListener('touchend',()=>{ if(GLV) return; G.drag=false;gPinchDist=0; });
   $("#greset").onclick=reset3D;
   $("#gclose").onclick=()=>$("#gate").classList.remove('on');
+  // v1.45 (a11y): Tab-cycle containment + Escape-to-close + focus-restore, same pattern as index.html's
+  // 5 modals -- shared.js's trapFocus() was generalized to watch class-toggled (not just inline-style)
+  // visibility specifically so this class="on" gate would work. Safe no-op if VW isn't present.
+  if(window.VW && typeof VW.trapFocus==="function") VW.trapFocus("gate");
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') $("#gate").classList.remove('on'); });
   window.addEventListener('resize',()=>{ if(!GLV && $("#gate").classList.contains('on')) drawG(); });
 })();

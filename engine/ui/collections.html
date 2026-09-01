@@ -41,7 +41,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 .empty{padding:26px;text-align:center;color:var(--sub)}
 .note{font-size:12px;color:var(--sub);margin-top:6px}
 .rctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
-</style><script src="/rps.js"></script></head><body><div class="wrap">
+</style><script src="/rps.js"></script></head><body><div class="wrap" role="main" aria-label="Smart collections">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>🏷 Smart Collections <span class="muted" id="count"></span></h1>
     <div class="muted">Living groups built from the text layer &mdash; each is a saved search that <b>auto-fills as OCR adds pages</b>. A <span class="new" style="margin:0">+N</span> badge shows what newly turned up since you last opened one.</div></div>
@@ -65,7 +65,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 </div>
 
 <div class="muted" style="margin:18px 0 0;font-weight:600;letter-spacing:.4px">SMART COLLECTIONS</div>
-<div class="grid" id="grid"></div>
+<div class="grid" id="grid" aria-live="polite"></div>
 
 <div class="bar" style="margin-top:18px">
   <input class="nm" id="nname" placeholder="New collection name" aria-label="New collection name" autocomplete="off">
@@ -74,7 +74,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}
   <select id="ntype" aria-label="Filter by manual type"><option value="">Any manual</option></select>
   <label class="muted" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="npin" style="width:auto"> pin</label>
   <button onclick="saveCollection()">+ Save collection</button>
-  <span class="muted" id="saveh"></span>
+  <span class="muted" id="saveh" aria-live="polite"></span>
 </div>
 <div class="note">Optionally limit a collection to one <b>vehicle</b> and/or one <b>kind of manual</b> so it only shows what matters to the job. Terms use the same syntax as the main box (<code>OR</code>, quotes for phrases). Definitions live in a separate <code>collections.db</code> &mdash; saving never touches the main index or the running OCR scan.</div>
 
@@ -87,7 +87,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}
     </label>
     <button onclick="printSheet()">&#128424; Print take-to-bay sheet</button>
   </div>
-  <div class="res" id="res"></div>
+  <div class="res" id="res" aria-live="polite"></div>
   <div style="text-align:center;margin:14px 0"><button id="more" style="display:none" onclick="loadMore()">Load more</button></div>
 </div>
 

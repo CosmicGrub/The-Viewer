@@ -35,22 +35,22 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 .rail .r img{width:100%;height:60px;object-fit:cover;display:block}
 .rail .r div{font-size:9px;color:#0a0e12;background:#dfe3ea;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .count2{font-size:12px;color:var(--sub)}
-</style><script src="/rps.js"></script><script src="/schemhl.js"></script><script src="/schemflow.js"></script><script src="/loupe.js"></script></head><body><div class="wrap">
+</style><script src="/rps.js"></script><script src="/schemhl.js"></script><script src="/schemflow.js"></script><script src="/loupe.js"></script></head><body><div class="wrap" role="main" aria-label="Schematics library">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>🔌 Schematics Library <span class="muted" id="count"></span></h1>
     <div class="muted">Schematic &amp; wiring-diagram documents across the corpus. Click one to open and page through it.</div></div>
   <div><a href="/partdiff">🔍 Look-Alike Parts</a> &nbsp; <a href="/circuitlab">⚡ Circuit Lab</a> &nbsp; <a href="/3d">🧊 3D Library</a> &nbsp; <a href="/">← back to search</a></div>
 </div>
 <div class="bar">
-  <input id="q" placeholder="Search schematics by vehicle, TM, title, NSN…" autocomplete="off">
+  <input id="q" placeholder="Search schematics by vehicle, TM, title, NSN…" aria-label="Search schematics by vehicle, TM, title, or NSN" autocomplete="off">
   <button onclick="search()">Search</button>
   <span class="muted" id="hint">showing the collection</span>
 </div>
-<div class="grid" id="grid"></div>
+<div class="grid" id="grid" aria-live="polite"></div>
 <div style="text-align:center;margin:18px 0"><button id="more" style="display:none" onclick="loadMore()">Load more</button></div>
 </div>
 
-<div class="gate" id="gate">
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-label="Schematic sheet viewer">
   <div class="gbar">
     <div class="sp" id="gtitle"></div>
     <button id="prev">‹ Prev</button>
@@ -233,6 +233,10 @@ $("#flow").onclick=()=>{ if(!window.SchemFlow){ return; }
   st.addEventListener('dblclick',()=>{ SV.zoom=1; SV.panX=0; SV.panY=0; applyTransform(); });
 })();
 $("#close").onclick=()=>$("#gate").classList.remove('on');
+// v1.45 (a11y): Tab-cycle containment + Escape-to-close + focus-restore, same pattern as index.html's
+// 5 modals -- shared.js's trapFocus() was generalized to watch class-toggled (not just inline-style)
+// visibility specifically so this class="on" gate would work. Safe no-op if VW isn't present.
+if(window.VW && typeof VW.trapFocus==="function") VW.trapFocus("gate");
 document.addEventListener('keydown',e=>{
   if(!$("#gate").classList.contains('on')) return;
   if(e.key==='Escape') $("#gate").classList.remove('on');

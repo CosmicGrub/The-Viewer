@@ -240,11 +240,21 @@
      (idempotent per element -- each call attaches its own observer+listener scoped to that one
      element, so wiring multiple modals never cross-interferes). No-op (never throws) on a browser
      without MutationObserver, or if the id/element isn't found. */
+  /* v1.45 (a11y extension): generalized to also cover modals toggled by classList rather than inline
+     style.display -- schematics.html and threed.html's own gate modals use the CSS rule
+     .gate.on { display:flex } (classList.add/remove('on')), never touching the inline style property
+     at all. The original isVisible()/attributeFilter only watched the inline style property, so
+     attaching trapFocus to either page as-is would silently never fire onShow()/onHide() -- no error,
+     no visible breakage, just a modal that never traps focus. getComputedStyle().display is toggle-
+     mechanism-agnostic (works for both inline-style and classList-driven display), and watching both
+     the "style" and "class" HTML attributes via the MutationObserver's attributeFilter covers every
+     real pattern in this codebase without requiring index.html's 5 existing call sites (or any future
+     modal) to change how they open/close. */
   function trapFocus(idOrEl) {
     var el = typeof idOrEl === "string" ? document.getElementById(idOrEl) : idOrEl;
     if (!el || typeof window.MutationObserver !== "function") return;
     var prevFocus = null;
-    function isVisible() { return el.style.display !== "none" && el.style.display !== ""; }
+    function isVisible() { try { return window.getComputedStyle(el).display !== "none"; } catch (e) { return el.style.display !== "none" && el.style.display !== ""; } }
     var wasVisible = isVisible();
 
     function focusables() {
@@ -274,15 +284,23 @@
         if (v && !wasVisible) onShow();
         else if (!v && wasVisible) onHide();
         wasVisible = v;
-      }).observe(el, { attributes: true, attributeFilter: ["style"] });
+      }).observe(el, { attributes: true, attributeFilter: ["style", "class"] });
     } catch (e) { /* never break the host page over a11y wiring */ }
 
     el.addEventListener("keydown", function (e) {
       if (!isVisible()) return;
       if (e.key === "Escape") {
-        /* matches this codebase's existing modal-close convention (every close call site sets
-           style.display="none" directly) -- generic equivalent, no per-modal cancel logic to call. */
-        e.preventDefault(); el.style.display = "none"; return;
+        /* Two real close conventions exist in this codebase: index.html's 5 modals set inline
+           style.display="none" directly at every close call site; schematics.html/threed.html's gate
+           toggles its "on" classList entry instead (via the .gate.on { display:flex } rule) and never
+           touches inline style. Detect which one this element uses and close the same way, so
+           re-opening afterward isn't broken by a stale inline style fighting that CSS rule. Harmless
+           no-op if the page's own Escape handler (both gate pages already have one) races this and
+           closes it first. */
+        e.preventDefault();
+        if (el.style.display && el.style.display !== "") { el.style.display = "none"; }
+        else if (el.classList.contains("on")) { el.classList.remove("on"); }
+        return;
       }
       if (e.key !== "Tab") return;
       var f = focusables();

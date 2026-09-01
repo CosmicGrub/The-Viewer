@@ -27,7 +27,9 @@
   .em .val{font-size:15px;font-weight:700;color:#e8c07a;min-width:120px}
   .em .badge{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#0c0a04;background:#d7b06a;border-radius:5px;padding:1px 6px;font-weight:800}
   .em .ctx{flex:1;color:#cdb98e;font-size:12.5px}
-  .em .tagx{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#8a7a52;border:1px solid #4a3a17;border-radius:5px;padding:1px 7px;white-space:nowrap}
+  /* v1.45: #8a7a52 on .em's #171207 was 4.43:1, just under the 4.5:1 AA floor -- surfaced by
+     verify_ui.py's newly generalized WCAG scan. #93835a keeps the same muted-gold tag color, now 5.00:1. */
+  .em .tagx{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#93835a;border:1px solid #4a3a17;border-radius:5px;padding:1px 7px;white-space:nowrap}
 </style></head><body>
 <div class="wrap">
   <h1>📐 Measurements & dimensions</h1>

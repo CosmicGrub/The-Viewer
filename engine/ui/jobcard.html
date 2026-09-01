@@ -29,7 +29,7 @@
   .empty{color:#6b7787;font-size:12px;padding:6px 0}
   @media(max-width:720px){.grid{grid-template-columns:1fr}}
 </style></head><body>
-<div class="wrap">
+<div class="wrap" role="main" aria-label="Work order builder">
   <h1>🧾 Work Order builder</h1>
   <div class="muted" style="margin-bottom:4px">Prefer a printable take-to-the-bay sheet? See the <a href="/packet" style="color:var(--acc)">🖨 Job packet</a>.</div>
   <div class="muted">Type a task or a part — e.g. <i>replace the alternator</i>, <i>2920-01-234-5678</i>, <i>adjust brakes</i>. Preview what the work order will contain, then generate the PDF.</div>
@@ -41,10 +41,10 @@
     <a class="btn" href="/api/form_2407" target="_blank" title="Blank DA-2407 maintenance-request worksheet — no search needed">🖨 Print blank maintenance request (DA 2407)</a>
     <a class="btn" href="/">← search</a>
   </div>
-  <div id="intent" class="chips"></div>
-  <div id="warn"></div>
-  <div id="head" class="muted"></div>
-  <div id="grid" class="grid"></div>
+  <div id="intent" class="chips" aria-live="polite"></div>
+  <div id="warn" aria-live="polite"></div>
+  <div id="head" class="muted" aria-live="polite"></div>
+  <div id="grid" class="grid" aria-live="polite"></div>
 </div>
 <script>
 (function(){

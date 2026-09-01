@@ -439,6 +439,47 @@ def _load_arrays(index_dir, npy, tsv):
         return arr, ids
 
 
+def _build_progress(index_dir):
+    """Read embeddings.progress.json (written incrementally by build_index() while a rebuild is in
+    flight, deleted on success/failure -- see build_index() above) and return {"percent", "rows_done",
+    "limit"} if a build is actually in progress right now, else None. This is the only way to tell
+    "never built" apart from "rebuilding" at query time -- see v1.44 semantic-staleness-signal: before
+    this, search() and hybrid_search() collapsed both into the same empty-results response."""
+    path = _progress_path(index_dir)
+    if not os.path.exists(path):
+        return None
+    try:
+        import json
+        with open(path, encoding="utf-8") as f:
+            p = json.load(f)
+        rows_done = int(p.get("rows_done", 0))
+        limit = int(p.get("limit", 0) or 0)
+        percent = max(0, min(100, round(rows_done * 100.0 / limit))) if limit else 0
+        return {"percent": percent, "rows_done": rows_done, "limit": limit}
+    except Exception:
+        return None
+
+
+def semantic_status(index_dir):
+    """Single source of truth for "how healthy is the semantic index right now", independent of any
+    particular query -- callers that only had ready/stale before (hybrid_search()) can now surface an
+    honest, specific state to the UI instead of collapsing never-built/rebuilding/stale into the same
+    "0 semantic results" signal. Returns {"state": one of "ready"/"never_built"/"rebuilding"/"stale",
+    "progress": _build_progress()'s dict or None, "backend": backend()}.
+
+    v1.44 semantic-staleness-signal -- see hybrid.hybrid_search() and ui/index.html's
+    renderSemanticStatus() for the consumers of this."""
+    npy = os.path.join(index_dir, "embeddings.npy"); tsv = os.path.join(index_dir, "embeddings_ids.tsv")
+    progress = _build_progress(index_dir)
+    if not _OK or not os.path.exists(npy) or not os.path.exists(tsv):
+        return {"state": "rebuilding" if progress else "never_built",
+                "progress": progress, "backend": backend()}
+    if _index_is_stale(index_dir):
+        return {"state": "rebuilding" if progress else "stale",
+                "progress": progress, "backend": backend()}
+    return {"state": "ready", "progress": None, "backend": backend()}
+
+
 def search(query, index_dir, top=15):
     npy = os.path.join(index_dir, "embeddings.npy"); tsv = os.path.join(index_dir, "embeddings_ids.tsv")
     if not _OK or not os.path.exists(npy) or not os.path.exists(tsv):

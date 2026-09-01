@@ -1,9 +1,39 @@
-# THE VIEWER — Handoff Note (reconciled 2026-08-31)
+# THE VIEWER — Handoff Note (reconciled 2026-09-01)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, eighteenth pass):** `hybrid.hybrid_search()` (behind
+> `/api/search_hybrid`, the search UI's primary endpoint) called `embed.search()` but kept only
+> `.get("results")`, discarding `ready`/`stale` entirely — the only trace of semantic-index health
+> reaching the UI was `signals.semantic === 0`, identical whether the index was never built, stale,
+> mid-rebuild, or the query just had zero semantic matches. There was also no way at query time to
+> tell "never built" apart from "actively rebuilding" — `build_index()` writes
+> `embeddings.progress.json` while a rebuild runs, but nothing read it. **Fixed**: new
+> `embed.semantic_status(index_dir)` (`engine/embed.py`) reads `embeddings.progress.json` for a live
+> percent-complete and returns one honest state — `ready`/`never_built`/`rebuilding`/`stale`;
+> `hybrid_search()` forwards it as a new top-level `semantic_status` field, unrelated to the unchanged
+> `signals` block. New `renderSemanticStatus(d, q)` in `engine/ui/index.html`, styled identically to
+> the existing `renderSearchHints()` quiet `.searchhints` card (`afterbegin` into `#results`) —
+> deliberately not `shared.js`'s `_staleBanner()` treatment (fixed/red/non-dismissible), which stays
+> reserved for the unrelated code-version-mismatch emergency. Shown only when semantic search isn't
+> `ready` **and** the search actually returned keyword results, so it never displaces the "No matches"
+> empty state. Dismissible per-state via `sessionStorage`, so dismissing one state doesn't suppress a
+> later different one. Four distinct copy strings (nothing renders when `ready`) — see `[1.45.0]` in
+> `docs/CHANGELOG.md` for the exact wording. **Verified live, not just static HTML**: this session's
+> own background embeddings rebuild (`embed_rebuild_v2.py`, already running per house rules, confirmed
+> via `tasklist`/`embeddings.progress.json` before touching anything) put the real repo in a genuine
+> `rebuilding` state throughout — `embed.semantic_status()` called directly against the real `index/`
+> dir returned `{"state": "rebuilding", "progress": {"percent": 25, ...}}`; a real second
+> `viewer_app.py` instance (read-only, unused port) hit live `/api/search_hybrid?q=brake` and the
+> response's `semantic_status` field matched, progressing to `26%` moments later. `never_built` and
+> `stale` were verified the same way against isolated scratch index directories outside the repo (one
+> empty, one with `embeddings.npy`/`.tsv` but no meta/progress file) — real function calls against
+> real files, not simulated. Test server killed by PID matched via `netstat` to its own port; the
+> pre-existing background rebuild was never touched. Shipped as `[1.45.0]`. Verified: `verify_all.py
+> --snapshot` clean except the three now-documented pre-existing flakes.
+>
 > **Reconciliation note (2026-08-31, seventeenth pass):** `safeguard.py backupdb()`'s `PRAGMA
 > quick_check` (`[1.25.0]`) only ever proved a backup file's SQLite B-tree was internally consistent —
 > it never opened a connection against app tables, ran a real query, or fed a result through the app

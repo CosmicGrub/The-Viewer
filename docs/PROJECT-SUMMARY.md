@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.44.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.45.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -63,8 +63,13 @@ copy of `viewer-20260830-1348.db` was restored into an isolated `viewer_app.py` 
 live, finding that `/api/search`/`/api/pmcs` silently return empty results against this specific
 backup because its schema (`schema_version=8`) predates the `pages.ocr_confidence` column current app
 code requires, while `/api/part_record`/`/api/part_by_number` were unaffected; the original backup and
-`index/viewer.db` were confirmed byte-for-byte untouched throughout (`[1.44.0]`) — see the
-reconciliation notes below and §8 items 25–27). This document +
+`index/viewer.db` were confirmed byte-for-byte untouched throughout (`[1.44.0]`); then a
+search-UI honesty fix — `/api/search_hybrid` silently collapsed "semantic index never built",
+"stale", "actively rebuilding", and "healthy but zero matches" into the identical
+`signals.semantic === 0`, now distinguished via a new `semantic_status` field and a quiet,
+per-state-dismissible UI bar, verified live against a real running server during this session's own
+in-progress embeddings rebuild (`[1.45.0]`) — see the
+reconciliation notes below and §8 items 25–28). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -718,6 +723,24 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     restore, or run `fix_schema_version.py` against future backups first). Original backup and
     `index/viewer.db` confirmed byte-for-byte untouched (size/mtime/SHA-256) before and after. Full
     record: `docs/RESTORE-DRILL-LOG.md`. See `CHANGELOG.md` `[1.44.0]`.
+28. **`[1.45.0]` — search UI now shows an honest signal when semantic search is degraded or
+    rebuilding**: `hybrid.hybrid_search()` (behind `/api/search_hybrid`, the primary search endpoint)
+    called `embed.search()` but discarded `ready`/`stale` entirely — the only trace of semantic-index
+    health reaching the UI was `signals.semantic === 0`, identical whether the index was never built,
+    stale, mid-rebuild, or the query simply had zero semantic matches, and nothing at query time could
+    tell "never built" apart from "actively rebuilding". **Fixed**: new `embed.semantic_status()`
+    reads `embeddings.progress.json` for a live percent-complete and returns one honest state
+    (`ready`/`never_built`/`rebuilding`/`stale`); `hybrid_search()` forwards it as a new top-level
+    `semantic_status` field. New `renderSemanticStatus()` in `engine/ui/index.html`, styled like the
+    existing quiet `renderSearchHints()` card — not `shared.js`'s non-dismissible `_staleBanner()`,
+    which stays reserved for the code-version-mismatch emergency — shown only when semantic search
+    isn't `ready` and the search actually returned keyword results, dismissible per-state via
+    `sessionStorage`. **Verified live against the real running app**: this session's own background
+    embeddings rebuild (`embed_rebuild_v2.py`) put the real repo in a genuine `rebuilding` state
+    throughout; `embed.semantic_status()` against the real `index/` dir and a real second
+    `viewer_app.py` instance's live `/api/search_hybrid?q=brake` both returned matching
+    `{"state": "rebuilding", "progress": {"percent": 25-26, ...}}`. `never_built`/`stale` verified the
+    same way against isolated scratch index directories outside the repo. See `CHANGELOG.md` `[1.45.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

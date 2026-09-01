@@ -1401,6 +1401,7 @@ async function runSearch(q, autojump, mode){
     const r=await fetch(url);const d=await r.json();
     ALL=d.results||[]; DYM=d.did_you_mean||[]; FILTER={vehicle:null,type:null,source:null}; renderResults(q);
     renderSearchHints(d, q);            // v1.5: acronym-glossary expansion + fuzzy NSN 'did you mean'
+    renderSemanticStatus(d, q);         // v1.44: honest never-built/rebuilding/stale signal (never shown when semantic is healthy)
     renderPartMatch(q);                 // PART NUMBER -> show its correlative breakdown image up top
     renderMeasureMatch(q);              // annex #6: torque/measurement-shaped query -> cited values inline
     renderConflictFlags(q);             // v1.30 (roadmap item 9): tag any already-rendered rows with a known cross-manual conflict
@@ -1436,6 +1437,39 @@ function renderSearchHints(d, q){
     h+='</div>';
     box.insertAdjacentHTML('afterbegin', h);
     box.querySelectorAll('.nsndym').forEach(a=>{a.onclick=ev=>{ev.preventDefault();const nq=a.getAttribute('data-q');const inp=$("#q");if(inp)inp.value=nq;runSearch(nq,false);};});
+  }catch(e){}
+}
+function renderSemanticStatus(d, q){
+  // v1.44 semantic-staleness-signal: a small bar ABOVE results, styled like renderSearchHints()
+  // (quiet informational card, NOT the fixed/non-dismissible/red alert shared.js's _staleBanner()
+  // uses for the unrelated code-version emergency) telling the user honestly which of four real
+  // states semantic search is in right now: never set up, actively rebuilding, stale (needs a
+  // rebuild), or fully working (in which case nothing renders at all). Only shown when the search
+  // actually returned keyword results, so it never displaces the "No matches" empty state -- keyword
+  // search always works regardless of semantic health, so degraded semantic search is never itself a
+  // reason to look like the search failed.
+  try{
+    const box=$("#results"); if(!box) return;
+    const st=d&&d.semantic_status; if(!st || st.state==="ready") return;
+    if(!(d&&d.results&&d.results.length)) return;
+    const dismissKey='vw-semstatus-dismissed-'+st.state;
+    let dismissed=false;
+    try{ dismissed=sessionStorage.getItem(dismissKey)==='1'; }catch(e){}
+    if(dismissed) return;
+    let icon='🧩', msg='Semantic (meaning-based) search hasn\'t been set up on this install yet — results below are keyword matches only.';
+    if(st.state==='rebuilding'){
+      const pct=(st.progress&&typeof st.progress.percent==='number')?st.progress.percent:0;
+      icon='⏳'; msg='Semantic search is building its index ('+pct+'% complete) — results may improve once it finishes.';
+    } else if(st.state==='stale'){
+      icon='🔄'; msg='Semantic search\'s index is out of date and needs a rebuild — results below are keyword matches only.';
+    }
+    const h='<div class="semstatus" id="semstatus-'+esc(st.state)+'" style="margin:0 0 10px;padding:8px 12px;background:var(--panel,#171d26);border:1px solid var(--line,#2b333f);border-radius:8px;font-size:12.5px;color:var(--sub,#9aa6b6);display:flex;align-items:center;justify-content:space-between;gap:10px">'
+      +'<span>'+icon+' '+esc(msg)+'</span>'
+      +'<a href="#" class="semstatusdismiss" title="Dismiss" style="color:var(--sub,#9aa6b6);text-decoration:none;flex:0 0 auto">&#10005;</a>'
+      +'</div>';
+    box.insertAdjacentHTML('afterbegin', h);
+    const el=document.getElementById('semstatus-'+st.state);
+    if(el){ const btn=el.querySelector('.semstatusdismiss'); if(btn) btn.onclick=ev=>{ev.preventDefault(); try{sessionStorage.setItem(dismissKey,'1');}catch(e){} el.parentNode&&el.parentNode.removeChild(el);}; }
   }catch(e){}
 }
 function renderResults(q){ const box=$("#results");

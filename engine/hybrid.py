@@ -130,6 +130,7 @@ def hybrid_search(q, core, index_dir, limit=25, mode=None, match_any=False, use_
     except Exception:
         fts = []
     sem = []
+    semantic_status = {"state": "never_built", "progress": None, "backend": None}
     try:
         import embed
         s = embed.search(q, index_dir, top=limit * 2)
@@ -137,6 +138,13 @@ def hybrid_search(q, core, index_dir, limit=25, mode=None, match_any=False, use_
         for r in sem:                          # normalize semantic keys to the FTS shape
             r.setdefault("doc_id", r.get("doc"))
             r.setdefault("page_url", r.get("page_url"))
+        # v1.44 semantic-staleness-signal: search() above only ever told us ready/stale for THIS
+        # query's own attempt, which the old code discarded entirely (only .get("results") was kept)
+        # -- the UI had no way to distinguish "index never built", "rebuild in progress", "index
+        # stale", and "fine, this query just had zero semantic matches". semantic_status() is a
+        # second, query-independent call so that distinction survives into the response even when
+        # `sem` ends up empty for a reason that has nothing to do with index health.
+        semantic_status = embed.semantic_status(index_dir)
     except Exception:
         sem = []
     fused = fuse([("keyword", fts), ("semantic", sem)]) if sem else fts
@@ -147,6 +155,7 @@ def hybrid_search(q, core, index_dir, limit=25, mode=None, match_any=False, use_
         "results": fused[:limit],
         "signals": {"keyword": len(fts), "semantic": len(sem), "fused": len(fused)},
         "nsn_did_you_mean": nsn_did_you_mean(q),
+        "semantic_status": semantic_status,
     }
 
 

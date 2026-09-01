@@ -927,6 +927,44 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     6.3 GB free, an order of magnitude below an earlier planning pass's ~63 GB estimate — flagged, not
     silently corrected; the drill used `C:` instead (8.69 GB free at the time). See `CHANGELOG.md`
     `[1.44.0]`.
+29. **`[1.45.0]` — search UI now shows an honest signal when semantic search is degraded or
+    rebuilding.** `hybrid.hybrid_search()` (behind `/api/search_hybrid`, the primary search endpoint
+    since `[1.31.0]`) called `embed.search()` but kept only `.get("results")` — it discarded
+    `ready`/`stale` entirely, so the only trace of semantic-index health reaching the UI was
+    `signals.semantic === 0`, identical whether the index was never built, stale, mid-rebuild, or the
+    query just had zero semantic matches. There was also no way at query time to tell "never built"
+    apart from "actively rebuilding" — `build_index()` writes `embeddings.progress.json` while a
+    rebuild runs, but nothing read it before. **Fixed**: new `embed._build_progress()` /
+    `embed.semantic_status(index_dir)` (`engine/embed.py`) read `embeddings.progress.json` for a live
+    percent-complete and return one honest, query-independent state —
+    `ready`/`never_built`/`rebuilding`/`stale`; `hybrid_search()` (`engine/hybrid.py`) forwards it as a
+    new top-level `semantic_status` field, alongside the unchanged `signals` block. New
+    `renderSemanticStatus(d, q)` in `engine/ui/index.html`, called from `runSearch()` next to the
+    existing `renderSearchHints()` and styled identically to its quiet `.searchhints` card
+    (`afterbegin` into `#results`, `var(--panel)`/`var(--line)`/`var(--sub)`, no `role="alert"`) —
+    deliberately **not** `shared.js`'s `_staleBanner()` treatment (fixed-position, red,
+    non-dismissible), which stays reserved for the unrelated code-version-mismatch emergency. Shown
+    only when `semantic_status.state !== "ready"` and the search actually returned keyword results, so
+    it never displaces the "No matches" empty state. Dismissible per-state via
+    `sessionStorage['vw-semstatus-dismissed-<state>']` so dismissing one state doesn't suppress a later
+    different one. Four distinct copy strings, one per real state (nothing renders when `ready`):
+    `never_built` ("🧩 Semantic (meaning-based) search hasn't been set up on this install yet — results
+    below are keyword matches only."), `rebuilding` ("⏳ Semantic search is building its index (N%
+    complete) — results may improve once it finishes."), `stale` ("🔄 Semantic search's index is out of
+    date and needs a rebuild — results below are keyword matches only."). **Verified live, not just
+    static HTML**: this session's own background embeddings rebuild (`embed_rebuild_v2.py`, already
+    running per house rules, confirmed via `tasklist`/`embeddings.progress.json` before touching
+    anything) put the real repo in a genuine `rebuilding` state throughout — `embed.semantic_status()`
+    called directly against the real `index/` dir returned `{"state": "rebuilding", "progress":
+    {"percent": 25, "rows_done": 505000, "limit": 2000000}}`; a real second `viewer_app.py` instance
+    (`--db index/viewer.db --port 18901`, read-only) hit live `/api/search_hybrid?q=brake` and the
+    response's top-level `semantic_status` field matched, progressing to `26%` moments later.
+    `never_built`/`stale` verified the same way against isolated scratch index directories outside the
+    repo (one empty; one with `embeddings.npy`/`embeddings_ids.tsv` copied over but no
+    `embeddings.meta.json`/`embeddings.progress.json`) — real function calls against real files, not
+    simulated. Test server killed by PID matched via `netstat` to its own port only; the pre-existing
+    background rebuild was never touched. Verified: `verify_all.py --snapshot` clean except the three
+    now-documented pre-existing flakes. See `CHANGELOG.md` `[1.45.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

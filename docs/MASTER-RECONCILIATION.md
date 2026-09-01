@@ -29,7 +29,13 @@ it shipped, `[1.38.0]`; then a same-day CRITICAL follow-up, found during adversa
 could silently blend hash-fallback vectors into an index still stamped as pure `sentence-transformers`,
 the `[1.32.0]` failure mode again at row/chunk granularity; fixed by tracking per-chunk fallback events
 (surviving interrupt+resume) and withholding the meta stamp whenever any are present, code + tests
-only, `[1.39.0]`).** This document
+only, `[1.39.0]`; then a readiness audit's completeness pass on `part.html` — its shared `gj()` fetch
+helper collapsed a real transport/server failure and a genuine empty result into the exact same falsy
+shape across all 15 fetch call sites, so the two safety-relevant panels (cross-manual conflicts,
+one-time-use/TTY fasteners) failed completely silently; fixed to resolve an honest `{ok,status,body}`
+and show a distinct message for each outcome, catching and fixing two real bugs live during
+verification (an always-truthy `s.title` empty-test, a shared-card overwrite race) before shipping,
+`[1.41.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -40,10 +46,16 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.39.0, shipped 2026-09-01** (CRITICAL fix — `build_index()` could stamp an
-index as pure `sentence-transformers` even when a mid-build `model.encode()` failure had silently
-blended hash-fallback vectors into one chunk; found during adversarial verification of `[1.36.0]`
-before its gated full-corpus rebuild was launched — see §6 item 24). Immediately prior: v1.38.0,
+**True current state: v1.41.0, shipped 2026-08-31** (`part.html` no longer conflates a failed request
+with "part not found" — `gj()`, the shared fetch helper behind all 15 of the page's fetch call sites,
+now resolves an honest `{ok,status,body}` instead of collapsing a real transport/server failure and a
+genuine empty result into the same falsy shape; two real bugs (an always-truthy `s.title` empty-test,
+a shared-card overwrite race between the conflicts/validate panels) caught live during verification
+and fixed before shipping — see §6 item 25). Immediately prior: v1.39.0, shipped 2026-09-01 (CRITICAL
+fix — `build_index()` could stamp an index as pure `sentence-transformers` even when a mid-build
+`model.encode()` failure had silently blended hash-fallback vectors into one chunk; found during
+adversarial verification of `[1.36.0]` before its gated full-corpus rebuild was launched — see §6 item
+24). Immediately prior: v1.38.0,
 shipped 2026-09-01 (`parts.cagec`/`parts.smr` cross-database correlation — `correlate_parts_cagec()`
 joins `index/rpstl.db` into `parts` on `(document_id, page, nsn)`, filtered through `index/cage.json`;
 48.0% yield measured against a real 4,000-row sample of this repo's own corpus; a real bug caught
@@ -748,6 +760,40 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     interrupt+resume, and a clean rebuild clears the stale fallback report. **No full-corpus rebuild
     was run** — this item is code + `engine/tests/test_embed_partial_fallback.py` (32 new checks)
     only. See `CHANGELOG.md` `[1.39.0]`.
+25. **`[1.41.0]` — `part.html` no longer conflates a failed request with "part not found."** Found
+    during a readiness audit's completeness pass. `gj()`, the shared fetch helper behind all 15 of
+    `part.html`'s fetch call sites (the primary `/api/partsummary` card + 14 lazy-loaded panels),
+    collapsed a real transport/server failure and a genuine "nothing here" result into the exact same
+    falsy shape — the primary card showed a flat "Nothing found." on any network hiccup, and the two
+    safety-relevant panels (cross-manual conflicts, one-time-use/TTY fasteners) failed completely
+    silently, with no visible sign a check had even been attempted. **Fixed**: `gj()` now resolves
+    `{ok,status,body}` — `ok` true only for a 2xx response whose body actually parsed as JSON — instead
+    of a bare `null`-or-parsed-body; it still never rejects, so no call site's `.then()` shape changed.
+    Every one of the 15 sites now branches on `res.ok` first, rendering a distinct `⚠ Couldn't load
+    <thing> — try again.` on failure (a small `failCard()` helper reusing the `.alert.verd` amber style
+    already defined in the file but never referenced before this). 7 panels (model, torque-sequence,
+    serviceability, MAC, RPSTL, wiring, job-kit) had no honest-empty message at all before this pass
+    and got one added at the same time, so failure and empty stayed distinguishable from both
+    directions. The two safety-relevant panels get explicitly-worded `⚠ ... Do not treat this as
+    "no conflicts."` / `"none flagged."` copy, matching the "do not treat this as..." pattern
+    `dossier.html`'s own cautions/publog panels already established. **Two real bugs caught live while
+    verifying, not shipped**: (1) the primary card's new empty-test initially included `s.title`, which
+    `jobcards.py`'s `_jobpack_data()` always sets to the raw query string as a bare fallback
+    (`pkg={"title":q,...}`) even when nothing matched — making the empty-test always true regardless of
+    query, caught by hand-testing a real no-match query against the real corpus and dropped from the
+    test before merge; (2) `#conflictcard` is shared by two lazy functions (`lazyValidate`,
+    `lazyConflicts`) and one of them used to overwrite via `box.innerHTML=h`, which would silently wipe
+    out whatever the other had already appended, including a new failure marker — both now exclusively
+    append via `insertAdjacentHTML('beforeend', …)`, verified live that a validate-failure message and
+    a real conflicts result render together without either erasing the other. **Verified live**, not
+    just read: real server, real corpus (`index/viewer.db`, ~39,700 documents) — a real part (`POWER
+    UNIT DIESEL`) renders unchanged; a genuinely no-match query now shows "Nothing found." (correctly,
+    for the first time on the right basis); a forced fetch failure (both a true `fetch()` rejection and
+    a real HTTP 404 from the live server) was injected at all 15 call sites in-browser and each showed
+    its own distinct failure message, never the old empty-state text. **No real browser/JS test harness
+    exists for any UI page in this repo** (confirmed, not assumed) — new coverage follows this repo's
+    existing static-source-text-assertion convention (`test_uiux_fixes.py`, 22 new checks, 272/272
+    total) instead of inventing a new test style out of scope. See `CHANGELOG.md` `[1.41.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

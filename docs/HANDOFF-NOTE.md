@@ -4,6 +4,34 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-31, fourteenth pass):** a readiness audit's completeness pass found
+> `part.html`'s shared `gj()` fetch helper collapsing a real transport/server failure and a genuine
+> "nothing here" result into the exact same falsy shape across all 15 of its `fetch()` call sites (the
+> primary `/api/partsummary` card + 14 lazy panels) — the primary card showed a flat "Nothing found."
+> on any network hiccup, and the two safety-relevant panels (cross-manual conflicts, one-time-use/TTY
+> fasteners) failed completely silently. **Fixed**: `gj()` now resolves `{ok,status,body}` (never
+> rejects, so no call-site `.then()` shape changed) with `ok` true only for a 2xx response whose body
+> actually parsed; every site branches on `res.ok` first, showing a distinct `⚠ Couldn't load <thing>
+> — try again.` on failure vs. its existing (or newly-added, for 7 panels that had none) honest empty
+> message. The two safety panels get explicitly-worded "do not treat this as..." copy matching
+> `dossier.html`'s existing precedent. **Two real bugs caught live while verifying, not shipped**: (1)
+> the primary card's new empty-test initially included `s.title`, which `jobcards.py`'s
+> `_jobpack_data()` always sets to the raw query string as a bare fallback even on a genuine no-match —
+> a nonsense query rendered as a match until this was caught with a real no-match query against the
+> real corpus and dropped from the test; (2) `#conflictcard` is shared by two lazy functions and one of
+> them used to overwrite (`box.innerHTML=h`) rather than append, which would have silently erased the
+> other's new failure marker — both now append-only, verified live that a validate-failure message and
+> a real conflicts result render together without either erasing the other. Verified live against the
+> real corpus (`index/viewer.db`, ~39,700 documents): a real part renders unchanged; a genuine no-match
+> query shows "Nothing found."; a forced failure (both a true `fetch()` rejection and a real HTTP 404)
+> was injected at all 15 call sites in-browser and each showed its own distinct failure message. New
+> coverage follows this repo's existing static-source-text-assertion convention for UI-page tests (no
+> real browser/JS test harness exists for any UI page in this repo — confirmed, not assumed) — see
+> `test_uiux_fixes.py` (22 new checks, 272/272 total). Shipped as `[1.41.0]` (branched from
+> `origin/main` at `[1.39.0]`; `[1.40.0]` may land from concurrent work — a VERSION/doc conflict at
+> merge time is expected and resolved by a human per this repo's established parallel-PR pattern).
+> `main` is at `[1.41.0]` on this branch (pending merge).
+>
 > **Reconciliation note (2026-09-01, thirteenth pass — CRITICAL fix):** adversarial verification of the
 > tenth pass's `[1.36.0]` (embed.py full-rebuild prep), before the full-corpus rebuild it gates was
 > actually launched, found a real defect: `build_index()` snapshotted `cur_backend = backend()` once,

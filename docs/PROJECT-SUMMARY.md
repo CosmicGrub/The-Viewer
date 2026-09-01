@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.39.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.41.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -36,8 +36,15 @@ verified against this repo's own real corpus at 48.0% yield, with a real product
 before the rebuild it gates was launched — a mid-build `model.encode()` failure on one chunk could
 silently blend hash-fallback vectors into an index still stamped as pure `sentence-transformers`, the
 `[1.32.0]` failure mode again at row/chunk granularity; fixed by tracking per-chunk fallback events and
-withholding the meta stamp whenever any are present, code + tests only (`[1.39.0]`) — see the
-reconciliation notes below and §8 items 12–23). This document +
+withholding the meta stamp whenever any are present, code + tests only (`[1.39.0]`); then a readiness
+audit's completeness pass on `part.html` — its shared `gj()` fetch helper collapsed a real transport/
+server failure and a genuine "nothing here" result into the exact same falsy shape across all 15 of
+its `fetch()` call sites, so a technician had no visible sign that a failed conflicts/one-time-use-
+fastener check had happened at all, not merely found nothing; `gj()` now resolves an honest
+`{ok,status,body}`, every site shows a distinct "couldn't load" vs. honest-empty message, and two real
+bugs (an always-truthy `s.title` empty-test, and a shared-card overwrite race) were caught live while
+verifying and fixed before shipping (`[1.41.0]`) — see the reconciliation notes below and §8 items
+12–23). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -621,6 +628,27 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     hash vectors only where expected, the record survives a genuine interrupt+resume, and a clean
     rebuild clears the stale fallback report. **No full-corpus rebuild was run** — code +
     `engine/tests/test_embed_partial_fallback.py` (32 new checks) only. See `CHANGELOG.md` `[1.39.0]`.
+24. **`[1.41.0]` — `part.html` no longer conflates a failed request with "part not found"**: found
+    during a readiness audit's completeness pass. `gj()`, the shared fetch helper backing all 15 of
+    `part.html`'s fetch call sites (primary `/api/partsummary` card + 14 lazy panels), collapsed a real
+    transport/server failure and a genuine empty result into the exact same falsy shape — the primary
+    card showed "Nothing found." on any network hiccup, and the two safety-relevant panels
+    (cross-manual conflicts, one-time-use/TTY fasteners) failed completely silently. Fixed by having
+    `gj()` resolve `{ok,status,body}` (never rejects, so no call-site shape changed) and updating every
+    site to branch on `res.ok` before its existing logic, each showing a distinct `⚠ Couldn't load
+    <thing> — try again.` (7 panels that had no empty-state message at all also got one, so failure and
+    empty stayed distinguishable from both directions); the two safety panels get explicitly-worded
+    "do not treat this as..." copy matching `dossier.html`'s existing precedent. **Two real bugs caught
+    live while verifying, not shipped**: the primary card's new empty-test initially included `s.title`,
+    which the backend always sets to the raw query string as a bare fallback even on a genuine
+    no-match, making the test always true until dropped; and `#conflictcard`'s two writer functions
+    (validate, conflicts) — one used to overwrite via `box.innerHTML=h`, silently erasing whatever the
+    other had appended, fixed to append-only for both. Verified live against the real corpus
+    (`index/viewer.db`, ~39,700 documents): a real part renders unchanged, a genuine no-match query
+    shows "Nothing found.", and a forced failure (`fetch()` rejection + real HTTP 404) was injected at
+    all 15 call sites in-browser, each showing its own distinct failure message. No real browser/JS
+    test harness exists for any UI page in this repo (confirmed) — new coverage follows the existing
+    static-source-text-assertion convention instead. See `CHANGELOG.md` `[1.41.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

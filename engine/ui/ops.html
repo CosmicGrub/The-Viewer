@@ -70,6 +70,13 @@ function boot(){
       ["Page cache",(pc.files!=null?pc.files.toLocaleString():"—")+" pages",fmtBytes(pc.bytes)],
       ["Snapshots",(snap&&snap.count_total!=null?snap.count_total:"—"),(snap&&snap.created?("last "+esc(String(snap.created).slice(0,16))):"")]
     ];
+    /* v1.42.0: version-staleness -- see engine/viewer_app.py STARTUP_VERSION + current_disk_version() */
+    if(o.code_changed_since_start){
+      cards.push(["Code freshness","STALE since "+esc(String(o.started_at||"?")),
+        "running v"+esc(String(o.started_with_version||"?"))+", disk has v"+esc(String(o.version||"?"))]);
+    } else {
+      cards.push(["Code freshness","fresh","running v"+esc(String(o.version||"?"))]);
+    }
     $("#cards").innerHTML=cards.map(function(x){return '<div class="mc"><div class="l">'+esc(x[0])+'</div><div class="v">'+esc(x[1])+'</div><div class="s">'+esc(x[2])+'</div></div>';}).join("");
     renderRuns(o.recent_runs||[]);
   });

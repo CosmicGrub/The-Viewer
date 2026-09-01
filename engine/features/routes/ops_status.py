@@ -234,7 +234,13 @@ def r_healthz(h, qs):
     import preflight as _pf
     res = _pf.checks(core.DB_PATH)
     ok = not any(s == "FAIL" for _, s, _ in res)
+    disk_version = core.STARTUP_VERSION
+    try: disk_version = core.current_disk_version()
+    except Exception: pass
     h._send(200 if ok else 503, {"ok": ok, "version": core.VERSION,
+            "started_with_version": core.STARTUP_VERSION,
+            "started_at": core.STARTUP_TIME,
+            "code_changed_since_start": disk_version != core.STARTUP_VERSION,
             "checks": [{"name": n, "status": s, "detail": d} for n, s, d in res]})
 
 

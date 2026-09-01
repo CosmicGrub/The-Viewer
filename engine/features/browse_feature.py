@@ -356,6 +356,10 @@ def ops_summary():
     """One-glance operations view: runtime mode, page cache, recent ingest/OCR runs, latest snapshot,
     and corpus counts. Cheap queries only (no full-table OCR scan — that lives on the Status page)."""
     out = {"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "version": core.VERSION}
+    out["started_with_version"] = core.STARTUP_VERSION
+    out["started_at"] = core.STARTUP_TIME
+    try: out["code_changed_since_start"] = core.current_disk_version() != core.STARTUP_VERSION
+    except Exception: out["code_changed_since_start"] = False
     out["rps"] = {"mode": core.RPS_MODE, "reason": core.RPS_REASON, "flags": core.RPS_FLAGS}
     if core._rps:
         try: out["page_cache"] = core._rps.cache_stats(core.INDEX_DIR)

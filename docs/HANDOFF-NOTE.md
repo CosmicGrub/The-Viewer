@@ -4,6 +4,26 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-31, fifteenth pass):** a running server left up across a `git pull`
+> (or any on-disk edit that never got a restart) looked completely healthy — answered every request
+> fine — while quietly running stale code, with nothing anywhere recording when the process started
+> or whether its code still matched disk. **Fixed**: `STARTUP_VERSION`/`STARTUP_TIME`
+> (`engine/viewer_app.py`, captured once at import) plus `current_disk_version()` (a TTL-cached, 30s,
+> plain-`open()`+regex re-read of just the `VERSION =` line — never a re-import, never `git`, fails
+> open on any read error) feed new `started_with_version`/`started_at`/`code_changed_since_start`
+> fields on `/healthz` and `/api/ops` (`version` itself is unchanged — still the in-memory version
+> actually running). A non-dismissible banner (`shared.js`, `#vw-stalebanner`, following the existing
+> `_footerNav` self-injecting/id-guarded pattern) shows on every page, not just `/ops`, polling
+> `/healthz` on load and every 5 minutes, with no `localStorage` suppression by design — a dismissible
+> banner is exactly the "silent for weeks" failure this closes. `ops.html` gets a dedicated "Code
+> freshness" stat card. New test `test_version_staleness.py`: real `ThreadingHTTPServer`, confirms no
+> mismatch on a fresh process, safely mutates the real on-disk `VERSION =` line (saved/restored in
+> `try`/`finally`) and confirms the mismatch **is** reported, confirms a second fresh subprocess
+> against that same changed file reports **no** mismatch, confirms the TTL cache keeps 20 back-to-back
+> `/healthz` calls fast. Shipped as `[1.42.0]`. Verified: `verify_all.py --snapshot` clean except
+> `test_routes.py`'s pre-existing `/api/ask` timeout, confirmed identical on unmodified `origin/main`
+> via `git stash` before this work began — unrelated to this change.
+>
 > **Reconciliation note (2026-08-31, fourteenth pass):** a readiness audit's completeness pass found
 > `part.html`'s shared `gj()` fetch helper collapsing a real transport/server failure and a genuine
 > "nothing here" result into the exact same falsy shape across all 15 of its `fetch()` call sites (the

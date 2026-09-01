@@ -35,7 +35,13 @@ shape across all 15 fetch call sites, so the two safety-relevant panels (cross-m
 one-time-use/TTY fasteners) failed completely silently; fixed to resolve an honest `{ok,status,body}`
 and show a distinct message for each outcome, catching and fixing two real bugs live during
 verification (an always-truthy `s.title` empty-test, a shared-card overwrite race) before shipping,
-`[1.41.0]`).** This document
+`[1.41.0]`; then version-staleness detection — nothing recorded when the process started or whether
+its code still matched disk, so a server left running across a `git pull` looked completely healthy
+while quietly running stale code; fixed with `STARTUP_VERSION`/`STARTUP_TIME` captured once at
+import, a TTL-cached on-disk `VERSION=` re-read (never a re-import, never `git`), new
+`started_with_version`/`started_at`/`code_changed_since_start` fields on `/healthz`/`/api/ops`, and a
+non-dismissible whole-site banner in `shared.js` that clears itself once the process is actually
+restarted, `[1.42.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -46,12 +52,18 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.41.0, shipped 2026-08-31** (`part.html` no longer conflates a failed request
-with "part not found" — `gj()`, the shared fetch helper behind all 15 of the page's fetch call sites,
-now resolves an honest `{ok,status,body}` instead of collapsing a real transport/server failure and a
-genuine empty result into the same falsy shape; two real bugs (an always-truthy `s.title` empty-test,
-a shared-card overwrite race between the conflicts/validate panels) caught live during verification
-and fixed before shipping — see §6 item 25). Immediately prior: v1.39.0, shipped 2026-09-01 (CRITICAL
+**True current state: v1.42.0, shipped 2026-08-31** (version-staleness detection — a server left
+running across a `git pull` looked completely healthy while quietly running stale code, since nothing
+recorded when it started or whether its code still matched disk; fixed with `STARTUP_VERSION`/
+`STARTUP_TIME` captured once at import, a TTL-cached on-disk `VERSION=` re-read, new
+`started_with_version`/`started_at`/`code_changed_since_start` fields on `/healthz`/`/api/ops`, and a
+non-dismissible whole-site banner in `shared.js` — see §6 item 26). Immediately prior: v1.41.0, shipped
+2026-08-31 (`part.html` no longer conflates a failed request with "part not found" — `gj()`, the
+shared fetch helper behind all 15 of the page's fetch call sites, now resolves an honest
+`{ok,status,body}` instead of collapsing a real transport/server failure and a genuine empty result
+into the same falsy shape; two real bugs (an always-truthy `s.title` empty-test, a shared-card
+overwrite race between the conflicts/validate panels) caught live during verification and fixed
+before shipping — see §6 item 25). Immediately prior: v1.39.0, shipped 2026-09-01 (CRITICAL
 fix — `build_index()` could stamp an index as pure `sentence-transformers` even when a mid-build
 `model.encode()` failure had silently blended hash-fallback vectors into one chunk; found during
 adversarial verification of `[1.36.0]` before its gated full-corpus rebuild was launched — see §6 item
@@ -794,6 +806,34 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     exists for any UI page in this repo** (confirmed, not assumed) — new coverage follows this repo's
     existing static-source-text-assertion convention (`test_uiux_fixes.py`, 22 new checks, 272/272
     total) instead of inventing a new test style out of scope. See `CHANGELOG.md` `[1.41.0]`.
+26. **`[1.42.0]` — version-staleness detection: a stale running server is now visible, not silent.**
+    Nothing anywhere recorded when the running process started, or whether the code it launched with
+    still matched what was on disk — a server left running across a `git pull` (or any on-disk edit
+    that never got a restart) answered every request fine while quietly running stale code, with no
+    signal anywhere for an operator to notice. Fixed with `STARTUP_VERSION`/`STARTUP_TIME`
+    (`engine/viewer_app.py`, next to `VERSION`) captured once at import and never changed for the life
+    of the process, plus `current_disk_version()` — a plain `open()`+regex re-read of just the
+    `VERSION = "..."` line, TTL-cached at 30s so polling costs at most one file read per window, never
+    a re-import (`sys.modules`/the running feature-module DI graph untouched) and never `git` (this app
+    is stdlib-only by design on fielded/legacy machines), fails open on any read error. New
+    `started_with_version`/`started_at`/`code_changed_since_start` fields on `/healthz` and `/api/ops`
+    (the existing `version` field is unchanged — still the in-memory version actually running; the new
+    fields are what make it possible to notice it no longer matches disk). A non-dismissible banner
+    self-injects from `shared.js` (`#vw-stalebanner`, the existing `_footerNav` self-injecting/
+    id-guarded pattern) on every page, not just `/ops`, polling `/healthz` on load and every 5 minutes,
+    deliberately carrying no dismiss control or `localStorage` suppression — a dismissible banner is
+    exactly the "silent for weeks" failure this closes — clearing itself automatically once the process
+    is actually restarted. `ops.html` gets a dedicated "Code freshness" stat card. New test
+    `test_version_staleness.py`: real `ThreadingHTTPServer` + `viewer_app.Handler`, confirms no
+    mismatch on a fresh process against its own on-disk file, safely rewrites the real on-disk
+    `VERSION =` line (saved/restored in `try`/`finally` so a mid-test crash can't leave the repo file
+    mutated) and confirms the mismatch **is** now reported on both endpoints, confirms a second,
+    genuinely fresh subprocess started against that same now-changed file reports **no** mismatch (the
+    detector tracks what a process actually started with, not a fixed constant), and confirms 20
+    back-to-back `/healthz` calls stay fast (TTL cache, not a per-request file read). Verified:
+    `verify_all.py --snapshot` clean except `test_routes.py`'s pre-existing `/api/ask` timeout,
+    confirmed identical on unmodified `origin/main` via `git stash` before this work began, unrelated
+    to this change. See `CHANGELOG.md` `[1.42.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

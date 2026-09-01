@@ -12,6 +12,50 @@ every change going forward.
 
 ---
 
+## [1.42.0] — 2026-08-31 — a stale running server is now visible, not silent
+**VERSION → `1.42.0`.** Nothing anywhere recorded when the running process started, or whether the
+code it launched with still matched what was on disk. A server left running across a `git pull` (or
+any on-disk edit that never got a restart) looked completely healthy — it answered every request
+fine — while quietly running a stale build of the app, with no signal anywhere for an operator to
+notice short of reading a timestamp on the process itself.
+
+- **`STARTUP_VERSION` / `STARTUP_TIME`** (`engine/viewer_app.py`, next to `VERSION`) are captured
+  once, at import time, and never change for the life of the process.
+- **`current_disk_version()`** does a plain `open()` + regex re-read of just the `VERSION = "..."`
+  line of `viewer_app.py` on disk (a few hundred bytes) — never a re-import (`sys.modules` and the
+  running feature-module DI graph are untouched) and never `git` (this app runs stdlib-only on
+  fielded/legacy machines by design; see the module docstring). TTL-cached at 30s so a burst of
+  `/healthz`/`/api/ops` polling costs at most one file read per window, not one per request; fails
+  open (any read/parse error just returns the last known value) so a transient I/O hiccup can never
+  flip a health check to unhealthy.
+- **New fields on `/healthz` and `/api/ops`**: `started_with_version`, `started_at`, and
+  `code_changed_since_start` (true when the freshly-read on-disk `VERSION` no longer matches
+  `started_with_version`). The existing `version` field is left untouched — it stays the in-memory
+  version this process is actually running; the new fields are what make it *possible* to notice it
+  no longer matches disk.
+- **A non-dismissible banner**, self-injected by `shared.js` (same self-injecting/id-guarded
+  `_footerNav` pattern, `#vw-stalebanner`) on every page — not just `/ops` — polling `/healthz` on
+  load and every 5 minutes: *"⚠ Running code is stale — server started on vX.Y.Z, disk now has
+  vA.B.Z. Restart the server to pick up the fix."* Deliberately carries no dismiss control and no
+  `localStorage` suppression — a banner a mechanic can click away and never see again is exactly the
+  "silent for weeks" failure mode this closes. It clears itself automatically once the process is
+  actually restarted (`started_with_version` matches `version` again).
+- **`ops.html`** gets a dedicated "Code freshness" stat card (fresh / `STALE since <started_at>`,
+  with both version numbers) alongside its existing runtime-mode/documents/page-cache/snapshot cards.
+- **New test** `engine/tests/test_version_staleness.py`: starts a real `ThreadingHTTPServer` +
+  `viewer_app.Handler`, confirms a freshly-started process reports no mismatch against its own
+  on-disk file, safely rewrites the real `VERSION =` line on disk (saved/restored in a `try`/`finally`
+  so a mid-test crash can't leave the repo file mutated) and confirms the mismatch **is** now reported
+  on both `/healthz` and `/api/ops`, confirms a second, genuinely fresh subprocess started against
+  that same now-changed file reports **no** mismatch, and confirms 20 back-to-back `/healthz` calls
+  stay fast (TTL cache, not a per-request file read).
+
+**Verified:** `engine/tests/verify_all.py --snapshot` clean except `test_routes.py`'s pre-existing
+`/api/ask` timeout (confirmed identical on unmodified `origin/main` via `git stash`, unrelated to
+this change).
+
+---
+
 ## [1.41.0] — 2026-08-31 — part.html no longer conflates a failed request with "part not found"
 **VERSION → `1.41.0`.** Found during a readiness audit's completeness pass: `part.html`'s shared
 `gj()` fetch helper collapsed two very different outcomes — a real transport/server failure, and a

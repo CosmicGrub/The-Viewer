@@ -4,6 +4,36 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-31, seventeenth pass):** `safeguard.py backupdb()`'s `PRAGMA
+> quick_check` (`[1.25.0]`) only ever proved a backup file's SQLite B-tree was internally consistent —
+> it never opened a connection against app tables, ran a real query, or fed a result through the app
+> layer, so this had never actually been tested end-to-end. **Ran a real restore drill**: copied
+> (never moved) `backups\db\viewer-20260830-1348.db` (3.64 GB, SHA-256-verified identical after copy)
+> to an isolated scratch location outside the repo, started a genuinely separate `viewer_app.py`
+> instance against only that copy on an unused port, and hit `/healthz`, `/api/part_record`,
+> `/api/part_by_number`, `/api/search`, and `/api/pmcs` with real queries. **Found a real gap**:
+> `/api/search` and `/api/pmcs` both silently return `200` with empty results against this backup —
+> root cause confirmed directly against the restored file: the backup's `pages` table predates the
+> `ocr_confidence` column (`schema_version=8` vs. migrations through `12`; `healthz`'s own `schema`
+> check already said `WARN` but nothing gated on it), and current app code unconditionally selects
+> that column in the search/pmcs query paths, throws, and swallows the error into an empty `200` with
+> no error surfaced anywhere. The identical FTS query run directly against the restored file (no app
+> layer) returns correct hits immediately — a pure app/schema-version mismatch, not a corpus problem.
+> `part_record`/`part_by_number` are unaffected and served correct real data. No code changed to work
+> around this — left for a human decision. Cleanly shut the drill instance down (Windows needed a
+> forceful `taskkill /F`; non-forceful didn't stop a console-less Python server within 2 s), deleted
+> only the scratch copy, and verified byte-for-byte (size + mtime + SHA-256) that the original backup
+> and `index/viewer.db` were untouched throughout. Also found live free disk on `E:` at **6.3 GB**, an
+> order of magnitude below a prior planning pass's ~63 GB estimate — flagged, not silently corrected;
+> the drill used `C:` instead (8.69 GB free at the time). Full request/response record:
+> `docs/RESTORE-DRILL-LOG.md`. Shipped as `[1.44.0]`. Verified: `verify_all.py --snapshot` run four
+> times while the (deliberately undisturbed) background embeddings rebuild competed for CPU/IO —
+> results varied between the two previously documented flakes and a third, newly-observed
+> `test_http.py` `/api/pageqa` transport timeout, confirmed pre-existing via `git stash` back to
+> unmodified `origin/main` (identical timeout reproduced). All failures across all runs were transport
+> timeouts on slow model-backed endpoints, never a correctness assertion — docs-and-drill-only, no app
+> code touched.
+>
 > **Reconciliation note (2026-08-31, sixteenth pass):** the LAN-exposed deployment path
 > (`--host 0.0.0.0`) had authentication hardening (`VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` gating
 > `X-Viewer-Token`) but no transport-layer option at all -- the token and every request/response

@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.43.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.44.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -56,8 +56,15 @@ zero change to `Handler` or the worker semaphore), a new one-time self-signed-ce
 (`engine/gen_cert.py`, gated behind an optional `cryptography` import — matching the
 `sentence-transformers`/`rapidocr-onnxruntime` pattern rather than an `openssl` shell-out or a
 vendored X.509 encoder), `safe_public_base()` now scheme-aware for `/api/qr`, and a real-handshake
-test suite (`test_tls.py`) confirming both the TLS-on and TLS-off paths genuinely work (`[1.43.0]`) —
-see the reconciliation notes below and §8 item 25). This document +
+test suite (`test_tls.py`) confirming both the TLS-on and TLS-off paths genuinely work (`[1.43.0]`);
+then the first real backup **restore** drill — `backupdb()`'s `PRAGMA quick_check` had only ever
+proven a backup file's internal consistency, never that the app layer could actually read it; a real
+copy of `viewer-20260830-1348.db` was restored into an isolated `viewer_app.py` instance and queried
+live, finding that `/api/search`/`/api/pmcs` silently return empty results against this specific
+backup because its schema (`schema_version=8`) predates the `pages.ocr_confidence` column current app
+code requires, while `/api/part_record`/`/api/part_by_number` were unaffected; the original backup and
+`index/viewer.db` were confirmed byte-for-byte untouched throughout (`[1.44.0]`) — see the
+reconciliation notes below and §8 items 25–27). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -681,6 +688,36 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     endpoints, confirms a second genuinely-fresh subprocess against that same changed file reports
     **no** mismatch, and confirms the TTL cache keeps 20 back-to-back `/healthz` calls fast. See
     `CHANGELOG.md` `[1.42.0]`.
+26. **`[1.43.0]` — TLS support for LAN-exposed deployments**: `VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN`
+    hardened authentication over plain HTTP, but a LAN-exposed VIEWER (`--host 0.0.0.0`) still crossed
+    the network unencrypted — the shared token and all real TM/parts/NSN content readable to anyone
+    else on the same segment. Fixed with new off-by-default `--tls`/`--cert`/`--key` flags
+    (`engine/viewer_app.py`) wrapping the listening socket in stdlib `ssl.SSLContext` (TLS 1.2+) once
+    at startup — zero change to `Handler` or the bounded-worker semaphore, byte-for-byte unchanged
+    behavior when `--tls` isn't passed, fails fast (never binds, never falls back to plaintext) if
+    `--tls` is passed with no cert/key resolvable. New one-time cert CLI `engine/gen_cert.py`
+    (RSA-2048, 10-year self-signed, SAN auto-detects LAN IPs), gated behind an optional `cryptography`
+    import — matching the `sentence-transformers`/`rapidocr-onnxruntime`/`pyzbar` pattern rather than
+    an `openssl` shell-out (no guaranteed `openssl.exe` on this app's documented Win7/Vista floor) or a
+    vendored X.509 encoder. `safe_public_base()` (feeds `/api/qr`) now scheme-aware. New test
+    `test_tls.py`: a real cert, a real handshake (not mocked), confirms `https://` succeeds, plain
+    `http://` on the same port is rejected, an untrusting client is rejected, and the plain-HTTP path
+    is completely unaffected when `--tls` is never passed. New doc `docs/TLS-LAN-SETUP.md`. See
+    `CHANGELOG.md` `[1.43.0]`.
+27. **`[1.44.0]` — the first real backup restore drill, performed and documented**: `backupdb()`'s
+    `PRAGMA quick_check` (`[1.25.0]`) only ever proved a backup file's own internal consistency, never
+    that the app layer could actually read it. A real drill was performed: `backups\db\
+    viewer-20260830-1348.db` (3.64 GB, SHA-256-verified) copied to an isolated scratch location, a
+    genuinely separate `viewer_app.py` instance started against only that copy, real queries hit
+    against `/healthz`/`/api/part_record`/`/api/part_by_number`/`/api/search`/`/api/pmcs`. **Found a
+    real gap**: `/api/search`/`/api/pmcs` silently return `200` with empty results against this backup
+    — its `pages` table predates the `ocr_confidence` column (`schema_version=8` vs. migrations
+    through `12`) current app code unconditionally selects in those query paths, throwing and
+    swallowing the error into an empty response with no signal anywhere. `part_record`/`part_by_number`
+    unaffected. No code changed to work around it — left for a human decision (schema-version gate on
+    restore, or run `fix_schema_version.py` against future backups first). Original backup and
+    `index/viewer.db` confirmed byte-for-byte untouched (size/mtime/SHA-256) before and after. Full
+    record: `docs/RESTORE-DRILL-LOG.md`. See `CHANGELOG.md` `[1.44.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

@@ -1031,6 +1031,73 @@ except Exception as e:
     failed.append("confidence_signaling_ui(%s)" % e)
 
 
+
+# =====================================================================================================
+# v1.41 (readiness audit) -- part.html's gj() used to collapse a real transport/server failure and a
+# genuine "nothing here" result into the exact same falsy/`!j.ok` shape, so all ~16 fetch sites
+# (the primary /api/partsummary card plus 15 lazy-loaded panels) rendered a failure identically to an
+# honest empty result -- a safety-relevant blind spot for the conflicts/one-time-use-fastener cards in
+# particular. Static source-text assertions (matching this file's existing part.html/jobcard.py
+# convention above, not a real browser harness -- see the final report for why) confirming: (a) gj()
+# now resolves a real {ok,status,body} split instead of a bare null, (b) every fetch site added an
+# explicit `if(!res.ok)` failure branch, (c) the old, effectively-dead `!j.ok` primary check and its
+# always-truthy `s.title` empty-test bug are both gone, and (d) the two safety-relevant panels carry
+# their distinct, explicitly-worded "do not treat this as..." copy.
+# =====================================================================================================
+try:
+    part_html2 = open(os.path.join(ENGINE, "ui", "part.html"), encoding="utf-8").read()
+    script2 = part_html2.split("<script>", 1)[1].rsplit("</script>", 1)[0]
+
+    # gj() itself: never resolves bare null/truthy-junk on failure anymore
+    ok("parthtml_gj_resolves_ok_status_body_shape",
+       "ok: r.ok && body!==null, status: r.status, body: body" in script2)
+    ok("parthtml_gj_network_failure_resolves_not_rejects",
+       "ok:false, status:0, body:null" in script2)
+    ok("parthtml_failcard_helper_defined", "function failCard(what){" in script2)
+
+    # every one of the 15 gj() call sites (1 primary + 14 lazy panels) now branches on !res.ok
+    ok("parthtml_every_gj_site_checks_res_ok", script2.count("if(!res.ok)") >= 15)
+    ok("parthtml_gj_call_count_matches_res_ok_check_count",
+       script2.count("gj('/api/") == script2.count(".then(function(res){"))
+
+    # regression guard: the old dead/misleading checks are actually gone, not just supplemented
+    ok("parthtml_old_primary_falsy_check_removed", "if(!j||!j.ok){ $('#head').textContent='Nothing found." not in script2)
+    ok("parthtml_old_bare_gj_null_catch_removed", "function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}" not in script2)
+    # the primary honest-empty test must NOT use s.title -- jobcards.py's _jobpack_data() always sets
+    # pkg["title"]=q as a bare fallback, so s.title is truthy even on a genuine no-match (this was a
+    # real bug caught live in this session: a nonsense query rendered as a match until fixed)
+    ok("parthtml_primary_emptytest_excludes_title", "!!(s.nsn||s.item_name||s.title)" not in script2)
+    ok("parthtml_primary_emptytest_uses_nsn_or_item_name", "!!(s.nsn||s.item_name)" in script2)
+
+    # the two safety-relevant panels (cross-manual conflicts, one-time-use/TTY fasteners) get their
+    # own explicitly-worded failure copy, distinct from every other panel's generic failCard()
+    ok("parthtml_conflicts_failure_copy_distinct",
+       'Do not treat this as "no conflicts."' in script2)
+    ok("parthtml_oneuse_failure_copy_distinct",
+       'Do not treat this as "none flagged."' in script2)
+
+    # #conflictcard correctness fix: lazyValidate and lazyConflicts share one box and must both only
+    # ever APPEND to it (insertAdjacentHTML), never overwrite it (box.innerHTML=...) -- an overwrite
+    # from either one would silently wipe whatever the other already wrote (including a failure
+    # marker), for a card whose two safety findings must both stay visible.
+    conflictcard_span = script2.split("function lazyValidate(q){", 1)[1].split("function lazyOneuse(q){", 1)[0]
+    ok("parthtml_conflictcard_never_overwritten_via_innerHTML",
+       "box.innerHTML=h" not in conflictcard_span and "box.innerHTML =" not in conflictcard_span)
+    ok("parthtml_conflictcard_appends_at_least_4_times",
+       conflictcard_span.count("insertAdjacentHTML('beforeend'") >= 4)
+
+    # honest-empty messages were added for every panel the audit flagged as having none before
+    for empty_msg in ("No cross-manual conflicts found.", "No one-time-use/TTY fasteners flagged",
+                       "No maintenance allocation chart data", "No wiring/pinout data",
+                       "No RPSTL breakdown for this part", "No serviceable/wear limits",
+                       "Not enough torque data for a sequence diagram",
+                       "No job kit / bill of materials for this part",
+                       "No approximate model available"):
+        ok("parthtml_honest_empty_present[%s]" % empty_msg[:24], empty_msg in script2)
+except Exception as e:
+    failed.append("parthtml_honest_error_vs_notfound(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for priority-5 UI/UX audit fixes)" %

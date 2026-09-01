@@ -46,15 +46,43 @@
 (function(){
   function $(s){return document.querySelector(s);}
   /* esc()/toast() from /shared.js */
-  function gj(u){return fetch(u).then(function(r){return r.json();}).catch(function(){return null;});}
+  // v1.41 (readiness audit): gj() used to collapse a real transport/server failure and a genuine
+  // "nothing here" into the exact same falsy/`!j.ok` shape, so every panel below rendered them
+  // identically -- a technician had no way to tell "this part has no field notes" from "the server
+  // just failed to answer" for a safety-relevant panel like one-time-use fasteners. gj() now always
+  // resolves (never rejects, so no call-site .then() shape changes) to {ok,status,body}: ok is true
+  // only for a 2xx response with a JSON body that actually parsed; every other outcome (network/DNS
+  // failure, HTTP error status, unparseable body) is ok:false so callers can render a distinct,
+  // honest "couldn't load" message instead of silently agreeing with an empty result.
+  function gj(u){
+    return fetch(u).then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(body){
+        return { ok: r.ok && body!==null, status: r.status, body: body };
+      });
+    }).catch(function(){
+      return { ok:false, status:0, body:null };
+    });
+  }
+  function failCard(what){ return '<div class="alert verd">⚠ Couldn\'t load '+what+' — try again.</div>'; }
 
   function run(){
     var q=$('#q').value.trim(); if(q.length<2){ $('#head').textContent='Type a part / NSN.'; return; }
     history.replaceState(null,'','/part?q='+encodeURIComponent(q));
     $('#head').textContent='Assembling…'; $('#out').innerHTML='';
-    gj('/api/partsummary?q='+encodeURIComponent(q)).then(function(j){
-      if(!j||!j.ok){ $('#head').textContent='Nothing found.'; return; }
-      $('#head').textContent=''; render(q, j.summary||{});
+    gj('/api/partsummary?q='+encodeURIComponent(q)).then(function(res){
+      if(!res.ok){ $('#head').textContent="Couldn't reach the server — check your connection and try again."; return; }
+      var j=res.body, s=j.summary||{};
+      // /api/partsummary sends {ok:true} on every successful request >=2 chars (verified against
+      // jobcards.py) -- it never legitimately reports ok:false, so the old `!j.ok` check here was
+      // dead for real no-match queries and almost always fired on a masked transport failure
+      // instead. Honest-empty is now judged on the summary's own content -- NOT s.title, which
+      // jobcards.py's _jobpack_data() always sets to the raw query string `q` as a baseline
+      // fallback (pkg={"title":q,...}) even when nothing actually matched, so it is never a
+      // trustworthy found-a-record signal (confirmed live: a nonsense query still comes back
+      // {ok:true, summary:{title:"<the query>", procedures:[], ...}}).
+      var hasContent = !!(s.nsn||s.item_name) || (s.parts&&s.parts.length) || (s.dims&&s.dims.length) || (s.procedures&&s.procedures.length) || (s.torque&&s.torque.length) || (s.cautions&&s.cautions.length);
+      if(!hasContent){ $('#head').textContent='Nothing found.'; return; }
+      $('#head').textContent=''; render(q, s);
       lazyModel(q); lazyConflicts(q); lazyValidate(q); lazyOneuse(q);
       lazyServiceability(q); lazyTorqueSeq(q); lazyKit(q); lazyNotes(q);
       // v1.30 (roadmap Next-tier item 7): 3 real, self-tested, route-registered modules that had
@@ -123,7 +151,9 @@
   }
 
   function lazyValidate(q){
-    gj('/api/validate?q='+encodeURIComponent(q)).then(function(j){ var box=$('#conflictcard'); if(!box||!j||!j.ok)return;
+    gj('/api/validate?q='+encodeURIComponent(q)).then(function(res){ var box=$('#conflictcard'); if(!box)return;
+      if(!res.ok){ box.insertAdjacentHTML('beforeend', failCard('the data-integrity check')); return; }
+      var j=res.body; if(!j||!j.ok)return;
       var c=j.counts||{}; if(!(c.quarantine||c.suspect)) return;
       var held=(j.rows||[]).filter(function(r){return r.validation&&r.validation.status!=='ok';}).slice(0,6);
       var h='<div class="alert obs" style="background:#241016;border-color:#8a1c1c"><b>⚠ Data-integrity check</b> — '
@@ -134,8 +164,15 @@
     });
   }
   function lazyConflicts(q){
-    gj('/api/conflicts?q='+encodeURIComponent(q)).then(function(j){ var box=$('#conflictcard'); if(!box||!j)return;
-      var cs=(j.conflicts||[]); if(!cs.length) return;
+    // Renders into #conflictcard via insertAdjacentHTML (append), same as lazyValidate above --
+    // NEVER box.innerHTML=... here, that would silently wipe out whatever lazyValidate already
+    // wrote into the shared box (a real correctness bug fixed alongside the honest-error pass,
+    // since both functions now also write failure markers into this same box).
+    gj('/api/conflicts?q='+encodeURIComponent(q)).then(function(res){ var box=$('#conflictcard'); if(!box)return;
+      if(!res.ok){ box.insertAdjacentHTML('beforeend', '<div class="alert verd">⚠ Couldn\'t check for cross-manual conflicts — try again. Do not treat this as "no conflicts."</div>'); return; }
+      var j=res.body; if(!j)return;
+      var cs=(j.conflicts||[]);
+      if(!cs.length){ box.insertAdjacentHTML('beforeend', '<div class="none">No cross-manual conflicts found.</div>'); return; }
       var h='<div class="alert obs" style="background:#2a1414;border-color:#8a1c1c"><b>⚠ Cross-manual conflict — verify before working</b>';
       cs.slice(0,5).forEach(function(c){
         // v1.26 (conflicts.py vehicle-annotation fix): cross_vehicle=true means the disagreeing
@@ -152,14 +189,16 @@
           +'</div>';
       });
       h+='<div class="muted" style="margin-top:6px;color:#e39b95">The manuals disagree on these values. Use the one for YOUR vehicle/serial; when in doubt, the newest applicable TM governs.</div></div>';
-      box.innerHTML=h;
+      box.insertAdjacentHTML('beforeend', h);
     });
   }
   function lazyOneuse(q){
     // v1.13 (#41/#42 SAFETY): one-time-use / torque-to-yield fastener flags — each is the manual's
     // own sentence, cited to its page (extractive; nothing inferred).
-    gj('/api/oneuse?q='+encodeURIComponent(q)).then(function(j){ var box=$('#oneusecard'); if(!box||!j||!j.ok)return;
-      var fs=(j.flags||[]); if(!fs.length) return;
+    gj('/api/oneuse?q='+encodeURIComponent(q)).then(function(res){ var box=$('#oneusecard'); if(!box)return;
+      if(!res.ok){ box.innerHTML='<div class="alert verd">⚠ Couldn\'t check for one-time-use/TTY fasteners — try again. Do not treat this as "none flagged."</div>'; return; }
+      var j=res.body; if(!j||!j.ok)return;
+      var fs=(j.flags||[]); if(!fs.length){ box.innerHTML='<div class="none">No one-time-use/TTY fasteners flagged for this part.</div>'; return; }
       var lbl={one_time_use:'ONE-TIME USE',torque_to_yield:'TORQUE-TO-YIELD',discard_after_removal:'DISCARD AFTER REMOVAL'};
       var h='<div class="alert obs" style="background:#2a1414;border:1px solid #c0392b"><b>⚠ One-time-use / TTY fasteners — replace, never reuse</b>';
       fs.slice(0,6).forEach(function(f){
@@ -180,7 +219,9 @@
     // "conflict" too (conflicts.py's own conflict card already covers manual-vs-manual disagreement,
     // so this card only surfaces the CONFIRMED/agreement rows -- showing its own conflicts again
     // here would just duplicate the alert above for no new information).
-    gj('/api/crossmethod?q='+encodeURIComponent(q)).then(function(j){ var box=$('#crossmethodcard'); if(!box||!j||!j.ok)return;
+    gj('/api/crossmethod?q='+encodeURIComponent(q)).then(function(res){ var box=$('#crossmethodcard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('cross-method confirmation'); return; }
+      var j=res.body; if(!j||!j.ok)return;
       var rows=(j.reconciled||[]).filter(function(r){return r.status==='confirmed';}); if(!rows.length) return;
       var h='<div class="card" style="border-color:#1c4a2e"><b style="color:#7fd6a0">✓ Independently confirmed</b> — the same value was extracted two different ways and they agree:';
       rows.slice(0,6).forEach(function(r){
@@ -194,7 +235,10 @@
   function lazyMac(q){
     // v1.30 (roadmap Next-tier item 7): macchart.py -- Maintenance Allocation Chart rows (at what
     // level do you replace this, and how long does it take). Route is /api/mac, not /api/macchart.
-    gj('/api/mac?q='+encodeURIComponent(q)).then(function(j){ var box=$('#maccard'); if(!box||!j||!j.ok||!j.rows||!j.rows.length)return;
+    gj('/api/mac?q='+encodeURIComponent(q)).then(function(res){ var box=$('#maccard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('the maintenance allocation chart'); return; }
+      var j=res.body; if(!j||!j.ok)return;
+      if(!j.rows||!j.rows.length){ box.innerHTML='<h2>Maintenance allocation</h2><div class="none">No maintenance allocation chart data for this part.</div>'; return; }
       var h='<h2>Maintenance allocation <span class="muted" style="font-weight:400">— who fixes this, and how long</span></h2><div class="card"><table><tr><th>Component</th><th>Task</th><th>Level</th><th>Hours</th></tr>'
         +j.rows.slice(0,10).map(function(r){return '<tr><td>'+esc(r.component||'')+'</td><td>'+esc(r.function||'')+'</td><td>'+esc(r.level_name||r.level||'')+'</td><td>'+esc(r.man_hours||'—')+'</td></tr>';}).join('')+'</table>'
         +'<div class="muted" style="margin-top:4px">Extracted from the TM MAC line — verify the level/hours against the actual chart.</div></div>';
@@ -206,8 +250,11 @@
     // (per-connector pin/wire-color tables) -- harnesstrace's own response already includes the full
     // connectors[] breakdown pinouts.py would return on its own, plus the nets[] continuity inference
     // on top, so one call covers both modules' real value without a redundant second fetch.
-    gj('/api/harnesstrace?q='+encodeURIComponent(q)).then(function(j){ var box=$('#wirecard'); if(!box||!j||!j.ok)return;
-      var nets=(j.nets||[]), cons=(j.connectors||[]); if(!nets.length && !cons.length) return;
+    gj('/api/harnesstrace?q='+encodeURIComponent(q)).then(function(res){ var box=$('#wirecard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('wiring / pinout data'); return; }
+      var j=res.body; if(!j||!j.ok)return;
+      var nets=(j.nets||[]), cons=(j.connectors||[]);
+      if(!nets.length && !cons.length){ box.innerHTML='<h2>Wiring / pinouts</h2><div class="none">No wiring/pinout data for this part.</div>'; return; }
       var h='<h2>Wiring / pinouts <span class="muted" style="font-weight:400">— connector pins &amp; continuity</span></h2><div class="card">';
       if(nets.length){ h+=nets.slice(0,8).map(function(n){
         return '<div class="proc"><b>'+esc(n.signal||'')+'</b> — '+(n.points||[]).map(function(p){return esc(p.connector)+'-'+esc(p.pin);}).join(', ')
@@ -229,7 +276,9 @@
     // for a vehicle-shaped query). The roadmap's own nav-tooltip citation ("readiness.html already
     // promises fleet shared-parts, by vehicle") describes a DIFFERENT, unbuilt aggregate view -- not
     // simply calling this module -- so that promise stays open rather than being force-fit here.
-    gj('/api/commonality?q='+encodeURIComponent(q)).then(function(j){ var box=$('#commoncard'); if(!box||!j||!j.ok||!j.n||j.commonality==='unknown')return;
+    gj('/api/commonality?q='+encodeURIComponent(q)).then(function(res){ var box=$('#commoncard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('fleet commonality data'); return; }
+      var j=res.body; if(!j||!j.ok||!j.n||j.commonality==='unknown')return;
       var lbl={'fleet-common':'Fleet-common — used across many platforms, worth stocking deep',
                 'shared':'Shared — used on a handful of platforms',
                 'single-platform':'Single-platform — not shared with other vehicles in this corpus'};
@@ -243,7 +292,9 @@
     // reachable via the standalone /related page (its own docstring already said it was meant to
     // power "a related panel on the dossier" -- neither part.html nor dossier.html called it before
     // now). Rendering logic mirrors related.html's own three sections.
-    gj('/api/xref?q='+encodeURIComponent(q)).then(function(j){ var box=$('#xrefcard'); if(!box||!j||!j.found)return;
+    gj('/api/xref?q='+encodeURIComponent(q)).then(function(res){ var box=$('#xrefcard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('related parts &amp; assemblies'); return; }
+      var j=res.body; if(!j||!j.found)return;
       if(!(j.assemblies&&j.assemblies.length)&&!(j.siblings&&j.siblings.length)&&!(j.see_also&&j.see_also.length)) return;
       var h='<h2>Related parts &amp; assemblies</h2><div class="card">';
       if(j.assemblies&&j.assemblies.length){ h+='<div class="proc"><b>On this figure:</b> '+j.assemblies.slice(0,4).map(function(a){
@@ -266,7 +317,10 @@
     // already-wired /api/rpstl_review and /api/rpstl_override admin-queue routes (a naive grep for
     // "/api/rpstl" false-positives on those two calls elsewhere in this file). Same shape gap as
     // commonality/crossmethod before this fix -- a real, self-tested route with zero UI callers.
-    gj('/api/rpstl?q='+encodeURIComponent(q)).then(function(j){ var box=$('#rpstlcard'); if(!box||!j||!j.ok||!j.rows||!j.rows.length)return;
+    gj('/api/rpstl?q='+encodeURIComponent(q)).then(function(res){ var box=$('#rpstlcard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('the RPSTL breakdown'); return; }
+      var j=res.body; if(!j||!j.ok)return;
+      if(!j.rows||!j.rows.length){ box.innerHTML='<h2>RPSTL breakdown</h2><div class="none">No RPSTL breakdown for this part.</div>'; return; }
       var h='<h2>RPSTL breakdown <span class="muted" style="font-weight:400">— figure/item/SMR from the parts list</span></h2><div class="card"><table><tr><th>Fig</th><th>Item</th><th>SMR</th><th>CAGEC</th><th>P/N</th><th>NSN</th><th>Qty</th><th>Nomenclature</th></tr>'
         +j.rows.slice(0,15).map(function(r){return '<tr><td>'+esc(r.figure||'—')+'</td><td>'+esc(r.item||'—')+'</td><td>'+esc(r.smr||'—')+'</td><td>'+esc(r.cagec||'—')+'</td><td>'+esc(r.part_number||'—')+'</td><td>'+esc(r.nsn||'—')+'</td><td>'+esc(r.qty!=null?String(r.qty):'—')+'</td><td class="muted">'+esc(r.nomenclature||'')+'</td></tr>';}).join('')
         +'</table><div class="muted" style="margin-top:4px">Parsed from the manual\'s own Repair Parts &amp; Special Tools List table — confirm SMR/qty on the cited figure before ordering.</div></div>';
@@ -274,7 +328,10 @@
     });
   }
   function lazyServiceability(q){
-    gj('/api/serviceability?q='+encodeURIComponent(q)).then(function(j){ var box=$('#svccard'); if(!box||!j||!j.ok||!j.limits||!j.limits.length)return;
+    gj('/api/serviceability?q='+encodeURIComponent(q)).then(function(res){ var box=$('#svccard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('serviceable / wear limits'); return; }
+      var j=res.body; if(!j||!j.ok)return;
+      if(!j.limits||!j.limits.length){ box.innerHTML='<h2>Serviceable / wear limits</h2><div class="none">No serviceable/wear limits for this part.</div>'; return; }
       var h='<h2>Serviceable / wear limits <span class="muted" style="font-weight:400">— when to replace</span></h2><div class="card">'
         +j.limits.slice(0,8).map(function(l){return '<div class="proc"><b>'+esc(l.bound.toUpperCase())+'</b> '+esc(l.value)+' '+esc(l.unit||'')+' <span class="muted">— '+esc(l.kind)+(l.page?(' · p.'+esc(l.page)):'')+'</span></div>';}).join('')
         +'<div class="muted" style="margin-top:4px">Confirm the limit on the cited TM page before condemning a part.</div></div>';
@@ -282,13 +339,19 @@
     });
   }
   function lazyTorqueSeq(q){
-    gj('/api/torqueseq?q='+encodeURIComponent(q)).then(function(j){ var box=$('#seqcard'); if(!box||!j||!j.ok||!j.enough||!j.svg)return;
+    gj('/api/torqueseq?q='+encodeURIComponent(q)).then(function(res){ var box=$('#seqcard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('the torque sequence diagram'); return; }
+      var j=res.body; if(!j||!j.ok)return;
+      if(!j.enough||!j.svg){ box.innerHTML='<h2>Torque sequence</h2><div class="none">Not enough torque data for a sequence diagram on this part.</div>'; return; }
       box.innerHTML='<h2>Torque sequence '+(j.stages&&j.stages.length?('· stages '+j.stages.join(' → ')):'')+'</h2><div class="card"><div style="max-width:340px;border:1px solid #24303c;border-radius:8px;overflow:hidden">'+j.svg+'</div><div class="muted" style="margin-top:4px">'+esc(j.pattern)+' pattern · numbered = tightening order · confirm against the TM figure'+(j.page?(' (p.'+esc(j.page)+')'):'')+'.</div></div>';
     });
   }
   function lazyKit(q){
-    gj('/api/bom?q='+encodeURIComponent(q)).then(function(j){ var box=$('#kitcard'); if(!box||!j||!j.ok)return; var k=j.kit||{};
-      if(!(k.counts&&(k.counts.parts||k.counts.tools||k.counts.consumables||k.counts.warnings))) return;
+    gj('/api/bom?q='+encodeURIComponent(q)).then(function(res){ var box=$('#kitcard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('the job kit / bill of materials'); return; }
+      var j=res.body; if(!j||!j.ok)return;
+      var k=j.kit||{};
+      if(!(k.counts&&(k.counts.parts||k.counts.tools||k.counts.consumables||k.counts.warnings))){ box.innerHTML='<h2>Job kit / bill of materials</h2><div class="none">No job kit / bill of materials for this part.</div>'; return; }
       var h='<h2>Job kit / bill of materials</h2><div class="card">';
       if(k.warnings&&k.warnings.length) h+='<div class="proc" style="color:#e39b95"><b>⚠ Replace-only fasteners:</b> '+k.warnings.slice(0,3).map(function(w){return '“'+esc(w.sentence)+'”'+(w.page?(' (p.'+esc(w.page)+')'):'');}).join(' · ')+'</div>';
       if(k.consumables&&k.consumables.length) h+='<div class="proc"><b>Consumables:</b> '+k.consumables.map(function(c){return esc(c.item);}).join(', ')+'</div>';
@@ -299,7 +362,9 @@
     });
   }
   function lazyNotes(q){
-    gj('/api/notes?q='+encodeURIComponent(q)).then(function(j){ var box=$('#notescard'); if(!box||!j)return; var ns=(j.notes||[]);
+    gj('/api/notes?q='+encodeURIComponent(q)).then(function(res){ var box=$('#notescard'); if(!box)return;
+      if(!res.ok){ box.innerHTML='<h2>Field notes</h2>'+failCard('field notes'); return; }
+      var j=res.body; if(!j)return; var ns=(j.notes||[]);
       var h='<h2>Field notes <a href="/review" style="font-size:12px;color:#4f9dff" title="add/endorse notes">＋ add / endorse</a></h2>';
       if(!ns.length){ h+='<div class="card muted">No field notes yet for this part. Seasoned mechanics can add cited tips (endorsed by an SME) via the review page.</div>'; }
       else { h+='<div class="card">'+ns.slice(0,6).map(function(n){return '<div class="proc">'+(n.verified?'✅ ':'• ')+esc(n.text)+' <span class="muted">— '+esc(n.by||'')+(n.endorsements?(' · '+n.endorsements+' endorsement(s)'):'')+(n.retracted?' · RETRACTED':'')+'</span></div>';}).join('')+'</div>'; }
@@ -307,8 +372,11 @@
     });
   }
   function lazyModel(q){
-    gj('/api/dimscad?q='+encodeURIComponent(q)).then(function(dc){ var box=$('#modelcard'); if(!box)return;
+    gj('/api/dimscad?q='+encodeURIComponent(q)).then(function(res){ var box=$('#modelcard'); if(!box)return;
+      if(!res.ok){ box.innerHTML=failCard('the approximate model'); return; }
+      var dc=res.body;
       if(dc&&dc.ok&&dc.enough&&dc.svg){ box.innerHTML='<h2>Approximate model (from dimensions)</h2><div class="card"><div style="max-width:420px;border:1px solid #24303c;border-radius:8px;overflow:hidden">'+dc.svg+'</div><div class="muted" style="margin-top:4px">'+esc(dc.primitive)+' sketch · <a href="/api/dimscad?obj=1&q='+encodeURIComponent(q)+'" target="_blank" style="color:#4f9dff">.OBJ ↗</a></div></div>'; }
+      else { box.innerHTML='<h2>Approximate model</h2><div class="none">No approximate model available (not enough dimension data).</div>'; }
     });
   }
 

@@ -12,6 +12,74 @@ every change going forward.
 
 ---
 
+## [1.41.0] — 2026-08-31 — part.html no longer conflates a failed request with "part not found"
+**VERSION → `1.41.0`.** Found during a readiness audit's completeness pass: `part.html`'s shared
+`gj()` fetch helper collapsed two very different outcomes — a real transport/server failure, and a
+genuine "nothing here" result — into the exact same falsy/`!j.ok` shape, so every one of its 15
+`fetch()` call sites (the primary `/api/partsummary` card plus 14 lazy-loaded panels) rendered a
+failure identically to an honest empty result. Worst cases: the primary card showed a flat "Nothing
+found." on any network hiccup, and the two safety-relevant panels (cross-manual conflicts,
+one-time-use/TTY fasteners) failed completely silently — a technician had no visible sign that a
+conflict or a replace-only fastener could have gone unchecked, not merely absent.
+
+- **`gj()` now returns `{ok,status,body}` instead of a bare `null`-or-parsed-body.** `ok` is true only
+  for a 2xx response whose body actually parsed as JSON; every other outcome (offline/DNS failure, an
+  HTTP error status such as the framework's 500 `{error,ref}` body, or an unparseable 2xx body) is
+  `ok:false`. `gj()` still never rejects, so no call site's `.then()` chain shape changed — every site
+  was updated to branch on `res.ok` first, with the existing success/empty logic moved onto `res.body`.
+- **All 15 fetch sites now show a distinct, honest message for "couldn't load" vs. "nothing here":**
+  the primary card ("Couldn't reach the server — check your connection and try again." vs. "Nothing
+  found."), and every lazy panel gets its own `⚠ Couldn't load <thing> — try again.` (a small
+  `failCard()` helper, reusing the `.alert.verd` amber style already defined in this file but never
+  referenced until now) instead of staying silently blank. 7 panels that had **no** empty-state message
+  at all before this pass (model, torque-sequence, serviceability, MAC, RPSTL, wiring, job-kit) got one
+  added at the same time, since adding a failure branch without an empty branch would have made the two
+  states indistinguishable again from the opposite direction.
+- **The two safety-relevant panels get explicitly-worded failure copy**, matching the
+  "do not treat this as..." pattern `dossier.html` already established for its own cautions panel:
+  `⚠ Couldn't check for cross-manual conflicts — try again. Do not treat this as "no conflicts."` and
+  `⚠ Couldn't check for one-time-use/TTY fasteners — try again. Do not treat this as "none flagged."`
+- **The primary card's own empty-test was wrong in a second, independent way, caught live while
+  verifying the fix**: `/api/partsummary` (`jobcards.py`) always sends `{ok:true}` for any query ≥2
+  chars — it has no code path that legitimately returns `ok:false` — so the *old* `!j.ok` check was
+  already dead for real no-match queries and almost always fired on a masked failure instead. The new
+  empty-test judges the summary's own content (`nsn`/`item_name`/`parts`/`dims`/`procedures`/`torque`/
+  `cautions`) — but an early version of that test also included `s.title`, which `_jobpack_data()`
+  always sets to the raw query string as a bare fallback (`pkg={"title":q,...}`) even when nothing
+  matched. That made the empty-test always true regardless of query, verified live with a nonsense
+  query rendering as if it had found something. `s.title` was dropped from the test before this shipped
+  — real regression, caught by hand-testing before merge, now also pinned by
+  `test_uiux_fixes.py::parthtml_primary_emptytest_excludes_title`.
+- **A second, adjacent correctness bug fixed alongside**: `#conflictcard` is shared by two lazy
+  functions (`lazyValidate`'s data-integrity check, `lazyConflicts`' cross-manual conflicts) — one of
+  them (`lazyConflicts`) used to write with `box.innerHTML=h`, which would silently wipe out whatever
+  `lazyValidate` had already appended, including a new failure marker. Both now exclusively append via
+  `insertAdjacentHTML('beforeend', …)`; verified live that a validate-failure message and a real
+  conflicts result render together in the same card without either erasing the other.
+- **Verified live**, not just read: real server, real corpus (`index/viewer.db`, ~39,700 documents) —
+  a real part (`POWER UNIT DIESEL`) renders unchanged (conflicts, one-time-use, MAC, RPSTL, cautions,
+  procedures, job-kit all populated correctly); a genuinely no-match query now shows "Nothing found."
+  (previously would have, coincidentally, been right for the wrong reason before this fix, and wrong
+  after the `s.title` regression before that was caught); and a forced fetch failure — both a true
+  `fetch()` rejection (simulated offline) and a real HTTP 404 from the live server — was injected at
+  all 15 call sites in browser (primary, conflicts, one-time-use, validate, MAC, wiring, commonality,
+  RPSTL, cross-method, serviceability, torque-sequence, job-kit, notes, model, xref — see PR body for
+  the full per-panel before/after copy) and each showed its own distinct "couldn't load" message,
+  never the old empty-state text.
+- **No existing real-browser/JS test harness for any UI page in this repo** — `test_uiux_fixes.py`'s
+  established pattern (used for every prior `part.html` fix, e.g. `[1.14.0]`'s confidence-qualifier
+  check) is static source-text assertions against the HTML file plus a `node --check` syntax sweep, not
+  a driven browser. New coverage for this fix follows that same convention rather than introducing a
+  new test style out of scope: it asserts `gj()`'s new resolve shape, that every one of the 15 call
+  sites gained an `if(!res.ok)` branch, that the old dead checks (and the `s.title` regression) are
+  actually gone rather than just supplemented, that both safety panels carry their distinct copy, and
+  that the `#conflictcard` append-only invariant holds.
+
+**Verified:** `engine/tests/verify_all.py --snapshot` clean; `test_uiux_fixes.py` (272/272, 22 new
+checks); live server against the real corpus per above.
+
+---
+
 ## [1.39.0] — 2026-09-01 — CRITICAL: embed.py build_index() could stamp a mixed real/hash-fallback index as pure sentence-transformers
 **VERSION → `1.39.0`.** Found during adversarial verification of `[1.36.0]` (embed.py full-rebuild
 prep) before the full-corpus rebuild it gates was launched. **Confirmed pre-existing, not introduced

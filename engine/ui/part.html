@@ -30,7 +30,7 @@
   .proc{border-bottom:1px solid #1a222d;padding:6px 0;font-size:13px}
   .kind{display:inline-block;background:#1c2836;border:1px solid #2f4858;border-radius:5px;padding:1px 7px;font-size:11px;color:#9fd0ff;margin-right:6px}
 </style></head><body>
-<div class="wrap">
+<div class="wrap" role="main" aria-label="Part lookup">
   <h1>🪪 Part — everything in one pane</h1>
   <div class="muted">One authoritative summary per part: identity, alerts, parts-to-order, dimensions, torque, cautions,
     and the procedure — plus one-click a <b>complete job-package PDF</b>. Every value cites the manual.</div>
@@ -39,8 +39,8 @@
     <button class="go" id="go">Open</button>
     <a class="btn" href="/scan">📷 Scan</a><a class="btn" href="/">← search</a>
   </div>
-  <div id="head" class="muted"></div>
-  <div id="out"></div>
+  <div id="head" class="muted" aria-live="polite"></div>
+  <div id="out" aria-live="polite"></div>
 </div>
 <script>
 (function(){

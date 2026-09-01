@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>THE VIEWER — Interactive Demo &amp; Onboarding</title>
-<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode; page's own <style> below still wins (v1.13.0) -->
+<link rel="stylesheet" href="/base.css"><!-- tokens + kiosk-mode (v1.13.0). v1.45: this page's own local
+     :root override (all 12 base tokens redefined verbatim, plus --grn2 which base.css lacked, and its
+     own --red:#c4585a which was DIFFERENT from base.css's --red:#e0564f) has been removed -- it was a
+     total, not partial, shadow of base.css's tokens and its off-brand --red was the direct cause of
+     the .warn .n contrast failure below. --grn2 moved to base.css itself (same #7fd6a6 value); every
+     other value here was already identical to base.css's, so removing the override is visually a
+     no-op except for --red, which is intentionally now the (lighter, text-safe-adjacent) base value. -->
 <style>
-/* ---- dark palette (matches THE VIEWER, rule R3) ---- */
-:root{
-  --bg:#0f1419; --panel:#171d26; --p2:#1c2430; --line:#2b333f; --txt:#e6e9ee; --sub:#9aa6b6;
-  --acc:#4f9dff; --grn:#2f7d4f; --grn2:#7fd6a6; --amb:#caa24a; --teal:#1d9e75; --pur:#7f77dd; --red:#c4585a;
-}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;overflow:hidden}
@@ -51,7 +52,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",
 .step{display:flex;gap:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
 .step .n{flex:0 0 26px;height:26px;border-radius:50%;border:1.5px solid var(--acc);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
 .warn{border-left:4px solid var(--red);background:rgba(196,88,90,.08)}
-.warn .n{border-color:var(--red);color:var(--red)}
+.warn .n{border-color:var(--red);color:var(--red-tx)}  /* v1.45: text-safe token -- border-color stays --red (decorative, 3:1 floor, fine); color was failing the 4.5:1 AA text floor (see docs/CHANGELOG.md) */
 .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .tool{font-size:11.5px;background:var(--p2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--sub)}
 table.t{border-collapse:collapse;max-width:680px;width:100%;font-size:12.5px}
@@ -129,12 +130,12 @@ table.t th{background:var(--p2);color:var(--sub)}
     <span class="muted" style="font-size:12px">Interactive demo &amp; onboarding</span>
     <span class="sidechip" id="sidechip">side: <b id="sideName">—</b></span>
   </div>
-  <div class="stage" id="stage">
+  <div class="stage" id="stage" role="main" aria-label="Interactive demo screens">
 
     <!-- SEARCH -->
     <section class="screen" id="scr-search">
       <p class="h">Search</p><p class="sh">Find a fault, part, NSN, or manual — instantly, offline.</p>
-      <div class="searchbox" id="s-box"><span class="muted">🔍</span><input id="s-input" value="engine will not crank" readonly></div>
+      <div class="searchbox" id="s-box"><span class="muted">🔍</span><input id="s-input" value="engine will not crank" aria-label="Example search (demo — not interactive)" readonly></div>
       <div class="sug" id="s-sug">
         <div><span class="q">engine will not crank</span> — no-start troubleshooting</div>
         <div>engine <b>cranks</b> but won't start — fuel/air</div>
@@ -262,8 +263,12 @@ table.t th{background:var(--p2);color:var(--sub)}
   </div><!-- /stage -->
 </div><!-- /app -->
 
-<!-- side gate -->
-<div class="gate" id="gate">
+<!-- side gate. v1.45 (a11y): dialog semantics only -- this page deliberately doesn't load shared.js
+     (see the comment at the top of <head>, kept for a reason: its injected bottom-corner pills would
+     collide with this page's own full-width bottom control bar), so VW.trapFocus() isn't available
+     here and this does NOT get a full keyboard focus trap the way schematics.html/threed.html's gate
+     modals do -- disclosed in docs/CHANGELOG.md rather than silently left at zero ARIA. -->
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-label="Choose your side of the house">
   <div class="card">
     <h2>Welcome to <span style="color:var(--acc)">THE VIEWER</span></h2>
     <p>A guided, end-to-end tour of the core features. First — which side of the house are you?</p>
@@ -287,7 +292,7 @@ table.t th{background:var(--p2);color:var(--sub)}
   <div class="scrim" id="sc-top"></div><div class="scrim" id="sc-left"></div><div class="scrim" id="sc-right"></div><div class="scrim" id="sc-bot"></div>
   <div id="ring"></div>
   <svg id="arrow" width="0" height="0"></svg>
-  <div id="tip"><div class="tnum" id="tipNum"></div><div class="ttl" id="tipTtl"></div><div class="txt" id="tipTxt"></div></div>
+  <div id="tip" role="status" aria-live="polite"><div class="tnum" id="tipNum"></div><div class="ttl" id="tipTtl"></div><div class="txt" id="tipTxt"></div></div>
 </div>
 
 <!-- control bar -->

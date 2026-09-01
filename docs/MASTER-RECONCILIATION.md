@@ -965,6 +965,39 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     simulated. Test server killed by PID matched via `netstat` to its own port only; the pre-existing
     background rebuild was never touched. Verified: `verify_all.py --snapshot` clean except the three
     now-documented pre-existing flakes. See `CHANGELOG.md` `[1.45.0]`.
+30. **`[1.46.0]` — accessibility work extended beyond `index.html`: real contrast fixes, modal focus
+    traps, a generalized contrast guard.** A research pass re-verified `[1.29.0]`'s own accessibility
+    disclosure against the real files and found a correction to its numbers: `status.html`'s `.tag.ok`
+    was carried on prior lists as a 3.10:1 WCAG failure, but that figure is base.css's un-overridden
+    `--grn` — this page's own local `--grn:#2f9d63` override actually measures 4.56:1, a genuine pass,
+    left untouched here. `demo.html`'s full local `:root` token override (shadowing all 12 of
+    base.css's tokens, plus `--grn2`, which base.css lacked) is gone — every value matched base.css
+    exactly except `--red` (`#c4585a` vs. base's `#e0564f`), the direct cause of a real
+    `.warn .n` contrast failure (3.94:1 → 6.13:1 fixed via the existing `--red-tx` token). Two more
+    confirmed real failures fixed the same way: `status.html` `.tag.bad` (4.18:1 → 5.65:1) and
+    `index.html`'s 2 remaining inline `color:var(--red)` stragglers (4.53:1, a narrow existing pass,
+    swapped to `--red-tx` anyway for consistency, now 6.13:1). `schematics.html`/`threed.html`'s gate
+    modals now carry `role="dialog" aria-modal="true"` + `VW.trapFocus()`, which required generalizing
+    `shared.js`'s `trapFocus()` itself: both pages toggle their gate via `classList.add/remove('on')`
+    against a CSS rule, never touching the inline `style` attribute `trapFocus()` originally watched —
+    attaching it as-is would have silently never trapped focus. `isVisible()` now reads
+    `getComputedStyle()`, the `MutationObserver` now watches both `style` and `class`, and Escape
+    detects which convention is live before closing — verified live in a real browser for both pages,
+    `index.html`'s 5 existing modals confirmed unaffected. `verify_ui.py`'s WCAG guard rewritten from a
+    3-pair hardcoded list (that only ever opened `base.css`/`index.html`) to a real per-page scan
+    across all 48 `ui/*.html` pages with cascade-aware token resolution (each page's own `:root{}`
+    override layered on `base.css`'s) — exactly the gap that let `status.html`'s real failure ship
+    invisibly. The new scan itself caught 2 more previously-unknown real failures while being built
+    (`index.html`'s `.sheetprev .e`, `measures.html`'s `.em .tagx`, both fixed) and one bug in the
+    scanner's own logic (a descendant selector's self-declared background was being ignored in favor
+    of its ancestor's, caught and fixed before landing). Baseline ARIA (`role="main"`, `aria-label`s,
+    `aria-live` result regions, dialog semantics) landed on 10 pages this pass — `collections`,
+    `threed`, `status`, `schematics`, `verify`, `jobcard`, `part`, `visual`, `procedure`, `demo` —
+    scoped from real (thin) click-analytics traffic plus the pages already open for the contrast/modal
+    work. **Honestly left open, same disclosure convention as `[1.29.0]`**: 27 pages still carry zero
+    ARIA (named in full in `CHANGELOG.md` `[1.46.0]`); `cadtex_test.html` confirmed unreachable through
+    any route and excluded on that basis. `verify_all.py --snapshot`: 61/61 GREEN, no flakes needed.
+    See `CHANGELOG.md` `[1.46.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

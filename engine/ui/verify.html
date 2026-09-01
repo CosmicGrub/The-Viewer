@@ -19,12 +19,12 @@
   a.btn{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;text-decoration:none;font-size:13.5px}
   code{background:#10151c;border:1px solid #2f4858;border-radius:5px;padding:1px 6px;color:#cfe}
 </style></head><body>
-<div class="wrap">
+<div class="wrap" role="main" aria-label="Verification cockpit">
   <h1>✅ Verification cockpit <span class="muted">— what have we actually proven?</span></h1>
   <div class="muted">R13: verification you can't see is verification you won't keep green. This reads the last host-side
     <code>VERIFY-099.bat</code> run, the self-tested module roster, and which data sidecars are built.</div>
   <div style="margin:12px 0"><a class="btn" href="/command">Command center</a> <a class="btn" href="/review">Review queue</a> <a class="btn" href="/">← search</a></div>
-  <div id="out"><div class="muted">Loading…</div></div>
+  <div id="out" aria-live="polite"><div class="muted">Loading…</div></div>
 </div>
 <script>
 (function(){

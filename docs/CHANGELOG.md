@@ -12,6 +12,133 @@ every change going forward.
 
 ---
 
+## [1.46.0] — 2026-09-01 — accessibility work extended beyond index.html: real contrast fixes, modal focus traps, a generalized contrast guard
+**VERSION → `1.46.0`.** `[1.29.0]`'s accessibility pass fixed index.html and disclosed, by name, that
+the other 47 pages carried zero or partial ARIA — a research pass this session re-verified that
+disclosure against the real files (grepping every page for `aria-`/`role=`, reading `verify_ui.py`,
+`shared.js`, and a sample of the zero-ARIA pages in full) and found a **correction to its own prior
+numbers**: `status.html`'s `.tag.ok` was carried on prior lists as a 3.10:1 WCAG failure, but that
+figure is base.css's un-overridden `--grn` on `--panel2` — this page's own local `:root{--grn:#2f9d63}`
+override (loaded after `/base.css`, so it wins the cascade) actually measures **4.56:1, a genuine
+(if narrow) PASS**. Left untouched here rather than "fixed" — see below.
+
+- **`demo.html`'s local `:root` token override removed.** It shadowed all 12 of base.css's own tokens
+  verbatim plus one base.css lacked (`--grn2`, used by `.kbd`/`.meter` text and `.prog>i`'s gradient) —
+  every value matched base.css exactly **except `--red`** (`#c4585a` locally vs. base's `#e0564f`),
+  the direct cause of the contrast failure below. `--grn2` moved into `base.css` itself (same
+  `#7fd6a6` value) since it had no home there; the page now inherits base.css's cascade like every
+  other page, confirmed visually unchanged live except for `.warn .n`'s color, fixed next.
+- **3 real WCAG AA text-contrast failures fixed, using the existing `--red-tx` text-safe token
+  (`[1.29.0]`)** — recomputed before/after from each file's actual resolved hex (relative-luminance
+  formula, same as `verify_ui.py`'s):
+  - `status.html` `.tag.bad` — `color:var(--red)` (`#e0564f`) on `.tag`'s `var(--p2)` (`#1c2430`) was
+    **4.18:1**, below the 4.5:1 floor → `color:var(--red-tx)` (`#ec7a74`) is now **5.65:1**.
+  - `demo.html` `.warn .n` — the page's own (now-removed) local `--red` (`#c4585a`) on `.step`'s
+    `var(--panel)` (`#171d26`) was **3.94:1** → `--red-tx` on the same background is now **6.13:1**
+    (`border-color` stays plain `--red` — a decorative border use, 3:1 floor, unaffected).
+  - `index.html`'s 2 remaining inline `color:var(--red)` stragglers (`.catch()` error spans at the old
+    line 908/958, `.modal`'s `var(--panel)` background) — recomputed at **4.53:1**, a narrow but real
+    AA pass, not the outright failure the other two are; swapped to `--red-tx` anyway (now **6.13:1**)
+    for consistency with the token convention the rest of the function already uses (`--grn-tx`/`--amb`/
+    `--teal` on sibling spans) and a real safety margin instead of a 0.03 one.
+  - **`status.html` `.tag.ok` deliberately left untouched** — see the correction above; it already
+    passes at 4.56:1 via this page's own `--grn` override, and "fixing" a control that isn't broken
+    would have been a wasted diff.
+- **`schematics.html`/`threed.html`'s gate modals now get real dialog semantics** —
+  `role="dialog" aria-modal="true" aria-label="…"`, matching `index.html`'s 5 modals — **and**
+  `VW.trapFocus("gate")` (Tab-cycle containment, Escape-to-close, focus-restore), which required a
+  real fix, not just a copy-paste call site: both gates open/close via
+  `classList.add/remove('on')` against the CSS rule `.gate.on { display:flex }`, never touching the
+  inline `style` attribute at all, while `shared.js`'s `trapFocus()` as written only ever watched the
+  inline `style` attribute and checked `el.style.display` directly — attaching it as-is would have
+  silently never fired `onShow()`/`onHide()` (no error, no visible breakage, just a modal that never
+  traps focus — the exact "ships clean, nobody notices" failure mode this pass exists to catch).
+  Generalized `trapFocus()` instead of touching either page's open/close call sites: `isVisible()` now
+  reads `getComputedStyle(el).display`, the `MutationObserver` now watches both the `style` and
+  `class` attributes, and the Escape handler detects which convention is live (inline style vs.
+  classList) and closes the same way, so re-opening afterward is never broken by a stale inline style
+  fighting the CSS rule. This is the smaller, centrally-owned fix, and makes `trapFocus()` correct for
+  whatever pattern the *next* modal happens to use — verified live in a real browser for both pages:
+  opening moves focus in, Escape closes via the correct mechanism (confirmed no stray inline
+  `style="display:none"` is left behind), and re-opening afterward still works. `index.html`'s 5
+  existing modals re-verified unaffected (inline-style path unchanged byte-for-byte in behavior).
+- **`engine/verify_ui.py`'s WCAG contrast guard generalized from a 3-pair hardcoded list to a real
+  per-page scan.** The old guard only ever opened `ui/base.css`'s and `ui/index.html`'s own `:root{}`
+  blocks — it never opened any of the other 47 pages' CSS at all, and even for those two files it
+  checked base.css's tokens in isolation rather than simulating what a page's *own* local `:root{}`
+  override does to the cascade. That gap is exactly how `status.html` shipped a real `.tag.bad`
+  failure invisible to CI while its neighboring `.tag.ok` (which looks identical on paper) was
+  actually fine — the guard had no way to tell them apart because it never looked at `status.html` at
+  all. The new `_scan_page_contrast()` (i) resolves each page's own tokens through base.css's
+  `:root{}` **overridden by that page's own `:root{}`** (cascade-aware, not base.css read alone), and
+  (ii) parses every one of the 48 `ui/*.html` pages' `<style>` block(s) for class-selector rules —
+  single class, no-combinator compound (`.tag.bad`), or 2-level descendant (`.warn .n`) — resolving
+  the nearest opaque background it can find (the rule's own, its constituent single-class rules, or —
+  for a case like `.warn .n` where the ancestor's own background is a translucent `rgba()` overlay —
+  the real class combinations the page's actual HTML uses together, e.g. `class="step warn"`, so
+  `.step`'s opaque `var(--panel)` is found as the real backdrop instead of giving up). Deliberately
+  **not** a full CSS cascade/specificity engine: it skips (never guesses) anything it can't resolve
+  with confidence — most notably several real `color:var(--X)` usages set via inline
+  `style="..."` on JS-generated markup with no co-located background in the same string (e.g.
+  `index.html`'s `--grn-tx`/`--red-tx` spans), which need a real DOM+cascade simulation to resolve and
+  are out of scope for a static text scanner. Those are kept as the original small hand-verified
+  `_TEXT_PAIRS` list, now explicitly scoped to just that residual case instead of silently dropping
+  the coverage. Running the new scan against the real 48 pages surfaced (and fixed) **2 more
+  previously-unknown real failures**, neither part of the `--red`/`--grn` token family this pass
+  otherwise touched: `index.html`'s `.sheetprev .e` (a "field left blank" placeholder in the printed
+  parts-request-sheet preview) was **2.26:1** on its `#f4f1ea` paper-toned background — `#a8a293` →
+  `#6b675c`, now **5.00:1**; `measures.html`'s `.em .tagx` badge was **4.43:1**, just under the floor —
+  `#8a7a52` → `#93835a`, now **5.00:1**. (One real bug caught building the scanner itself: an early
+  version resolved a descendant rule's background from its *ancestor* even when the rule itself
+  declared its own background alongside its color — e.g. `demo.html`'s self-contained
+  `.res .pill{color:#06223f;background:var(--acc)}` badge was flagged as a bogus 1.05:1 "failure"
+  against `.res`'s unrelated ancestor background before this was caught and fixed.) Final state: 67
+  class/descendant pairs checked across all 48 pages, 51 OK, 0 FAIL, 16 SKIP (translucent or
+  inline-only — the documented, disclosed limitation above).
+- **Baseline ARIA — `role="main"`, `aria-label`s on unlabeled inputs, `aria-live="polite"` on async
+  result regions, and dialog semantics + focus traps on any modal — landed on 10 pages this pass**:
+  `collections.html`, `threed.html`, `status.html`, `schematics.html`, `verify.html`, `jobcard.html`,
+  `part.html`, `visual.html`, `procedure.html`, `demo.html`. Scope picked from real (if thin — 85
+  `k:"tool"` events across 30 routes, several tied at 1 hit) click-analytics traffic
+  (`index/analytics.jsonl`) plus the pages this pass already had open for the contrast/modal work
+  above: top-4 by real traffic (`collections`, `threed`, `verify`, `jobcard`) + the 3 pages touched
+  for contrast/modals (`status`, `schematics`, `threed` — overlap with traffic) + 2 more
+  already-partial-ARIA core workflow pages (`part`, `procedure`) + `demo.html` (the app's first-run
+  onboarding surface, already being touched for the token-override fix above, so its landmarks landed
+  in the same pass rather than a second later touch of the same file). `demo.html`'s gate gets dialog
+  semantics (`role="dialog" aria-modal="true"`) but **not** a full focus trap — it deliberately never
+  loads `shared.js` (its injected bottom-corner pills would collide with this page's own full-width
+  control bar), so `VW.trapFocus()` isn't available there; disclosed rather than silently left partial.
+  **Honestly left open, matching `[1.29.0]`'s own disclosure convention rather than implying full
+  coverage**: 27 pages still carry zero ARIA of their own — `ask`, `audit`, `bench`, `binaudit`,
+  `circuitlab`, `command`, `coverage`, `decode`, `deepzoom`, `exploded`, `fastener`, `handover`,
+  `help`, `ingest`, `keywords`, `kg`, `learn`, `master`, `mastercov`, `measures`, `ops`, `partdiff`,
+  `pmcs`, `publog`, `readiness`, `related`, `scan`, `semantic`, `solve`, `troubleshoot` — that's 30
+  names; the analytics data thins out fast past the top ~10 (many routes tied at 1 hit), so ranking
+  which of these 30 goes first by "traffic" would present noise as signal — left as a ready-made list
+  for a future pass rather than an invented ranking. `cadtex_test.html` (the 48th page) is confirmed
+  unreachable through any route in `engine/features/routes/static.py`'s dispatch table — a standalone
+  WebGL shader smoke-test a developer opens directly, not part of the running app — and is
+  deliberately excluded from this and any future ARIA pass on that basis.
+
+**Verified:** `python engine/tests/verify_all.py --snapshot` from a clean run: **61/61 checks GREEN,
+0 failures** — no flakes needed this run (all three previously-documented ones, including the
+`test_ingest_routes.py`/`test_routes.py`/`test_http.py` timeouts, happened to pass clean). All 10
+ARIA-scoped pages and the two modal pages hit live via a real running `viewer_app.py` instance and
+verified in a real browser: `demo.html` renders identically with the token override removed;
+`.warn .n`'s resolved `color`/`border-color` match the intended `--red-tx`/`--red` split exactly;
+`schematics.html`/`threed.html`'s gates carry the correct `role`/`aria-modal`/`aria-label`, move focus
+in on open, and close via the correct (class vs. inline-style) mechanism on Escape with no stale state
+left behind; `index.html`'s 5 pre-existing modals re-verified unaffected. `verify_ui.py` run
+standalone: the new generalized WCAG scan is clean (0 FAIL, 51 OK, 16 documented SKIP); one pre-existing,
+unrelated failure noted but **not** fixed here (out of scope) — `ui/index.html` declares an inline
+`function esc(...)` while also loading `/shared.js`, tripping the separate shared.js-dedup guard;
+confirmed present on `origin/main` before this branch via `git show origin/main:engine/ui/index.html`,
+not reachable from `verify_all.py --snapshot`'s own suite (`verify_ui.py` isn't wired into it), and
+unrelated to accessibility work.
+
+---
+
 ## [1.45.0] — 2026-09-01 — search UI now shows an honest signal when semantic search is degraded or rebuilding
 **VERSION → `1.45.0`.** Prior to this, `hybrid.hybrid_search()` (the function behind the primary
 `/api/search_hybrid` endpoint) called `embed.search()` but kept only `.get("results")` — it discarded

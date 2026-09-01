@@ -34,7 +34,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:v
 .sec h2{font-size:14px;font-weight:600;margin:0 0 8px}
 .empty{color:var(--sub);padding:24px;text-align:center}
 @media print{ .noprint{display:none!important} body{background:#fff;color:#000} .card{border-color:#bbb} .side{display:none} a{color:#000} }
-</style><script src="/rps.js"></script></head><body><div class="wrap">
+</style><script src="/rps.js"></script></head><body><div class="wrap" role="main" aria-label="Procedure builder">
 <div class="noprint" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>🔧 How to do it <span class="muted">— reconstituted from the manuals</span></h1>
     <div class="muted">A clean, checkable step-by-step rebuilt from the OCR'd text, shown next to the original page so you can verify it. Steps are verbatim; nothing is invented.</div></div>
@@ -46,7 +46,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:v
   <button onclick="window.print()" id="printbtn" style="display:none">&#128424; Print sheet</button>
   <span class="muted" id="hint"></span>
 </div>
-<div id="out"><div class="empty">Type a part or symptom to rebuild its procedure.</div></div>
+<div id="out" aria-live="polite"><div class="empty">Type a part or symptom to rebuild its procedure.</div></div>
 
 <script>
 function $(id){ return document.getElementById(id); }

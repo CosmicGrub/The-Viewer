@@ -4,6 +4,50 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, nineteenth pass):** a research pass re-verified `[1.29.0]`'s own
+> accessibility disclosure against the real files (grepping all 48 pages for `aria-`/`role=`, reading
+> `verify_ui.py`/`shared.js` in full) and found a correction to its own numbers: `status.html`'s
+> `.tag.ok` was carried as a 3.10:1 WCAG failure, but that figure is base.css's un-overridden `--grn`
+> — this page's own local `--grn:#2f9d63` override (loaded after `/base.css`, wins the cascade)
+> actually measures 4.56:1, a genuine pass, left untouched. **Fixed for real:** `demo.html`'s full
+> local `:root` token override (shadowing all 12 of base.css's tokens plus `--grn2`, which base.css
+> lacked) removed — every value matched base.css exactly except `--red` (`#c4585a` vs. base's
+> `#e0564f`), the direct cause of a real `.warn .n` contrast failure (3.94:1, below the 4.5:1 AA
+> floor); fixed via the existing `--red-tx` text-safe token (now 6.13:1), `--grn2` moved into
+> `base.css` itself. Two more confirmed real failures fixed the same way: `status.html` `.tag.bad`
+> (4.18:1 → 5.65:1) and `index.html`'s 2 remaining inline `color:var(--red)` stragglers (recomputed
+> at 4.53:1, a narrow existing pass — swapped anyway for consistency with the token convention its
+> sibling spans already use, now 6.13:1). `schematics.html`/`threed.html`'s gate modals now carry
+> `role="dialog" aria-modal="true"` + `VW.trapFocus()` — real dialog semantics and a real focus trap,
+> not a copy-paste call site: both gates toggle open/closed via `classList.add/remove('on')` against
+> a CSS rule, never touching the inline `style` attribute `trapFocus()` originally watched, so
+> attaching it as-is would have silently never trapped focus (no error, no visible breakage — exactly
+> the failure mode this pass exists to catch). `shared.js`'s `trapFocus()` generalized instead of
+> touching either page's own open/close call sites: `isVisible()` now reads `getComputedStyle()`, the
+> `MutationObserver` watches both `style` and `class`, and the Escape handler detects which
+> convention is live before closing — verified live in a real browser for both pages, `index.html`'s
+> 5 existing modals confirmed unaffected. `engine/verify_ui.py`'s WCAG contrast guard rewritten from a
+> 3-pair hardcoded list (that only ever opened `base.css`'s/`index.html`'s own tokens) to a real
+> per-page scan across all 48 `ui/*.html` pages, with cascade-aware token resolution (each page's own
+> `:root{}` override layered on `base.css`'s) — exactly the gap that let `status.html`'s real failure
+> ship invisibly to CI while its neighboring, visually-identical `.tag.ok` was actually fine. Building
+> the new scan caught (and fixed) 2 more previously-unknown real failures outside the `--red`/`--grn`
+> family this pass otherwise touched (`index.html`'s `.sheetprev .e`, 2.26:1 → 5.00:1;
+> `measures.html`'s `.em .tagx`, 4.43:1 → 5.00:1), and one bug in the scanner's own logic (a
+> descendant selector's self-declared background was being ignored in favor of its ancestor's —
+> caught and fixed before landing). Baseline ARIA (`role="main"`, `aria-label`s on unlabeled inputs,
+> `aria-live="polite"` result regions, dialog semantics) landed on 10 pages — `collections`, `threed`,
+> `status`, `schematics`, `verify`, `jobcard`, `part`, `visual`, `procedure`, `demo` — scoped from
+> real (thin) click-analytics traffic plus the pages already open for the contrast/modal work above.
+> **Honestly left open, same disclosure convention as `[1.29.0]`**: 27 pages still carry zero ARIA of
+> their own, named in full in `CHANGELOG.md` `[1.46.0]`; `cadtex_test.html` confirmed unreachable
+> through any route in `static.py`'s dispatch table and excluded from the ARIA pass on that basis.
+> Shipped as `[1.46.0]`. Verified: `engine/tests/verify_all.py --snapshot` — **61/61 GREEN, 0
+> failures**, no flakes needed this run. One pre-existing, unrelated failure found (not fixed, out of
+> scope) while running `verify_ui.py` standalone: `index.html` declares an inline `function esc(...)`
+> while also loading `/shared.js`, tripping the separate shared.js-dedup guard — confirmed present on
+> `origin/main` before this branch, not reachable from `verify_all.py --snapshot`'s own suite.
+>
 > **Reconciliation note (2026-09-01, eighteenth pass):** `hybrid.hybrid_search()` (behind
 > `/api/search_hybrid`, the search UI's primary endpoint) called `embed.search()` but kept only
 > `.get("results")`, discarding `ready`/`stale` entirely — the only trace of semantic-index health

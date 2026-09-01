@@ -68,8 +68,20 @@ search-UI honesty fix — `/api/search_hybrid` silently collapsed "semantic inde
 "stale", "actively rebuilding", and "healthy but zero matches" into the identical
 `signals.semantic === 0`, now distinguished via a new `semantic_status` field and a quiet,
 per-state-dismissible UI bar, verified live against a real running server during this session's own
-in-progress embeddings rebuild (`[1.45.0]`) — see the
-reconciliation notes below and §8 items 25–28). This document +
+in-progress embeddings rebuild (`[1.45.0]`); then accessibility
+work extended beyond `index.html` — a research pass re-verified `[1.29.0]`'s own accessibility
+disclosure and found a correction (`status.html`'s `.tag.ok` was carried as a 3.10:1 failure but
+actually passes at 4.56:1 via this page's own token override, left untouched); 3 real WCAG contrast
+failures fixed with the existing `--red-tx` token (`status.html` `.tag.bad` 4.18:1→5.65:1, `demo.html`
+`.warn .n` 3.94:1→6.13:1 after removing that page's stale local token override, `index.html`'s 2
+remaining inline stragglers 4.53:1→6.13:1); `schematics.html`/`threed.html`'s gate modals gained real
+`role="dialog"`/`aria-modal`/focus traps, which required generalizing `shared.js`'s `trapFocus()`
+itself since both gates toggle via CSS class rather than inline style; `verify_ui.py`'s WCAG guard
+rewritten from a 3-pair hardcoded list to a real per-page scan across all 48 UI pages with
+cascade-aware token resolution, catching 2 more previously-unknown real failures in the process; and
+baseline ARIA landed on 10 more pages with the remaining zero-ARIA pages honestly named as still
+open, matching `[1.29.0]`'s own disclosure convention (`[1.46.0]`) — see the reconciliation notes
+below and §8 items 25–29). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -741,6 +753,29 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     `viewer_app.py` instance's live `/api/search_hybrid?q=brake` both returned matching
     `{"state": "rebuilding", "progress": {"percent": 25-26, ...}}`. `never_built`/`stale` verified the
     same way against isolated scratch index directories outside the repo. See `CHANGELOG.md` `[1.45.0]`.
+29. **`[1.46.0]` — accessibility work extended beyond `index.html`: real contrast fixes, modal focus
+    traps, a generalized contrast guard.** Re-verified `[1.29.0]`'s own accessibility disclosure and
+    found a correction: `status.html`'s `.tag.ok` was carried as a 3.10:1 failure but actually passes
+    at 4.56:1 via this page's own `--grn` token override, left untouched. `demo.html`'s full local
+    `:root` token override (all 12 base.css tokens shadowed, plus `--grn2`, which base.css lacked) is
+    gone — every value matched base.css exactly except `--red`, the direct cause of a real `.warn .n`
+    contrast failure (3.94:1 → 6.13:1, fixed via the existing `--red-tx` token). Two more real
+    failures fixed the same way: `status.html` `.tag.bad` (4.18:1 → 5.65:1) and `index.html`'s 2
+    remaining inline `color:var(--red)` stragglers (4.53:1, a narrow existing pass, swapped anyway for
+    consistency, now 6.13:1). `schematics.html`/`threed.html`'s gate modals now carry
+    `role="dialog" aria-modal="true"` + `VW.trapFocus()`, which required generalizing `shared.js`'s
+    `trapFocus()` itself — both gates toggle via `classList`, never inline `style`, which the original
+    implementation only ever watched; verified live in a real browser, `index.html`'s 5 existing
+    modals confirmed unaffected. `verify_ui.py`'s WCAG guard rewritten from a 3-pair hardcoded list
+    (that only ever opened `base.css`/`index.html`) to a real per-page scan across all 48 UI pages with
+    cascade-aware token resolution — exactly the gap that let `status.html`'s real failure ship
+    invisibly to CI. The new scan caught 2 more previously-unknown real failures while being built
+    (`index.html`'s `.sheetprev .e`, `measures.html`'s `.em .tagx`, both fixed) plus one bug in the
+    scanner's own logic (caught and fixed before landing). Baseline ARIA landed on 10 pages —
+    `collections`, `threed`, `status`, `schematics`, `verify`, `jobcard`, `part`, `visual`,
+    `procedure`, `demo` — with the remaining zero-ARIA pages honestly named as still open in
+    `CHANGELOG.md` `[1.46.0]`, matching `[1.29.0]`'s own disclosure convention rather than implying
+    full coverage. See `CHANGELOG.md` `[1.46.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

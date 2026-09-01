@@ -4,6 +4,44 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-01, twelfth pass):** implemented the `parts.cagec`/`parts.smr` cross-
+> database correlation design `[1.33.0]` scoped but deliberately didn't start. `correlate_parts_cagec()`
+> joins `index/rpstl.db`'s `parts_rows` into `parts` on `(document_id, page, nsn)`, filtered through
+> `index/cage.json` before writing anything — confirmed live against this repo's own real rpstl.db that
+> the filter is load-bearing, not decorative (raw regex candidates include real garbage: vehicle model
+> numbers, nomenclature words, RPSTL boilerplate that happens to fit CAGEC's 5-alphanumeric-char shape).
+> SMR rides on that SAME candidate row's cagec validation; a genuinely ambiguous key (2+ distinct valid
+> cagecs) is skipped, never guessed. Wired as the new 8th/final ingest stage, deliberately full-corpus
+> every run (not `_TOUCHED_DOC_IDS`-scoped like its neighbors) since `extract_parts()` unconditionally
+> rebuilds the whole `parts` table every time; also standalone via `python viewer_ingest.py cagec` for
+> backfilling an already-ingested corpus. **A real bug was caught during verification, not shipped**: the
+> first draft batched `UPDATE`s via `executemany()` INSIDE the same cursor loop it was reading from —
+> passed at small synthetic scale, then reproduced immediately as `sqlite3.OperationalError: database is
+> locked` against this repo's real 227,908-row `parts` table (this corpus has never been under the
+> 1,000-row batch-flush threshold, so this would have crashed the stage on every real ingest run).
+> Fixed by `.fetchall()`-ing the SELECT before writing, matching `extract_parts()`'s own existing
+> convention. Real yield measured against a random 4,000-row sample of this repo's actual corpus:
+> **48.0%**, matching the `[1.33.0]` scoping research's ~48.2% full-corpus estimate closely; every
+> written cagec round-tripped as genuinely present in the real `cage.json`, and no known-garbage token
+> reached a written column. Sampled (not full-corpus) in the test suite for a real, measured reason:
+> per-row `UPDATE` cost on this dev host is dominated by real-time antivirus scanning of SQLite's small
+> writes (confirmed via `Get-MpComputerStatus` — real-time protection on, no exclusions configured),
+> making a full 227,908-row write pass take 15+ minutes of pure AV overhead; the candidate index side is
+> still read in full regardless. One caveat flagged, not fixed: `index/rpstl.db`'s mtime is ~7 weeks
+> older than `index/viewer.db`'s on this deployment — worth a fresh `python build_rpstl.py` before
+> trusting the first real backfill's yield as current rather than a July snapshot. **Independently
+> adversarially verified before merge** (own scripts, disposable read-only-sourced DB copies): 0
+> incorrect writes across ~5,300 audited real writes; a targeted attack against all 49 real genuinely-
+> ambiguous keys (rebuilt from the full unsampled `rpstl.db`) found all 49 correctly refused; idempotency
+> confirmed via two full runs plus a deliberately corrupted row correctly self-healed on a third —
+> clarifying the real contract is "recompute and correct," not "never touch a populated row." One
+> non-blocking note: the write loop has no try/except, matching `extract_parts()`'s own existing
+> precedent in the same file rather than a new regression. Shipped as `[1.38.0]` (branched from
+> `origin/main` at `[1.33.0]`, rebased onto `[1.37.0]` once that PR and `[1.36.0]` both merged — the
+> third rebase-and-renumber this session's parallel-PR pattern has required, all handled the same way).
+> 2 of the original 5 Gap-Sweep dead columns (`[1.31.0]`) remain open (`parts.uoc`, `ref_nsn.data_date`).
+> `main` is at `[1.38.0]`.
+>
 > **Reconciliation note (2026-08-31, eleventh pass):** closed the one open item `[1.33.0]` deliberately
 > left on the table — `/api/ingest_scan` now has a UI entry point (`engine/ui/ingest.html`), shipped as a
 > SEPARATE "Broader file scan" link/panel next to the existing Preview button rather than merged into it,

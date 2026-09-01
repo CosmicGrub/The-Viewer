@@ -1216,13 +1216,14 @@ def main():
                 [sys.executable, os.path.join(ENGINE, "viewer_ingest.py"), "flags"],
                 capture_output=True, text=True, timeout=30)
             check("`viewer_ingest.py flags` exits 0", flags_proc.returncode == 0)
-            check("`viewer_ingest.py flags` lists all 9 real toggles by env var name", all(
+            check("`viewer_ingest.py flags` lists all 10 real toggles by env var name", all(
                 e in flags_proc.stdout for e in (
                     "VIEWER_OCR_PREPROCESS", "VIEWER_BARCODE_SCAN", "VIEWER_MEASURES_SCAN",
                     "VIEWER_SCHEMATIC_SCAN", "VIEWER_TABLES_SCAN", "VIEWER_RPSTL_SCAN",
-                    "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN", "VIEWER_OFFICE_SCAN")))
-            check("`viewer_ingest.py flags` reports all 9 active by default (no env override)",
-                  "9 of 9 toggles active" in flags_proc.stdout)
+                    "VIEWER_CAGEC_CORRELATE_SCAN", "VIEWER_PAGETRIM_SCAN", "VIEWER_KEYWORDS_SCAN",
+                    "VIEWER_OFFICE_SCAN")))
+            check("`viewer_ingest.py flags` reports all 10 active by default (no env override)",
+                  "10 of 10 toggles active" in flags_proc.stdout)
 
             # --- keywords: enrich_flis() populating a real 'Also called:' colloquial name must
             # trigger build_keywords.run() -- monkeypatched to a recording stub so this NEVER writes

@@ -174,6 +174,14 @@ it's skipped), all default **on**:
 - **`VIEWER_RPSTL_SCAN`** — RPSTL parts-list row extraction (`rpstl_feature.py`'s `parse_page()`).
   Cheap even by `MEASURES_SCAN`'s standard: no PDF re-open at all, pure regex over page text already
   stored in the database.
+- **`VIEWER_CAGEC_CORRELATE_SCAN`** — `parts.cagec`/`parts.smr` cross-database correlation
+  (`correlate_parts_cagec()`): joins `index/rpstl.db`'s `parts_rows` sidecar into the main `parts`
+  table on `(document_id, page, nsn)`, filtered through `index/cage.json` (the real CAGE registry) so
+  a bare regex-shaped garbage token (a vehicle model number, an RPSTL boilerplate word) never gets
+  written as a real CAGE code. Always a full-corpus pass, every run — not scoped to the documents this
+  run touched, since `extract_parts()` rebuilds the whole `parts` table from scratch every time.
+  Idempotent/additive: only ever fills a row it found a valid, unambiguous match for. Also runnable
+  standalone as a backfill via `python viewer_ingest.py cagec` against an already-ingested DB.
 - **`VIEWER_PAGETRIM_SCAN`** — header/footer/running-title stripping (`pagetrim.py`'s statistical
   boilerplate detector) on text-layer pages before they're stored/measured. Text-layer PDFs only
   today (`index_pdf()`) — OCR'd pages arrive one at a time in `ocr()` and don't have the

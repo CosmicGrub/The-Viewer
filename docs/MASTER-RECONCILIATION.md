@@ -24,7 +24,12 @@ chunk, code + tests only, `[1.36.0]`; then `[1.33.0]`'s one deliberately-open it
 `parts.cagec`/`parts.smr` cross-database correlation — the design `[1.33.0]` scoped but deliberately
 didn't start, implemented and verified against this repo's own real corpus at 48.0% yield, catching and
 fixing a real production-breaking `executemany()`-inside-an-open-cursor "database is locked" bug before
-it shipped, `[1.38.0]`).** This document
+it shipped, `[1.38.0]`; then a same-day CRITICAL follow-up, found during adversarial verification of
+`[1.36.0]` before the rebuild it gates was launched — a mid-build `model.encode()` failure on one chunk
+could silently blend hash-fallback vectors into an index still stamped as pure `sentence-transformers`,
+the `[1.32.0]` failure mode again at row/chunk granularity; fixed by tracking per-chunk fallback events
+(surviving interrupt+resume) and withholding the meta stamp whenever any are present, code + tests
+only, `[1.39.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -35,19 +40,23 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.38.0, shipped 2026-09-01** (`parts.cagec`/`parts.smr` cross-database
-correlation — `correlate_parts_cagec()` joins `index/rpstl.db` into `parts` on `(document_id, page,
-nsn)`, filtered through `index/cage.json`; 48.0% yield measured against a real 4,000-row sample of this
-repo's own corpus; a real bug caught during verification and fixed before shipping, not after;
-independently adversarially verified before merge, 0 incorrect writes found across ~5,300 audited real
-writes — see §6 item 23). Immediately prior: v1.37.0, shipped 2026-08-31 (`[1.33.0]`'s one
-deliberately-open item closed — `/api/ingest_scan` wired into `ingest.html` as a separate "Broader file
-scan" panel, never merged into the existing Preview panel; shipped copy briefly and incorrectly
-overclaimed Office-format coverage, caught by adversarial verification before merge and corrected — see
-§6 item 22). Immediately prior to that: v1.36.0, shipped 2026-08-31 (`embed.py`'s full-rebuild prep —
-configurable row cap, batched encoding, resumable checkpointing, no full-corpus rebuild run yet — see §6
-item 21). Immediately prior to that: v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank
-DA-2404/2407 print-on-demand forms, one click away on `pmcs.html`/`jobcard.html`, plus confirmation that
+**True current state: v1.39.0, shipped 2026-09-01** (CRITICAL fix — `build_index()` could stamp an
+index as pure `sentence-transformers` even when a mid-build `model.encode()` failure had silently
+blended hash-fallback vectors into one chunk; found during adversarial verification of `[1.36.0]`
+before its gated full-corpus rebuild was launched — see §6 item 24). Immediately prior: v1.38.0,
+shipped 2026-09-01 (`parts.cagec`/`parts.smr` cross-database correlation — `correlate_parts_cagec()`
+joins `index/rpstl.db` into `parts` on `(document_id, page, nsn)`, filtered through `index/cage.json`;
+48.0% yield measured against a real 4,000-row sample of this repo's own corpus; a real bug caught
+during verification and fixed before shipping, not after; independently adversarially verified before
+merge, 0 incorrect writes found across ~5,300 audited real writes — see §6 item 23). Immediately
+prior: v1.37.0, shipped 2026-08-31 (`[1.33.0]`'s one deliberately-open item closed — `/api/ingest_scan`
+wired into `ingest.html` as a separate "Broader file scan" panel, never merged into the existing
+Preview panel; shipped copy briefly and incorrectly overclaimed Office-format coverage, caught by
+adversarial verification before merge and corrected — see §6 item 22). Immediately prior to that:
+v1.36.0, shipped 2026-08-31 (`embed.py`'s full-rebuild prep — configurable row cap, batched encoding,
+resumable checkpointing, no full-corpus rebuild run yet — see §6 item 21). Immediately prior to that:
+v1.33.0, shipped 2026-08-30 (2 more orphaned routes wired — blank DA-2404/2407 print-on-demand forms,
+one click away on `pmcs.html`/`jobcard.html`, plus confirmation that
 `/api/chapter_jump` genuinely isn't worth wiring — see §6 item 20). Immediately prior to that, all the
 same day (2026-08-30):
 v1.32.0 (CRITICAL, same-day fix — installing sentence-transformers to research semantic search's
@@ -712,6 +721,33 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     columns (`parts.uoc`, `ref_nsn.data_date`); semantic search's full-corpus rebuild (NO-GO without a
     human go-ahead, per item 20); ~17 more orphaned routes; everything else from item 22's still-open
     list. See `CHANGELOG.md` `[1.38.0]`.
+24. **`[1.39.0]` — CRITICAL: `build_index()` could stamp a mixed real/hash-fallback index as pure
+    `sentence-transformers`.** Found during adversarial verification of item 21, before the
+    full-corpus rebuild it gates was launched. `cur_backend = backend()` was snapshotted once, before
+    the chunk loop, and stamped into `embeddings.meta.json` unconditionally at the end — but if a
+    chunk's `model.encode()` call threw (bad input, transient OOM), the bare per-row
+    `except Exception: hash-fallback` pattern silently substituted hash vectors for THAT CHUNK ONLY
+    while the meta stamp still claimed a pure `sentence-transformers` index. **Confirmed
+    pre-existing, not introduced by item 21** — the original unbatched `embed_text()` had the
+    identical bare fallback and the old `build_index()` also stamped the backend after the fact with
+    no per-row correlation; item 21's batching just enlarged one failure event's blast radius from 1
+    row to up to `chunk_size` (5,000) rows. This is `[1.32.0]`'s failure mode again (real vectors
+    compared against incompatible vectors → near-noise cosine scores silently trusted), now possible
+    at row/chunk granularity inside an otherwise-valid build. **Fixed**: every chunk whose
+    `model.encode()` call actually raised is tracked in `fallback_events`, persisted through
+    `embeddings.progress.json` so the record survives an interrupt+resume exactly like every other
+    piece of item 21's build state; if any remain once the shard merge succeeds,
+    `embeddings.meta.json` is deliberately withheld (any stale one from a prior clean build is
+    removed) — reusing `_index_is_stale()`'s existing no-meta-stamp-means-stale branch, zero new
+    per-row staleness logic — and `embeddings.fallback.json` records exactly which rows are suspect.
+    `BUILD-EMBEDDINGS.bat` now prints an explicit warning instead of a bare success line when this
+    happens. Verified directly: a real `model.encode()` failure was injected mid-build (a stub model,
+    not a mock of `build_index()` itself), confirming the meta stamp is withheld,
+    `_index_is_stale()`/`search()` both refuse the index end-to-end, the on-disk array genuinely
+    mixes real and hash vectors only in the affected rows, the record survives a genuine
+    interrupt+resume, and a clean rebuild clears the stale fallback report. **No full-corpus rebuild
+    was run** — this item is code + `engine/tests/test_embed_partial_fallback.py` (32 new checks)
+    only. See `CHANGELOG.md` `[1.39.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

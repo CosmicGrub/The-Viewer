@@ -15,6 +15,11 @@ REM  index\embeddings.progress.json + index\_embed_build\ (per-chunk shards) -- 
 REM  .bat with the SAME VIEWER_EMBED_LIMIT and it picks up where it left off instead of restarting.
 REM  index\embeddings.npy / embeddings_ids.tsv / embeddings.meta.json are only written once the WHOLE
 REM  run finishes -- a partial/interrupted build is never picked up as "fresh" by a live server.
+REM
+REM  Partial fallback: if a chunk's real-model encode() call fails mid-build (bad input, transient
+REM  OOM), that chunk silently gets keyword-hash vectors instead -- embeddings.meta.json is then
+REM  deliberately NOT written (same "never picked up as fresh" protection as above) and
+REM  index\embeddings.fallback.json names exactly which rows are suspect. Just re-run this .bat.
 REM ============================================================================================
 cd /d "%~dp0engine"
 where py >nul 2>nul && (set "PY=py") || (set "PY=python")
@@ -24,6 +29,6 @@ echo Backend check:
 %PY% -c "import embed; print('  semantic backend =', embed.backend())"
 if defined VIEWER_EMBED_LIMIT (echo Row cap: %VIEWER_EMBED_LIMIT% (VIEWER_EMBED_LIMIT)) else (echo Row cap: 200000 (default -- set VIEWER_EMBED_LIMIT for a full-corpus rebuild))
 echo Building embedding index (this can take a while on the full corpus; GPU recommended)...
-%PY% -c "import embed,os; n=embed.build_index(r'%DB%', os.path.join('..','index')); print('embedded', n, 'pages -> index\\embeddings.npy')"
+%PY% -c "import embed, os; idx=os.path.join('..','index'); n=embed.build_index(r'%DB%', idx); print('embedded', n, 'pages -> index\\embeddings.npy'); fb=os.path.join(idx,'embeddings.fallback.json'); print('WARNING -- one or more chunks fell back to hash vectors mid-build; index NOT marked fresh, see index\\embeddings.fallback.json -- just re-run this .bat to retry' if os.path.exists(fb) else 'index is fresh and ready.')"
 echo Done. /semantic will now use it.
 pause

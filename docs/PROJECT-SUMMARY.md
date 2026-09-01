@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.38.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.39.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -32,7 +32,12 @@ Preview button, not merged into it (`[1.37.0]`); then the `parts.cagec`/`smr` cr
 `[1.33.0]` had scoped but not started — 2 more of the 5 Gap Sweep dead columns now genuinely live,
 verified against this repo's own real corpus at 48.0% yield, with a real production-breaking bug (an
 `executemany()`-inside-an-open-SELECT-cursor "database is locked" crash) caught before it shipped
-(`[1.38.0]`) — see the reconciliation notes below and §8 items 12–22). This document +
+(`[1.38.0]`); then a same-day CRITICAL follow-up found during adversarial verification of `[1.36.0]`,
+before the rebuild it gates was launched — a mid-build `model.encode()` failure on one chunk could
+silently blend hash-fallback vectors into an index still stamped as pure `sentence-transformers`, the
+`[1.32.0]` failure mode again at row/chunk granularity; fixed by tracking per-chunk fallback events and
+withholding the meta stamp whenever any are present, code + tests only (`[1.39.0]`) — see the
+reconciliation notes below and §8 items 12–23). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -602,6 +607,20 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     Sweep dead columns (`parts.uoc`, `ref_nsn.data_date`); semantic search's full-corpus rebuild (NO-GO
     without a human go-ahead, per item 19); ~17 more orphaned routes; everything else from item 19's
     still-open list. See `CHANGELOG.md` `[1.38.0]`.
+23. **`[1.39.0]` — CRITICAL: `build_index()` could stamp a mixed real/hash-fallback index as pure
+    `sentence-transformers`**: found during adversarial verification of item 20, before the rebuild it
+    gates was launched. Confirmed pre-existing (not introduced by item 20) — `cur_backend` was always
+    snapshotted once and stamped unconditionally; batching just raised the blast radius of one bad
+    chunk from 1 row to up to `chunk_size` (5,000). Fixed by tracking which chunks' `model.encode()`
+    calls actually raised (`fallback_events`, persisted through `embeddings.progress.json` so the
+    record survives an interrupt+resume) and withholding `embeddings.meta.json` whenever any are
+    present — reusing `_index_is_stale()`'s existing no-meta-stamp-means-stale branch rather than new
+    per-row logic — with `embeddings.fallback.json` naming exactly which rows are suspect. Verified
+    with a real injected mid-build encode() failure (not a mock): meta stamp withheld,
+    staleness/`search()` both refuse the index end-to-end, the on-disk array genuinely mixes real and
+    hash vectors only where expected, the record survives a genuine interrupt+resume, and a clean
+    rebuild clears the stale fallback report. **No full-corpus rebuild was run** — code +
+    `engine/tests/test_embed_partial_fallback.py` (32 new checks) only. See `CHANGELOG.md` `[1.39.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

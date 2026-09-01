@@ -47,6 +47,7 @@ echo   GPU OCR for scanned pages : %PY% -m pip install easyocr
 echo   Faster OCR (RapidOCR)     : %PY% -m pip install rapidocr-onnxruntime
 echo   True semantic search      : %PY% -m pip install sentence-transformers
 echo   1-D barcodes / DataMatrix : %PY% -m pip install pyzbar
+echo   HTTPS on the LAN (self-signed cert generation) : %PY% -m pip install cryptography
 echo.
 echo NOTE: pytesseract also needs the Tesseract PROGRAM on PATH ^(separate from the Python package^):
 echo   https://github.com/UB-Mannheim/tesseract/wiki  ^(Windows installer^)

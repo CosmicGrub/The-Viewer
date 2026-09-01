@@ -396,7 +396,10 @@ def r_qr(h, qs):
     # anticipates --host ::1 as a loopback binding (see viewer_app.py's own _EXPOSED check), so missing
     # this form meant the exact silent-failure case this fix exists to prevent could itself go
     # undetected on that one deployment choice. Cover both forms.
-    local_only = base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:", "http://::1:"))
+    # v1.43.0: scheme-agnostic (base can now be http:// or https://, per --tls) -- match on the
+    # host[:port] portion only, same set of loopback forms as before.
+    _base_rest = base.split("://", 1)[-1].lower()
+    local_only = _base_rest.startswith(("127.0.0.1:", "localhost:", "[::1]:", "::1:"))
     h._send(200, payload, mime, {"Cache-Control": "max-age=3600",
                                  "X-QR-Target": qrgen.deep_link(base, q, page),
                                  "X-QR-Local-Only": "1" if local_only else "0"})

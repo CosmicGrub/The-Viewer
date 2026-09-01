@@ -24,8 +24,12 @@ Hardening shipped with the split (v0.96.0):
 
 The server binds 127.0.0.1 by default (B15). To expose it on a LAN deliberately:
     python viewer_app.py --host 0.0.0.0 --port 8765
+
+v1.43.0: optional TLS for LAN-exposed deployments. Off by default; `--tls` wraps the listening
+socket in a self-signed cert (see engine/gen_cert.py + docs/TLS-LAN-SETUP.md):
+    python viewer_app.py --host 0.0.0.0 --tls
 """
-import argparse, json, os, re, sqlite3, sys, tempfile, time, urllib.parse
+import argparse, json, os, re, sqlite3, ssl, sys, tempfile, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
@@ -33,7 +37,7 @@ try:
 except Exception:
     fitz = None
 
-VERSION = "1.42.0"
+VERSION = "1.43.0"
 
 # v1.42.0: version-staleness detection. STARTUP_VERSION/STARTUP_TIME are captured once, here, at
 # import time -- they never change for the life of the process, even if the code on disk changes
@@ -255,6 +259,9 @@ AUTH_REQUIRED_BODY = {"error": "authentication required on a network-exposed VIE
 # blindly trusting client-supplied input. Used by r_qr's Host-header validation (finding #16).
 HOST = "127.0.0.1"
 PORT = 8765
+# v1.43.0: whether this process is actually serving TLS (set once in main(), read by
+# safe_public_base() so operator-facing URLs -- QR codes, deep links -- carry the right scheme).
+TLS_ENABLED = False
 # Operator-configurable allowlist of additional host[:port] values a client-supplied Host header is
 # allowed to be trusted for (comma-separated), for the "exposed on the LAN, reachable at more than
 # one address" case -- e.g. a friendly hostname or a specific LAN IP. Follows the existing VIEWER_*
@@ -272,7 +279,8 @@ def safe_public_base(candidate_host):
     safe_default = "127.0.0.1:%d" % PORT if HOST in ("0.0.0.0", "::") else "%s:%d" % (HOST, PORT)
     allowed = _ALLOWED_HOSTS | {safe_default.lower()}
     candidate = (candidate_host or "").strip()
-    return "http://" + (candidate if candidate.lower() in allowed else safe_default)
+    scheme = "https://" if TLS_ENABLED else "http://"
+    return scheme + (candidate if candidate.lower() in allowed else safe_default)
 
 
 def _auth_ok(token):
@@ -667,8 +675,32 @@ def main():
                     help="default 127.0.0.1 (local only, B15); set 0.0.0.0 to expose on the LAN deliberately")
     ap.add_argument("--mode", default=None, help="force RPS mode: modern | lite | legacy")
     ap.add_argument("--prebake", type=int, default=0, metavar="N", help="pre-render the first N pages of every doc into the cache, then exit")
+    # v1.43.0: optional TLS for LAN-exposed deployments. Off by default -- an existing
+    # `python viewer_app.py --host 0.0.0.0` invocation is byte-for-byte unchanged unless --tls is
+    # passed explicitly. See engine/gen_cert.py + docs/TLS-LAN-SETUP.md.
+    ap.add_argument("--tls", action="store_true",
+                    help="serve HTTPS using --cert/--key (or engine/certs/viewer-{cert,key}.pem by default); "
+                         "generate a pair first with: python gen_cert.py")
+    ap.add_argument("--cert", default=None, help="PEM certificate path (default: engine/certs/viewer-cert.pem when --tls is set)")
+    ap.add_argument("--key", default=None, help="PEM private-key path (default: engine/certs/viewer-key.pem when --tls is set)")
     args = ap.parse_args(); DB_PATH = os.path.abspath(args.db); INDEX_DIR = os.path.abspath(os.path.dirname(DB_PATH))
     HOST, PORT = args.host, args.port
+    # v1.43.0: resolve + fail-fast on TLS cert/key BEFORE any other startup work -- --tls was
+    # explicitly requested, so we never silently fall back to plaintext when the cert is missing.
+    tls_cert_path = tls_key_path = None
+    if args.tls:
+        tls_cert_path = os.path.abspath(args.cert) if args.cert else os.path.join(HERE, "certs", "viewer-cert.pem")
+        tls_key_path = os.path.abspath(args.key) if args.key else os.path.join(HERE, "certs", "viewer-key.pem")
+        if not (os.path.exists(tls_cert_path) and os.path.exists(tls_key_path)):
+            print("=" * 72)
+            print("[TLS] --tls was requested but no certificate/key pair was found:")
+            print("[TLS]   cert: %s" % tls_cert_path)
+            print("[TLS]   key:  %s" % tls_key_path)
+            print("[TLS] Generate one first with:  python gen_cert.py")
+            print("[TLS] (or pass --cert/--key to point at an existing pair)")
+            print("[TLS] Refusing to start in plaintext when TLS was explicitly requested.")
+            print("=" * 72)
+            return
     if not os.path.exists(DB_PATH): print(f"[WARN] index not found at {DB_PATH}")
     global RPS_OVERRIDE
     if args.mode: RPS_OVERRIDE = args.mode
@@ -720,8 +752,40 @@ def main():
             print("[EXPOSURE] VIEWER_ALLOWED_HOSTS to the LAN IP/hostname clients actually connect to")
             print("[EXPOSURE] (comma-separated, e.g. VIEWER_ALLOWED_HOSTS=192.168.1.50:%d)." % args.port)
         print("=" * 72)
+    if args.tls:
+        print("=" * 72)
+        print("[TLS] Serving HTTPS using:")
+        print("[TLS]   cert: %s" % tls_cert_path)
+        print("[TLS]   key:  %s" % tls_key_path)
+        print("[TLS] This is a SELF-SIGNED certificate -- browsers will warn on first connect")
+        print("[TLS] (\"Your connection is not private\" / NET::ERR_CERT_AUTHORITY_INVALID). That is")
+        print("[TLS] expected; proceed past the warning (or import the cert into the device's trust")
+        print("[TLS] store) on each device that connects. See docs/TLS-LAN-SETUP.md.")
+        print("=" * 72)
     srv = _BoundedThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"THE VIEWER v{VERSION} running at http://{args.host}:{args.port}  (index: {DB_PATH})"); print("Press Ctrl+C to stop.")
+    global TLS_ENABLED
+    if args.tls:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2      # stdlib ssl on Python 3.8 (this app's legacy floor) supports this
+        try:
+            ctx.load_cert_chain(certfile=tls_cert_path, keyfile=tls_key_path)
+        except Exception as e:
+            print("[TLS] ERROR: failed to load certificate/key: %s" % e)
+            try: srv.server_close()
+            except Exception: pass
+            return
+        # Wrap the LISTENING socket, not each accepted connection: socket.accept() on a TLS-wrapped
+        # listening socket returns already-wrapped connections, so Handler/BaseHTTPRequestHandler
+        # need zero changes, and _BoundedThreadingHTTPServer's worker semaphore (which only wraps
+        # process_request/process_request_thread) is untouched. Trade-off, noted per the design:
+        # with do_handshake_on_connect=True (the default), the TLS handshake runs inside accept() on
+        # the single accept-loop thread, so a slow/stalled TLS client could briefly delay new
+        # connections -- acceptable for a LAN deployment given the existing 60s handler timeout and
+        # the worker semaphore already in place.
+        srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+        TLS_ENABLED = True
+    scheme = "https" if args.tls else "http"
+    print(f"THE VIEWER v{VERSION} running at {scheme}://{args.host}:{args.port}  (index: {DB_PATH})"); print("Press Ctrl+C to stop.")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

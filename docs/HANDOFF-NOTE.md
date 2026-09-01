@@ -4,6 +4,36 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-31, sixteenth pass):** the LAN-exposed deployment path
+> (`--host 0.0.0.0`) had authentication hardening (`VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` gating
+> `X-Viewer-Token`) but no transport-layer option at all -- the token and every request/response
+> (search, TM/parts/NSN content) still crossed the LAN in plaintext, readable to anyone else on the
+> same network segment. **Fixed**: new, off-by-default `--tls`/`--cert`/`--key` flags
+> (`engine/viewer_app.py`) wrap the server's listening socket in a stdlib `ssl.SSLContext` (TLS 1.2+)
+> once, at startup -- `Handler` and the bounded-worker semaphore are completely unmodified; an
+> existing `--host 0.0.0.0` invocation is byte-for-byte unchanged unless `--tls` is passed
+> explicitly, and the server fails fast (never binds, never falls back to plaintext) if `--tls` is
+> passed with no cert/key resolvable. New one-time cert-minting CLI `engine/gen_cert.py`: RSA-2048,
+> 10-year self-signed cert, SAN auto-detects LAN IPs. **Dependency decision**: gated behind an
+> optional `cryptography` import -- commented out in `requirements.txt`'s OPTIONAL tier, suggested by
+> hand in `INSTALL.bat`, the exact existing pattern `sentence-transformers`/`rapidocr-onnxruntime`/
+> `pyzbar` already use -- rejected an `openssl` shell-out (this app's documented Win7/Vista floor has
+> no guaranteed `openssl.exe` on PATH) and a vendored ASN.1/X.509 encoder (hand-rolled crypto is
+> riskier to maintain than depending on the field-standard library); `cryptography` is needed for
+> this one offline step only, never by the running server, which serves TLS entirely via stdlib
+> `ssl`. `safe_public_base()` (feeds `/api/qr`) now emits `https://` when TLS is active; the
+> loopback-detection check reading its output was made scheme-agnostic to match. New test
+> `test_tls.py`: a real cert, a real `ThreadingHTTPServer` wrapped exactly as `main()` wraps it, a
+> genuine TLS handshake (not mocked) confirming `https://` succeeds, plain `http://` on the same port
+> is rejected, an untrusting client is rejected, the plain-HTTP path is unaffected when `--tls` is
+> never passed, and `main()` fails fast on a missing cert -- skips gracefully if `cryptography` isn't
+> installed. New doc `docs/TLS-LAN-SETUP.md`: cert generation, per-platform browser-trust steps, and
+> an explicit "what this does/doesn't protect against" section (passive LAN sniffing: yes; an
+> unverified active on-LAN attacker: no; a substitute for a real CA-signed cert beyond a trusted
+> LAN/VPN: no). Shipped as `[1.43.0]`. Verified: `verify_all.py --snapshot` clean except the two
+> now-documented pre-existing flakes (`test_ingest_routes.py`'s real-subprocess-e2e flake,
+> `test_routes.py`'s `/api/ask` timeout).
+>
 > **Reconciliation note (2026-08-31, fifteenth pass):** a running server left up across a `git pull`
 > (or any on-disk edit that never got a restart) looked completely healthy — answered every request
 > fine — while quietly running stale code, with nothing anywhere recording when the process started

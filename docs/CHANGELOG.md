@@ -12,6 +12,59 @@ every change going forward.
 
 ---
 
+## [1.43.0] — 2026-08-31 — TLS support for LAN-exposed deployments
+**VERSION → `1.43.0`.** Every existing safeguard for a LAN-exposed VIEWER (`VIEWER_ALLOWED_HOSTS`,
+`VIEWER_AUTH_TOKEN` gating `X-Viewer-Token`) protected *authentication* over plain HTTP — the token
+itself, and the search/TM/parts/NSN content it protects, still crossed the network unencrypted,
+readable to anyone else on the same LAN segment sniffing traffic. There was no transport-layer
+option at all; adding one had to not disturb the documented Win7/Vista-capable, stdlib-only server
+path (`engine/preflight.py`'s docstring) for the vast majority of installs that never touch it.
+
+- **New CLI flags, off by default: `--tls`, `--cert`, `--key`** (`engine/viewer_app.py`). An existing
+  `python viewer_app.py --host 0.0.0.0` invocation is byte-for-byte unchanged unless `--tls` is
+  passed explicitly. `--tls` alone looks for `engine/certs/viewer-cert.pem`/`viewer-key.pem`;
+  `--cert`/`--key` point at a different pair. If `--tls` is passed and no cert/key resolves, the
+  server fails fast with a clear message pointing at the new `gen_cert.py` — it never silently falls
+  back to serving plaintext when TLS was explicitly requested.
+- **`engine/gen_cert.py`** — a new, one-time, operator-run CLI that mints a self-signed RSA-2048
+  cert/key pair (10-year validity; a self-signed LAN cert an operator manually trusts isn't bound by
+  the CA/Browser Forum's ~398-day public-CA lifetime cap). subjectAltName covers `localhost`,
+  `127.0.0.1`, every LAN IP it can auto-detect, plus anything passed via `--san`. **Dependency
+  decision**: gated behind an optional `cryptography` import (commented out in `requirements.txt`'s
+  OPTIONAL tier, printed as a manual `pip install` suggestion in `INSTALL.bat` — the exact existing
+  pattern `sentence-transformers`/`rapidocr-onnxruntime`/`pyzbar` already use), not an `openssl`
+  shell-out (this app's own documented legacy floor, Win7/Vista on Python 3.8/3.4, has no guaranteed
+  `openssl.exe` on PATH) and not a vendored ASN.1/X.509 encoder (hand-rolled crypto/DER code is far
+  riskier to maintain than depending on the field-standard library other trusted packages already
+  build on). `cryptography` is needed for this ONE offline, one-time step only — never imported by
+  the running server, which serves TLS entirely via stdlib `ssl`. The equivalent `openssl` one-liner
+  is documented for operators who'd rather not `pip install` anything.
+- **Server wiring**: `ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)` (minimum TLS 1.2) wraps the server's
+  *listening* socket once, in `main()`, right after `_BoundedThreadingHTTPServer` is constructed and
+  before `serve_forever()` — `Handler`/`BaseHTTPRequestHandler` and the bounded-worker semaphore are
+  completely unmodified; `socket.accept()` on a TLS-wrapped listening socket returns already-
+  terminated connections. `safe_public_base()` (feeds QR codes / deep links via `/api/qr`) now emits
+  `https://` when TLS is active instead of a hardcoded `http://`; the loopback-detection check that
+  reads its output (`X-QR-Local-Only`, `doc_extractors.py`) was made scheme-agnostic to match.
+- **New test** `engine/tests/test_tls.py`: generates a real cert via `gen_cert.generate()`, wraps a
+  real `ThreadingHTTPServer`'s listening socket exactly as `main()` does, and confirms — through a
+  genuine TLS handshake, no mocks — an `https://` request succeeds with a real 200 JSON response, a
+  plain `http://` request to that same port is rejected (invalid ClientHello), a client that doesn't
+  trust the self-signed cert is rejected (the real "browser warning" case), the ordinary plain-HTTP
+  path is unaffected when `--tls` is never passed, `main()` fails fast (never binds a socket) when
+  `--tls` is requested with no cert/key resolvable, and `safe_public_base()`'s scheme follows
+  `TLS_ENABLED`. Skips gracefully if `cryptography` isn't installed, matching this repo's existing
+  optional-dependency test convention. New doc `docs/TLS-LAN-SETUP.md`: cert generation, per-platform
+  browser-trust steps, and an explicit "what this does and doesn't protect against" section (passive
+  LAN sniffing: yes; an active on-LAN attacker who isn't verified against the cert fingerprint: no;
+  a substitute for a real CA-signed cert once reachable beyond a trusted LAN/VPN: no).
+
+**Verified:** `engine/tests/verify_all.py --snapshot` clean except the two now-documented pre-existing
+flakes (`test_ingest_routes.py`'s real-subprocess-e2e flake, `test_routes.py`'s `/api/ask` timeout —
+both independently reproduced as pre-existing and unrelated to this change).
+
+---
+
 ## [1.42.0] — 2026-08-31 — a stale running server is now visible, not silent
 **VERSION → `1.42.0`.** Nothing anywhere recorded when the running process started, or whether the
 code it launched with still matched what was on disk. A server left running across a `git pull` (or

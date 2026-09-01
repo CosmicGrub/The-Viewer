@@ -28,6 +28,9 @@ env/
 *.log
 engine/logs/
 
+# --- TLS certs/keys (self-signed, machine-local; see engine/gen_cert.py) ---
+engine/certs/
+
 # --- Local tool config ---
 .claude/settings.local.json
 .claude/scheduled_tasks.lock

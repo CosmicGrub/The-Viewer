@@ -56,6 +56,14 @@ python-pptx>=0.6,<2     # .pptx slide + table text, one page per slide
 # torch>=2.2,<3           # transformers' backend for Florence-2 -- large; CUDA build matches a GPU tier
 # sentence-transformers   # TRUE offline semantic search (otherwise a keyword-hash fallback is used)
 # pyzbar                  # 1-D barcodes + Data-Matrix (OpenCV already does QR without this)
+# cryptography>=42,<45    # ONE-TIME self-signed cert generation for --tls (engine/gen_cert.py).
+#                          # Not needed to install/run the app; only needed once, on whichever
+#                          # machine runs `python gen_cert.py`, to produce viewer-cert.pem/-key.pem.
+#                          # TLS itself is served entirely by stdlib ssl -- this dependency never
+#                          # touches the request path or the always-on server code. No openssl.exe
+#                          # required either way: if you already have openssl and would rather not
+#                          # pip install anything, see docs/TLS-LAN-SETUP.md for the equivalent
+#                          # one-line openssl command instead.
 # lxml                    # faster IETM/S1000D XML parsing (stdlib xml.etree is used by default)
 # camelot-py              # pilot 3rd table-extraction engine, cross-validated against tables.py/tables_plus.py
 #                          # (engine/tables_plus.py camelot_tables()). Camelot 2.0's Ghostscript requirement is

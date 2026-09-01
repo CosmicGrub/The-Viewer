@@ -471,13 +471,16 @@ except Exception as e:
 try:
     routes_src = open(os.path.join(ENGINE, "features", "routes", "doc_extractors.py"), encoding="utf-8").read()  # v1.14: r_qr lives in doc_extractors.py now (routes/ split)
     r_qr_body = routes_src.split("def r_qr(h, qs):")[1].split("\n\n\n")[0]
-    ok("r_qr_computes_local_only_flag", "local_only = base.lower().startswith" in r_qr_body)
+    ok("r_qr_computes_local_only_flag", "local_only = _base_rest.startswith" in r_qr_body)
     ok("r_qr_sends_x_qr_local_only_header", '"X-QR-Local-Only": "1" if local_only else "0"' in r_qr_body)
+    # v1.43.0: the check became scheme-agnostic (base can be http:// or https://, per --tls) --
+    # matches on the host[:port] portion after "://" only, same loopback forms as before.
     ok("r_qr_local_only_check_covers_127_localhost_ipv6", all(
-        s in r_qr_body for s in ("http://127.0.0.1:", "http://localhost:", "http://[::1]:")))
+        s in r_qr_body for s in ("127.0.0.1:", "localhost:", "[::1]:")))
 
     def local_only_check(base):
-        return base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:"))
+        rest = base.split("://", 1)[-1].lower()
+        return rest.startswith(("127.0.0.1:", "localhost:", "[::1]:", "::1:"))
     ok("local_only_flags_loopback", local_only_check("http://127.0.0.1:8765"))
     ok("local_only_flags_localhost", local_only_check("http://localhost:8765"))
     ok("local_only_flags_ipv6_loopback", local_only_check("http://[::1]:8765"))
@@ -626,17 +629,20 @@ except Exception as e:
     failed.append("review_gl3d_pinch_pause(%s)" % e)
 
 # --- routes.py: X-QR-Local-Only must also catch unbracketed "::1:PORT" (safe_public_base()'s real
-#     output for HOST=="::1", not the bracketed "[::1]:PORT" form).
+#     output for HOST=="::1", not the bracketed "[::1]:PORT" form). v1.43.0: the check became
+#     scheme-agnostic (base is now http:// OR https://, per --tls) -- matches on host[:port] only.
 try:
     routes_src = open(os.path.join(ENGINE, "features", "routes", "doc_extractors.py"), encoding="utf-8").read()  # v1.14: r_qr lives in doc_extractors.py now (routes/ split)
-    local_only_line = [l for l in routes_src.splitlines() if "local_only = base.lower().startswith" in l][0]
-    ok("routes_qr_local_only_covers_unbracketed_ipv6", '"http://::1:"' in local_only_line)
+    local_only_line = [l for l in routes_src.splitlines() if "local_only = _base_rest.startswith" in l][0]
+    ok("routes_qr_local_only_covers_unbracketed_ipv6", '"::1:"' in local_only_line)
 
     def _local_only(base):
-        return base.lower().startswith(("http://127.0.0.1:", "http://localhost:", "http://[::1]:", "http://::1:"))
+        rest = base.split("://", 1)[-1].lower()
+        return rest.startswith(("127.0.0.1:", "localhost:", "[::1]:", "::1:"))
     HOST, PORT = "::1", 8765
     safe_default = "127.0.0.1:%d" % PORT if HOST in ("0.0.0.0", "::") else "%s:%d" % (HOST, PORT)
     ok("routes_qr_local_only_detects_real_host_colon_colon_1", _local_only("http://" + safe_default))
+    ok("routes_qr_local_only_detects_https_scheme_too", _local_only("https://" + safe_default))
 except Exception as e:
     failed.append("review_qr_ipv6(%s)" % e)
 

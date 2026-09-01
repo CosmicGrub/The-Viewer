@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.36.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.37.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -26,7 +26,10 @@ near-noise semantic scores into live search results; caught and fixed before rea
 away on `pmcs.html`/`jobcard.html` (`[1.33.0]`); then `embed.py`'s full-rebuild prep — the hardcoded
 200,000-row cap made configurable, unbatched encoding replaced with real chunked batching (~1.3x measured),
 and resumable checkpointing so a killed mid-run process loses at most one chunk, code + tests only, no
-full-corpus rebuild run (`[1.36.0]`) — see the reconciliation notes below and §8 items 12–20). This document +
+full-corpus rebuild run (`[1.36.0]`); then `[1.33.0]`'s one deliberately-open item closed — `/api/ingest_scan`
+wired into `ingest.html` as a separate, honestly-captioned "Broader file scan" panel next to the existing
+Preview button, not merged into it (`[1.37.0]`) — see the reconciliation notes below and §8 items 12–21).
+This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -529,6 +532,25 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     **No full-corpus rebuild was run** — stays a separate, human-supervised ~9–12 hour action per item
     19's own NO-GO finding; this item is code + `engine/tests/test_embed_checkpoint.py` (34 new checks)
     only. See `CHANGELOG.md` `[1.36.0]`.
+21. **`[1.37.0]` — `/api/ingest_scan` wired into the UI**, closing item 19's one deliberately-open item.
+    Shipped as a SEPARATE "Broader file scan" link/panel on `ingest.html` — its own `#broaderOut` div,
+    never merged into the existing Preview panel — precisely to avoid the two-disagreeing-counts risk
+    item 19 flagged. Copy states plainly what it adds over Preview (`.txt`/`.html`/`.htm`/`.xml`/`.csv`/
+    `.md`/`.tiff`/`.tif`/`.png`/`.jpg`/`.jpeg` — the real `ingestpipe.SUPPORTED` set, **not**
+    `.docx`/`.xlsx`/`.pptx`/`.rtf`/`.bmp`/`.gif`, which an earlier draft of the shipped copy briefly and
+    incorrectly claimed until adversarial verification caught it before merge), what's still not covered
+    (legacy `.doc`/`.xls`/`.ppt`, `.svg` — discovered, never content-extracted), that `.xml`/`.csv`/`.md`
+    are only a partial win (counted here, but the real ingest job extracts zero content from them either
+    way), and that this scan's dedup method (hash-or-filename) differs from Preview's (exact path only) —
+    so a legitimate count mismatch is explained rather than left as a mystery. Traced whether the route
+    needed the same `_exposed_read_guard()` gate its GET siblings carry — confirmed it does not
+    (`do_POST` already requires the shared token for every POST when exposed) — and left that finding as
+    a code comment so a future pass doesn't "fix" a non-bug. Verified live twice: at initial ship
+    (`test_ingest_routes.py`'s real e2e coverage plus a direct `ingestpipe.scan_folder()` call), and again
+    after the copy correction (a real server, a temp folder with one file per extension across both sets,
+    a real POST — exactly the 12 real `SUPPORTED` extensions came back, all 6 misclaimed ones correctly
+    absent). **Still open**: everything else from item 19's still-open list (4 of 5 dead columns, ~17 more
+    orphaned routes, semantic search's full-corpus rebuild decision). See `CHANGELOG.md` `[1.37.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

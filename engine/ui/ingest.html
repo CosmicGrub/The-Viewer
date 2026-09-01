@@ -75,6 +75,8 @@
   <div id="recent" class="chips"></div>
   <div class="muted" style="margin-top:8px">Tip: paste the full folder path. Sub-folders are included. Already-indexed files are skipped automatically.</div>
   <div id="out"></div>
+  <div class="muted" style="margin-top:6px"><a href="#" id="broaderScanLink" onclick="broaderScan();return false;">Broader file scan (checks .pdf/.txt/.html/.htm/.xml/.csv/.md/.tiff/.tif/.png/.jpg/.jpeg) →</a></div>
+  <div id="broaderOut"></div>
   <div class="ground">How it works: a safeguard snapshot is taken, then the tested pipeline walks the folder, adds new documents, extracts embedded text, OCRs every page that needs it, and rebuilds the parts index — one job, start to finish. Nothing is deleted or overwritten (R1/R6).</div>
 
   <details class="card" id="airgapCard" style="margin-top:18px">
@@ -125,6 +127,35 @@ function preview(){
     else h+='<div class="muted" style="margin-top:10px">Nothing new to index in this folder.</div>';
     h+='</div>'; $("#out").innerHTML=h;
   }).catch(function(e){ $("#out").innerHTML='<div class="card"><span class="err">Error: '+esc(e.message)+'</span></div>'; });
+}
+/* ---- Broader file scan: a SEPARATE, secondary affordance over /api/ingest_scan -- deliberately
+   its own panel (#broaderOut), never written into #out, so its numbers can never visually merge
+   with or overwrite Preview's. /api/ingest_scan checks more extensions than Preview (which is
+   PDF-only) but is STILL narrower than what a real ingest run actually extracts content from --
+   see the honest coverage/gap lines below. Also uses a different dedup method (hash-or-filename)
+   than Preview's exact-path check, so the two counts can legitimately disagree; said so plainly
+   rather than leaving an operator to wonder why. */
+function broaderScan(){
+  var p=$("#path").value.trim(); if(!p){return;}
+  $("#broaderOut").innerHTML='<div class="muted" style="padding:14px 0">Running the broader scan…</div>';
+  fetch("/api/ingest_scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder:p,recursive:true})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){ $("#broaderOut").innerHTML='<div class="card"><span class="err">'+esc(d.error||"Couldn\'t scan that folder.")+'</span></div>'; return; }
+      saveRecent(p); renderRecent();
+      var counts=d.counts||{new:0,duplicate:0};
+      var h='<div class="card"><div class="muted">Broader scan of <b>'+esc(d.folder||p)+'</b> — checks more file types than Preview above.</div>';
+      h+='<div class="nums"><div class="num"><div class="v">'+(d.found||0)+'</div><div class="l">files found</div></div>';
+      h+='<div class="num new"><div class="v">'+(counts.new||0)+'</div><div class="l">new to add</div></div>';
+      h+='<div class="num"><div class="v">'+(counts.duplicate||0)+'</div><div class="l">duplicate / already in corpus</div></div></div>';
+      if(d.new && d.new.length){ h+='<div class="sample">new files include: '; d.new.slice(0,8).forEach(function(f){ h+='<span>'+esc(f.name||"")+'</span>'; }); h+='</div>'; }
+      h+='<div class="muted" style="margin-top:10px">Checks: PDFs, images (.png/.jpg/.jpeg/.tif/.tiff), .txt, .html/.htm, .xml, .csv, and .md.</div>';
+      h+='<div class="muted" style="margin-top:4px">Still not covered: legacy .doc/.xls/.ppt and .svg files — the ingest job can discover these but can\'t read their content yet. And of the extra types this scan counts, .xml/.csv/.md are discovered here but the ingest job does not actually extract any content from them either.</div>';
+      h+='<div class="muted" style="margin-top:4px">Unlike the Preview count above (exact path match only), this scan also detects duplicates by content hash and filename — so its numbers may legitimately differ from Preview\'s.</div>';
+      if(!d.found){ h+='<div class="muted" style="margin-top:10px">No supported files found (or folder not accessible from the server).</div>'; }
+      else if(counts.new>0){ h+='<div style="margin-top:12px"><button class="b go" id="broaderRun" onclick="startRun()">Index '+counts.new+' new document'+(counts.new===1?'':'s')+' now</button></div>'; }
+      else { h+='<div class="muted" style="margin-top:10px">Nothing new to index in this folder.</div>'; }
+      h+='</div>'; $("#broaderOut").innerHTML=h;
+    }).catch(function(e){ $("#broaderOut").innerHTML='<div class="card"><span class="err">Error: '+esc(e.message)+'</span></div>'; });
 }
 var STAGES=[["crawl","Scanning"],["ocr","OCR'ing"],["parts","Extracting parts"],["done","Done"]];
 function progHtml(label){

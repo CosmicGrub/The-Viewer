@@ -4,6 +4,31 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-08-31, eleventh pass):** closed the one open item `[1.33.0]` deliberately
+> left on the table — `/api/ingest_scan` now has a UI entry point (`engine/ui/ingest.html`), shipped as a
+> SEPARATE "Broader file scan" link/panel next to the existing Preview button rather than merged into it,
+> exactly per `[1.33.0]`'s stated concern about two disagreeing "how many new files" counts. The panel's
+> copy states plainly what it adds over Preview (`.txt`/`.html`/`.htm`/`.xml`/`.csv`/`.md`/`.tiff`/`.tif`/
+> `.png`/`.jpg`/`.jpeg` — the real `ingestpipe.SUPPORTED` set, **not** `.docx`/`.xlsx`/`.pptx`/`.rtf`/
+> `.bmp`/`.gif`, which an earlier draft of this shipped copy briefly and incorrectly claimed; caught by
+> adversarial verification before merge and corrected, confirmed live against a running server), what's
+> still not covered (legacy `.doc`/`.xls`/`.ppt`, `.svg` — discovered, never content-extracted), that
+> `.xml`/`.csv`/`.md` are themselves a partial win (counted/deduped by this scan, but zero content
+> extracted by the real ingest job either way), and that this scan's dedup method (hash-or-filename)
+> differs from Preview's (exact path only) — so a legitimate count mismatch is explained, not left as a
+> mystery. Separately traced whether `/api/ingest_scan` needed the same `_exposed_read_guard()` gate
+> `/api/ingest_preview`/`/api/ingest_status` carry (a gap an earlier research pass flagged) — confirmed it
+> does NOT: it's a `POST` route, and `do_POST` already requires the shared `X-Viewer-Token` for every POST
+> when network-exposed, before any handler runs. Left a code comment recording that so it isn't
+> mis-"fixed" by a future pass. Verified live, twice: once at initial ship (`test_ingest_routes.py`'s real
+> e2e `/api/ingest_scan` coverage re-run clean, plus a direct `ingestpipe.scan_folder()` call confirming
+> the extension gap), and again after the copy correction (a standalone script started the real server,
+> built a temp folder with one file per extension across both sets, POSTed to `/api/ingest_scan`: exactly
+> the 12 real `SUPPORTED` extensions came back, all 6 previously-misclaimed extensions correctly absent).
+> Shipped as `[1.37.0]` (branched from `origin/main` at `[1.33.0]`, rebased onto `[1.36.0]` once that PR
+> merged — a straightforward doc-reconciliation rebase, same pattern as this repo's prior
+> `docs/reconcile-changelog-*` branches). `main` is at `[1.37.0]`.
+>
 > **Reconciliation note (2026-08-31, tenth pass):** implemented the one remaining prerequisite the
 > eighth pass's research flagged and left open — `embed.build_index()`'s row cap was hardcoded at
 > `limit=200000`, covering only ~11.9% of this deployment's real 1,682,054 eligible pages. Now

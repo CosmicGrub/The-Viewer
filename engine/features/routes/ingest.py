@@ -98,6 +98,12 @@ def r_airgap_import_decisions(h, qs, payload):
 @post("/api/ingest_scan")
 def r_ingest_scan(h, qs, payload):
     # scan a folder of manuals -> an ingestion plan (new vs already-in-corpus). Read-only over the folder.
+    # NOTE: unlike /api/ingest_preview and /api/ingest_status (GET routes, gated by
+    # _exposed_read_guard below), this is a POST route -- do_POST already requires the shared
+    # X-Viewer-Token when the server is network-exposed (_EXPOSED), before this handler ever runs.
+    # So it does NOT need its own _exposed_read_guard() call the way those two GET routes do; an
+    # earlier pass here flagged this as a gap, but it isn't one -- confirmed against do_POST's
+    # auth check (viewer_app.py) before landing the ingest_scan UI wiring.
     import ingestpipe
     folder = (payload.get("folder") or "").strip()
     if not folder:

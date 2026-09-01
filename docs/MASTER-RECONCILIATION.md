@@ -41,7 +41,14 @@ while quietly running stale code; fixed with `STARTUP_VERSION`/`STARTUP_TIME` ca
 import, a TTL-cached on-disk `VERSION=` re-read (never a re-import, never `git`), new
 `started_with_version`/`started_at`/`code_changed_since_start` fields on `/healthz`/`/api/ops`, and a
 non-dismissible whole-site banner in `shared.js` that clears itself once the process is actually
-restarted, `[1.42.0]`).** This document
+restarted, `[1.42.0]`; then TLS support for LAN-exposed deployments — the existing
+`VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` hardening protected authentication over plain HTTP, but a
+LAN-exposed VIEWER still crossed the network unencrypted; fixed with new off-by-default
+`--tls`/`--cert`/`--key` flags wrapping the listening socket in stdlib `ssl` (TLS 1.2+, zero change
+to `Handler`/the worker semaphore), a new one-time self-signed-cert CLI (`engine/gen_cert.py`, gated
+behind an optional `cryptography` import rather than an `openssl` shell-out or a vendored X.509
+encoder), `safe_public_base()` made scheme-aware for `/api/qr`, and a real-TLS-handshake test suite
+confirming both the TLS-on and TLS-off paths, `[1.43.0]`).** This document
 exists because the project's own canonical docs had drifted out of sync with each other across sessions —
 including, at the 2026-08-09 update, this file itself: it named **v1.13.4** as the state all canonical docs
 agreed on the same day `CHANGELOG.md`'s newest entry had already moved on to **v1.13.5**. The exact same drift
@@ -52,12 +59,27 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.42.0, shipped 2026-08-31** (version-staleness detection — a server left
-running across a `git pull` looked completely healthy while quietly running stale code, since nothing
-recorded when it started or whether its code still matched disk; fixed with `STARTUP_VERSION`/
-`STARTUP_TIME` captured once at import, a TTL-cached on-disk `VERSION=` re-read, new
-`started_with_version`/`started_at`/`code_changed_since_start` fields on `/healthz`/`/api/ops`, and a
-non-dismissible whole-site banner in `shared.js` — see §6 item 26). Immediately prior: v1.41.0, shipped
+**True current state: v1.43.0, shipped 2026-08-31** (TLS support for LAN-exposed deployments — a
+LAN-exposed VIEWER (`--host 0.0.0.0`) had `VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` authentication
+hardening but crossed the network in plaintext; fixed with new off-by-default `--tls`/`--cert`/`--key`
+flags (`engine/viewer_app.py`) wrapping the server's listening socket in stdlib `ssl.SSLContext`
+(TLS 1.2+) once at startup, with zero changes to `Handler` or the bounded-worker semaphore, and a
+fail-fast (never-falls-back-to-plaintext) refusal when `--tls` is passed with no cert/key resolvable.
+New one-time cert CLI `engine/gen_cert.py` (RSA-2048, 10-year self-signed, SAN auto-detects LAN IPs),
+gated behind an optional `cryptography` import — matching the existing `sentence-transformers`/
+`rapidocr-onnxruntime`/`pyzbar` pattern rather than an `openssl` shell-out (no guaranteed `openssl.exe`
+on this app's documented Win7/Vista floor) or a vendored ASN.1/X.509 encoder. `safe_public_base()`
+(feeds `/api/qr`) now emits `https://` when TLS is active; the scheme-check reading its output was
+made scheme-agnostic to match. New test `test_tls.py`: a real cert, a real TLS handshake (not
+mocked) confirming `https://` succeeds, plain `http://` on the same port is rejected, an untrusting
+client is rejected, the plain-HTTP path is unaffected when `--tls` is never passed, and `main()`
+fails fast on a missing cert. New doc `docs/TLS-LAN-SETUP.md`). Immediately prior: v1.42.0, shipped
+2026-08-31 (version-staleness detection — a server left running across a `git pull` looked completely
+healthy while quietly running stale code, since nothing recorded when it started or whether its code
+still matched disk; fixed with `STARTUP_VERSION`/`STARTUP_TIME` captured once at import, a TTL-cached
+on-disk `VERSION=` re-read, new `started_with_version`/`started_at`/`code_changed_since_start` fields
+on `/healthz`/`/api/ops`, and a non-dismissible whole-site banner in `shared.js` — see §6 item 26).
+Immediately prior: v1.41.0, shipped
 2026-08-31 (`part.html` no longer conflates a failed request with "part not found" — `gj()`, the
 shared fetch helper behind all 15 of the page's fetch call sites, now resolves an honest
 `{ok,status,body}` instead of collapsing a real transport/server failure and a genuine empty result

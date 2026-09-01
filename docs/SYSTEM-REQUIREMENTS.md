@@ -97,6 +97,18 @@ you deliberately expose the server on a LAN.
   ```
 
   Loopback deployments (the default) never need this — auth only gates the network-exposed path.
+- **`--tls` / `--cert` / `--key`** (`viewer_app.py` CLI flags, not env vars) — v1.43.0: serve HTTPS
+  instead of plain HTTP, using a self-signed certificate generated once with `engine\gen_cert.py`.
+  Off by default; an existing `--host 0.0.0.0` invocation is byte-for-byte unchanged unless `--tls`
+  is passed explicitly. `--tls` alone looks for `engine\certs\viewer-cert.pem`/`viewer-key.pem`
+  (`gen_cert.py`'s default output); `--cert`/`--key` point at a different pair. If `--tls` is passed
+  and no cert/key resolves, the server refuses to start rather than silently falling back to
+  plaintext. This is self-signed — every browser shows a one-time warning on first connect, which is
+  expected — and defends **passive** LAN sniffing of `X-Viewer-Token` and TM/parts/NSN content; it
+  does not by itself defend an **active** on-LAN attacker unless the operator verifies the cert
+  fingerprint or imports it into device trust stores, and it is not a substitute for a real CA-signed
+  cert if the server is ever reachable beyond a trusted LAN/VPN. Full walkthrough (cert generation,
+  browser trust steps per platform, threat model): `docs/TLS-LAN-SETUP.md`.
 
 **Server & runtime:**
 

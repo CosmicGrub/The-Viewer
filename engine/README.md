@@ -58,6 +58,13 @@ to grind in the background. Because it is resumable, you never lose progress.
 - The index is always **rebuildable from scratch** from the read-only corpus — the ultimate
   rollback.
 
+## LAN exposure & HTTPS
+
+`viewer_app.py` binds to `127.0.0.1` (loopback-only) by default. Passing `--host 0.0.0.0` exposes it
+on the LAN deliberately — see `docs/SYSTEM-REQUIREMENTS.md`'s "Security / exposure" section for
+`VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN`, and `docs/TLS-LAN-SETUP.md` for the optional `--tls` flag
+(self-signed HTTPS, off by default, generated once with `engine\gen_cert.py`).
+
 ## Files
 
 ```

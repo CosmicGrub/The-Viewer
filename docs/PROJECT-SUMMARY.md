@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.42.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.43.0 · 2026-08-31** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -48,8 +48,16 @@ running across a `git pull` looked completely healthy while quietly running stal
 recording when it started or whether its code still matched disk; fixed with `STARTUP_VERSION`/
 `STARTUP_TIME` captured once at import, a TTL-cached on-disk `VERSION=` re-read (never a re-import,
 never `git`), new fields on `/healthz`/`/api/ops`, and a non-dismissible whole-site banner in
-`shared.js` that clears itself once the process is actually restarted (`[1.42.0]`) — see the
-reconciliation notes below and §8 item 25). This document +
+`shared.js` that clears itself once the process is actually restarted (`[1.42.0]`); then TLS support
+for LAN-exposed deployments — `VIEWER_ALLOWED_HOSTS`/`VIEWER_AUTH_TOKEN` hardened authentication over
+plain HTTP, but a LAN-exposed VIEWER still crossed the network unencrypted; fixed with new
+off-by-default `--tls`/`--cert`/`--key` flags wrapping the listening socket in stdlib `ssl` (TLS 1.2+,
+zero change to `Handler` or the worker semaphore), a new one-time self-signed-cert CLI
+(`engine/gen_cert.py`, gated behind an optional `cryptography` import — matching the
+`sentence-transformers`/`rapidocr-onnxruntime` pattern rather than an `openssl` shell-out or a
+vendored X.509 encoder), `safe_public_base()` now scheme-aware for `/api/qr`, and a real-handshake
+test suite (`test_tls.py`) confirming both the TLS-on and TLS-off paths genuinely work (`[1.43.0]`) —
+see the reconciliation notes below and §8 item 25). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this

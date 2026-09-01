@@ -188,13 +188,18 @@ def test_clean_rebuild_clears_stale_fallback_report(tmp_root):
     embed._load_model = lambda: stub_good
     try:
         n = embed.build_index(db, out, limit=12, min_chars=60, chunk_size=6)
+        ok("clean_rebuild_returns_full_row_count", n == 12)
+        ok("clean_rebuild_writes_meta_stamp", os.path.exists(embed._meta_path(out)))
+        ok("clean_rebuild_removes_stale_fallback_report", not os.path.exists(embed._fallback_path(out)))
+        # Must be checked while the SAME stub (-> "sentence-transformers") is still the active
+        # backend build_index() just used to write the meta stamp -- _index_is_stale() compares
+        # the stamp against whatever backend() returns RIGHT NOW, so checking this after restoring
+        # the real _load_model() would spuriously fail on any host without sentence-transformers
+        # actually installed (real backend there: "hash-fallback", mismatching the stub-written
+        # stamp) even though nothing is actually wrong with the index.
+        ok("clean_rebuild_index_not_stale", embed._index_is_stale(out) is False)
     finally:
         embed._load_model = real_load_model
-
-    ok("clean_rebuild_returns_full_row_count", n == 12)
-    ok("clean_rebuild_writes_meta_stamp", os.path.exists(embed._meta_path(out)))
-    ok("clean_rebuild_removes_stale_fallback_report", not os.path.exists(embed._fallback_path(out)))
-    ok("clean_rebuild_index_not_stale", embed._index_is_stale(out) is False)
 
 
 def test_partial_fallback_survives_interrupt_and_resume(tmp_root):

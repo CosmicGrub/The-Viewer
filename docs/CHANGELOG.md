@@ -12,6 +12,52 @@ every change going forward.
 
 ---
 
+## [1.51.0] — 2026-09-03 — `VW.channel`: cross-window/cross-tab publish/subscribe (multi-window support, PR 1/18)
+
+**VERSION → `1.51.0`.** First implementation PR from
+`docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — a real, reusable cross-window sync
+layer in `shared.js`, built deep from the start per the design spec's expanded scope (ordering,
+schema versioning, an explicit payload-size guard), not a one-off Bench-only listener.
+
+- **`BroadcastChannel` primary transport**, with an automatic `storage`-event fallback for the
+  older/RPS-mode browsers this codebase still supports where `BroadcastChannel` is undefined. A
+  subscriber never needs to know or care which transport delivered a message.
+- **Ordering**: every envelope carries a `seq` counter scoped to (channel name, publishing tab) —
+  deliberately not a global cross-tab sequence, since no single source of truth exists for that
+  without real coordination overkill. A subscriber can detect it missed a message from a specific
+  other tab (`meta.gap === true`), which matters most on the `storage`-event fallback path: two
+  rapid writes from one tab can coalesce into a single `storage` event elsewhere, since the event
+  only ever reflects the current value at dispatch time.
+- **Schema versioning**: every envelope carries a `v` field; a mismatched version is silently
+  ignored, never crashes a subscriber running older/newer code.
+- **Size guard**: the `storage`-event fallback path (bound by `localStorage`'s shared ~5-10MB
+  origin quota) throws a clear, immediate error on an oversized payload rather than letting a raw
+  `QuotaExceededError` or a partially-written shared key surface downstream. `BroadcastChannel` has
+  no such limit.
+
+**Verified for real, not just asserted**: `engine/tests/js/test_channel_node.js` uses two independent
+`vm.createContext()` sandboxes standing in for two real browser tabs — each gets its own
+window/document/localStorage (so requiring `shared.js` into each gives genuinely independent closure
+state), while both share Node's real global `BroadcastChannel` constructor. This is production code
+exercising a real `BroadcastChannel` implementation, not a reimplementation of the logic under test.
+16 checks, all real: cross-tab delivery/ordering/no-self-echo over `BroadcastChannel`; the
+`storage`-event fallback path (captured directly from whatever listener `shared.js` itself registers,
+since Node has no real cross-context `storage`-event IPC to rely on); gap detection on a simulated
+coalesced write; silent version-mismatch handling; the oversized-payload guard; malformed-JSON safety.
+`rps_lint` stays clean on `shared.js` (strict ES5 — caught and fixed two false positives from my own
+doc comments using backticks/ellipses, which the linter's text scan doesn't distinguish from real
+code).
+
+- **`engine/ui/shared.js`**: `VW.channel.publish(name, data)` / `VW.channel.subscribe(name, fn)`.
+- **`engine/tests/js/test_channel_node.js`** (new): the real cross-tab logic test described above.
+- **`engine/tests/test_shared_channel.py`** (new): `node --check` syntax gate + wires the above test
+  into this project's usual test-runner output, gracefully skipping in a node-less environment.
+
+No UI changes yet — nothing calls `VW.channel` outside its own tests. `VW.workspace`, `VW.windows`,
+and the features that actually consume this (D, then B/F/C/G) follow in subsequent PRs per the plan.
+
+---
+
 ## [1.50.0] — 2026-09-03 — `tests/mutate.py` could poison the real Python bytecode cache, silently, for days
 
 Found running the final, fresh `verify_all.py --snapshot` pass at the actual release-cut point (the same

@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.51.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.52.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -98,7 +98,10 @@ instead (`[1.49.0]`); then, found by the final release-cut `verify_all.py --snap
 in the same tool — restoring a mutated file's *text* left its *compiled bytecode cache* stale, so a
 mutant's logic could silently outlive its own SHA-256-verified restore and leak into whatever imported
 the module next, including the real application; fixed by purging the target's `__pycache__` entry after
-every restore (`[1.50.0]`) — see the reconciliation notes below and §8 items 25–33). This document +
+every restore (`[1.50.0]`); then the first two implementation PRs of the multi-window/multi-tab
+initiative — `VW.channel`, a real cross-window publish/subscribe layer in `shared.js` (`[1.51.0]`),
+and `VW.workspace`, the saved-set-of-pages data model riding it (`[1.52.0]`) — see the
+reconciliation notes below and §8 items 25–35). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -873,6 +876,39 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     along the way (backticks/ellipses in doc comments, which the linter's text scan doesn't
     distinguish from real code). No UI changes yet — nothing calls `VW.channel` outside its own
     tests. See `CHANGELOG.md` `[1.51.0]`.
+35. **`[1.52.0]` — `VW.workspace`: saved, named sets of pages, CRUD (multi-window support,
+    PR 2/18).** Stage 2 of the same plan, riding `[1.51.0]`'s `VW.channel`. A workspace is the data
+    behind "reopen everything I had open for this job": `create/list/get/touch` over a record of
+    `{id, name, items: [{page, params}], created, lastOpened, source}`. CRUD only — export/import
+    (PR 3) and the built-in templates (PR 4) build on this exact record shape and storage key and
+    are deliberately not here. Stored as one JSON **array** under a new `viewer_workspaces`
+    localStorage key rather than an id-keyed object, a decision documented in the code itself:
+    `list()` is by far the dominant read (the saved-workspaces UI repaints the whole set whenever
+    anything changes) and an array preserves a stable creation order for free, where an id-keyed
+    object would need a sort on every `list()` for the same guarantee; `get(id)`'s linear scan is
+    the right trade for a handful of human-named entries; and an array is already the shape PR 3
+    will serialize. Every mutation publishes on `VW.channel` with a deliberately thin
+    `{action, id, name, at}` payload — `localStorage` is already shared across every tab on this
+    origin for free, so a second tab does not need the data pushed to it, it needs to be *told*
+    something changed so it can re-read and repaint (the same philosophy the design spec describes
+    for D, Bench sync); the write happens first and the notification second, so a reacting tab
+    always reads an already-committed value, and read-only calls publish nothing. Defensive
+    throughout: wrapped storage access (private browsing and full quotas both throw), a corrupt
+    stored value degrading to a filtered view instead of an exception, a read never rewriting
+    storage, and ids checked against what is actually stored and regenerated on a hit so a
+    duplicate is impossible rather than merely unlikely. Verified with a genuinely real test —
+    `engine/tests/js/test_workspace_node.js`, 73 checks all passing — where two
+    `vm.createContext()` sandboxes stand in for two tabs **sharing one `localStorage` object**,
+    exactly what two tabs on one origin have: tab A creates, tab B is notified over Node's real
+    global `BroadcastChannel`, and tab B then genuinely finds the workspace through its own
+    `list()`. A controllable clock makes "touch moves `lastOpened`" a real observable change
+    instead of a check that passes vacuously in the same millisecond, and every persisted-state
+    check parses the raw storage value directly rather than trusting the API to describe itself.
+    Adversarially checked by injecting 6 real mutations into `shared.js`: 5 caught; the 6th
+    (dropping the id generator's random suffix) survives because the collision-regeneration guard
+    independently preserves uniqueness — confirmed directly and reported as the equivalent mutant
+    it is. No UI changes yet — nothing calls `VW.workspace` outside its own tests. See
+    `CHANGELOG.md` `[1.52.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

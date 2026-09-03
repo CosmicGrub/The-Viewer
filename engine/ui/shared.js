@@ -311,9 +311,115 @@
     });
   }
 
+  /* v1.51.0: VW.channel -- cross-window/cross-tab publish/subscribe (multi-window support, stage 1
+     of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md). BroadcastChannel is the primary
+     transport (near-instant, no practical payload limit, delivered in order per channel by the
+     browser itself, and never echoes back to the tab that sent it); the native storage event is
+     the automatic fallback for the older/RPS-mode browsers this codebase still supports, where
+     BroadcastChannel is undefined (also never echoes to the writing tab, per spec). A subscriber
+     never needs to know or care which transport is active -- both paths deliver the identical
+     envelope shape.
+
+     Every message is wrapped in an envelope carrying:
+       v     -- a schema version (bumped only if this envelope SHAPE itself ever changes), so a tab
+                running older/newer code can detect a mismatch and ignore the message cleanly instead
+                of crashing on an unexpected shape.
+       tabId -- a random id generated once per tab/window load.
+       seq   -- a counter, PER (channel name, tabId), incremented on every publish() this tab makes
+                to that channel. This is deliberately NOT a global cross-tab sequence -- no single
+                source of truth exists for that without real coordination overkill for what this
+                needs -- it lets a subscriber detect it may have missed a message from THIS SPECIFIC
+                OTHER TAB (seq jumps by more than 1). That matters most on the storage-event fallback
+                path: two rapid writes to the same localStorage key from one tab can coalesce into a
+                single storage event in another tab, since the event only ever reflects the CURRENT
+                value at dispatch time, not a queue of every value that was ever written.
+
+     The storage-event fallback path writes every channel's envelope to ONE shared localStorage key
+     (multiple logical channels multiplex over it; subscribe() filters by name), and guards against
+     oversized payloads explicitly: BroadcastChannel has no meaningful size limit, but localStorage
+     shares a single ~5-10MB origin-wide quota with everything else already stored there -- publish()
+     throws a clear, immediate error on an oversized payload on this path rather than letting a raw
+     QuotaExceededError (or a partially-written shared key) surface somewhere downstream instead. */
+  var _CHANNEL_V = 1;
+  var _CHANNEL_KEY = "viewer_channel_msg";
+  var _CHANNEL_MAX_BYTES = 200000;    // a safety margin, not the real browser quota -- this fires
+                                       // with a clear message long before an actual QuotaExceededError would.
+  var _channelTabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  var _channelSeq = {};        // "<name>" -> last seq THIS tab has sent on that channel
+  var _channelLastSeen = {};   // "<name>:<tabId>" -> last seq seen FROM that tab on that channel
+  var _channelSubs = {};       // "<name>" -> list of subscriber functions
+  var _bcChannels = {};        // "<name>" -> BroadcastChannel instance (or null if unavailable/failed)
+
+  function _channelEnvelope(name, data) {
+    _channelSeq[name] = (_channelSeq[name] || 0) + 1;
+    return { v: _CHANNEL_V, name: name, tabId: _channelTabId, seq: _channelSeq[name], data: data };
+  }
+
+  function _channelDeliver(env) {
+    if (!env || env.v !== _CHANNEL_V) return;               // unknown/mismatched schema -- ignore, never throw
+    var subs = _channelSubs[env.name];
+    if (!subs || !subs.length) return;
+    var key = env.name + ":" + env.tabId;
+    var last = _channelLastSeen[key];
+    var gap = (last !== undefined && env.seq > last + 1);    // true -> this tab may have missed one or more messages
+    _channelLastSeen[key] = env.seq;
+    var meta = { seq: env.seq, v: env.v, gap: gap };
+    for (var i = 0; i < subs.length; i++) {
+      try { subs[i](env.data, meta); } catch (e) { /* one bad subscriber must never break the rest */ }
+    }
+  }
+
+  /* One listener, registered once, covers every channel multiplexed over the single fallback key. */
+  try {
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("storage", function (ev) {
+        if (!ev || ev.key !== _CHANNEL_KEY || !ev.newValue) return;
+        var env = null;
+        try { env = JSON.parse(ev.newValue); } catch (e) { return; }
+        _channelDeliver(env);
+      });
+    }
+  } catch (e) { /* never break the host page over channel wiring */ }
+
+  /* Lazily creates (and wires up) the BroadcastChannel for a channel name, idempotently -- called from both
+     publish() and subscribe(), whichever happens first for a given channel name. */
+  function _channelEnsureBC(name) {
+    if (typeof BroadcastChannel !== "function") return null;
+    if (_bcChannels[name] === undefined) {
+      try {
+        var bc = new BroadcastChannel("viewer:" + name);
+        bc.onmessage = function (ev) { _channelDeliver(ev.data); };
+        _bcChannels[name] = bc;
+      } catch (e) { _bcChannels[name] = null; }
+    }
+    return _bcChannels[name];
+  }
+
+  function channelPublish(name, data) {
+    var env = _channelEnvelope(name, data);
+    var bc = _channelEnsureBC(name);
+    if (bc) { bc.postMessage(env); return; }
+    var json = JSON.stringify(env);
+    if (json.length > _CHANNEL_MAX_BYTES) {
+      throw new Error("VW.channel.publish('" + name + "'): payload too large for the storage-event " +
+        "fallback (" + json.length + " bytes, limit " + _CHANNEL_MAX_BYTES + "). BroadcastChannel " +
+        "isn't available in this browser, and localStorage shares one small origin-wide quota with " +
+        "everything else already stored there.");
+    }
+    try { window.localStorage.setItem(_CHANNEL_KEY, json); }
+    catch (e) { /* quota exceeded or private-mode storage disabled -- best effort, never throw from here */ }
+  }
+
+  function channelSubscribe(name, fn) {
+    if (!_channelSubs[name]) _channelSubs[name] = [];
+    _channelSubs[name].push(fn);
+    _channelEnsureBC(name);    // make sure this channel has a live BroadcastChannel listener too
+  }
+
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
              toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
-             trapFocus: trapFocus };
+             trapFocus: trapFocus,
+             channel: { publish: channelPublish, subscribe: channelSubscribe } };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

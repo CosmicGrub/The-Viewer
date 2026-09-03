@@ -67,7 +67,14 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.50.0, shipped 2026-09-03** (found by the final, fresh `verify_all.py --snapshot`
+**True current state: v1.51.0, shipped 2026-09-03** (`VW.channel` — a real, reusable cross-window
+publish/subscribe layer in `shared.js`, the first implementation PR of the multi-window/multi-tab
+initiative: `BroadcastChannel` primary transport with a `storage`-event fallback for RPS/legacy
+browsers, per-(channel,tab) sequence numbers for gap detection, schema versioning, an explicit
+oversized-payload guard on the fallback path. Verified with two independent `vm.createContext()`
+sandboxes standing in for two real browser tabs, sharing Node's real global `BroadcastChannel`
+constructor — production code exercising a real implementation, not a reimplementation of the logic
+under test. See §6 item 35). Immediately prior: found by the final, fresh `verify_all.py --snapshot`
 pass at the actual release-cut point: `tests/mutate.py`'s restore step rewrote and SHA-verified a mutated
 target's *text* but never touched its *derived bytecode cache* — a mutant's `.pyc` could silently outlive
 its own verified-clean source restore and leak into whatever imported the module next, including the real
@@ -75,7 +82,7 @@ application; `patterns.tm_side()` was provably returning wrong results for two r
 caught it. Fixed by purging the target's cached `.pyc`/`.pyo` after every restore. A second, unrelated
 issue in the same pass — `test_ingest_routes.py`'s real e2e upload check exceeding its hardcoded 15s HTTP
 timeout as `_launch()`'s real, by-design synchronous safeguard-snapshot cost has grown with the project's
-size — fixed by widening just that check's timeout. See §6 item 34). Immediately prior: a real hang bug
+size — fixed by widening just that check's timeout (`[1.50.0]`, item 34). Before that: a real hang bug
 found in the project's own `tests/mutate.py` mutation-testing tool while running `RUN-MUTATION.bat`'s
 sequence as part of pre-release verification: a mutant-induced infinite loop survived its own `--timeout`
 for 5+ hours on Windows because killing the intermediary `cmd.exe` left the actual hung test process
@@ -1129,6 +1136,45 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     Fixed by giving `_req()` an explicit `timeout=` parameter (default unchanged at 15s for every other
     call) and passing a wider one (60s) for the two checks that go through `_launch()`. Verified: both
     checks now pass cleanly, twice in a row. See `CHANGELOG.md` `[1.50.0]`.
+35. **`[1.51.0]` — `VW.channel`: cross-window/cross-tab publish/subscribe (multi-window support,
+    PR 1/18).** First implementation PR of the multi-window/multi-tab initiative scoped in
+    `docs/superpowers/specs/2026-09-03-multi-window-tabs-design.md` /
+    `...-plan.md`. A real, reusable cross-window sync layer in `shared.js`, built deep from the start
+    per the design spec's expanded scope: `BroadcastChannel` primary transport, automatic
+    `storage`-event fallback for the older/RPS-mode browsers this codebase still supports where
+    `BroadcastChannel` is undefined — a subscriber never needs to know or care which transport
+    delivered a message. Ordering via a `seq` counter scoped to (channel name, publishing tab)
+    — deliberately not a global cross-tab sequence, since no single source of truth exists for that
+    without real coordination overkill — lets a subscriber detect it missed a message from a
+    specific other tab (`meta.gap === true`), which matters most on the fallback path: two rapid
+    writes from one tab can coalesce into a single `storage` event elsewhere, since the event only
+    ever reflects the current value at dispatch time. Schema versioning via a `v` field: a mismatch
+    is silently ignored, never crashes a subscriber running older/newer code. An explicit size guard
+    on the fallback path (`localStorage` shares one ~5-10MB origin-wide quota with everything else
+    already stored there) throws a clear, immediate error on an oversized payload rather than
+    letting a raw `QuotaExceededError` or a partially-written shared key surface downstream —
+    `BroadcastChannel` has no such limit. **Verified with a genuinely real test, not a
+    reimplementation of the logic under test**: `engine/tests/js/test_channel_node.js` uses two
+    independent `vm.createContext()` sandboxes standing in for two real browser tabs — each gets its
+    own window/document/localStorage, so requiring `shared.js` into each gives fully independent
+    closure state (`_channelTabId`, `_channelSeq`, `_channelLastSeen`, `_channelSubs`), exactly like
+    two real tabs share nothing but the browser's `BroadcastChannel` registry, while both sandboxes
+    are handed the SAME `BroadcastChannel` constructor reference (Node has a real global
+    implementation) — this is production code exercising a real `BroadcastChannel`, not a mock
+    standing in for one. 16 checks: cross-tab delivery/ordering/no-self-echo over `BroadcastChannel`;
+    the `storage`-event fallback path (Node has no real cross-context `storage`-event IPC to rely on,
+    so the test captures whatever listener `shared.js` itself registers via
+    `window.addEventListener("storage", ...)` and invokes it directly with the same envelope shape a
+    real event would carry — everything the listener actually does with that envelope is the real
+    code, unmocked, only the OS-level delivery mechanism is stood in for); gap detection on a
+    simulated coalesced write; silent version-mismatch handling; the oversized-payload guard;
+    malformed-JSON safety. Along the way, caught and fixed two real `rps_lint` false positives:
+    backticks and an ellipsis used as plain-English punctuation inside the new doc comments, which
+    the linter's blunt text-level regex scan doesn't distinguish from actual template-literal/
+    spread-rest syntax — fixed by rewording the comments, matching every other comment in this file's
+    existing plain-text style. No UI changes yet — nothing calls `VW.channel` outside its own tests.
+    `VW.workspace`/`VW.windows` and the features that actually consume this (D, then B/F/C/G) follow
+    in subsequent PRs per the plan. See `CHANGELOG.md` `[1.51.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

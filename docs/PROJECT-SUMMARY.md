@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.50.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.51.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -852,6 +852,27 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     source/doc/diagram files by now) has grown past that budget — reproduced the underlying pipeline by
     hand (works correctly, ~1-2s once running) and widened just that check's timeout to 60s. See
     `CHANGELOG.md` `[1.50.0]`.
+34. **`[1.51.0]` — `VW.channel`: cross-window/cross-tab publish/subscribe (multi-window support,
+    PR 1/18).** First implementation PR of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`.
+    A real, reusable cross-window sync layer in `shared.js` — `BroadcastChannel` primary transport,
+    automatic `storage`-event fallback for RPS/legacy browsers, per-(channel,tab) sequence numbers
+    for gap detection (deliberately not a global cross-tab sequence — no single source of truth
+    exists for that without real coordination overkill), schema versioning (a mismatched `v` is
+    silently ignored, never crashes a subscriber on older/newer code), and an explicit size guard on
+    the fallback path (`localStorage` shares one ~5-10MB origin quota; the guard throws a clear
+    error before a raw `QuotaExceededError` or a partially-written shared key could surface
+    downstream). Verified with a genuinely real test: `engine/tests/js/test_channel_node.js` uses two
+    independent `vm.createContext()` sandboxes standing in for two browser tabs — each with its own
+    window/document/localStorage (so requiring `shared.js` into each gives fully independent closure
+    state), sharing Node's real global `BroadcastChannel` constructor — production code exercising a
+    real `BroadcastChannel`, not a reimplementation of the logic under test. 16 checks: cross-tab
+    delivery/ordering/no-self-echo, the storage-event fallback path (captured directly from whatever
+    listener `shared.js` itself registers, since Node has no real cross-context storage-event IPC),
+    gap detection on a simulated coalesced write, silent version-mismatch handling, the
+    oversized-payload guard, malformed-JSON safety. Caught and fixed two `rps_lint` false positives
+    along the way (backticks/ellipses in doc comments, which the linter's text scan doesn't
+    distinguish from real code). No UI changes yet — nothing calls `VW.channel` outside its own
+    tests. See `CHANGELOG.md` `[1.51.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

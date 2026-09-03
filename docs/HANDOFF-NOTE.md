@@ -4,6 +4,20 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-03, twenty-fourth pass):** first implementation PR of the
+> multi-window/multi-tab initiative (`docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`,
+> 18 PRs across 5 stages) — `VW.channel`, a real cross-window publish/subscribe layer in
+> `shared.js`: `BroadcastChannel` primary transport, `storage`-event fallback for RPS/legacy
+> browsers, per-(channel,tab) sequence numbers for gap detection, schema versioning, an explicit
+> oversized-payload guard on the fallback path. Verified with a genuinely real test, not a
+> reimplementation of the logic under test: two independent `vm.createContext()` sandboxes stand in
+> for two browser tabs, sharing Node's real global `BroadcastChannel` constructor — 16 checks, all
+> exercising production code against a real `BroadcastChannel` implementation. Caught and fixed two
+> `rps_lint` false positives along the way (backticks/ellipses in my own doc comments — the linter's
+> text scan doesn't distinguish comments from code). Nothing calls `VW.channel` yet outside its own
+> tests; `VW.workspace`/`VW.windows` and the consuming features (D, then B/F/C/G) follow in
+> subsequent PRs. Shipped as `[1.51.0]`. `main` is at `[1.51.0]`.
+>
 > **Reconciliation note (2026-09-03, twenty-third pass):** the final, fresh `verify_all.py --snapshot`
 > pass at the actual release-cut point (same independent-verification discipline every change this
 > session has followed) found something worse than `[1.49.0]`'s hang: `test_patterns.py` was failing 3

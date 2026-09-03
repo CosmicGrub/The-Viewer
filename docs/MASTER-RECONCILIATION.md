@@ -67,14 +67,28 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.51.0, shipped 2026-09-03** (`VW.channel` — a real, reusable cross-window
+**True current state: v1.52.0, shipped 2026-09-03** (`VW.workspace` — saved, named sets of pages
+(`create/list/get/touch` over `{id, name, items: [{page, params}], created, lastOpened, source}`),
+the second implementation PR of the multi-window/multi-tab initiative and the first consumer of
+`[1.51.0]`'s `VW.channel`. CRUD only — export/import and templates follow in PRs 3/4. Stored as one
+JSON array under a new `viewer_workspaces` localStorage key (an array, not an id-keyed object,
+because `list()` is the dominant read and an array preserves a stable creation order for free —
+documented in the code rather than left implicit). Every mutation publishes a deliberately thin
+`{action, id, name, at}` notification on `VW.channel`: storage is already shared across tabs on this
+origin for free, so a second tab does not need the data pushed to it, it needs to be told to re-read
+and repaint — the same philosophy the design spec describes for D (Bench sync). Verified with 73
+real checks in which two `vm.createContext()` sandboxes stand in for two tabs sharing one
+`localStorage` object, so a workspace created in one is genuinely read back through the other's own
+`list()` after a real `BroadcastChannel` notification; adversarially checked by injecting 6
+mutations, 5 caught and the 6th confirmed directly as an equivalent mutant. See §6 item 36).
+Immediately prior: v1.51.0, shipped 2026-09-03 (`VW.channel` — a real, reusable cross-window
 publish/subscribe layer in `shared.js`, the first implementation PR of the multi-window/multi-tab
 initiative: `BroadcastChannel` primary transport with a `storage`-event fallback for RPS/legacy
 browsers, per-(channel,tab) sequence numbers for gap detection, schema versioning, an explicit
 oversized-payload guard on the fallback path. Verified with two independent `vm.createContext()`
 sandboxes standing in for two real browser tabs, sharing Node's real global `BroadcastChannel`
 constructor — production code exercising a real implementation, not a reimplementation of the logic
-under test. See §6 item 35). Immediately prior: found by the final, fresh `verify_all.py --snapshot`
+under test. See §6 item 35). Before that: found by the final, fresh `verify_all.py --snapshot`
 pass at the actual release-cut point: `tests/mutate.py`'s restore step rewrote and SHA-verified a mutated
 target's *text* but never touched its *derived bytecode cache* — a mutant's `.pyc` could silently outlive
 its own verified-clean source restore and leak into whatever imported the module next, including the real
@@ -1175,6 +1189,70 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     existing plain-text style. No UI changes yet — nothing calls `VW.channel` outside its own tests.
     `VW.workspace`/`VW.windows` and the features that actually consume this (D, then B/F/C/G) follow
     in subsequent PRs per the plan. See `CHANGELOG.md` `[1.51.0]`.
+36. **`[1.52.0]` — `VW.workspace`: saved, named sets of pages — CRUD (multi-window support,
+    PR 2/18).** Stage 2 of the same plan, the first consumer of `[1.51.0]`'s `VW.channel`. A
+    workspace is the data behind "reopen everything I had open for this job":
+    `VW.workspace.create(name, items) -> id` (or `null` when storage refused the write — a caller
+    must not treat that as "probably fine"; it is the difference between a UI that can say
+    "couldn't save that" and one that lies), `.list()` in creation order, `.get(id)`, and
+    `.touch(id)` moving only `lastOpened`. The record is exactly what the design spec names:
+    `{id, name, items: [{page, params}], created, lastOpened, source}`, with `lastOpened` equal to
+    `created` on a fresh workspace on purpose — a never-reopened workspace then sorts sanely by
+    `lastOpened` alone with no null handling in every consumer, and "never reopened since it was
+    made" stays detectable as `lastOpened === created`. CRUD **only**: export/import (PR 3) and the
+    built-in templates (PR 4) build on this exact record shape and storage key and are deliberately
+    not here. The optional third `source` argument (defaulting to `"manual"`, accepting only
+    `"template"`) is present now rather than bolted on in PR 4, because the spec's record carries
+    `source` from the start and without it the field would be a constant with a misleading name.
+    **Storage shape, a real decision documented in the code rather than left implicit**: the whole
+    set is one JSON *array* under a new `viewer_workspaces` key, not an id-keyed object — `list()`
+    is by far the dominant read (the saved-workspaces UI this exists to feed repaints the entire
+    set whenever anything changes) and an array preserves a stable creation order for free, where
+    an id-keyed object would need a sort on every `list()` for the same guarantee; `get(id)`'s
+    linear scan is the right trade for a handful of entries a person typed names for, not thousands
+    of machine-generated rows; and an array is already the exact shape PR 3 will serialize.
+    **Every mutation publishes on `VW.channel`, with a deliberately thin payload**: `localStorage`
+    is already shared across every tab on this origin for free, so a second tab does not need the
+    data pushed to it — it needs to be *told* something changed so it can re-read and repaint,
+    which is the same philosophy the design spec describes for D (Bench sync): the channel is a
+    notification layer over storage that is already shared, never a second copy of the truth. The
+    payload is only `{action, id, name, at}` — enough to repaint or highlight one row, small enough
+    that the channel's storage-fallback size guard can never fire on it, incapable of going stale
+    against the real stored value. The write happens first and the notification second, so a tab
+    reacting to a notification always reads an already-committed value; read-only calls publish
+    nothing, since there is nothing to react to and a broadcasting read would be a live-lock
+    waiting to happen the moment a subscriber repaints by calling `list()`. Defensive throughout:
+    private-browsing profiles and full quotas both throw on plain `localStorage` access so every
+    read and write is wrapped; a corrupt or hand-edited stored value degrades to an empty/filtered
+    view instead of throwing; a read never rewrites storage, so a corrupt value stays inspectable
+    in devtools rather than being destroyed by the act of looking at it; and ids (a base-36
+    timestamp plus 6 random base-36 characters) are checked against the ids actually stored and
+    regenerated on a hit, so a duplicate is impossible rather than merely unlikely, with a bounded
+    loop and a deterministic final fallback so a pathological environment can neither spin forever
+    nor return a taken id. **Verified with a genuinely real test, not a reimplementation of the
+    logic under test**: `engine/tests/js/test_workspace_node.js`, 73 checks, all passing. Every
+    assertion goes through the real exported functions loaded from the real `shared.js`, and every
+    persisted-state check parses the raw `viewer_workspaces` value out of the store directly rather
+    than trusting the API to describe itself. Two `vm.createContext()` sandboxes stand in for two
+    browser tabs **sharing one `localStorage` object** — which is exactly what two tabs on one
+    origin have — so the design's central claim is exercised end to end rather than asserted: tab A
+    creates a workspace, tab B receives the notification over Node's real global
+    `BroadcastChannel`, and tab B then really does find the workspace through its own `list()`. The
+    sandbox's `Date` is a controllable clock (`shared.js` only ever calls `Date.now()`), which is
+    what makes "touch updates `lastOpened`" a real observable change rather than a check that
+    passes vacuously when both timestamps land in the same millisecond. Also covered: the exact
+    stored field set with no extras, item/param normalization, name/source fallbacks, id uniqueness
+    under a frozen clock *and* a constant `Math.random`, four shapes of corrupt stored value,
+    storage that refuses reads and storage that refuses writes, and the same notification over the
+    storage-event fallback transport with `BroadcastChannel` hidden. **Adversarially checked** by
+    injecting 6 real mutations into `shared.js` and re-running: 5 caught (touch not moving
+    `lastOpened`, create not publishing, the read filter dropped, param values not coerced, a
+    refused write reported as success); the 6th — dropping the id generator's random suffix —
+    survives because the collision-regeneration guard independently preserves the only property
+    under contract (uniqueness), producing `wsmf29czk0` / `wsmf29czk0-1` instead of colliding.
+    Confirmed directly rather than assumed, and reported as the equivalent mutant it is rather than
+    papered over. No UI changes yet — nothing calls `VW.workspace` outside its own tests. See
+    `CHANGELOG.md` `[1.52.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

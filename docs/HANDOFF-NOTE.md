@@ -4,6 +4,38 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-03, twenty-fifth pass):** second implementation PR of the
+> multi-window/multi-tab initiative (`docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`,
+> stage 2, PR 2 of 18) — `VW.workspace`, the data behind "reopen everything I had open for this
+> job": `create/list/get/touch` over a record of `{id, name, items: [{page, params}], created,
+> lastOpened, source}`, stored as one JSON **array** under a new `viewer_workspaces` localStorage
+> key (an array, not an id-keyed object, because `list()` is the dominant read and an array
+> preserves a stable creation order for free — documented in the code itself, not left implicit).
+> CRUD only: export/import (PR 3) and templates (PR 4) build on this exact shape and are
+> deliberately not here. Every mutation publishes on `[1.51.0]`'s `VW.channel` with a deliberately
+> thin `{action, id, name, at}` payload — `localStorage` is already shared across tabs on this
+> origin for free, so a second tab does not need the data pushed to it, it needs to be *told* to
+> re-read and repaint (the same philosophy the design spec describes for D, Bench sync); the write
+> happens first and the notification second, so a reacting tab always reads an already-committed
+> value, and read-only calls publish nothing. Verified with a genuinely real test, not a
+> reimplementation: two `vm.createContext()` sandboxes stand in for two tabs **sharing one
+> `localStorage` object** — exactly what two tabs on one origin have — so tab A creates, tab B is
+> notified over Node's real global `BroadcastChannel`, and tab B then really finds the workspace
+> through its own `list()`. 73 checks, all passing, including a controllable clock that makes
+> "touch moves `lastOpened`" a real observable change rather than a vacuous same-millisecond
+> assertion. Adversarially checked by injecting 6 real mutations: 5 caught; the 6th (dropping the
+> id generator's random suffix) survives because the collision-regeneration guard independently
+> preserves uniqueness — confirmed directly and reported as the equivalent mutant it is, not
+> papered over. `rps_lint` clean on `shared.js` first try this time. Full `verify_all --snapshot`:
+> **63 checks, 63 ok, 0 FAILED, ALL GREEN** — but reported rather than quietly re-run, the *first*
+> pass showed 1 failure (`test_ingest_routes.py`, 5 auth/fence checks) that was self-inflicted:
+> three other suites were being run by hand concurrently with it, one standing up its own live
+> server, against a test file whose checks depend on process-global state and a fixed port. Disk
+> was checked first (48G free, so not `[1.51.0]`'s low-disk cascade); that file then passed
+> standalone twice at 175/175 and the clean full re-run came back 63/63. Nothing calls
+> `VW.workspace` yet outside its own tests; `VW.windows` and the consuming features follow.
+> Shipped as `[1.52.0]`. `main` is at `[1.52.0]`.
+>
 > **Reconciliation note (2026-09-03, twenty-fourth pass):** first implementation PR of the
 > multi-window/multi-tab initiative (`docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`,
 > 18 PRs across 5 stages) — `VW.channel`, a real cross-window publish/subscribe layer in

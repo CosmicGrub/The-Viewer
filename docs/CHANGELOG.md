@@ -12,6 +12,112 @@ every change going forward.
 
 ---
 
+## [1.52.0] — 2026-09-03 — `VW.workspace`: saved, named sets of pages — CRUD (multi-window support, PR 2/18)
+
+**VERSION → `1.52.0`.** Stage 2 of
+`docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`, riding `[1.51.0]`'s `VW.channel`. A
+workspace is the data behind "reopen everything I had open for this job": a name plus an ordered
+list of `{page, params}` entries, stored per browser profile. **CRUD only** — export/import (PR 3)
+and the built-in templates (PR 4) are deliberately not here; they build on exactly this record
+shape and this storage key.
+
+- **`VW.workspace.create(name, items)` → id** (or `null` when storage refused the write — a caller
+  must not treat that as "probably fine"; it is the difference between a UI that can say "couldn't
+  save that" and one that lies). Optional third argument sets `source`, defaulting to `"manual"`
+  and accepting only `"template"` as the alternative — present now rather than bolted on in PR 4,
+  because the spec's record shape carries `source` from the start and without it the field would be
+  a constant with a misleading name.
+- **`VW.workspace.list()`** → records in creation order, oldest first. **`.get(id)`** → the record
+  or `null`. **`.touch(id)`** → `true`/`false`, moving only `lastOpened` and leaving `created`,
+  `name`, `items` and `source` exactly as they were.
+- **Record shape** exactly as the design spec names it:
+  `{ id, name, items: [{page, params}], created, lastOpened, source }`. `lastOpened` equals
+  `created` on a fresh workspace on purpose — a never-reopened workspace then sorts sanely by
+  `lastOpened` alone with no null handling in every consumer, and "never reopened since it was
+  made" stays detectable as `lastOpened === created`.
+- **Storage shape — a real decision, documented rather than left implicit**: the whole set is one
+  JSON **array** under the single `viewer_workspaces` key, not an id-keyed object. `list()` is by
+  far the dominant read (the saved-workspaces UI this exists to feed repaints the entire set
+  whenever anything changes) and an array preserves a stable creation order for free, where an
+  id-keyed object would need a sort on every `list()` to get the same guarantee; `get(id)` becomes
+  a linear scan, which is the right trade for a handful of entries a person typed names for; and an
+  array is already the exact shape PR 3 will serialize.
+- **Every mutation publishes on `VW.channel`, with a deliberately thin payload.** `localStorage` is
+  already shared across every tab on this origin for free — a second tab does not need the data
+  pushed to it, it needs to be *told* something changed so it can re-read and repaint. That is the
+  same philosophy the design spec describes for D (Bench sync): the channel is a notification layer
+  over storage that is already shared, never a second copy of the truth. So the payload is only
+  `{action, id, name, at}` — enough to repaint or highlight one row, small enough that the
+  channel's storage-fallback size guard can never fire on it, incapable of going stale against the
+  real stored value. The write happens **first** and the notification second, so a tab reacting to
+  a notification always reads an already-committed value. Read-only calls (`list`/`get`) publish
+  nothing — there is nothing to react to, and a read that broadcast would be a live-lock waiting to
+  happen the moment a subscriber repaints by calling `list()`.
+- **Defensive throughout**: private-browsing profiles and full quotas both throw on plain
+  `localStorage` access, so every read and write is wrapped; a corrupt or hand-edited stored value
+  degrades to an empty/filtered view instead of throwing; a read never rewrites storage, so a
+  corrupt value stays inspectable in devtools rather than being destroyed by the act of looking at
+  it. Ids are a base-36 timestamp plus 6 random base-36 characters, **checked against the ids
+  actually stored and regenerated on a hit**, so a duplicate is impossible rather than merely
+  unlikely, with a bounded loop and a deterministic final fallback so a pathological environment
+  can neither spin forever nor return a taken id.
+
+**Verified for real, not just asserted.** `engine/tests/js/test_workspace_node.js` — **73 checks,
+all passing** (`node engine/tests/js/test_workspace_node.js` → `73 passed, 0 failed`). Every
+assertion goes through the real exported functions loaded from the real `shared.js`; where a check
+needs to know what was actually persisted it parses the raw `viewer_workspaces` value out of the
+store directly rather than trusting the API to describe itself. Two `vm.createContext()` sandboxes
+stand in for two browser tabs **sharing one `localStorage` object** — which is exactly what two tabs
+on one origin have — so the design's central claim is exercised end to end: tab A creates a
+workspace, tab B receives the notification over Node's real global `BroadcastChannel`, and tab B
+then really does find the workspace through its own `list()`. The sandbox's `Date` is a controllable
+clock (`shared.js` only ever calls `Date.now()`), which is what makes "touch updates `lastOpened`" a
+real observable change rather than a check that passes vacuously when both timestamps land in the
+same millisecond. Also covered: the exact stored field set (no extras), item/param normalization
+(unusable entries dropped, param values coerced to strings), name/source fallbacks, id uniqueness
+with a frozen clock *and* a constant `Math.random`, four shapes of corrupt stored value, storage
+that refuses reads and storage that refuses writes, and the same notification over the
+storage-event fallback transport with `BroadcastChannel` hidden.
+
+**Adversarially checked** by injecting 6 real mutations into `shared.js` and re-running the suite:
+5 were caught (touch not moving `lastOpened` → 3 failures; create not publishing → 4; the read
+filter dropped → 1; param values not coerced → 1; a refused write reported as success → 1). The
+6th — dropping the random suffix from the id generator — **survives, and that is honest**: the
+collision-regeneration guard independently preserves the only property under contract (uniqueness),
+producing `wsmf29czk0` / `wsmf29czk0-1` instead of colliding. Confirmed directly rather than
+assumed. It is an equivalent mutant for the contract being tested, not a coverage hole.
+
+Gates: `node --check engine/ui/shared.js` clean; `python engine/tests/rps_lint.py` →
+`RPS GATE: PASS -- every ES5-required page is ES5-clean (10 modern-by-design pages noted)`, with
+`shared.js` itself listed `[ ok ] ES5-clean` (strict ES5 throughout — `var`/`function` only, and
+comments written to avoid the backticks/ellipses that tripped `[1.51.0]` twice, since the linter's
+text scan cannot tell a comment from code). Full `verify_all.py --snapshot`:
+**`63 checks | 63 ok | 0 FAILED` — `ALL GREEN`**, `safeguard verify: 733 files, 733 OK, 0 DAMAGED`.
+
+Reported rather than quietly re-run: the **first** full `verify_all` pass showed
+`63 checks | 62 ok | 1 FAILED (test_ingest_routes.py)` — 170 passed, 5 failed, all 5 in that file's
+`ingest_preview`/`ingest_scan` auth-and-fence checks, which depend on process-global state
+(`V._EXPOSED`, `V._AUTH_TOKEN`, `VIEWER_INGEST_ROOTS`) read by a server thread on a fixed port.
+That was self-inflicted: three other suites (`test_hardening.py`, `test_uiux_fixes.py`,
+`test_demo_tour.py`) were being run by hand *concurrently* with that pass, one of which stands up
+its own live server. Disk was checked first (`C: 48G free`, so not `[1.51.0]`'s low-disk cascade).
+`test_ingest_routes.py` then passed standalone twice (`175 passed, 0 failed`), and the full
+`verify_all` re-run with nothing else touching the host came back `63/63 ALL GREEN`. Nothing in
+this PR touches ingest, and the suite's own failure mode is load/port sensitivity, not `shared.js`.
+
+- **`engine/ui/shared.js`**: `VW.workspace.create/list/get/touch`, added to the `VW` export
+  alongside the existing helpers; nothing already there was touched.
+- **`engine/tests/js/test_workspace_node.js`** (new): the 73-check test described above.
+- **`engine/tests/test_shared_workspace.py`** (new): `node --check` syntax gate + wires that test
+  into this project's usual test-runner output, gracefully skipping in a node-less environment.
+  Auto-discovered by `verify_all.py`'s glob, so it joins the standard suite with no registration.
+
+No UI changes yet — nothing calls `VW.workspace` outside its own tests. `VW.windows` and the
+features that actually consume this (F's saved-workspace UI, B's curated launcher) follow in
+subsequent PRs per the plan.
+
+---
+
 ## [1.51.0] — 2026-09-03 — `VW.channel`: cross-window/cross-tab publish/subscribe (multi-window support, PR 1/18)
 
 **VERSION → `1.51.0`.** First implementation PR from

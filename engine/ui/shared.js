@@ -416,10 +416,209 @@
     _channelEnsureBC(name);    // make sure this channel has a live BroadcastChannel listener too
   }
 
+  /* v1.52.0: VW.workspace -- saved, named sets of pages (stage 2 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, PR 2 of 18). A workspace is the
+     data behind "reopen everything I had open for this job": a name plus an ordered list of
+     {page, params} entries. This PR is CRUD only -- export/import (PR 3) and the built-in
+     templates (PR 4) build on exactly this record shape and this storage key, and are deliberately
+     not here.
+
+     Record shape, straight from the design spec:
+       { id, name, items: [{page, params}], created, lastOpened, source: "manual" or "template" }
+
+     STORAGE SHAPE (a real decision, documented rather than left implicit): the whole set is one
+     JSON ARRAY under the single localStorage key "viewer_workspaces", not an id-keyed object.
+     Reasons, in order of weight:
+       1. list() is by far the dominant read -- the saved-workspaces UI this exists to feed
+          repaints the entire set whenever anything changes -- and an array preserves a real,
+          stable creation order for free. An id-keyed object would need a sort on every list() to
+          get the same guarantee, since object key iteration order is not worth depending on.
+       2. get(id) becomes a linear scan, which is the right trade here: this set is a handful of
+          entries a person typed names for, not thousands of machine-generated rows.
+       3. An array is already the exact shape PR 3 will serialize for export/import, so nothing
+          has to be reshaped at that boundary.
+
+     WHY EVERY MUTATION PUBLISHES ON VW.channel, and why the payload is deliberately thin:
+     localStorage is already shared across every tab on this origin, for free -- a second tab does
+     not need the workspace data pushed to it, it needs to be TOLD that something changed so it can
+     re-read and repaint. That is the same philosophy the design spec describes for D (Bench sync):
+     the channel is a notification layer over storage that is already shared, never a second copy
+     of the truth. So the payload carries only {action, id, name, at} -- enough for a receiving UI
+     to repaint from its own list() or to highlight the one row that moved, small enough that the
+     channel's storage-event fallback size guard can never fire on it, and incapable of going stale
+     against the real stored value. The write happens FIRST and the notification second, so a tab
+     reacting to a notification always reads an already-committed value.
+
+     Read-only calls (list/get) touch localStorage directly and publish nothing -- there is nothing
+     for another tab to react to, and a read that broadcasts would be a live-lock waiting to happen
+     the moment a subscriber repaints by calling list(). */
+  var _WS_KEY = "viewer_workspaces";
+  var _WS_CHANNEL = "workspace";
+
+  /* Reads the whole saved set, defensively. Always returns an array -- never null, never throws:
+     plain localStorage access itself throws in private-browsing modes, and the stored value could
+     be anything at all if it was hand-edited in devtools or written by a future/older build.
+     Entries that do not look like a workspace record (a non-null object carrying a string id) are
+     dropped from the RETURNED VIEW only. A read deliberately never rewrites storage, so a corrupt
+     value stays inspectable instead of being silently destroyed by the act of looking at it; the
+     next successful write does drop those entries for good, which is the correct outcome since
+     they were unusable either way. */
+  function _wsRead() {
+    var raw = null;
+    try { raw = window.localStorage.getItem(_WS_KEY); } catch (e) { return []; }
+    if (!raw) return [];
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { return []; }
+    if (!parsed || Object.prototype.toString.call(parsed) !== "[object Array]") return [];
+    var out = [];
+    for (var i = 0; i < parsed.length; i++) {
+      var w = parsed[i];
+      if (w && typeof w === "object" && typeof w.id === "string") out.push(w);
+    }
+    return out;
+  }
+
+  /* Writes the whole set back. Returns true on success, false when storage refused the write (a
+     private-browsing profile, or a full origin quota). A caller must never treat false as
+     "probably fine": create() reports it upward as a null id rather than handing back an id for a
+     workspace that was never actually stored, which is the difference between a UI that can say
+     "couldn't save that" and one that lies. */
+  function _wsWrite(all) {
+    try { window.localStorage.setItem(_WS_KEY, JSON.stringify(all)); return true; }
+    catch (e) { return false; }
+  }
+
+  /* Ids only ever need to be unique within ONE browser profile's own storage: they are never sent
+     anywhere and never merged with another machine's set (PR 3's import will mint a fresh id
+     rather than trusting an incoming one). A base-36 timestamp plus 6 random base-36 characters is
+     therefore plenty -- the timestamp separates any two creations more than a millisecond apart,
+     the suffix covers two within the same millisecond. Rather than leave that as a probability
+     argument, _wsNewId checks the ids actually stored and regenerates on a hit, so a duplicate is
+     impossible rather than merely unlikely, with a bounded loop and a deterministic final fallback
+     so a pathological environment (a stubbed Math.random, say) can neither spin forever nor return
+     an id that is already taken. */
+  function _wsRandomId() {
+    var r = Math.random().toString(36).slice(2, 8);
+    while (r.length < 6) { r = r + "0"; }
+    return "ws" + Date.now().toString(36) + r;
+  }
+  function _wsNewId(all) {
+    for (var attempt = 0; attempt < 50; attempt++) {
+      var id = _wsRandomId();
+      var taken = false;
+      for (var i = 0; i < all.length; i++) {
+        if (all[i].id === id) { taken = true; break; }
+      }
+      if (!taken) return id;
+    }
+    return _wsRandomId() + "-" + all.length;
+  }
+
+  /* Normalizes an incoming items array into exactly the {page, params} shape the design spec
+     names, so a stored workspace can never carry a surprise -- a function, a DOM node, an
+     undefined -- that would either vanish through JSON.stringify or come back as garbage on the
+     next read. An entry with no usable page string is dropped rather than stored broken. Param
+     values are coerced to strings because every real consumer of them builds a URL query string
+     (PR 3's exportUrl, and VW.windows.open's URL assembly later), so doing it once here makes the
+     stored value match what actually gets used, and makes the JSON round-trip lossless. */
+  function _wsItems(items) {
+    var out = [];
+    if (!items || typeof items.length !== "number") return out;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (!it || typeof it !== "object") continue;
+      var page = (it.page === null || it.page === undefined) ? "" : String(it.page);
+      if (!page) continue;
+      var params = {};
+      var src = (it.params && typeof it.params === "object") ? it.params : {};
+      for (var k in src) {
+        if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+        var v = src[k];
+        if (v === null || v === undefined || typeof v === "function") continue;
+        params[k] = String(v);
+      }
+      out.push({ page: page, params: params });
+    }
+    return out;
+  }
+
+  /* The notification half of every mutation. Wrapped because the write it follows has ALREADY
+     committed: a failure here (channelPublish throws by design on an oversized storage-fallback
+     payload, and any transport can be missing in a hostile environment) must never turn a saved
+     workspace into a reported failure. */
+  function _wsNotify(action, ws) {
+    try {
+      channelPublish(_WS_CHANNEL, { action: action, id: ws.id, name: ws.name, at: ws.lastOpened });
+    } catch (e) { /* the data is safely stored; a missed repaint hint is not worth failing over */ }
+  }
+
+  /* create(name, items) -> id, or null if storage refused the write.
+     The third argument is the record's "source" field, defaulting to "manual" and accepting only
+     "template" as the alternative. It exists now, rather than being bolted on in PR 4, because the
+     design spec's record shape carries "source" from the start -- without it this function could
+     only ever write "manual" and the field would be a constant with a misleading name. */
+  function workspaceCreate(name, items, source) {
+    var all = _wsRead();
+    var now = Date.now();
+    var nm = (name === null || name === undefined) ? "" : String(name);
+    var ws = {
+      id: _wsNewId(all),
+      name: nm === "" ? "Untitled workspace" : nm,
+      items: _wsItems(items),
+      created: now,
+      /* Equal to created on purpose: a never-reopened workspace then sorts sanely against its
+         siblings by lastOpened alone, with no null handling in every consumer, and "never reopened
+         since it was made" stays detectable as lastOpened === created. */
+      lastOpened: now,
+      source: source === "template" ? "template" : "manual"
+    };
+    all.push(ws);
+    if (!_wsWrite(all)) return null;
+    _wsNotify("create", ws);
+    return ws.id;
+  }
+
+  /* list() -> array of workspace records in creation order (oldest first), newest appended last.
+     Every call re-parses storage, so the returned records are fresh copies -- a caller mutating
+     what it gets back cannot corrupt what is stored, and cannot hold a stale view across another
+     tab's write either. A UI wanting most-recently-opened order sorts by lastOpened itself. */
+  function workspaceList() { return _wsRead(); }
+
+  /* get(id) -> the workspace record, or null when no such id is stored. */
+  function workspaceGet(id) {
+    if (id === null || id === undefined) return null;
+    var want = String(id);
+    var all = _wsRead();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === want) return all[i];
+    }
+    return null;
+  }
+
+  /* touch(id) -> true when it updated lastOpened, false when the id is not stored (so a caller can
+     tell a stale id from a real one) or when storage refused the write. Only lastOpened moves --
+     created, name, items and source are left exactly as they were. */
+  function workspaceTouch(id) {
+    if (id === null || id === undefined) return false;
+    var want = String(id);
+    var all = _wsRead();
+    var hit = null;
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === want) { hit = all[i]; break; }
+    }
+    if (!hit) return false;
+    hit.lastOpened = Date.now();
+    if (!_wsWrite(all)) return false;
+    _wsNotify("touch", hit);
+    return true;
+  }
+
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
              toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
              trapFocus: trapFocus,
-             channel: { publish: channelPublish, subscribe: channelSubscribe } };
+             channel: { publish: channelPublish, subscribe: channelSubscribe },
+             workspace: { create: workspaceCreate, list: workspaceList,
+                          get: workspaceGet, touch: workspaceTouch } };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

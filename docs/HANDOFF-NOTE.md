@@ -4,6 +4,48 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-03, twenty-sixth pass):** stage 2, PR 5 of the multi-window/
+> multi-tab initiative — `VW.windows`, the one shared window-opening path, built on `[1.51.0]`'s
+> `VW.channel`. `VW.windows.open(url, opts)` makes the *named* form of `window.open` the ergonomic
+> default (passing the same name twice is how a browser natively reuses a window, and it is the thing
+> every call site forgets), and layers on the three things a bare call site cannot do for itself: an
+> in-tab registry (`VW.windows.registry()` reports `[{name, url}]`, the hook PR 6 extends with real
+> window bounds), a broadcast of every open on `VW.channel`'s `"windows"` channel (plumbing for a
+> future cross-tab "N windows open" — nothing renders it yet), and an instant toast on open *and* on
+> refocus, reusing `shared.js`'s existing `toast()` — design priority 2's "snappy UI", aimed squarely
+> at the reuse case, where a reused window can come forward behind the current one and the click
+> otherwise looks like it did nothing. Limits documented in the code, not left to be discovered:
+> the registry is per tab, in memory, and is a best-effort mirror of the browser's own named-window
+> table rather than the truth (closed windows are pruned on every read); an unnamed open still opens
+> and toasts but cannot be tracked at all; a blocked or throwing `window.open` returns `null` and
+> skips the toast, the registry write and the broadcast alike. Verified with 48 checks in
+> `engine/tests/js/test_windows_node.js`: the real `shared.js` in a `vm` sandbox with a **mocked
+> `window.open`** that records every call, asserting what the production code actually did (same name
+> twice → ONE registry entry while still really calling `window.open` again; different names →
+> separate entries; unnamed → no entry but still a toast; blocked/throwing → null, no toast, no
+> broadcast; closed-window pruning; a copy-on-read registry), plus the broadcast delivered *unmocked*
+> to a second sandbox over Node's real `BroadcastChannel`. The test was checked for vacuousness by
+> deliberately breaking `shared.js` three ways and confirming the right checks flipped to FAIL — which
+> caught a real weakness in an earlier draft (a toast assertion that compared text and so missed a
+> wrongly-repeated identical message; it now counts real DOM writes). **Explicitly not proven and not
+> provable here: that a real browser reuses a named window** — that is browser behavior, not this
+> codebase's; a human opening a pop-out twice in a real browser is the only check for it, called out
+> as manual in the PR. `rps_lint` caught one ES5 false positive on the way (the word "let" in a doc
+> comment, the same class `[1.51.0]` hit twice) — reworded, not suppressed. `1.52.0` is claimed by a
+> sibling stage-2 PR (`VW.workspace` CRUD, the twenty-fifth pass below) built in parallel off the
+> same `main`, so this branch reserved `[1.53.0]` from the start rather than race for a number; that
+> sibling has since merged and this branch was rebased onto it, with the real `shared.js` conflict
+> (both PRs add a block just above the `VW` export) resolved by keeping both, `VW.workspace` then
+> `VW.windows`, and both suites re-run green afterward. `main` is at `[1.52.0]` until this merges.
+> Nothing calls `VW.windows` outside its own tests yet. One pre-existing flake was found
+> and run to ground rather than re-run until green: a second confirmatory `verify_all.py --snapshot`
+> came back `62 ok | 1 FAILED` on `test_hardening.py`'s `cross-origin POST -> 403 (J68)` check (the
+> first full run was `63 ok | 0 FAILED`); it failed 2/30 standalone runs on this branch and, with
+> `main`'s own `shared.js`/`viewer_app.py` checked out over this branch's, **1/60** on genuinely
+> pristine pre-`1.53.0` code — same check, same rate, no `VW.windows` present. Intermittent and
+> pre-existing, not a regression from this PR (nothing here runs server-side); deliberately left
+> alone rather than fixed in an unrelated PR, and written down rather than left as folklore.
+>
 > **Reconciliation note (2026-09-03, twenty-fifth pass):** second implementation PR of the
 > multi-window/multi-tab initiative (`docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`,
 > stage 2, PR 2 of 18) — `VW.workspace`, the data behind "reopen everything I had open for this

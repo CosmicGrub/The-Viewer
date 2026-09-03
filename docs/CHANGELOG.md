@@ -12,6 +12,148 @@ every change going forward.
 
 ---
 
+## [1.53.0] — 2026-09-03 — `VW.windows`: one window-opening path, named reuse, instant toast (multi-window support, PR 5/18)
+
+**VERSION → `1.53.0`.** (`1.52.0` was claimed up front by a sibling stage-2 PR — `VW.workspace` CRUD
+— built in parallel off the same `main`, so this branch reserved `1.53.0` from the start rather than
+race for a number. That sibling has since merged, this branch was rebased onto it, and `1.53.0` is
+confirmed still the correct next version. The `shared.js` rebase was a genuine content conflict —
+both PRs add a new block just above the `VW` export object — resolved by keeping both, `VW.workspace`
+then `VW.windows`, with both keys on the export; both suites re-run green afterward.)
+
+Stage 2, PR 5 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`, built on `[1.51.0]`'s
+`VW.channel`. Layout capture/restore is explicitly **not** here — that is PR 6.
+
+**Why this exists when `window.open()` is already one line.** Passing the same *second* argument (the
+window name) twice is how a browser natively reuses a window instead of stacking up a fresh one per
+click. That behavior is free — and it is also the thing every call site forgets, because nothing
+about writing `window.open(url)` suggests you were supposed to name anything. A technician who taps
+the same "pop out the torque table" affordance four times across one job ends up with four identical
+windows fighting over the second monitor. The design spec's priority 2 is a **snappy UI**: "one
+window-opening path, named-window reuse, instant toast feedback." This makes the named form the
+ergonomic default (a caller passes `opts.name` once and stops thinking about reuse) and layers on
+three things a bare `window.open()` call site could not sensibly do for itself:
+
+- **A registry.** `VW.windows.registry()` reports `[{name, url}, ...]` for what this tab opened and
+  has not seen closed — the hook PR 6 will extend with real `screenX`/`screenY`/`outerWidth`/
+  `outerHeight` bounds.
+- **A broadcast.** Every successful open publishes `{event, name, url, count}` on `VW.channel`'s
+  `"windows"` channel, so a future feature can show a live "N windows open" across every tab with no
+  tab polling anything. This PR is the plumbing only — **nothing renders it yet**.
+- **A toast**, fired the instant a window opens or is refocused, reusing `shared.js`'s existing
+  `toast()`. The worst case for a pop-out control is precisely the *reuse* case: on some window
+  managers the reused window comes forward behind the current one, so the click looks like it did
+  nothing at all. Distinct messages for the two outcomes ("Opened in a new window" vs. "Already open
+  — switched to that window") make every click visibly register.
+
+**Honest limits, documented in the code rather than discovered later.** The registry is per tab, in
+memory: it lists what *this* tab opened during *this* page load, not every VIEWER window on the
+machine — which is exactly why each open is broadcast, since a cross-tab view has to be assembled
+from the messages, never read off one tab's registry. It is a best-effort mirror of the browser's own
+named-window table, not the truth: the browser reuses a named window whether or not this registry
+knows about it, so after a reload a reuse can be reported as a fresh open. Entries whose handle
+reports `closed === true` are pruned on every `registry()` call and before every reuse decision,
+which covers the common case (the user closed the pop-out) exactly. Without `opts.name` there is no
+reuse and no tracking — an unnamed `window.open()` returns a fresh anonymous window every call and
+nothing can ever look it up again — so such a call opens and toasts but never enters the registry.
+No window-features argument is passed on this path on purpose: supplying one turns what the browser
+would have opened as an ordinary tab into a stripped chrome-less popup, overriding the user's own
+preference. A blocked (`null`) or throwing `window.open()` returns `null` and skips the toast, the
+registry write **and** the broadcast — none of them may claim a window opened when none did.
+
+**Verified for real, not just asserted.** `engine/tests/js/test_windows_node.js` loads the real
+`shared.js` into a `vm.createContext()` sandbox (same shimming approach as
+`test_channel_node.js`) with a **mocked `window.open`** that records every call — url, name, argument
+count — and hands back a fake window handle, then asserts on what the production
+`VW.windows.open()`/`registry()` code actually did with it. 48 checks, all against production code:
+same name twice produces **one** registry entry while still really calling `window.open` a second
+time (the browser does the reuse; skipping the call would leave the existing window sitting behind
+whatever is in front of it); different names produce separate entries; a new url on an existing name
+updates the tracked url; an unnamed open neither throws nor pollutes the registry but still toasts;
+the popup-blocked and `window.open`-throws paths return `null` with no toast, no entry, no broadcast;
+a closed window is pruned and re-opening that name is a fresh open, not a reuse; the returned
+registry is a copy that cannot be mutated back into the real one. The broadcast half is **not**
+mocked — a second, independent sandbox subscribes over Node's real global `BroadcastChannel` and the
+full 6-event sequence is asserted end to end.
+
+The test was itself checked for vacuousness by deliberately breaking `shared.js` three times and
+confirming the right checks flipped to FAIL: keying the registry by `name + Math.random()` (10 FAIL,
+including "same name twice produces ONE registry entry, not two"); moving the `toast()` above the
+popup-blocked guard (6 FAIL); disabling the `channelPublish` call (2 FAIL). The second of those
+**caught a real weakness in an earlier draft of this test**: it asserted "a blocked open does not
+toast" by comparing the toast text before and after, and the broken code passed anyway because the
+text it wrongly wrote happened to equal the text already there. The fake DOM now exposes
+`textContent` as an accessor that logs every *write*, so the test counts real DOM writes instead of
+comparing values — and the same mutation then failed correctly.
+
+**What this test cannot prove, stated plainly** (matching the design spec's own framing for
+real-hardware-only behavior): whether a real browser genuinely reuses a window when the same name is
+passed twice. That is browser behavior, not this codebase's — `shared.js`'s entire reuse strategy is
+to hand the name to `window.open` and let the browser's named-window table do the work, and Node has
+no `window.open` to be right or wrong about it. The mock mirrors that table because it is the
+semantic the production code is written against, but a mock agreeing with the code it was written to
+exercise proves nothing about Chrome or Firefox. **Manual check owed before this is relied on:** open
+a pop-out twice in a real browser and confirm ONE window results. Real popup-blocker behavior and
+real raise-to-front/focus behavior are equally out of reach here.
+
+Real command output from this branch, every line of it actually run and seen:
+
+- `node --check engine/ui/shared.js` → exit 0 (`--check` prints nothing on success).
+- `python engine/tests/rps_lint.py` → `RPS GATE: PASS -- every ES5-required page is ES5-clean (10
+  modern-by-design pages noted).`
+- `node engine/tests/js/test_windows_node.js` → `48 passed, 0 failed`.
+- `python engine/tests/test_shared_windows.py` → `PASS shared_js_parses_with_node` ·
+  `PASS vw_windows_open_reuse_toast_behavior` · `2 passed, 0 failed`.
+- `python engine/build_iteration_snapshot.py` → `R10 integrity OK -- all 256 changelog versions
+  present in the snapshot.`
+- `python engine/tests/verify_all.py --snapshot` (full run) → `PASS test_shared_windows.py (0.3s)` ·
+  `PASS rps_lint.py (0.2s)` · `PASS safeguard verify (0.5s)` (`verify vs
+  SNAP_20260903_181820_pre-ingest: 733 files, 733 OK, 0 DAMAGED`) · **`63 checks | 63 ok | 0
+  FAILED`** · `ALL GREEN -- suites pass and every protected file matches the vault.`
+- After rebasing onto `[1.52.0]`, the whole set was re-run on the merged tree rather than assumed
+  still good: `node --check` clean, `RPS GATE: PASS`, `test_windows_node.js` `48 passed, 0 failed`,
+  and all three shared-module suites green side by side (`test_shared_channel.py`,
+  `test_shared_workspace.py`, `test_shared_windows.py`, `2 passed, 0 failed` each) —
+  `verify_all.py --snapshot` → **`64 checks | 64 ok | 0 FAILED`** · `ALL GREEN`
+  (`safeguard verify: 734 files, 734 OK, 0 DAMAGED`). 64, not 63, because the sibling PR brought its
+  own suite with it.
+
+`verify_all.py` auto-discovers `test_*.py` by glob, so `test_shared_windows.py` joined the gate with
+nothing to register. Free disk was checked first (47.3 GB on `C:`) after a sibling PR hit a real
+false-failure cascade from a nearly-full drive.
+
+**One pre-existing flake found and run to ground, not waved away.** A second, confirmatory
+`verify_all.py --snapshot` run (taken after the docs edits, so the whole tree was covered) came back
+`62 ok | 1 FAILED` on `test_hardening.py` — specifically its `cross-origin POST -> 403 (J68)` check,
+which had passed in the first full run. Chased rather than re-run until green: `test_hardening.py`
+standalone passed immediately, then failed 2 times in 30 consecutive runs on this branch, always the
+same single check. Checking out `main`'s own `engine/ui/shared.js` and `engine/viewer_app.py` over
+this branch's (leaving genuinely pristine pre-`1.53.0` code in place) reproduced the identical
+failure **1 time in 60 consecutive runs** — same check, same rate, no `VW.windows` present at all.
+So this is an intermittent pre-existing flake in that check, not a regression from this PR, which is
+consistent with what it does: it starts a real server, sends a deliberately oversized POST that the
+server refuses at 413 by closing the connection *without reading the body*, and then immediately
+opens the next connection for the cross-origin check. Nothing this PR touches runs server-side —
+`/shared.js` is served as a static file, and `test_hardening.py`'s own `/shared.js served (A2)` check
+passed in every run including the failing ones. Left alone deliberately: fixing an unrelated flaky
+hardening check does not belong in this PR, and it is written down here rather than left as folklore.
+
+`rps_lint` caught one real ES5 false positive on the way through, the same class `[1.51.0]` hit
+twice: the plain-English word "let" followed by a space, inside one of the new doc comments
+("Never let feedback or bookkeeping take down a window…"), which the linter's blunt text-level scan
+cannot distinguish from a real `let` declaration. Reworded, not suppressed.
+
+- **`engine/ui/shared.js`**: `VW.windows.open(url, opts)` / `VW.windows.registry()`, added to the
+  `VW` export alongside `channel`; nothing existing touched.
+- **`engine/tests/js/test_windows_node.js`** (new): the 48-check behavior test described above.
+- **`engine/tests/test_shared_windows.py`** (new): `node --check` syntax gate + wires that test into
+  this project's usual runner output, gracefully skipping in a node-less environment.
+
+No UI changes — nothing calls `VW.windows` outside its own tests yet. A1 (home-nav pop-out links,
+PR 12), A2 (`popoutControl()`, PR 14) and B (curated launcher, PR 15) are the first real consumers.
+
+---
+
 ## [1.52.0] — 2026-09-03 — `VW.workspace`: saved, named sets of pages — CRUD (multi-window support, PR 2/18)
 
 **VERSION → `1.52.0`.** Stage 2 of

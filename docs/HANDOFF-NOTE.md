@@ -1,9 +1,32 @@
-# THE VIEWER — Handoff Note (reconciled 2026-09-01)
+# THE VIEWER — Handoff Note (reconciled 2026-09-03)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-03, twenty-third pass):** the final, fresh `verify_all.py --snapshot`
+> pass at the actual release-cut point (same independent-verification discipline every change this
+> session has followed) found something worse than `[1.49.0]`'s hang: `test_patterns.py` was failing 3
+> real-looking checks against `patterns.tm_side("TM 9-2320-280-10")` on a file `git diff` showed was
+> byte-identical to its committed source. Root cause: `mutate.py`'s restore step only ever rewrote the
+> target's *source text* (SHA-256 verified) — it never touched the *derived bytecode cache* a subprocess
+> `import` during a mutant's test window leaves in `__pycache__/`, keyed by mtime+size. The rapid
+> mutate/restore cycle can alias a mutant's cached `.pyc` onto the restored original's mtime+size, so the
+> cache silently outlives the source it no longer matches — and every later process that imports the
+> module, **including the actual running application**, inherits the mutant's logic invisibly. This sat
+> undetected for two real days before this pass caught it. Fixed: `mutate.py` now purges the target's
+> cached `.pyc`/`.pyo` after every restore (both per-mutant — the one that actually matters, since a
+> hard-killed run like `[1.49.0]`'s own incident skips final cleanup entirely — and in the final cleanup).
+> Verified directly: re-ran mutation testing against `patterns.py` with the fix, confirmed no `.pyc`
+> survived and `tm_side()` was immediately correct with no manual intervention. Every `__pycache__/` under
+> `engine/` was purged as emergency remediation, and every test file whose module was a mutation target
+> this session was re-run clean. A second, unrelated issue in the same pass: `test_ingest_routes.py`'s
+> real e2e upload check now exceeds its hardcoded 15s HTTP timeout, because `_launch()`'s real, by-design
+> synchronous `safeguard.snapshot()` cost has grown past that budget as the project has accumulated
+> hundreds of tracked source/doc/diagram files — reproduced the underlying pipeline by hand (works
+> correctly, ~1-2s once running), and widened just that check's timeout to 60s rather than touching the
+> feature. Shipped as `[1.50.0]`. `main` is at `[1.50.0]`.
+>
 > **Reconciliation note (2026-09-01, twenty-second pass):** running `RUN-MUTATION.bat`'s 7-step
 > mutation-testing sequence as direct commands (pre-release verification) surfaced a real bug in the
 > project's own test tooling: `tests/mutate.py --target procedure_feature.py` hung for 5+ hours past its

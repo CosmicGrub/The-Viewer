@@ -72,14 +72,14 @@ def _ocr_test_font(image_font_mod, size):
     return image_font_mod.load_default()
 
 
-def _req(path, data=None, hdrs=None):
+def _req(path, data=None, hdrs=None, timeout=15):
     body = json.dumps(data).encode() if data is not None else None
     h = dict(hdrs or {})
     if body is not None:
         h.setdefault("Content-Type", "application/json")
     r = urllib.request.Request(BASE + path, data=body, headers=h)
     try:
-        with urllib.request.urlopen(r, timeout=15) as x:
+        with urllib.request.urlopen(r, timeout=timeout) as x:
             return x.status, x.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
@@ -455,7 +455,18 @@ def main():
             orig_db_path = V.DB_PATH
             try:
                 V.DB_PATH = up_db
-                c, b = _req("/api/ingest_upload", up_payload)
+                # _launch() takes a real, synchronous safeguard.snapshot("pre-ingest") of every
+                # engine/**/*.py + docs/*.md + docs/diagrams/*.svg file BEFORE it ever spawns the
+                # subprocess and returns -- by design (R1: always recoverable before any write). That
+                # snapshot's cost scales with how many critical files the project has accumulated, not
+                # with the size of this one tiny upload; on a long-lived project (hundreds of source/doc/
+                # diagram files by now) it can genuinely take longer than the default 15s _req() timeout
+                # -- caught live: this check timed out ("timed out", not a real ok:false rejection) once
+                # the project grew enough for a real snapshot() call to measure ~24.5s standalone, well
+                # under _launch()'s own no-hard-limit design but over this test's assumed budget. A wider
+                # timeout here (not lowered anywhere else) reflects that real, by-design cost honestly
+                # instead of chasing a moving target as the project keeps growing.
+                c, b = _req("/api/ingest_upload", up_payload, timeout=60)
                 r = _json(b)
                 check("real e2e upload -> ok + started (unmocked, genuinely launches viewer_ingest.py)",
                       c == 200 and r.get("ok") is True and r.get("started") is True)

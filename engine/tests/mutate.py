@@ -30,6 +30,30 @@ def _sha(b):
     return hashlib.sha256(b if isinstance(b, bytes) else b.encode("utf-8")).hexdigest()
 
 
+def _purge_pycache(target):
+    # v1.50: restoring the target's SOURCE TEXT (below) is not enough on its own -- run_test() just
+    # ran a real subprocess that may have `import`ed the target WHILE it held a mutant, which caches a
+    # compiled .pyc for that mutant under __pycache__, keyed by the source file's mtime+size. Once the
+    # text is restored, if the restored file happens to land on the same mtime+size CPython already has
+    # cached (a real, observed outcome of this mutate/restore cycle rewriting the same-size file over
+    # and over, fast enough that Windows' mtime resolution collides), the import system trusts the STALE
+    # mutant .pyc over the real restored source -- silently. Caught live: a mutant survived in the
+    # bytecode cache for two real days after this file's restore had already SHA-verified clean, and was
+    # picked up by every later test run (including this project's OWN application) until __pycache__ was
+    # manually purged. Removing the target's cached .pyc here removes the only thing that could still be
+    # wrong once the text itself is known-good.
+    d = os.path.dirname(target)
+    stem = os.path.splitext(os.path.basename(target))[0]
+    cache_dir = os.path.join(d, "__pycache__")
+    if not os.path.isdir(cache_dir):
+        return
+    prefix = stem + "."
+    for fn in os.listdir(cache_dir):
+        if fn.startswith(prefix) and fn.endswith((".pyc", ".pyo")):
+            try: os.remove(os.path.join(cache_dir, fn))
+            except OSError: pass
+
+
 def candidates(src):
     """Return [(row, col_start, col_end, old, new, kind)] single-token mutation sites."""
     out = []
@@ -137,6 +161,7 @@ def main():
                 f.write(mutant)
             rc = run_test(a.test, cwd, a.timeout)
             _restore()                               # <-- file is a mutant only during the test window
+            _purge_pycache(target)                   # <-- and so is any .pyc run_test()'s import compiled
             row, c1, c2, old, new, kind = site
             tag = "%s:%d  %s->%s" % (os.path.basename(target), row, old, new)
             if rc == "timeout":
@@ -152,6 +177,7 @@ def main():
                 print("  SURVIVED        %s   <-- coverage gap" % tag)
     finally:
         _restore()
+        _purge_pycache(target)
         restored_sha = _sha(open(target, "r", encoding="utf-8").read())
         if restored_sha != orig_sha:
             print("\n!!! CRITICAL: source not restored cleanly (sha mismatch). Recover from %s NOW." % bak)

@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.49.0 · 2026-09-01** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.50.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -94,7 +94,11 @@ self-test loop (a check `verify_all.py --snapshot` doesn't cover) in `engine/vlm
 the project's own `tests/mutate.py` mutation-testing tool — a mutant-induced infinite loop survived its
 own `--timeout` for 5+ hours on Windows because killing the intermediary shell process left the actual
 hung test process running as an orphaned grandchild, fixed by killing the whole process tree on timeout
-instead (`[1.49.0]`) — see the reconciliation notes below and §8 items 25–32). This document +
+instead (`[1.49.0]`); then, found by the final release-cut `verify_all.py --snapshot` pass, a worse bug
+in the same tool — restoring a mutated file's *text* left its *compiled bytecode cache* stale, so a
+mutant's logic could silently outlive its own SHA-256-verified restore and leak into whatever imported
+the module next, including the real application; fixed by purging the target's `__pycache__` entry after
+every restore (`[1.50.0]`) — see the reconciliation notes below and §8 items 25–33). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -827,6 +831,27 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     full real run against `patterns.py` still restores source and passes SHA-256 verification. Both
     source files left mutated on disk by the hang were restored from their `.orig` backups first. See
     `CHANGELOG.md` `[1.49.0]`.
+33. **`[1.50.0]` — `tests/mutate.py` could poison the real Python bytecode cache, silently, for days.**
+    Found by the final, fresh `verify_all.py --snapshot` pass at the actual release-cut point:
+    `test_patterns.py` failed 3 real-looking checks against `tm_side("TM 9-2320-280-10")` on a file `git
+    diff` showed byte-identical to its committed source. Recompiling the function's own source text fresh
+    gave the correct answer while the already-loaded module gave the wrong one — the discrepancy lived in
+    compiled bytecode, not source. `mutate.py`'s restore step only ever rewrote and SHA-verified the
+    target's *text*; it never touched the *derived `.pyc`* a subprocess `import` during a mutant's test
+    window leaves in `__pycache__/`, keyed by mtime+size, and the rapid mutate/restore cycle can alias a
+    mutant's cached bytecode onto the restored original — so the cache silently outlives the source it no
+    longer matches, and every later importer (another test run, or the real application) inherits the
+    mutant's logic invisibly. Undetected for two real days. Fixed: purge the target's cached `.pyc`/`.pyo`
+    after every restore, both per-mutant (the one that matters — a hard-killed run, like `[1.49.0]`'s own
+    incident, skips final cleanup entirely) and in the final cleanup. Verified: re-ran mutation testing
+    against `patterns.py` with the fix, confirmed no `.pyc` survived and `tm_side()` was immediately
+    correct with no manual intervention; every `__pycache__/` under `engine/` was purged as emergency
+    remediation and every mutation-target test file re-run clean. A second, unrelated issue in the same
+    pass: `test_ingest_routes.py`'s real e2e upload check exceeded its hardcoded 15s HTTP timeout because
+    `_launch()`'s real, by-design synchronous `safeguard.snapshot()` cost (hundreds of tracked
+    source/doc/diagram files by now) has grown past that budget — reproduced the underlying pipeline by
+    hand (works correctly, ~1-2s once running) and widened just that check's timeout to 60s. See
+    `CHANGELOG.md` `[1.50.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

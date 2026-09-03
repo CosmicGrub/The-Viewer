@@ -12,6 +12,63 @@ every change going forward.
 
 ---
 
+## [1.50.0] — 2026-09-03 — `tests/mutate.py` could poison the real Python bytecode cache, silently, for days
+
+Found running the final, fresh `verify_all.py --snapshot` pass at the actual release-cut point (the same
+independent-verification discipline every change this session has gone through) — and more serious than
+the `[1.49.0]` hang it was found alongside investigating: **`test_patterns.py` failed with 3 real-looking
+assertion failures against `patterns.tm_side("TM 9-2320-280-10")`, on a file `git diff` showed was
+byte-identical to its own committed source.** Two full days after the mutation-testing run that touched
+`patterns.py` last (`[1.49.0]`'s own investigation, 2026-09-01), `tm_side()` was returning
+`operator=False, mechanic=True, confidence="low"` for a document number that should classify as
+`operator=True, confidence="high"` — undercutting the exact "side of the house" routing this function
+exists for.
+
+**Root cause**: recompiling `tm_side()`'s own source text fresh (`exec(compile(inspect.getsource(...)))`)
+gave the *correct* answer, while calling the already-loaded module function gave the *wrong* one — proving
+the discrepancy lived in compiled bytecode, not source. `__pycache__/patterns.cpython-313.pyc` was still
+present from the `[1.49.0]` mutation-testing session, and Python's import system was treating it as valid
+for the current (correct, restored, SHA-256-verified) source. `mutate.py`'s restore step only ever
+rewrote the target's **source text** and verified that text's hash — it never touched the **derived
+bytecode cache** a subprocess `import` during a mutant's test window leaves behind in `__pycache__/`,
+keyed by the source file's mtime+size. The mutate/restore cycle rewrites the same file, often at the same
+size, fast enough for Windows' mtime resolution to alias a mutant's cached `.pyc` onto the restored
+original — so the cache silently outlives the "restored, verified" source it no longer matches, and every
+later process that imports the module (another test run, `VERIFY.bat`, or **the actual running
+application**) inherits the mutant's logic instead of the real one, invisibly, for as long as that stale
+`.pyc` sits there.
+
+**Fix**: `mutate.py` now purges the target module's cached `.pyc`/`.pyo` immediately after every restore
+— both after each individual mutant (the one that actually matters: a hard-killed run, like `[1.49.0]`'s
+own incident, skips the final cleanup entirely, so only the per-mutant purge is reliable against exactly
+the failure mode that caused this) and again in the final cleanup. Verified: re-ran mutation testing
+against `patterns.py` (15 mutants) with the fix in place, and confirmed no `.pyc` was left in
+`__pycache__/` afterward and `tm_side()` — checked directly, and via a full `test_patterns.py` run —
+returned the correct, real result immediately, with no manual cache purge needed.
+
+Remediation for the poisoning already in place: every `__pycache__/` under `engine/` was purged as an
+emergency measure before this fix landed, confirmed by re-running every test file whose module was a
+mutation-testing target this session (`test_patterns.py`, `test_procedure.py`, `test_features.py`,
+`test_jobcard.py`, `test_property_fuzz.py`) — all clean.
+
+A second, unrelated failure surfaced in the same verification pass: `test_ingest_routes.py`'s real,
+unmocked end-to-end upload check (`_launch()` takes a genuine synchronous `safeguard.snapshot()` of every
+critical engine/docs/diagram file before it spawns the ingest subprocess and returns) now measures ~24.5s
+standalone — this project has accumulated hundreds of tracked source/doc/diagram files over its life, and
+that real, by-design cost has grown past the test's hardcoded 15s HTTP client timeout. Reproduced the
+underlying upload pipeline by hand (real subprocess, real migration, real crawl) and confirmed it works
+correctly and completes in ~1-2s once actually running — the test's timeout was simply too tight for a
+call that legitimately includes a scanning-cost-scales-with-project-size safety snapshot. Fixed by giving
+`_req()` an explicit `timeout=` parameter (default unchanged at 15s for every other call) and passing a
+wider one (60s) for the two checks that go through `_launch()`. Verified: both checks now pass cleanly,
+twice in a row.
+
+- **`engine/tests/mutate.py`**: new `_purge_pycache()`, called after both `_restore()` sites.
+- **`engine/tests/test_ingest_routes.py`**: `_req()` gained a `timeout=` parameter; the real e2e upload
+  check now passes `timeout=60`.
+
+---
+
 ## [1.49.0] — 2026-09-01 — `tests/mutate.py` could hang for hours past its own `--timeout`, on Windows
 
 Running the full `RUN-MUTATION.bat` sequence (part of pre-release verification) as direct commands

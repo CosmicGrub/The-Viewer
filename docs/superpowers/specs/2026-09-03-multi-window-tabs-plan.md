@@ -3,11 +3,14 @@
 **Spec:** `docs/superpowers/specs/2026-09-03-multi-window-tabs-design.md`
 **Status:** proposed, awaiting approval before any code changes
 
-**Scale note:** this plan grew from an original 6-PR slice to roughly **17 PRs across 5 stages**
-after two explicit scope expansions (deepen every foundation piece; widen into B/C/F/G as active
-work). That's a real, multi-week-scale initiative in engineering time, not a quick feature — worth
-having in view before approving. Nothing below is padding: every PR maps directly to something named
-in the design spec.
+**Scale note:** this plan grew from an original 6-PR slice to 18 PRs across 5 stages (deepen every
+foundation piece; widen into B/C/F/G as active work), and now to **25 PRs across 6 stages** after a
+third expansion adding bleeding-edge platform capabilities and a future-proofing architecture pass.
+That's a real, multi-month-scale initiative in engineering time — worth having in view. Stage 6 is
+purely additive: it does not change PR 1-18's scope, and PRs 2/5 (in progress when this stage was
+added) are unaffected. Nothing below is padding: every PR maps directly to something named in the
+design spec. **PR 1 is merged; PR 2 and PR 5 are complete pending independent re-verification and
+merge.**
 
 Each PR: own branch, own CHANGELOG entry + VERSION bump, own CI pass, merged before the next
 dependent PR starts. Grouped into stages by real dependency, not arbitrarily.
@@ -122,11 +125,88 @@ dependent PR starts. Grouped into stages by real dependency, not arbitrarily.
 - Depends on PR 5 (`VW.windows`) at minimum, PR 17 for the placement preference (degrades cleanly
   without it — can land before PR 17 if sequencing needs it to).
 
+## Stage 6 — bleeding-edge capabilities & future-proofing (additive; does not change PRs 1-18)
+
+Each PR here layers onto an already-planned or already-built piece rather than replacing it — the
+public API surface of `VW.channel`/`VW.workspace`/`VW.windows` stays exactly what PRs 1/2/5
+established.
+
+### PR 19: `VW.capabilities` — centralized feature-detection + tier registry
+- `{tier, broadcastChannel, windowPlacement, wakeLock, pictureInPicture, fileSystemAccess,
+  webLocks, indexedDB}`, computed once, reading the existing `rps.js` tier plus raw
+  `typeof`/`"x" in window` checks, AND-ed together.
+- Tests: automated — given a mocked tier and mocked global presence/absence of each API, assert the
+  resulting object shape. No real browser capability needed to test the *logic*.
+- Depends on nothing (could have been built alongside PR 1; built now since PR 1 already shipped).
+  PRs 20-24 depend on this; PRs 1/2/5 are NOT retrofitted to depend on it (their existing contracts
+  stay stable — a later cleanup PR, not part of this plan, could have them read it too).
+
+### PR 20: `VW.locks` — Web Locks API wrapper
+- `VW.locks.withLock(name, fn)`; falls back to a best-effort in-memory single-tab lock on
+  `lite`/`legacy` tier or where `navigator.locks` is absent.
+- Tests: automated for both the real-API and fallback code paths (mockable — `navigator.locks` can
+  be stubbed in the same vm-context style PR 1's tests already use).
+- Depends on PR 19 (`VW.capabilities.webLocks`).
+
+### PR 21: `VW.workspace` — IndexedDB storage migration
+- Swaps the storage backing PR 2 built (`localStorage` under `viewer_workspaces`) for IndexedDB,
+  keeping `create/list/get/touch`'s public contract byte-for-byte identical — nothing above this
+  layer changes.
+- Tests: the exact same test suite PR 2 wrote against the new backing (proves the contract really
+  didn't change), plus a new large-payload case that would have failed against the old
+  `localStorage` quota.
+- Depends on PR 2 (already complete) and PR 19 (`VW.capabilities.indexedDB` gates whether this
+  backing is used at all — `lite`/`legacy` tier keeps the original `localStorage` path, since
+  IndexedDB's async overhead isn't worth it on already-constrained hardware).
+
+### PR 22: `VW.workspace` — schema-versioned saved data
+- Adds `schemaVersion` to the stored record shape; a migration-or-clean-refusal path for a version
+  the running code doesn't recognize (see the spec's edge cases).
+- Tests: automated — a deliberately old-shaped fixture record, assert clean migration or clean
+  refusal, never silent misinterpretation.
+- Depends on PR 2 (already complete).
+
+### PR 23: `VW.workspace` — File System Access API for export/import
+- A real native Save/Open dialog (and write-back-in-place) where `VW.capabilities.fileSystemAccess`
+  is true; the existing blob/`<a download>` path (built in the original PR 3) stays as the universal
+  fallback, never removed.
+- Tests: automated for the fallback path (already covered by PR 3's tests); manual PR note for the
+  real native-dialog path, since a file picker cannot be driven headlessly in this test suite.
+- Depends on PR 3 (export/import — not yet built as of this stage's authoring) and PR 19.
+
+### PR 24: G — Document Picture-in-Picture + Wake Lock
+- `documentPictureInPicture.requestWindow()` as G's primary mechanism where
+  `VW.capabilities.pictureInPicture` is true; `VW.windows.open()`'s plain second-window path
+  otherwise (built in the original PR 18). `navigator.wakeLock` requested for that window's lifetime
+  where `VW.capabilities.wakeLock` is true.
+- Tests: automated for capability-gating/fallback logic; manual PR note for real PiP/wake-lock
+  behavior (added to the new manual QA checklist below).
+- Depends on PR 18 (G's original build — not yet built as of this stage's authoring) and PR 19.
+
+### PR 25: mirror workspaces into the server-side backup vault
+- A new, opt-in server route (Python, alongside the existing `features/`) accepting the current
+  workspace list and folding it into the next regular `safeguard.snapshot()` call.
+- Tests: automated — a real snapshot call, assert the mirrored workspace data is present in the
+  resulting manifest, matching how `test_backupdb.py`/the restore-drill tests already verify
+  `safeguard.py` behavior.
+- Depends on PR 2 (already complete) for something real to mirror.
+
+### New standing document: `docs/MULTI-WINDOW-MANUAL-QA.md`
+Written once (as part of PR 17 or PR 24, whichever lands first) and kept current after: the short,
+real checklist for exactly what this project's CI cannot verify itself — C's placement and PR 24's
+Picture-in-Picture/Wake-Lock behavior on real multi-monitor hardware, and the RPS-tier capability
+gating actually suppressing the right features on a real lite/legacy-classified machine. Run once per
+release, the same standing-ritual way `VERIFY.bat` already is.
+
 ## What's still not in this plan
 
 **E** (in-window split view), **cross-window notifications**, and **a window/tab manager overview
-page** — all explicitly discussed and declined for this round, all would ride the foundation built
-here cleanly whenever they're picked up.
+page** — all explicitly discussed and declined. **H** (compare view — two near-identical parts or
+procedure revisions open side by side with synchronized scroll) is documented in the design spec as a
+real, well-specified direction and a strong candidate for the *next* plan, but is not part of this
+one. An **installable PWA app shell** is documented in the design spec as an endorsed future
+direction — deliberately not scheduled here; if it's ever picked up, `VW.channel`'s public contract
+is designed to accept a Service-Worker-backed transport as a third option without any caller change.
 
 ## Verification discipline (applies to every PR above, unchanged from the original plan)
 

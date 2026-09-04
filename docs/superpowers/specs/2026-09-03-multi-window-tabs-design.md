@@ -227,7 +227,7 @@ VW.channel.publish(name, data)         // data may include any JSON-serializable
 VW.channel.subscribe(name, fn)         // fn(data, meta) -- meta: {seq, v}
 ```
 
-### `VW.workspace` *(CRUD in progress; export/import/templates next; IndexedDB + schemaVersion +
+### `VW.workspace` *(CRUD + export/import landed; built-in templates next; IndexedDB + schemaVersion +
 backup-vault mirroring are Stage 6 additions on top of the same public surface)*
 ```
 { id, name, items: [{page, params}], created, lastOpened, source: "manual"|"template",

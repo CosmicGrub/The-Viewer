@@ -67,8 +67,46 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.64.0, shipped 2026-09-04** (B, curated workspace launcher — stage 5 / PR 15
-of the multi-window/multi-tab initiative. Two real, one-click launch sets: "Launch Work Order" on
+**True current state: v1.65.0, shipped 2026-09-04** (`VW.workspace` export/import — stage 2 / PR 3
+of the multi-window/multi-tab initiative, landed out of the plan doc's own stage order: it was
+supposed to ship right after PR 2 (CRUD) but was skipped over during this session's earlier
+parallel-dispatch of other PRs, and is inserted now, after PR 15/B, because PR 16 (F — save & reopen
+named workspaces, next in the queue) explicitly depends on it existing first. Four new `shared.js`
+exports alongside PR 2's `create`/`list`/`get`/`touch`: `exportUrl(id)` returns a compact
+`"ws=<json>"` query-string encoding for handing one workspace to a DIFFERENT technician's browser;
+`exportFile(id)` wraps the identical payload as a downloadable `application/json` `Blob`; both
+return `null` (never throw) for an unknown id, matching `get()`'s own not-found convention. The
+exported payload deliberately carries only `{name, items}` — never this browser's internal id or
+`created`/`lastOpened` timestamps, which would be meaningless or actively misleading once recreated
+on another machine. `importUrl(qs)` (accepting either a bare query string or a full `"?ws=..."`
+fragment) and `importFile(blob)` (Blob→text via a plain `.then()` chain, never arrow/async-await)
+share one internal parse-validate-create helper: shape-validated BEFORE anything touches storage,
+throwing/rejecting with a specific `Error` message on any mismatch — deliberately stricter than
+`create()`'s own lenient item coercion, since an import is trusting a file that could be
+hand-edited, corrupted, or tampered with, not a payload this same page built for itself. Item shape
+checking is not reimplemented a second time: validation reuses PR 2's own `_wsItems()` as the
+arbiter — if `_wsItems()` would drop an entry (e.g. one missing `page`), that entry was invalid, and
+unlike `create()` the whole import is refused rather than silently keeping only the entries that
+survived. A fresh id is always minted via the same `workspaceCreate()`/`_wsNewId()` path every other
+workspace uses; neither import function ever reads an `id` field off the incoming payload, even a
+deliberately spoofed one. New `engine/tests/test_workspace_export_import.py` (node syntax check) +
+`tests/js/test_workspace_export_import_node.js`, **53 real round-trip assertions** — not source-text
+matching, actual calls through the real exported functions, exportUrl→importUrl and
+exportFile→importFile round trips each run across TWO SEPARATE `localStorage` stores (one per
+simulated browser) so the round trip proves the exported payload is really portable rather than two
+tabs quietly sharing one store — proven load-bearing by temporarily making import trust an incoming
+id (the "never reuse a spoofed id" assertions genuinely failed) and by temporarily skipping shape
+validation before the write (the malformed-import-rejected and storage-untouched assertions
+genuinely failed), confirming the fix in each case then restoring a clean 53/0. `rps_lint.py` clean
+(`shared.js` is ES5-required — the only close call was a doc comment's own `"..."` ellipsis reading
+as a spread/rest false positive, reworded rather than suppressed). Design doc's own `VW.workspace`
+API-block header comment updated from "CRUD in progress; export/import/templates next" to reflect
+export/import having landed. Deliberately out of scope, matching PR 3's own plan-doc scope: schema
+migration/`schemaVersion` (Stage 6), the File System Access API path for `exportFile` (noted in the
+design doc as deferred), and any UI over these functions — that UI is PR 16/F's job, which depends
+on this PR existing first. See §6 item 48). Immediately prior: **v1.64.0, shipped 2026-09-04** (B,
+curated workspace launcher — stage 5 / PR 15 of the multi-window/multi-tab initiative. Two real,
+one-click launch sets: "Launch Work Order" on
 `jobcard.html` opens `procedure.html` + `torque.html` + `part.html`; "Launch Solve It" on `solve.html`
 opens `troubleshoot.html` + `procedure.html` + `locate.html`. Both follow the plan's own required
 order — one `VW.workspace.create(name, items, "template")` call persists a real workspace record
@@ -2461,6 +2499,56 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     workspaces are launched fresh every time and never saved/listed/reopened later — that is PR
     16/F's whole job, and it depends on B (this PR) existing first to have something worth naming.
     See `CHANGELOG.md` `[1.64.0]`.
+
+48. **`[1.65.0]` — `VW.workspace` export/import (multi-window support, PR 3/25, stage 2 — landed out
+    of order).** The plan doc placed this right after PR 2 (CRUD); it was skipped over during this
+    session's earlier parallel-dispatch of other PRs and is inserted now, after PR 15/B, because PR
+    16 (F — save & reopen named workspaces, next in the queue) explicitly depends on it existing
+    first. Four new `shared.js` exports alongside PR 2's `create`/`list`/`get`/`touch`:
+    `exportUrl(id)` returns a `"ws=<json>"` query-string encoding for handing one workspace to a
+    DIFFERENT technician's browser; `exportFile(id)` wraps the identical payload as a downloadable
+    `application/json` `Blob`; both return `null` (never throw) for an unknown id, matching `get()`'s
+    own not-found convention.
+    **The exported payload deliberately carries only `{name, items}`** — never this browser's
+    internal id or `created`/`lastOpened` timestamps, which would be meaningless (the id) or actively
+    misleading (the timestamps) once recreated on a different machine.
+    `importUrl(qs)` (a bare query string or a full `"?ws=..."` fragment, either accepted) and
+    `importFile(blob)` (Blob→text via a plain `.then()` chain — never an arrow function or
+    async/await) share one internal parse-validate-create helper: the payload is shape-validated
+    BEFORE anything touches storage, throwing/rejecting with a specific `Error` message on any
+    mismatch. This is deliberately stricter than `create()`'s own lenient item coercion — an import
+    is trusting a file that could have been hand-edited, corrupted in transit, or tampered with, not
+    a payload this same page built for itself — matching the design spec's edge case verbatim:
+    "validated before being written, rejected with a clear message on any mismatch."
+    **Item shape checking is not reimplemented a second time.** Validation reuses PR 2's own
+    `_wsItems()` as the arbiter of "is this item well-formed": if `_wsItems()` would drop an entry
+    (no usable `page`, not an object), that entry was invalid, and unlike `create()` the entire
+    import is refused rather than silently keeping only the entries that happened to survive.
+    **A fresh id is always minted**, via the same `workspaceCreate()`/`_wsNewId()` path every other
+    workspace goes through; neither import function ever reads an `id` field off the incoming
+    payload — not even a deliberately spoofed one, proven directly in the new test rather than
+    merely argued.
+    **New `engine/tests/test_workspace_export_import.py`** (`node --check` syntax coverage) **+
+    `tests/js/test_workspace_export_import_node.js`, 53 real round-trip assertions** — not
+    source-text matching, actual calls through the real exported functions. The exportUrl→importUrl
+    and exportFile→importFile round trips each run across TWO SEPARATE `localStorage` stores (one
+    per simulated browser, unlike PR 2's own node test which deliberately shares one store between
+    two tabs) so the round trip proves the exported payload is genuinely portable rather than two
+    contexts quietly sharing one store. Proven load-bearing by two targeted, restored-afterward
+    breaks: temporarily making import trust an incoming `id` field (the "never reuse a spoofed id"
+    assertions genuinely failed — 3 of them), and temporarily skipping shape validation before the
+    write (9 assertions genuinely failed, covering both the "throws" and the "storage left
+    untouched" halves of the malformed-import cases) — each confirmed failing, then reverted and
+    re-confirmed a clean 53/0.
+    `rps_lint.py` clean (`shared.js` is ES5-required); the only close call was a doc comment's own
+    `"..."` ellipsis reading as a false-positive spread/rest hit (4x), reworded rather than
+    suppressed.
+    Design doc's own `VW.workspace` API-block header comment updated from "CRUD in progress;
+    export/import/templates next" to "CRUD + export/import landed; built-in templates next".
+    **Deliberately out of scope, matching PR 3's own plan-doc scope, not a shortfall:** `schemaVersion`
+    and migration-on-read (Stage 6), the File System Access API path for `exportFile` (the design
+    doc's own deferred note), and any UI over these four functions — that UI is PR 16/F's job, which
+    depends on this PR existing first. See `CHANGELOG.md` `[1.65.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

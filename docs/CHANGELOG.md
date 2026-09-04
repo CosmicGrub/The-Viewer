@@ -12,6 +12,67 @@ every change going forward.
 
 ---
 
+## [1.65.0] — 2026-09-04 — `VW.workspace` export/import (multi-window support, PR 3/25)
+
+Stage 2, PR 3 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — landed **out of the
+plan doc's own stage order.** It was supposed to ship right after PR 2 (CRUD) but was skipped over
+during this session's earlier parallel-dispatch of other PRs; it is inserted now, after PR 15/B,
+because PR 16 (F — save & reopen named workspaces, next in the queue) explicitly depends on it
+existing first.
+
+**Four new `shared.js` exports, alongside PR 2's `create`/`list`/`get`/`touch`:**
+- `VW.workspace.exportUrl(id)` -> a `"ws=<json>"` query-string encoding, for handing one workspace to
+  a DIFFERENT technician's browser via a shared link. `null` (never a throw) for an unknown id,
+  matching `get()`'s own not-found convention.
+- `VW.workspace.exportFile(id)` -> the same payload wrapped as a downloadable `application/json`
+  `Blob`. Same `null` not-found convention.
+- `VW.workspace.importUrl(qs)` -> id. Accepts a bare query string or a full `"?ws=..."` fragment.
+- `VW.workspace.importFile(blob)` -> a `Promise` resolving to id (Blob reading is async; a plain
+  `.then()` chain, never an arrow function or async/await, matching `palette.js`'s existing
+  `fetch().then()` convention).
+
+**The exported payload is deliberately just `{name, items}`** — never this browser's internal id or
+`created`/`lastOpened` timestamps. The id would be meaningless on a different machine; the timestamps
+would misrepresent when the *receiving* technician actually made their own copy.
+
+**Import is validated before anything is written, and rejected with a clear message on any
+mismatch** — the design spec's edge case, quoted directly. This is deliberately stricter than
+`create()`'s own lenient item coercion: an import is trusting a file that could have been hand-edited,
+corrupted in transit, or tampered with, not a payload this same page built for its own use. Item shape
+checking is **not reimplemented a second time** — validation reuses PR 2's own `_wsItems()` as the
+arbiter of "is this item well-formed" (if `_wsItems()` would drop an entry, that entry was invalid,
+and the whole import is refused rather than silently keeping only the entries that survived).
+
+**A fresh id is always minted**, via the exact same `workspaceCreate()`/`_wsNewId()` path every other
+workspace goes through. Neither import function ever reads (or trusts) an `id` field the incoming
+payload might carry, even a deliberately spoofed one — proven directly in the new test, not merely
+argued, matching the comment already left at `_wsNewId()`'s own definition when PR 2 shipped.
+
+**Tests: new `engine/tests/test_workspace_export_import.py` +
+`engine/tests/js/test_workspace_export_import_node.js`, 53 real round-trip assertions** — not
+source-text matching, actual calls through the real
+exported functions loaded into two `vm.createContext()` sandboxes. exportUrl->importUrl and
+exportFile->importFile round trips each run across TWO SEPARATE `localStorage` stores (one per
+simulated browser) so the round trip proves the exported payload is genuinely portable, not an
+artifact of two contexts sharing one store. Malformed-import cases (non-JSON garbage, valid JSON with
+the wrong top-level shape, an item missing `page`, a missing `ws=` key entirely) are asserted both to
+throw/reject with a specific message AND to leave storage byte-for-byte unchanged, including when a
+real workspace already existed in that store. Proven load-bearing: temporarily making import trust an
+incoming `id` field (3 assertions genuinely failed), and temporarily skipping shape validation before
+the write (9 assertions genuinely failed) — each confirmed failing, then reverted and re-confirmed a
+clean 53/0. `rps_lint.py` clean (`shared.js` is ES5-required; the only close call was a doc comment's
+own `"..."` ellipsis reading as a false-positive spread/rest hit, reworded rather than suppressed).
+
+**Docs:** the design doc's own `VW.workspace` API-block header comment updated from "CRUD in
+progress; export/import/templates next" to "CRUD + export/import landed; built-in templates next" —
+nothing else in that spec file touched.
+
+**Deliberately out of scope, matching PR 3's own plan-doc scope:** `schemaVersion`/migration-on-read
+(Stage 6), the File System Access API path for `exportFile` (the design doc's own deferred note), and
+any UI over these four functions — that's PR 16/F's job, which depends on this PR existing first.
+
+---
+
 ## [1.64.0] — 2026-09-04 — B: curated workspace launcher (multi-window support, PR 15/25)
 
 Stage 5, PR 15 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`. Two curated launch

@@ -1104,6 +1104,64 @@ except Exception as e:
     failed.append("parthtml_honest_error_vs_notfound(%s)" % e)
 
 
+# =====================================================================================================
+# Multi-window plan PR 8 of 25 (v1.58.0) -- responsive verification batch 1, the two per-page fixes it
+# actually found. Both were found by measuring real pages in a real browser at real widths (the
+# before/after numbers live in the CHANGELOG entry and the PR body); what these assertions can do is
+# guard the rules themselves against being deleted or silently re-tuned, the same way the base.css
+# kiosk/pointer-coarse blocks above are guarded. They are source-text checks, NOT layout measurements
+# -- this suite has no browser, and claiming otherwise would be exactly the kind of overstatement the
+# [1.57.0] entry that precedes this work went out of its way to avoid.
+# =====================================================================================================
+try:
+    PROCEDURE_HTML = os.path.join(ENGINE, "ui", "procedure.html")
+    MEASURES_HTML = os.path.join(ENGINE, "ui", "measures.html")
+    proc_src = open(PROCEDURE_HTML, encoding="utf-8").read()
+    meas_src = open(MEASURES_HTML, encoding="utf-8").read()
+    base_css_r1 = open(os.path.join(ENGINE, "ui", "base.css"), encoding="utf-8").read()
+
+    # --- procedure.html: the reference rail must collapse at the width .cols really wraps (755px),
+    # not 15-35px later. Between 755px and 721px the rail used to wrap onto its own row while KEEPING
+    # width:420px/max-width:46vw, landing 332-347px wide inside a 677-696px row.
+    ok("procedure_side_rail_has_its_own_collapse_breakpoint",
+       "@media(max-width:755px){ .side{width:100%;max-width:none} }" in proc_src)
+    # the page must still DECLARE the two-column rail it is overriding -- if .side's own
+    # width:420px/max-width:46vw ever goes away, this breakpoint is dead weight and should go with it
+    ok("procedure_side_rail_still_declares_the_two_column_width",
+       ".side{width:420px;max-width:46vw}" in proc_src)
+    # and base.css must still carry the SHARED 720px default this page deliberately overrides locally:
+    # the page-local rule exists precisely because 720px is right for a page that adopts .side later
+    # and wrong for this one, so the two are only meaningful together
+    ok("basecss_still_owns_the_shared_720_side_default",
+       "body .side{width:100%;max-width:none}" in base_css_r1)
+    # Both numbers are read back out of the two files rather than restated here, so this stays a real
+    # comparison if either one is ever re-tuned: the page-local threshold has to sit ABOVE the shared
+    # one, or the band it exists to close reopens silently.
+    _proc_bp = re.search(r"@media\(max-width:(\d+)px\)\{ \.side\{", proc_src)
+    _shared_bp = re.search(r"@media \(max-width:(\d+)px\)\{[^@]*?body \.side\{", base_css_r1, re.S)
+    ok("procedure_local_breakpoint_number_is_readable", _proc_bp is not None)
+    ok("basecss_shared_side_breakpoint_number_is_readable", _shared_bp is not None)
+    ok("procedure_local_breakpoint_sits_above_the_shared_one",
+       bool(_proc_bp and _shared_bp and int(_proc_bp.group(1)) > int(_shared_bp.group(1))))
+
+    # --- measures.html: .m (corpus values) and .em (external values) are row-shaped flex containers
+    # whose names are NOT in base.css's shared flex-wrap list, so they carry their own flex-wrap.
+    # Without it the page scrolled sideways from 490px down (91px past the viewport at 400px), with
+    # the trailing "p.N" citation link -- the one control on the row -- pushed off the right edge.
+    for cls, label in ((".m{", "m"), (".em{", "em")):
+        row_decl = meas_src.split(cls, 1)[1].split("}", 1)[0] if cls in meas_src else ""
+        ok("measures_%s_row_is_still_a_flex_row" % label, "display:flex" in row_decl)
+        ok("measures_%s_row_declares_flex_wrap" % label, "flex-wrap:wrap" in row_decl)
+    # neither class may be quietly added to base.css's shared list instead: they are page-local names
+    # (the [1.57.0] entry's own warning about .grid's dual meaning applies to any single-page class)
+    shared_wrap_line = "header,.bar,.row,.cols,.search,.chips,.toolbar,.tools,.tabs{flex-wrap:wrap}"
+    ok("basecss_shared_wrap_list_is_unchanged", shared_wrap_line in base_css_r1)
+    ok("basecss_shared_wrap_list_does_not_absorb_page_local_names",
+       ".m," not in shared_wrap_line and ".em," not in shared_wrap_line)
+except Exception as e:
+    failed.append("responsive_batch1_per_page_fixes(%s)" % e)
+
+
 for n in passed: print("PASS", n)
 for n in failed: print("FAIL", n)
 print("\n%d passed, %d failed (of %d checks for priority-5 UI/UX audit fixes)" %

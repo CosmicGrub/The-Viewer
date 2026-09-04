@@ -33,6 +33,28 @@ button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:v
 .side img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
 .sec h2{font-size:14px;font-weight:600;margin:0 0 8px}
 .empty{color:var(--sub);padding:24px;text-align:center}
+/* v1.58.0 (multi-window plan PR 8 of 25, responsive batch 1). base.css collapses this rail with
+   its shared "body .side{width:100%;max-width:none}" at 720px. Measured in a real browser, this
+   page's own two-column row stops fitting well before that, and the gap between the two is a band
+   where the layout is strictly worse than on either side of it.
+
+   The geometry: .steps' 340px floor + .cols' 16px gap + this rail's own min(420px,46vw) + .wrap's
+   44px of padding. Measured, holding everything else constant: 756px is the last width where the
+   two sit side by side (steps 348 / side 348, no scrollbar). At 755px .cols wraps -- and wrapping
+   makes the page taller, so a 15px vertical scrollbar appears, which drops the usable width to
+   740px and keeps it wrapped. That is a stable equilibrium, reproducible on every reload, not a
+   flicker. The problem is what the rail does once wrapped: it KEEPS its declared 420px/46vw width
+   and lands 332-347px wide inside a 677-696px row, so the scanned manual page a technician is
+   checking the steps against renders at under half the width sitting empty beside it. Pre-fix that
+   held from 755px all the way down to 721px, where base.css's shared rule finally took over.
+
+   The plan's own note put this band at roughly 20px (740-720). It is 35px (755-721): the estimate
+   was computed from the layout arithmetic alone and did not account for the scrollbar the wrap
+   itself brings in. 755px is the measured wrap point, so that is the threshold used here rather
+   than a rounder guess. Page-local on purpose: .side's 420px/46vw is declared right here, so its
+   threshold belongs here too -- 720px stays the correct shared default in base.css for any other
+   page that adopts .side later. */
+@media(max-width:755px){ .side{width:100%;max-width:none} }
 @media print{ .noprint{display:none!important} body{background:#fff;color:#000} .card{border-color:#bbb} .side{display:none} a{color:#000} }
 </style><script src="/rps.js"></script></head><body><div class="wrap" role="main" aria-label="Procedure builder">
 <div class="noprint" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">

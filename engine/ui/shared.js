@@ -778,8 +778,10 @@
      itself:
 
        1. A registry. This tab remembers what it opened, keyed by name, so registry() can report it,
-          and so a later PR can record and restore each window's real screen position (PR 6, which is
-          deliberately NOT part of this one).
+          and so a later PR can record and restore each window's real screen position (PR 6, layered
+          on top of this same registry below -- screenX/screenY/outerWidth/outerHeight are read LIVE
+          off the handle this registry already holds, not captured once and cached, since a
+          technician can move/resize a window after opening it).
        2. A broadcast. Every successful open publishes an event on the "windows" channel, so a future
           feature can show a live "N windows open" across every tab with no tab polling anything.
           This PR builds that plumbing only; nothing renders it yet.
@@ -807,10 +809,26 @@
      opens the window and still toasts (a click must always visibly register), it just never appears
      in registry(). Pass a name whenever a repeat click should land on the window already open.
 
-     No window-features argument is passed on this path, on purpose: supplying one turns what the
-     browser would have opened as an ordinary tab into a stripped chrome-less popup, overriding the
-     user's own new-window preference. PR 6's restoreLayout() is the one place that will legitimately
-     pass explicit bounds, because there the user asked for exactly that.
+     No window-features argument is passed UNLESS opts carries a position/size hint (v1.67.0, PR 6):
+     supplying one turns what the browser would have opened as an ordinary tab into a stripped
+     chrome-less popup, overriding the user's own new-window preference, so the plain 1/2-argument
+     form stays the default for every call site that never asks for placement. opts.left/opts.top/
+     opts.width/opts.height are the hint vocabulary (matching window.open()'s own features-string
+     keys directly, so there is exactly one translation step, not two) -- present only when a caller
+     genuinely wants to request an initial position/size, which today means restoreLayout() below,
+     but is not restricted to it; any caller may pass them. Threaded into the third window.open()
+     argument ONLY when a genuinely NEW window is being opened, never on a reuse: browsers generally
+     only honor position/size features on a window's very FIRST open, not a later reuse/refocus of an
+     already-named one, so re-sending them on reuse would be at best a no-op and at worst
+     browser-inconsistent -- a real, honest platform limitation stated here rather than glossed over
+     (also stated plainly in the PR body, per the plan's own instruction not to paper over what
+     cannot actually be verified/guaranteed without a real second monitor and multiple browsers).
+     Hints are sanity-checked against THIS screen's own window.screen.availWidth/availHeight before
+     use (_winBoundsSane below) -- the design doc's own named "monitor unplugged since the position
+     was saved" fallback case -- and any hint that fails is dropped ENTIRELY (never partially
+     applied), degrading silently to a normal, unhinted open rather than risking a window placed
+     off-screen where a technician could not find or reach it. A bad hint never throws; it only ever
+     falls back to the browser's own default placement.
 
      Popup blockers: every intended call site is a real click handler and browsers permit
      user-gesture-initiated opens, so a block should never happen in practice. It is still handled,
@@ -834,16 +852,128 @@
     }
   }
 
+  /* v1.67.0 (PR 6): reads ONE bounds property off a same-origin window handle, defensively. This app
+     only ever opens its OWN pages via window.open(), so every handle _winReg holds is same-origin and
+     screenX/screenY/outerWidth/outerHeight are ordinary, no-permission-needed properties -- there is
+     nothing here for PR 17's feature-detected getScreenDetails() to layer under; that is a separate,
+     permission-gated API this PR does not touch. The property read is wrapped on its OWN, one field
+     at a time, rather than wrapping the whole four-field build in one try/catch: a handle mid
+     teardown (closed === true already ruled out by _winPrune() above, but a rarer half-torn-down
+     state can still throw on some property access, per the same honest note _winPrune()'s own comment
+     already makes) might allow SOME properties to read fine and throw on others, and a caller is
+     better served by a partially-filled entry than by losing every field over one throwing property. Also
+     guards against a non-finite/non-number value some embedding could hand back instead of a real
+     throw -- either way this returns null, never lets a bad value through. */
+  function _winBoundsField(win, prop) {
+    try {
+      var v = win[prop];
+      return (typeof v === "number" && isFinite(v)) ? v : null;
+    } catch (e) { return null; }
+  }
+
+  /* All four live bounds fields for one window handle, each independently guarded by
+     _winBoundsField above -- one throwing/unreadable property degrades ONLY that field to null,
+     never the other three, and never the caller's whole loop over every OTHER tracked window
+     (windowsRegistry() below calls this once per entry, inside its own loop, so a bad handle for
+     window A can never take down what is reported for window B). */
+  function _winLiveBounds(win) {
+    return {
+      screenX: _winBoundsField(win, "screenX"),
+      screenY: _winBoundsField(win, "screenY"),
+      outerWidth: _winBoundsField(win, "outerWidth"),
+      outerHeight: _winBoundsField(win, "outerHeight")
+    };
+  }
+
   /* Currently-tracked open windows THIS tab opened, newly-built plain objects each call, so a caller
-     can never reach in and corrupt the registry by mutating what it was handed. */
+     can never reach in and corrupt the registry by mutating what it was handed. v1.67.0 (PR 6): each
+     entry now also carries LIVE screenX/screenY/outerWidth/outerHeight, read off the handle at THIS
+     call, not captured once at open-time and cached -- a technician can move or resize a window after
+     opening it, and re-reading off the handle this registry already holds costs nothing extra and
+     stays accurate. A field that could not be read for a given window is null, not omitted -- every
+     entry has the same six keys, whether or not every value could be filled in. */
   function windowsRegistry() {
     _winPrune();
-    var out = [], name;
+    var out = [], name, entry, bounds;
     for (name in _winReg) {
       if (!Object.prototype.hasOwnProperty.call(_winReg, name)) continue;
-      out.push({ name: _winReg[name].name, url: _winReg[name].url });
+      entry = _winReg[name];
+      bounds = _winLiveBounds(entry.win);
+      out.push({ name: entry.name, url: entry.url,
+        screenX: bounds.screenX, screenY: bounds.screenY,
+        outerWidth: bounds.outerWidth, outerHeight: bounds.outerHeight });
     }
     return out;
+  }
+
+  /* v1.67.0 (PR 6): sanity-checks a caller's position/size hint against THIS screen's own reasonable
+     extent before it is ever threaded into a window.open() features string -- the design doc's own
+     named "monitor unplugged since the position was saved" fallback case. Returns null (meaning
+     "use no hint at all, fall back to the browser's normal placement") when window.screen itself is
+     unreadable, when NEITHER availWidth NOR availHeight comes back as a usable positive number, or
+     when ANY hint field that WAS provided fails its own check -- deliberately all-or-nothing, never a
+     partial application of "the width looked fine but the left didn't": a window positioned by only
+     half of a stale hint is not obviously better than one placed by the browser's own default, and
+     "skip gracefully" is simpler and safer to reason about than partial credit.
+
+     The ceiling is deliberately generous, not a single screen's own availWidth/availHeight: a real
+     multi-monitor span (a technician's second screen sitting to the right of, above, or below the
+     first) can legitimately put a saved left/top well past this one screen's own extent, and this PR
+     has no access to the actual multi-monitor geometry (that is PR 17's permission-gated
+     getScreenDetails() job, explicitly out of scope here) -- only this one screen's availWidth/
+     availHeight as a sanity CEILING, per the plan's own suggestion. 4x this screen's own span is
+     comfortably wide enough to admit a plausible second-or-third-monitor position while still
+     rejecting the actual failure mode this exists for: a wildly stale, negative-beyond-reason, or
+     just-plain-nonsensical value left over from hardware that is no longer connected at all. */
+  function _winBoundsSane(o) {
+    var availW = null, availH = null;
+    try { availW = window.screen ? window.screen.availWidth : null; } catch (e) { availW = null; }
+    try { availH = window.screen ? window.screen.availHeight : null; } catch (e) { availH = null; }
+    if (typeof availW !== "number" || !isFinite(availW) || availW <= 0) return null;
+    if (typeof availH !== "number" || !isFinite(availH) || availH <= 0) return null;
+
+    function within(v, lo, hi) { return typeof v === "number" && isFinite(v) && v >= lo && v <= hi; }
+
+    var out = {};
+    if (o.left !== undefined) {
+      if (!within(o.left, -availW, availW * 4)) return null;
+      out.left = o.left;
+    }
+    if (o.top !== undefined) {
+      if (!within(o.top, -availH, availH * 4)) return null;
+      out.top = o.top;
+    }
+    if (o.width !== undefined) {
+      if (!within(o.width, 1, availW * 4)) return null;
+      out.width = o.width;
+    }
+    if (o.height !== undefined) {
+      if (!within(o.height, 1, availH * 4)) return null;
+      out.height = o.height;
+    }
+    return out;
+  }
+
+  /* v1.67.0 (PR 6): builds the window.open() THIRD-argument features string ("left=100,top=50,
+     width=800,height=600") from opts.left/opts.top/opts.width/opts.height, or returns null when
+     there is nothing usable to build -- either no hint fields were offered at all (the overwhelming
+     common case; window.screen is never even touched then, so this stays free for every ordinary
+     call), or the hint(s) offered failed _winBoundsSane's check above. null, never an empty string:
+     an EMPTY features string is itself a different, real request some browsers read as "open a
+     stripped-down popup with nothing specified" -- not the same as "no hint", which must fall through
+     to the plain 1/2-argument window.open() call windowsOpen() already made before this PR. */
+  function _winFeaturesString(o) {
+    if (o.left === undefined && o.top === undefined && o.width === undefined && o.height === undefined) {
+      return null;
+    }
+    var sane = _winBoundsSane(o);
+    if (!sane) return null;
+    var parts = [];
+    if (sane.left !== undefined) parts.push("left=" + Math.round(sane.left));
+    if (sane.top !== undefined) parts.push("top=" + Math.round(sane.top));
+    if (sane.width !== undefined) parts.push("width=" + Math.round(sane.width));
+    if (sane.height !== undefined) parts.push("height=" + Math.round(sane.height));
+    return parts.length ? parts.join(",") : null;
   }
 
   function windowsOpen(url, opts) {
@@ -852,12 +982,21 @@
     _winPrune();                       // a window the user closed must not be reported as reused
     var reused = !!(name && _winReg[name]);
     var win = null;
+    /* v1.67.0 (PR 6): a position/size hint is only ever considered for a genuinely NEW open -- never
+       computed at all on a reuse, far less passed to window.open(). Reusing an existing named window
+       must not attempt to reposition it (see the big comment above this function for the honest
+       browser limitation this reflects: position/size features are generally only honored on a
+       window's first open). Skipping the computation entirely on reuse, rather than computing it and
+       simply not using it, also means a reuse never touches window.screen at all. */
+    var features = reused ? null : _winFeaturesString(o);
     /* Always really call window.open, reuse or not: the reuse, the navigation to a possibly-new url,
        and the raise-to-front are all things the BROWSER does in response to this call. Skipping it
        because the registry already knows the name would leave the existing window untouched and
        still sitting behind whatever is in front of it. */
-    try { win = name ? window.open(url, name) : window.open(url); }
-    catch (e) { win = null; }
+    try {
+      if (features) win = window.open(url, name || "", features);
+      else win = name ? window.open(url, name) : window.open(url);
+    } catch (e) { win = null; }
     if (!win) return null;             // blocked or refused -- claim nothing, break nothing
     try { if (win.focus) win.focus(); } catch (e) { /* some window managers refuse this; harmless */ }
     if (name) _winReg[name] = { name: name, url: url, win: win };
@@ -870,6 +1009,57 @@
         count: windowsRegistry().length });   // count is named/tracked windows only, see above
     } catch (e) { /* a broadcast failure must never surface to the user who just opened a window */ }
     return win;
+  }
+
+  /* v1.67.0: VW.windows.restoreLayout(entries) -- PR 6, "layout capture + user-triggered restore"
+     (docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 2, closing out the item PR 5's
+     own header comment named and deliberately deferred). Takes an array shaped like what registry()
+     returns (or a previously-saved snapshot of it -- a workspace/checkpoint entry that has grown these
+     same fields now that registry() reports them) and, for each entry carrying a usable name AND url,
+     calls windowsOpen() -- THE SAME open/reuse/toast/broadcast path above, not a second, parallel copy
+     of any of it -- translating the registry's screenX/screenY/outerWidth/outerHeight field names into
+     windowsOpen()'s own left/top/width/height opts vocabulary (see _winFeaturesString above for why
+     the two vocabularies differ: one matches what a live window handle reports back, the other
+     matches window.open()'s own features-string keys directly).
+
+     CONTRACT, since nothing in this codebase calls this yet: entries missing a usable name or url are
+     SKIPPED, never thrown over -- one bad row in a batch (a hand-edited file, a stale snapshot
+     referencing a page that no longer exists) must not abort every OTHER entry. Returns an array, one
+     result object per INPUT entry, in the same order: {name, url, ok, reused}. ok is true when
+     windowsOpen() returned a real window handle for that entry (false for a skipped/malformed entry,
+     or one windowsOpen() itself returned null for -- popup-blocked, refused, or a thrown window.open);
+     reused reports whether that entry's name was already tracked in THIS tab's registry before this
+     call reached it (read before calling windowsOpen(), which is the one place that actually decides
+     and acts on reuse -- this only observes and reports it, never re-decides it).
+
+     MUST NEVER BE CALLED FROM A LOAD/INIT/DOMCONTENTLOADED-STYLE HANDLER ANYWHERE IN THIS CODEBASE.
+     restoreLayout() reopens windows unprompted, which is exactly the case the design doc's own honest
+     note names: "a web page cannot run code 'on app launch' unprompted, so 'restore my layout' is a
+     button, not silent magic." It is only ever safe to call from a genuine click handler -- a
+     technician pressing an explicit "restore my layout" button on some future page. Nothing in this
+     diff wires one; see the PR body for why that UI is deliberately out of this PR's scope. */
+  function windowsRestoreLayout(entries) {
+    var list = (Object.prototype.toString.call(entries) === "[object Array]") ? entries : [];
+    var out = [], i, e, name, url, openOpts, wasTracked, win;
+    for (i = 0; i < list.length; i++) {
+      e = list[i] || {};
+      name = (typeof e.name === "string" && e.name) ? e.name : null;
+      url = (typeof e.url === "string" && e.url) ? e.url : null;
+      if (!name || !url) {
+        out.push({ name: name, url: url, ok: false, reused: false });
+        continue;
+      }
+      openOpts = { name: name };
+      if (typeof e.screenX === "number" && isFinite(e.screenX)) openOpts.left = e.screenX;
+      if (typeof e.screenY === "number" && isFinite(e.screenY)) openOpts.top = e.screenY;
+      if (typeof e.outerWidth === "number" && isFinite(e.outerWidth)) openOpts.width = e.outerWidth;
+      if (typeof e.outerHeight === "number" && isFinite(e.outerHeight)) openOpts.height = e.outerHeight;
+      wasTracked = !!_winReg[name];
+      win = null;
+      try { win = windowsOpen(url, openOpts); } catch (ex) { win = null; }
+      out.push({ name: name, url: url, ok: !!win, reused: wasTracked && !!win });
+    }
+    return out;
   }
 
   /* v1.56.0: VW.bench -- the ONE canonical accessor for "My Bench", the technician's pinned list of
@@ -1181,7 +1371,8 @@
                           get: workspaceGet, touch: workspaceTouch, delete: workspaceDelete,
                           exportUrl: workspaceExportUrl, exportFile: workspaceExportFile,
                           importUrl: workspaceImportUrl, importFile: workspaceImportFile },
-             windows: { open: windowsOpen, registry: windowsRegistry },
+             windows: { open: windowsOpen, registry: windowsRegistry,
+                        restoreLayout: windowsRestoreLayout },
              bench: { get: benchGet, put: benchPut },
              checkpoint: { get: checkpointGet, clear: checkpointClear } };
   g.VW = VW;

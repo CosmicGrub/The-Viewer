@@ -73,7 +73,8 @@ Rather than B inventing its own check, B (and everything after it) just reads `V
    data model + API: export/import (a URL query-string for a quick hand-off, a downloadable `.json`
    for a durable one) and a small built-in template library (a "PMCS" preset opening `pmcs.html` +
    `readiness.html`; an "NSN lookup" preset opening `decode.html` + `locate.html` + `partdiff.html`).
-4. **`VW.windows`** *(PR 5 — in progress: open/reuse/toast core; layout capture/restore is PR 6)* —
+4. **`VW.windows`** *(PR 5 + PR 6 landed: open/reuse/toast core, and layout capture/user-triggered
+   restore)* —
    window-management helper: layout capture (`screenX`/`screenY`/`outerWidth`/`outerHeight` per
    tracked window) and a **user-triggered, not automatic** restore — a web page cannot run code "on
    app launch" unprompted, so "restore my layout" is a button, not silent magic.

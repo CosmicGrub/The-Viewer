@@ -67,7 +67,44 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.66.0, shipped 2026-09-04** (F — save & reopen named workspaces + the
+**True current state: v1.67.0, shipped 2026-09-04** (`VW.windows` layout capture + user-triggered
+restore, stage 2 / PR 6 of the multi-window/multi-tab initiative — landed OUT OF the plan doc's own
+stage order, the same shape item 48/PR 3 already used: it belongs right after PR 5 (open/reuse/toast
+core) but was skipped over during this session's earlier parallel-dispatch of other PRs, and is
+inserted now because PR 17 (C — screen-aware placement, next in the queue) explicitly depends on it
+existing first. `registry()` now returns LIVE `screenX`/`screenY`/`outerWidth`/`outerHeight` per
+tracked window, read directly off the SAME handle `_winReg` already holds at CALL time (not captured
+once at open-time and cached, since a technician can move/resize a window after opening it), every
+property read guarded INDEPENDENTLY so a throwing/unreadable field degrades only itself to `null`,
+never the other three, and never another window's entry in the same call. `windowsOpen(url, opts)`
+now optionally accepts `opts.left`/`top`/`width`/`height` — threaded into `window.open()`'s own
+features-string argument ONLY on a genuinely NEW open, never a reuse (a real, stated-plainly browser
+limitation: position/size features are generally honored only on a window's first open), sanity-
+checked against this screen's own `window.screen.availWidth`/`availHeight` first (a generous 4x
+ceiling, the design doc's own named "monitor unplugged since the position was saved" fallback) —
+dropped ENTIRELY, never partially, on any failure; never a throw. New `VW.windows.restoreLayout
+(entries)` calls THROUGH `windowsOpen()` — not a second, parallel copy of open/reuse/toast/broadcast —
+once per well-formed entry, skipping a malformed one without aborting the batch, returning one
+`{name, url, ok, reused}` result per input entry; MUST NEVER be called from a load/init/
+`DOMContentLoaded` handler anywhere in this codebase, matching the design doc's own "restore is a
+button, not silent magic" stance — nothing in this diff wires one, an API-only PR matching PR 2/3/5's
+own precedent. New `test_windows_layout.py` + `test_windows_layout_node.js`, **51 real assertions** (41
+behavioral through the real production code, extending item 45's dual-sandbox convention, + 10 static
+checks proving `restoreLayout` is never auto-invoked anywhere in the diff), proven load-bearing by
+breaking 6 representative guarantees one at a time and confirming the right assertions genuinely
+failed (5, 1, 5, 2, 7, 1), then reverting to a clean 51/0; item 45's own `test_windows_node.js` updated
+for the new registry shape rather than broken around. Full `verify_all.py` run specifically against
+item 45's own named `test_a2_popout.py` cross-PR test-coupling hazard — avoided by construction this
+time (every new function landed before `popoutControl()`'s own section, not between it and the `VW`
+assembly) and confirmed unaffected at a clean 62/0; one unrelated, pre-existing `test_hardening.py`
+port-contention flake observed inside one full-suite run and confirmed NOT a regression (clean
+standalone, clean on an immediate re-run). `rps_lint.py` clean. Design doc's own `VW.windows` item-4
+header updated from "PR 5 — in progress ...; layout capture/restore is PR 6" to "PR 5 + PR 6 landed."
+Deliberately out of scope, matching this PR's own plan-doc scope: any UI page/button calling
+`restoreLayout()` (a later PR's job), PR 17's own feature-detected `getScreenDetails()` placement API,
+and the actual on-screen placement behavior on real, possibly multi-monitor, hardware — stated
+plainly as manual, real-browser-only checks in the PR body, not glossed over. See §6 item 50).
+Immediately prior: **v1.66.0, shipped 2026-09-04** (F — save & reopen named workspaces + the
 auto-checkpoint, stage 5 / PR 16 of the multi-window/multi-tab initiative — the UI over everything PR
 2 (CRUD)/3 (export-import)/15 (B) built. New `engine/ui/workspaces.html` (`/workspaces`): lists every
 saved workspace, most-recently-opened first; **save** turns the CURRENT TAB's own
@@ -2689,6 +2726,126 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     PR 16's own plan-doc scope, not a shortfall:** screen-aware placement (C, PR 17), the
     kiosk/second-screen view (G, PR 18), and any `VW.capabilities`-gated behavior (Stage 6, not yet
     built). See `CHANGELOG.md` `[1.66.0]`.
+
+50. **`[1.67.0]` — `VW.windows` layout capture + user-triggered restore (multi-window support, PR
+    6/25, stage 2 — landed out of order).** The plan doc placed this right after PR 5 (open/reuse/
+    toast core); it was skipped over during this session's earlier parallel-dispatch of other PRs and
+    is inserted now, out of order, because PR 17 (C — screen-aware placement, next in the queue)
+    explicitly depends on it existing first — the same "inserted early because a later PR needs it"
+    shape item 48/PR 3 already established.
+
+    **`registry()` now returns LIVE `screenX`/`screenY`/`outerWidth`/`outerHeight`** per tracked
+    window, read directly off the same window handle `_winReg` already holds, at CALL time rather
+    than captured once at open-time and cached — a technician can move or resize a window after
+    opening it, and re-reading the handle this registry already holds costs nothing extra. Every
+    property read is guarded independently, not the whole four-field build in one `try`/`catch`: a
+    handle that throws or returns something non-numeric on ONE field degrades ONLY that field to
+    `null`, never the other three, and never any OTHER tracked window's entry in the same
+    `registry()` call — a caller is better served by a partially-filled entry than by losing every
+    field over one throwing property, and better served still by every OTHER window's entry staying
+    intact regardless.
+
+    **`windowsOpen(url, opts)` now optionally accepts a position/size hint** —
+    `opts.left`/`opts.top`/`opts.width`/`opts.height`, chosen to match `window.open()`'s own
+    features-string vocabulary directly rather than a nested object, so there is exactly one
+    translation step, not two. Threaded into the standard third `window.open()` argument ONLY when a
+    genuinely NEW window is being opened — never on a reuse, even when the reusing call itself offers
+    hints: browsers generally only honor position/size features on a window's very first open, not a
+    later reuse/refocus of an already-named one, a real, honest, stated-plainly browser limitation
+    this PR does not paper over. Every hint is sanity-checked against THIS screen's own
+    `window.screen.availWidth`/`availHeight` before use — a deliberately generous 4x ceiling (not a
+    single screen's own extent), wide enough to admit a plausible second-or-third-monitor position
+    this PR has no actual multi-monitor geometry to verify (that is PR 17's permission-gated
+    `getScreenDetails()` job, explicitly out of scope here), tight enough to still catch the design
+    doc's own named "monitor unplugged since the position was saved" case — a wildly stale, negative-
+    beyond-reason, or just-plain-nonsensical value. A hint that fails is dropped ENTIRELY, never
+    partially applied (deliberately all-or-nothing: a window positioned by only half of a stale hint
+    is not obviously better than the browser's own default), degrading silently to a normal, unhinted
+    open; a bad hint, or an unreadable/non-positive `window.screen`, never throws.
+
+    **New `VW.windows.restoreLayout(entries)`** takes an array shaped like what `registry()` returns
+    (or a previously-saved snapshot of it — a workspace/checkpoint entry that has grown these same
+    fields now that `registry()` reports them) and, for each entry carrying a usable `name` AND
+    `url`, calls `windowsOpen()` — THE SAME open/reuse/toast/broadcast path above, not a second,
+    parallel copy of any of it — translating `screenX`/`screenY`/`outerWidth`/`outerHeight` into
+    `windowsOpen()`'s own `left`/`top`/`width`/`height` opts vocabulary. An entry missing a usable
+    name or url is SKIPPED, never thrown over — one bad row in a batch (a hand-edited file, a stale
+    snapshot referencing a page that no longer exists) must not abort every OTHER entry. Returns an
+    array, one result object per INPUT entry, in order: `{name, url, ok, reused}` — `ok` true when
+    `windowsOpen()` returned a real handle, `reused` reporting whether that entry's name was already
+    tracked before this call reached it. **MUST NEVER BE CALLED FROM A LOAD/INIT/`DOMContentLoaded`-
+    STYLE HANDLER ANYWHERE IN THIS CODEBASE** — restoring a technician's windows unprompted is
+    exactly the design doc's own "a web page cannot run code 'on app launch' unprompted, so 'restore
+    my layout' is a button, not silent magic" case. Nothing in this diff wires one — the button that
+    will eventually call it is a later PR's job, matching item 2/48/item-45's own precedent (PR 2/PR
+    3/PR 5) of shipping API-only, without a dedicated UI page, since B/A1/A2/F's UI consumers all
+    landed in later PRs too.
+
+    **New `engine/tests/test_windows_layout.py` + `tests/js/test_windows_layout_node.js`, 51 real
+    assertions** — 41 behavioral, run through the real production `VW.windows.registry()`/`open()`/
+    `restoreLayout()` code in a `vm.createContext()` sandbox extending item 45's own dual-sandbox
+    convention (not source-text matching): a real handle's bounds mutated between two `registry()`
+    calls proving the read is genuinely live, not cached at open-time; a throwing property on ONE
+    tracked window proven to degrade only that field, only that window, leaving a SECOND tracked
+    window's entry completely untouched in the SAME call; a sane hint proven to thread a real
+    `"left=..,top=..,width=..,height=.."` features string on a new open and NEVER on a reuse even
+    when the reusing call itself offers one; an implausible hint, a missing `window.screen`, a zero
+    `availWidth`, and a throwing `window.screen` accessor all proven to degrade gracefully — never a
+    throw, always a normal open; `restoreLayout` proven to call THROUGH the real `windowsOpen()` path
+    via the identical broadcast-channel envelope shape landing on a genuinely separate listener tab
+    (not a re-implemented parallel path), skipping 3 deliberately malformed entries mixed into a
+    5-entry batch without aborting the 2 well-formed ones, and correctly reporting `reused:true` on a
+    second restore of an already-open entry. Plus 10 static source-level checks proving `restoreLayout`
+    is never invoked anywhere in this diff, two independent ways: a comment-stripped full-source scan
+    of `shared.js` for any real call-site syntax (zero found beyond the function's own declaration),
+    cross-referenced against a `git diff`-scoped scan of this PR's own added lines against the
+    `origin/main` merge-base (best-effort — degrades to skipped rather than false-failing without
+    that history available), plus a belt-and-suspenders check that no
+    `addEventListener("DOMContentLoaded"/"load"/"pagehide", …)` handler body anywhere in `shared.js`
+    mentions `restoreLayout` at all, even inside a comment.
+
+    **Proven load-bearing by breaking 6 representative guarantees one at a time**, in the working
+    tree, and confirming the right assertions genuinely failed before reverting each and
+    re-confirming clean: caching bounds on first read instead of reading live (5 assertions failed);
+    collapsing the four-field per-property guard into one whole-entry `try`/`catch` (1 failed);
+    bypassing `_winBoundsSane`'s check entirely (5 failed); removing the `reused` guard so a reuse
+    threads bounds too (2 failed); disabling `restoreLayout`'s malformed-entry skip (7 failed); and
+    inserting a bogus `restoreLayout` mention inside `popoutControl()`'s real
+    `DOMContentLoaded`-wired `mount()` function (1 failed, caught by the belt-and-suspenders
+    load-handler check specifically). All reverted afterward, confirmed a clean 51/0.
+
+    Item 45's own `engine/tests/js/test_windows_node.js` updated, not broken around: its "registry
+    entry exposes only name/url in this PR (no layout fields yet — that is PR 6)" assertion is now
+    the assertion that those fields exist and read `null` in that test's own mock-handle harness
+    (which sets no bounds properties of its own — the real live-bounds behavior is what the new
+    dedicated suite above proves against handles that DO set them). Full `verify_all.py` run
+    specifically to catch item 45's own named cross-PR test-coupling hazard (`test_a2_popout.py`
+    slicing `popoutControl()`'s body up to the next `"var VW = {"` marker) — avoided by design this
+    time by inserting every new function immediately after `windowsOpen()`, before item 45's own
+    `popoutControl()` section begins, rather than between it and the `VW` assembly; confirmed
+    `test_a2_popout.py` unaffected at a clean 62/0 both before and after this PR's changes. One
+    unrelated, pre-existing flake observed and NOT this PR's regression: `test_hardening.py`'s
+    cross-origin-POST check failed once inside a full `verify_all.py` run, then passed clean both
+    standalone and on an immediate full-suite re-run — the same fixed-port test-isolation flakiness
+    class `test_ingest_routes.py`'s own documented port-8894 hazard already names, not a real
+    behavioral regression. `rps_lint.py` clean (`shared.js` is ES5-required; two prose word choices —
+    "let alone" and an "…" ellipsis inside new comments — read as false-positive ES6 `let`/spread-rest
+    hits and were reworded, not suppressed, the same near-miss category item 48's own entry already
+    named). Design doc's own `VW.windows` item-4 header comment updated from "PR 5 — in progress:
+    open/reuse/toast core; layout capture/restore is PR 6" to "PR 5 + PR 6 landed" — nothing else in
+    that spec file touched, matching this PR's own scope note.
+
+    **Deliberately out of scope, matching this PR's own plan-doc scope, not a shortfall:** any
+    dedicated UI page or button calling `restoreLayout()` (PR 17 and/or a later PR is the real
+    consumer, the same API-only precedent item 2/48/45 already set); the feature-detected,
+    permission-gated `getScreenDetails()` multi-monitor placement API (PR 17's own job, explicitly
+    named in the plan as depending on this PR); and the actual on-screen placement behavior in a real
+    browser, on real — possibly multi-monitor — hardware. Node has no `window.open` to be right or
+    wrong about whether position/size features are genuinely honored on a new window and genuinely
+    ignored on a reuse, or about whether the "monitor unplugged" fallback actually lands somewhere a
+    technician can find; both stated plainly as manual, real-hardware-only checks in the PR body, the
+    same honest framing this initiative has used for every other real-browser-only behavior since PR
+    5. See `CHANGELOG.md` `[1.67.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

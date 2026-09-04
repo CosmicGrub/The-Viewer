@@ -615,7 +615,7 @@
   }
 
   /* v1.66.0: delete(id) -- the one CRUD operation VW.workspace shipped without originally
-     (create/list/get/touch only). Added for F -- save & reopen named workspaces (PR 16 of 18,
+     (create/list/get/touch only). Added for F -- save & reopen named workspaces (PR 16 of 25,
      stage 5): a list UI that only ever grows is a real usability problem for a page a technician
      returns to across a whole career, not a hypothetical one. Same read-all/mutate/write-back shape
      as touch() above (a boolean return that tells a caller a stale id from a real removal apart

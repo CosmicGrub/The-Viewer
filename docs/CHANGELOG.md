@@ -12,6 +12,73 @@ every change going forward.
 
 ---
 
+## [1.64.0] — 2026-09-04 — B: curated workspace launcher (multi-window support, PR 15/25)
+
+Stage 5, PR 15 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`. Two curated launch
+sets, each one click: **"Launch Work Order"** on `jobcard.html` opens `procedure.html` + `torque.html`
++ `part.html`; **"Launch Solve It"** on `solve.html` opens `troubleshoot.html` + `procedure.html` +
+`locate.html`. Both real `<button>`s, both built the same way — `VW.workspace.create()` once, then
+`VW.windows.open()` per page — per the plan's own order ("persist a real workspace record before
+opening anything").
+
+**Current search threaded onto every launched URL, read at CLICK time.** Both pages already key their
+own search on `#q`; the launch functions read `$('#q').value` fresh inside the click handler (never a
+value captured at page load) and append it as `?q=...` to all 3 URLs — the same reasoning
+`index.html`'s `threadQuery()` (A1) already established for every Tools-menu link: a technician who
+retyped the search after the page loaded must have that carried into every window this opens, not a
+stale value.
+
+**`shared.js`: `VW.popoutWindowName()`, a one-line export, not a new naming rule.** A1/A2's own
+window-naming transform (`_popoutWindowName()`, PR 14) was private to `shared.js`'s closure —
+sufficient for `popoutControl()`, which only ever names the CURRENT page, but B opens pages other than
+whichever one it's running on, so it needed the same transform reachable directly. Exported as
+`VW.popoutWindowName` — the exact same function, not a wrapper — so a page already open via A1's
+home-nav ↗, A2's own pop-out control, or a previous B launch is REUSED, never duplicated: `jobcard.html`
+clicking "Launch Work Order" a second time re-navigates and refocuses the same 3 windows instead of
+stacking up 3 more. Neither `jobcard.html` nor `solve.html` re-implements any fragment of the naming
+regex — both call `VW.windows.open(url, {name: VW.popoutWindowName(url)})`, byte-for-byte identical
+text in both files.
+
+**`VW.capabilities.tier` guard, written forward-compatible per the design doc's item 8 "Addition this
+revision".** `VW.capabilities` is Stage 6 (PR 19-25) and does not exist on `main` yet, and PR 15's own
+"Depends on" list names no Stage 6 PR — so this is feature-detected end to end rather than blocked on:
+`var caps=window.VW && VW.capabilities; var tier=(caps && typeof caps.tier==='string') ? caps.tier :
+null;` reads as "no tier info" today and does nothing; the day `VW.capabilities` ships for real with a
+`tier` field, `"lite"`/`"legacy"` starts prompting *"Opening 3 windows at once can slow this device
+down. Continue?"* before any window opens, with zero further code change needed here. Comments at both
+call sites point a future Stage 6 PR at exactly this spot.
+
+**Tests:** new `engine/tests/test_b_workspace_launcher.py`, 52 source-text/structural assertions
+(`node --check` syntax coverage included, skips cleanly without node) — proven load-bearing by
+reverting 6 representative fixes in turn (the `shared.js` export, one page's item-order, `workspace.
+create()`'s ordering relative to the open loop, the capabilities guard's short-circuiting, one page's
+button id, a simulated re-implemented naming regex), confirming the relevant assertion(s) genuinely
+failed, then restoring and re-confirming a clean 52/0. `rps_lint.py` clean — `solve.html` and
+`shared.js` are ES5-required; `jobcard.html` is modern-by-design (its own pre-existing, unrelated
+backtick pair from `[1.31.0]`'s comment still reads as 2 "template literal" hits there, reported only,
+never gating).
+
+**Popup-blocker behavior — tested for real, not assumed, with an honest limitation to report.** Neither
+this session's automated Browser-pane preview tool nor a plain, code-independent 3-`window.open()` test
+page could demonstrate genuine multi-window fan-out: every `window.open()` call in that specific
+CDP-driven preview sandbox returns `null` (correctly read by `VW.windows.open()`'s already-tested
+blocked-popup path — no crash, no stuck state), and the pane's single visible tab is separately
+redirected to only the LAST attempted URL by the harness itself, confirmed identical with a page
+containing nothing but 3 raw `window.open()` calls unrelated to this PR's own code — i.e. a property of
+that sandboxed preview tool, not a finding about real desktop Chrome/Firefox. What WAS confirmed live
+against the running server: clicking either button correctly threads the live `#q` value onto the final
+URL (`/part?q=alternator`, `/locate?q=brake pad`), in the right order, with the first two destinations
+in each set attempted (per source-order) but not independently observable as separate windows in this
+harness. Whether a real desktop browser genuinely opens all 3 as separate windows within one
+synchronous click handler, and whether a second click on an already-open set reuses those windows
+rather than stacking duplicates, is called out here as a genuine, unverified manual check — the same
+honest treatment this initiative already gives A1/A2's own window-reuse behavior (real multi-monitor
+placement, C/PR17, is not yet built, but is planned to get the identical honest treatment when it is).
+
+**Deliberately out of scope, matching the plan's own PR 15 scope, not a shortfall:** these workspaces
+are launched fresh every time and never saved/listed/reopened later — that is PR 16/F's whole job, and
+it depends on B (this PR) existing first to have something worth naming.
+
 ## [1.63.0] — 2026-09-04 — A2: per-page pop-out control (multi-window support, PR 14/25)
 
 Stage 4, PR 14 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`. A1 ([1.55.0], PR 12)

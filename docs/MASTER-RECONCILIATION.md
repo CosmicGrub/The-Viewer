@@ -67,7 +67,46 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.63.0, shipped 2026-09-04** (A2, per-page pop-out control — stage 4 / PR 14
+**True current state: v1.64.0, shipped 2026-09-04** (B, curated workspace launcher — stage 5 / PR 15
+of the multi-window/multi-tab initiative. Two real, one-click launch sets: "Launch Work Order" on
+`jobcard.html` opens `procedure.html` + `torque.html` + `part.html`; "Launch Solve It" on `solve.html`
+opens `troubleshoot.html` + `procedure.html` + `locate.html`. Both follow the plan's own required
+order — one `VW.workspace.create(name, items, "template")` call persists a real workspace record
+*before* anything opens, then each page opens via `VW.windows.open()` — and both read `#q`'s CURRENT
+value inside the click handler (never a page-load-time value), threading it onto every launched URL
+as `?q=...`, the same convention item 38/A1's `threadQuery()` established. `shared.js` gained one new
+export, not a new naming rule: item 46's `_popoutWindowName()` was private to its closure, sufficient
+for `popoutControl()` (which only ever names the CURRENT page), but B opens pages other than whichever
+one it's running on and needed the same transform reachable directly — exported as
+`VW.popoutWindowName`, the exact same function, so a page already open via A1's home-nav ↗, A2's own
+pop-out control, or a previous B launch is REUSED, never duplicated; neither `jobcard.html` nor
+`solve.html` re-implements any fragment of the naming regex, both call `VW.windows.open(url,
+{name: VW.popoutWindowName(url)})`, byte-for-byte identical text in both files. The design doc's
+item-8 "Addition this revision" — a `VW.capabilities.tier` guard before opening several windows at
+once — is written forward-compatible, not built out: `VW.capabilities` is Stage 6 (PR 19-25) and does
+not exist on `main`, and PR 15's own "Depends on" list names no Stage 6 PR, so both launch functions
+feature-detect it end to end (`window.VW && VW.capabilities`, then `caps && typeof
+caps.tier==='string'`) — reads as "no tier info" today and does nothing, starts warning on
+`lite`/`legacy` the day a real `VW.capabilities.tier` ships, with zero further code change needed
+here. New `engine/tests/test_b_workspace_launcher.py`, 52 assertions, proven load-bearing by
+reverting 6 representative fixes in turn (the `shared.js` export, one page's item order,
+`workspace.create()`'s ordering relative to the open loop, the capabilities guard's short-circuiting,
+one page's button id, a simulated re-implemented naming regex) and confirming the relevant
+assertion(s) genuinely failed before restoring. `rps_lint.py` clean (`solve.html`/`shared.js` are
+ES5-required; `jobcard.html` modern-by-design). Popup-blocker behavior tested for real, with an
+honest limitation found and reported rather than assumed away: this session's automated Browser-pane
+preview tool cannot demonstrate genuine multi-window fan-out at all — every `window.open()` call
+there returns `null`, and the pane's one visible tab is separately redirected to only the LAST
+attempted URL by the harness itself, confirmed identical with a code-independent page containing
+nothing but 3 raw `window.open()` calls — a property of that sandboxed preview tool, not a finding
+about real desktop Chrome/Firefox. What WAS confirmed live against a running server: both buttons
+correctly thread the live `#q` value onto the final URL (`/part?q=alternator`, `/locate?q=brake
+pad`). Whether a real desktop browser opens all 3 as separate windows within one synchronous click,
+and whether a second click reuses them, is called out as a genuine unverified manual check — same
+honest treatment item 46/A1/A2 already give their own window-reuse behavior. Deliberately out of
+scope, matching the plan's own PR 15 scope: these workspaces launch fresh every time and are never
+saved/listed/reopened — that's PR 16/F's job, which depends on B existing first. See §6 item 47).
+Immediately prior: **v1.63.0, shipped 2026-09-04** (A2, per-page pop-out control — stage 4 / PR 14
 of the multi-window/multi-tab initiative, the mirror image of item 38's A1: a page a technician is
 already on now gets its own control to pop itself out into a second window, instead of navigating
 back to the home nav first. New `VW.popoutControl()` in `shared.js`, called once, zero-config, by a
@@ -2365,6 +2404,63 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     end-to-end proof — pop out `/torque` from its own new control, then pop out `/torque` again from
     the home nav's ↗, confirm one window rather than two — is a manual check, owed and called out as
     manual rather than implied automated. See `CHANGELOG.md` `[1.63.0]`.
+
+47. **`[1.64.0]` — B: curated workspace launcher (multi-window support, PR 15/25, stage 5).** Two
+    real, one-click launch sets, each a real `<button>`: "Launch Work Order" on `jobcard.html` opens
+    `procedure.html` + `torque.html` + `part.html`; "Launch Solve It" on `solve.html` opens
+    `troubleshoot.html` + `procedure.html` + `locate.html`.
+    **Both follow the plan's own required order.** One `VW.workspace.create(name, items, "template")`
+    call persists a real workspace record *before* anything opens, then each page opens via
+    `VW.windows.open()`. Both read `#q`'s CURRENT value inside the click handler — never a
+    page-load-time value — and thread it onto every launched URL as `?q=...`, the same convention
+    item 38/`index.html`'s `threadQuery()` (A1) established for every Tools-menu link: a technician
+    who retyped the search after page load must have that carried into every window this opens.
+    **`shared.js` gained one new export, not a new naming rule.** Item 46's `_popoutWindowName()` was
+    private to its closure, sufficient for `popoutControl()` (which only ever names the CURRENT
+    page), but B opens pages other than whichever one it's running on and needed the same transform
+    reachable directly — exported as `VW.popoutWindowName`, the exact same function, not a wrapper,
+    so a page already open via A1's home-nav ↗, A2's own pop-out control, or a previous B launch is
+    REUSED, never duplicated. Neither `jobcard.html` nor `solve.html` re-implements any fragment of
+    the naming regex — both call `VW.windows.open(url, {name: VW.popoutWindowName(url)})`,
+    byte-for-byte identical text in both files, checked by source-text comparison the same way
+    `test_a2_popout.py` already compared A1/A2's own naming transforms.
+    **The design doc's item-8 "Addition this revision" — a `VW.capabilities.tier` guard before
+    opening several windows at once — is written forward-compatible, not built out.**
+    `VW.capabilities` is Stage 6 (PR 19-25) and does not exist on `main`, and PR 15's own "Depends on"
+    list names no Stage 6 PR, so both launch functions feature-detect it end to end
+    (`window.VW && VW.capabilities`, then `caps && typeof caps.tier==='string'`) — reads as "no tier
+    info" today and does nothing, starts warning on `lite`/`legacy` the day a real
+    `VW.capabilities.tier` ships, with zero further code change needed here; comments at both call
+    sites point a future Stage 6 PR at exactly this spot.
+    **New `engine/tests/test_b_workspace_launcher.py`, 52 source-text/structural assertions**
+    (`node --check` syntax coverage included, skips cleanly without node), proven load-bearing by
+    reverting 6 representative fixes one at a time — the `shared.js` export, one page's item order,
+    `workspace.create()`'s ordering relative to the open loop, the capabilities guard's
+    short-circuiting, one page's button id, a simulated re-implemented naming regex — confirming the
+    relevant assertion(s) genuinely failed in each case, then restoring and re-confirming a clean
+    52/0. `rps_lint.py` clean (`solve.html`/`shared.js` are ES5-required; `jobcard.html` is
+    modern-by-design — its own pre-existing, unrelated backtick pair from item 18/`[1.31.0]`'s
+    comment still reads as 2 "template literal" hits there, reported only, never gating).
+    **Popup-blocker behavior tested for real, with an honest limitation found and reported rather
+    than assumed away.** This session's automated Browser-pane preview tool cannot demonstrate
+    genuine multi-window fan-out at all: every `window.open()` call there returns `null` (the
+    already-tested blocked-popup path in `VW.windows.open()` handles that cleanly — no crash, no
+    stuck state), and the pane's one visible tab is separately redirected to only the LAST attempted
+    URL by the harness itself. Confirmed this is a property of the sandboxed preview tool, not of
+    this PR's code: a code-independent page containing nothing but 3 raw `window.open()` calls,
+    unrelated to `jobcard.html`/`solve.html`, showed the identical collapse-to-one-tab,
+    last-URL-wins pattern. What WAS confirmed live against a running server: clicking either button
+    correctly threads the live `#q` value onto the final URL (`/part?q=alternator`,
+    `/locate?q=brake pad`), in the right order, with the first two destinations in each set attempted
+    per source order. Whether a real desktop browser genuinely opens all 3 as separate windows within
+    one synchronous click handler, and whether a second click on an already-open set reuses those
+    windows rather than stacking duplicates, is called out here as a genuine, unverified manual check
+    — the same honest treatment item 46/A1/A2 already give their own window-reuse behavior (C/PR17's
+    real multi-monitor placement, not yet built, is planned to get the identical treatment).
+    **Deliberately out of scope, matching the plan's own PR 15 scope, not a shortfall:** these
+    workspaces are launched fresh every time and never saved/listed/reopened later — that is PR
+    16/F's whole job, and it depends on B (this PR) existing first to have something worth naming.
+    See `CHANGELOG.md` `[1.64.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

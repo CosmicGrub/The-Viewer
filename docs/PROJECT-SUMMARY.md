@@ -1649,7 +1649,7 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     UI page.
     **New `engine/tests/test_windows_layout.py` + `tests/js/test_windows_layout_node.js`, 51 real
     assertions** (41 behavioral, through the real production code in a `vm.createContext()` sandbox
-    extending item 45's own dual-sandbox convention, + 10 static source-level checks) — a real
+    extending item 36's own dual-sandbox convention, + 10 static source-level checks) — a real
     handle's bounds mutated between two `registry()` calls proving the read is genuinely live; a
     throwing property on one tracked window proven to degrade only that field, only that window,
     leaving a second tracked window's entry untouched in the same call; a sane hint proven to thread a
@@ -1668,7 +1668,7 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     independence, the implausible-hint drop, the reuse-never-threads-bounds rule, the malformed-entry
     skip, and the load-handler-never-calls-it check) and confirming the right assertions genuinely
     failed each time (5, 1, 5, 2, 7, 1 respectively), then reverting and re-confirming a clean 51/0.
-    Item 45's own `test_windows_node.js` updated, not broken around: its "no layout fields yet — that
+    Item 36's own `test_windows_node.js` updated, not broken around: its "no layout fields yet — that
     is PR 6" assertion is now the assertion that those fields exist (`null` in that test's own
     mock-handle harness, which sets no bounds of its own). `rps_lint.py` clean (`shared.js` is
     ES5-required; two prose word choices read as false-positive ES6 `let`/spread-rest hits and were

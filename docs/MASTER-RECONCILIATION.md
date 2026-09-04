@@ -89,12 +89,12 @@ once per well-formed entry, skipping a malformed one without aborting the batch,
 `DOMContentLoaded` handler anywhere in this codebase, matching the design doc's own "restore is a
 button, not silent magic" stance — nothing in this diff wires one, an API-only PR matching PR 2/3/5's
 own precedent. New `test_windows_layout.py` + `test_windows_layout_node.js`, **51 real assertions** (41
-behavioral through the real production code, extending item 45's dual-sandbox convention, + 10 static
+behavioral through the real production code, extending item 37's dual-sandbox convention, + 10 static
 checks proving `restoreLayout` is never auto-invoked anywhere in the diff), proven load-bearing by
 breaking 6 representative guarantees one at a time and confirming the right assertions genuinely
-failed (5, 1, 5, 2, 7, 1), then reverting to a clean 51/0; item 45's own `test_windows_node.js` updated
+failed (5, 1, 5, 2, 7, 1), then reverting to a clean 51/0; item 37's own `test_windows_node.js` updated
 for the new registry shape rather than broken around. Full `verify_all.py` run specifically against
-item 45's own named `test_a2_popout.py` cross-PR test-coupling hazard — avoided by construction this
+item 46's own named `test_a2_popout.py` cross-PR test-coupling hazard — avoided by construction this
 time (every new function landed before `popoutControl()`'s own section, not between it and the `VW`
 assembly) and confirmed unaffected at a clean 62/0; one unrelated, pre-existing `test_hardening.py`
 port-contention flake observed inside one full-suite run and confirmed NOT a regression (clean
@@ -2777,13 +2777,13 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     STYLE HANDLER ANYWHERE IN THIS CODEBASE** — restoring a technician's windows unprompted is
     exactly the design doc's own "a web page cannot run code 'on app launch' unprompted, so 'restore
     my layout' is a button, not silent magic" case. Nothing in this diff wires one — the button that
-    will eventually call it is a later PR's job, matching item 2/48/item-45's own precedent (PR 2/PR
+    will eventually call it is a later PR's job, matching item 36/48/37's own precedent (PR 2/PR
     3/PR 5) of shipping API-only, without a dedicated UI page, since B/A1/A2/F's UI consumers all
     landed in later PRs too.
 
     **New `engine/tests/test_windows_layout.py` + `tests/js/test_windows_layout_node.js`, 51 real
     assertions** — 41 behavioral, run through the real production `VW.windows.registry()`/`open()`/
-    `restoreLayout()` code in a `vm.createContext()` sandbox extending item 45's own dual-sandbox
+    `restoreLayout()` code in a `vm.createContext()` sandbox extending item 37's own dual-sandbox
     convention (not source-text matching): a real handle's bounds mutated between two `registry()`
     calls proving the read is genuinely live, not cached at open-time; a throwing property on ONE
     tracked window proven to degrade only that field, only that window, leaving a SECOND tracked
@@ -2814,14 +2814,14 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     `DOMContentLoaded`-wired `mount()` function (1 failed, caught by the belt-and-suspenders
     load-handler check specifically). All reverted afterward, confirmed a clean 51/0.
 
-    Item 45's own `engine/tests/js/test_windows_node.js` updated, not broken around: its "registry
+    Item 37's own `engine/tests/js/test_windows_node.js` updated, not broken around: its "registry
     entry exposes only name/url in this PR (no layout fields yet — that is PR 6)" assertion is now
     the assertion that those fields exist and read `null` in that test's own mock-handle harness
     (which sets no bounds properties of its own — the real live-bounds behavior is what the new
     dedicated suite above proves against handles that DO set them). Full `verify_all.py` run
-    specifically to catch item 45's own named cross-PR test-coupling hazard (`test_a2_popout.py`
+    specifically to catch item 46's own named cross-PR test-coupling hazard (`test_a2_popout.py`
     slicing `popoutControl()`'s body up to the next `"var VW = {"` marker) — avoided by design this
-    time by inserting every new function immediately after `windowsOpen()`, before item 45's own
+    time by inserting every new function immediately after `windowsOpen()`, before item 46's own
     `popoutControl()` section begins, rather than between it and the `VW` assembly; confirmed
     `test_a2_popout.py` unaffected at a clean 62/0 both before and after this PR's changes. One
     unrelated, pre-existing flake observed and NOT this PR's regression: `test_hardening.py`'s
@@ -2837,7 +2837,7 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
 
     **Deliberately out of scope, matching this PR's own plan-doc scope, not a shortfall:** any
     dedicated UI page or button calling `restoreLayout()` (PR 17 and/or a later PR is the real
-    consumer, the same API-only precedent item 2/48/45 already set); the feature-detected,
+    consumer, the same API-only precedent item 36/48/37 already set); the feature-detected,
     permission-gated `getScreenDetails()` multi-monitor placement API (PR 17's own job, explicitly
     named in the plan as depending on this PR); and the actual on-screen placement behavior in a real
     browser, on real — possibly multi-monitor — hardware. Node has no `window.open` to be right or

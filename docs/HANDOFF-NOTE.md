@@ -4,6 +4,51 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-eighth pass):** stage 5, PR 16 of the multi-window/
+> multi-tab initiative — **F, save & reopen named workspaces + the auto-checkpoint**, the UI over
+> everything PR 2/3/15 built. New `engine/ui/workspaces.html` (`/workspaces`): list every saved
+> workspace (most-recently-opened first); **save** turns THIS TAB's own `VW.windows.registry()` into
+> `{page, params}` items by hand-parsing each open window's url, names it via a plain
+> `window.prompt()` (matching `index.html`'s existing pattern), calls
+> `VW.workspace.create(name, items, "manual")`; **reopen** calls `VW.workspace.touch(id)` then opens
+> every item via the SAME `VW.windows.open(url, {name: VW.popoutWindowName(url)})` pairing A1/A2/B
+> all already use, never a re-implemented naming copy; **export** offers a real share-link copy
+> (`navigator.clipboard`, with a visible fallback field) and a real `.json` download (the same
+> `Blob`+`URL.createObjectURL`+`<a download>` pattern `circuitlab.html` already established);
+> **import** accepts a pasted share link (full URL, `?ws=...` fragment, or bare `ws=...`, all three
+> normalized) or an uploaded `.json`, both catching PR 3's real thrown/rejected `Error` rather than
+> letting it propagate. **Gap filled: `VW.workspace.delete(id)`** — the one CRUD op PR 2 shipped
+> without, added because a list UI that only ever grows is a real problem for a page a technician
+> returns to across a career; same shape as `touch()`, wired behind a real `confirm()` on the page.
+> **The auto-checkpoint (design doc item 9's "Addition this revision") built for real:** a single
+> `viewer_last_session` slot (genuinely distinct from `viewer_workspaces`), silently holding a
+> snapshot of a tab's `VW.windows.registry()`, overwritten every time, never surfaced by
+> `VW.workspace.list()`. Written on `pagehide` **and** a 2-minute `setInterval` safety net (the
+> design doc's own named risk: a crash mid-shift fires no unload event at all), wired at the
+> `shared.js` TOP LEVEL so it reflects windows opened from ANY feature — made safe by skipping the
+> write whenever the writing tab's own registry is empty, so an idle tab can never clobber a real
+> checkpoint a different tab just wrote. `workspaces.html` is the one place that ever offers to
+> restore it, strictly via a real button click — never automatic — "a checkpoint exists" is the
+> whole heuristic, the design doc's own sanctioned baseline. **Handover integration**: a real,
+> findable "Hand off your open workspace" section on `handover.html` linking to `/workspaces`,
+> showing LIVE `VW.workspace.list().length` data, not a static blurb. New
+> `test_f_workspace_reopen.py` + `test_f_workspace_reopen_node.js`, **40 checks** — source-level
+> call-site proof for every required function plus the naming-regex reuse check, and real Node
+> round trips for `workspaceDelete()` (create/delete/confirm-gone, a refused-write case, the
+> cross-tab delete notification over a real `BroadcastChannel`) and the checkpoint (a sandbox with a
+> REAL `addEventListener`/`setInterval` that captures and fires shared.js's own module-load-time
+> handlers directly, rather than reimplementing what they do) — proven load-bearing by breaking 5
+> representative guarantees one at a time and confirming the right assertions failed (2, 3, 3, 6, 1),
+> then restoring a clean 40/0. **A real regression caught before shipping:** the checkpoint block was
+> first inserted between `popoutControl()` and the final `VW` object assembly, which broke
+> `test_a2_popout.py`'s own body-slicing assumption (it scans from `popoutControl`'s declaration to
+> the NEXT `"var VW = {"`, so anything inserted between them gets swallowed into what it inspects) —
+> its "exactly one `VW.windows.open(` call" assertion started seeing 2 because of this PR's own
+> comment prose. Caught by running the FULL `verify_all.py`, not just the new suite; fixed by
+> reordering `shared.js` so the checkpoint block sits before `popoutControl()` again. Shipped as
+> `[1.66.0]`. `main` is at `[1.65.0]` as of this pass.
+>
+
 > **Reconciliation note (2026-09-04, thirty-seventh pass):** stage 2, PR 3 of the multi-window/
 > multi-tab initiative — **`VW.workspace` export/import**, landed OUT OF the plan doc's own stage
 > order: it belongs right after PR 2 (CRUD) but was skipped over during this session's earlier

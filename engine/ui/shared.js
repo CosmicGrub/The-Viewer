@@ -614,6 +614,27 @@
     return true;
   }
 
+  /* v1.66.0: delete(id) -- the one CRUD operation VW.workspace shipped without originally
+     (create/list/get/touch only). Added for F -- save & reopen named workspaces (PR 16 of 25,
+     stage 5): a list UI that only ever grows is a real usability problem for a page a technician
+     returns to across a whole career, not a hypothetical one. Same read-all/mutate/write-back shape
+     as touch() above (a boolean return that tells a caller a stale id from a real removal apart
+     from a write storage refused), same "notify only after the write has already committed"
+     ordering as every other mutating call in this section. */
+  function workspaceDelete(id) {
+    if (id === null || id === undefined) return false;
+    var want = String(id);
+    var all = _wsRead();
+    var hit = null, kept = [];
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === want) { hit = all[i]; } else { kept.push(all[i]); }
+    }
+    if (!hit) return false;
+    if (!_wsWrite(kept)) return false;
+    _wsNotify("delete", hit);
+    return true;
+  }
+
   /* v1.65.0: VW.workspace export/import (PR 3 of 18, stage 2 -- inserted after PR 15/B/16-F's
      launcher work because PR 16 (F, save & reopen named workspaces) depends on this landing first;
      see the plan doc's own note on the reordering). The point is handing one saved workspace to a
@@ -939,6 +960,107 @@
     return true;
   }
 
+  /* v1.66.0: the auto-checkpoint -- design doc item 9's "Addition this revision" (F -- save & reopen
+     named workspaces, PR 16 of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage
+     5). Distinct from a deliberately named/saved VW.workspace record on every axis that matters: ONE
+     well-known slot under its OWN storage key, never appended to, always overwritten; silent --
+     nothing here ever prompts a technician the way workspaceCreate()'s UI does; and structurally
+     invisible to workspaceList(), which only ever reads _WS_KEY above and never this one, so a
+     checkpoint entry can never leak into the named-workspaces list by accident the way it could if
+     this were merely a differently-flagged row on the SAME key.
+
+     WHAT IT HOLDS: {at, windows}, where windows is exactly this tab's own VW.windows.registry() at
+     save time -- the same {name, url} pairs, no reshaping into {page, params}, since restoring only
+     ever needs to feed them straight back into VW.windows.open(w.url, {name: w.name}), the same
+     function the registry itself was built from in the first place.
+
+     WHY THE SAVE IS WIRED HERE, AT THE SHARED.JS TOP LEVEL, RATHER THAN ONLY FROM workspaces.html:
+     shared.js already loads first on every page this app adopts it on (A1/A2/B/D/F all ride that
+     same fact), so wiring the save here -- once -- is what lets the checkpoint reflect windows
+     opened from ANY feature (a jobcard.html launch, an A2 pop-out, an A1 home-nav link), not only
+     ones opened while workspaces.html itself happened to be the active tab. workspaces.html below is
+     still the one place that ever OFFERS to restore from it -- see its own script for why that split
+     (write everywhere, offer in one place) is deliberate.
+
+     WHY THE WRITE ONLY HAPPENS WHEN THIS TAB'S REGISTRY IS NON-EMPTY: VW.windows.registry() is per
+     TAB, and most tabs open on this origin (a technician reading /part or /procedure directly,
+     never popping anything out from it) have an empty registry for their entire lifetime. Saving
+     unconditionally would make the LAST tab to fire this save win regardless of what it actually had
+     open -- and that tab is overwhelmingly likely to be one of those empty-registry ones, silently
+     erasing a real, useful checkpoint moments after a different tab wrote it. Skipping empty writes
+     is what makes "wire it in shared.js so every feature benefits" safe rather than actively harmful.
+     The residual case -- two different tabs BOTH genuinely having windows open at save time -- is
+     still last-write-wins with no merge, the same conflict resolution VW.bench above already accepts
+     for the identical reason, and a real but rare scenario next to the common one this guard fixes.
+
+     WHY pagehide, NOT beforeunload/unload: this codebase already uses both elsewhere with no single
+     established preference to follow (readaloud.js: beforeunload; scan.html: pagehide), so the
+     design doc's own instruction ("pick the most reliable one and say why in a comment") applies
+     directly. pagehide fires reliably on every real navigation-away AND on back-forward-cache
+     eviction, where beforeunload is increasingly throttled or ignored by modern browsers
+     specifically to make bfcache viable, and unload is deprecated outright in the same browsers for
+     the same reason. This write is a synchronous localStorage call with no need for beforeunload's
+     ability to prompt the user before leaving, so none of beforeunload's own reasons to exist apply.
+
+     WHY ALSO A setInterval, belt-and-suspenders: the design doc names the real risk this exists for
+     directly -- "a browser or OS crash mid-shift" fires NO unload-family event at all, since there is
+     no orderly unload, only an ungraceful stop. The interval is the only path that can still have
+     written a recent checkpoint when that happens. 2 minutes is deliberately not shorter: this is a
+     safety net against a rare event, not a live-sync feature, and the non-empty-registry guard above
+     already makes each tick cheap (one localStorage read, at most one conditional write) regardless
+     of interval length -- but a several-times-a-minute tick, on every open tab, multiplied across
+     however many tabs a technician has open across a shift, is exactly the kind of small-cost-
+     multiplied-by-everything this app's own "long-term durability" design priority argues against
+     for no benefit a several-minute interval does not already provide just as well. */
+  var _CHECKPOINT_KEY = "viewer_last_session";
+
+  /* Defensive read, same shape-checking convention as _wsRead()/benchGet() above: never throws,
+     returns null (not a throw, not a default object) for anything that is missing, unparsable, or
+     does not look like a real checkpoint -- a caller treats null exactly like "nothing to offer". */
+  function _checkpointRead() {
+    var raw = null;
+    try { raw = window.localStorage.getItem(_CHECKPOINT_KEY); } catch (e) { return null; }
+    if (!raw) return null;
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { return null; }
+    if (!parsed || typeof parsed !== "object") return null;
+    if (Object.prototype.toString.call(parsed.windows) !== "[object Array]") return null;
+    return parsed;
+  }
+
+  function _checkpointSave() {
+    try {
+      var wins = windowsRegistry();
+      if (!wins.length) return;    // nothing open in THIS tab -- never clobber a real checkpoint
+                                    // another tab wrote with an empty one of our own (see above).
+      window.localStorage.setItem(_CHECKPOINT_KEY, JSON.stringify({ at: Date.now(), windows: wins }));
+    } catch (e) { /* best-effort safety net -- never break the host page over a checkpoint write */ }
+  }
+
+  try {
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("pagehide", _checkpointSave);
+      setInterval(_checkpointSave, 2 * 60 * 1000);
+    }
+  } catch (e) { /* never break the host page over checkpoint wiring */ }
+
+  /* get() -> {at, windows}, or null when no checkpoint is stored (or the stored value does not look
+     like one). Read-only, matching VW.workspace's own list()/get() convention: never writes, never
+     notifies -- there is no cross-tab UI reacting live to a checkpoint, unlike VW.workspace/VW.bench
+     above, so there is nothing for a notification to usefully trigger. */
+  function checkpointGet() { return _checkpointRead(); }
+
+  /* clear() -> true when a stored checkpoint was actually removed, false when there was nothing to
+     remove or storage refused the write. Exposed for symmetry with workspaceDelete() above and so a
+     restore flow can retire a checkpoint it just acted on -- callers choose whether to call this;
+     nothing in this file does automatically, since the entire point of this slot is that it keeps
+     itself current on its own without anything downstream having to manage its lifecycle. */
+  function checkpointClear() {
+    var had = _checkpointRead() !== null;
+    try { window.localStorage.removeItem(_CHECKPOINT_KEY); } catch (e) { return false; }
+    return had;
+  }
+
   /* v1.63.0: VW.popoutControl -- A2, per-page pop-out control (multi-window support, PR 14 of
      docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 4). A1 (index.html's home-nav
      ↗ buttons, v1.55.0) pops a SECTION out from the home page; A2 is the mirror image -- a page a
@@ -1056,11 +1178,12 @@
              trapFocus: trapFocus, popoutControl: popoutControl, popoutWindowName: _popoutWindowName,
              channel: { publish: channelPublish, subscribe: channelSubscribe },
              workspace: { create: workspaceCreate, list: workspaceList,
-                          get: workspaceGet, touch: workspaceTouch,
+                          get: workspaceGet, touch: workspaceTouch, delete: workspaceDelete,
                           exportUrl: workspaceExportUrl, exportFile: workspaceExportFile,
                           importUrl: workspaceImportUrl, importFile: workspaceImportFile },
              windows: { open: windowsOpen, registry: windowsRegistry },
-             bench: { get: benchGet, put: benchPut } };
+             bench: { get: benchGet, put: benchPut },
+             checkpoint: { get: checkpointGet, clear: checkpointClear } };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

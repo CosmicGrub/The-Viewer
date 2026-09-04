@@ -51,6 +51,11 @@ MODERN_BY_DESIGN = {
     # core at-the-vehicle mechanic tool) -- ES5-clean today regardless (var/function throughout,
     # confirmed by this same gate), but grouped here for consistency with its closest siblings.
     "handover.html",
+    # v1.66.0 (F -- save & reopen named workspaces, multi-window PR 16 of 25, stage 5): /workspaces
+    # is the same class as bench.html just above -- a localStorage-driven admin/management tool
+    # (list/save/reopen/export/import saved VW.workspace records), not a core at-the-vehicle mechanic
+    # tool that must run on the ES5/legacy build.
+    "workspaces.html",
 }
 
 # ES6 syntax patterns that are NOT polyfillable (each would SyntaxError on a true ES5 engine).

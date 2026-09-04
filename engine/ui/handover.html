@@ -75,6 +75,24 @@ tbody tr:last-child td{border-bottom:none}
   <div class="card"><div id="duebox"></div></div>
   <div class="fwd">Not yet wired into this digest server-side — see readiness.html for service intervals per vehicle today.</div></div>
 
+<!-- v1.66.0: F -- save & reopen named workspaces (multi-window PR 16 of 25, stage 5). The plan's own
+     entry for this feature names "using PR 3's export/import for the /handover hand-off" directly --
+     this section is that hand-off, made real and findable on the page a departing technician is
+     already looking at, not siloed on /workspaces where nobody browsing THIS page would ever discover
+     it. #wsHandoffCount below is real, live data (VW.workspace.list().length, read the same way
+     workspaces.html itself reads it), not a static blurb -- so this section reflects the truth on
+     THIS computer rather than merely linking out and hoping. -->
+<div class="sec"><h2>Hand off your open workspace</h2>
+  <div class="card" style="padding:14px 16px">
+    <div style="font-size:13.5px">Before you clock out: save the set of windows you have open right
+      now — a work order, a troubleshoot in progress — as a named workspace on
+      <a href="/workspaces">Saved Workspaces</a>, then hand the next shift a share link or a
+      downloadable .json so they pick up exactly where you left off, no re-explaining required.</div>
+    <div class="muted" id="wsHandoffCount" style="margin-top:8px"></div>
+    <div style="margin-top:10px"><a href="/workspaces" style="display:inline-block;border:1px solid var(--line);border-radius:8px;padding:8px 13px;font-size:13px">🗂 Open Saved Workspaces →</a></div>
+  </div>
+</div>
+
 <script>
 function $(s){return document.querySelector(s);}
 /* esc()/toast() from /shared.js */
@@ -125,4 +143,15 @@ function loadAll(){
 $('#go').onclick=loadAll;
 $('#hours').addEventListener('keydown',function(e){ if(e.key==='Enter') loadAll(); });
 loadAll();
+
+// v1.66.0 (F, multi-window PR 16 of 25): real, live data for the hand-off section above -- how many
+// named workspaces are ALREADY saved on this computer right now, read straight from VW.workspace
+// (the same accessor workspaces.html itself uses), not a static count that could drift from the truth.
+(function(){
+  if(!(window.VW && VW.workspace && typeof VW.workspace.list==='function')) return;
+  var n=VW.workspace.list().length;
+  $('#wsHandoffCount').textContent=n
+    ? (n+' workspace'+(n===1?'':'s')+' saved on this computer already.')
+    : 'None saved on this computer yet — pop a few windows out, then save one.';
+})();
 </script><script src="/palette.js"></script></body></html>

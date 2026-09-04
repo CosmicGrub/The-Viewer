@@ -12,6 +12,114 @@ every change going forward.
 
 ---
 
+## [1.66.0] — 2026-09-04 — F: save & reopen named workspaces + the auto-checkpoint (multi-window support, PR 16/25)
+
+Stage 5, PR 16 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — the UI over
+`VW.workspace` that PR 2 (CRUD), PR 3 (export/import) and PR 15 (B, curated launcher) all existed to
+feed. New page `engine/ui/workspaces.html`, routed at `/workspaces`.
+
+**LIST/SAVE/REOPEN/EXPORT/IMPORT, all real:**
+- Every saved workspace, most-recently-opened first: name, item count, created/last-opened as
+  human-readable local time.
+- **Save** turns THIS TAB's own `VW.windows.registry()` — the `{name, url}` pairs it opened via a
+  pop-out or a launch button — into workspace `{page, params}` items by hand-parsing each url apart
+  (the reverse of the query-building `paramsToQuery()`/`urlToPageParams()` pair this page adds,
+  generalizing `jobcard.html`/`solve.html`'s own single-`q`-param approach to an arbitrary params
+  object), names it via a plain `window.prompt()` (the same lightweight pattern `index.html` already
+  uses for "name this collection"), and calls `VW.workspace.create(name, items, "manual")`. An empty
+  registry disables the save with a clear message rather than silently creating an empty workspace.
+- **Reopen** calls `VW.workspace.touch(id)` first (so "last opened" means what it says), then opens
+  every item via the exact same `VW.windows.open(url, {name: VW.popoutWindowName(url)})` pairing
+  A1/A2/B all already use — never a re-implemented naming copy, proven by source-text comparison in
+  the new test the same way `test_b_workspace_launcher.py` already checks jobcard/solve.
+- **Export**: "copy share link" builds a real absolute URL (`origin + '/workspaces?' + exportUrl(id)`)
+  via `navigator.clipboard` where available, falling back to a visible selectable field where it
+  isn't; "download .json" uses the exact `Blob` + `URL.createObjectURL` + `<a download>` pattern
+  `circuitlab.html` already established, not a new download mechanism. Opening a share link itself
+  prefills the import box (never auto-imports — see below).
+- **Import**: paste a share link (a full URL, a bare `?ws=...` fragment, or the raw `ws=...` string
+  `exportUrl()` itself returns — all three normalized to what `VW.workspace.importUrl()` already
+  parses) or upload a `.json` via `VW.workspace.importFile()`. Both catch the real, specific `Error`
+  PR 3's contract throws/rejects with and surface it via `toast()`/an inline message — never an
+  unhandled exception.
+
+**Gap filled: `VW.workspace.delete(id)`.** The one CRUD operation PR 2 shipped without — a list UI
+that only ever grows is a real usability problem for a page a technician returns to across a career,
+not a hypothetical one. Same read-all/mutate/write-back shape as `touch()`, same
+notify-only-after-the-write-commits ordering as every other mutating call in this section. Wired
+behind a real `confirm()` on the page, matching this app's established care around irreversible
+actions.
+
+**The auto-checkpoint — design doc item 9's "Addition this revision", built for real, not flavor
+text.** A single well-known slot, `viewer_last_session` (genuinely distinct from `viewer_workspaces`
+— proven both structurally and functionally in the new test), silently holding this tab's own
+`VW.windows.registry()` snapshot, overwritten every time, never a growing list, and structurally
+invisible to `VW.workspace.list()` since it lives under its own key entirely. Written on `pagehide`
+(chosen over `beforeunload`/`unload`, both already used elsewhere in this codebase with no single
+established preference — `pagehide` fires reliably on bfcache eviction where `beforeunload` is
+increasingly throttled) **and** a 2-minute `setInterval` safety net against the design doc's own
+named risk — a browser/OS crash mid-shift fires no unload event at all. **Wired at the `shared.js`
+top level, not only from `workspaces.html`**, so the checkpoint reflects windows opened from ANY
+feature (A1/A2/B), not just this page — made safe by skipping the write whenever the writing tab's
+own registry is empty, so an idle tab with nothing open can never clobber a real checkpoint a
+different tab just wrote (last-write-wins between two tabs that both genuinely have windows open is
+accepted, the same conflict resolution `VW.bench` already uses). `workspaces.html` is the ONE place
+that ever offers to act on it — "a checkpoint exists" is the whole restore heuristic, the design
+doc's own explicitly-sanctioned baseline over a more elaborate staleness rule — and restoring is
+strictly a real button click, never automatic on load, mirroring this app's established stance that
+a web page cannot run code "on launch" unprompted.
+
+**Handover integration**, the plan's own "using PR 3's export/import for the `/handover` hand-off":
+a new, real, findable section on `handover.html` ("Hand off your open workspace") linking to
+`/workspaces`, showing LIVE data (`VW.workspace.list().length`, read the same way `workspaces.html`
+itself reads it) rather than a static blurb.
+
+**Tests: new `engine/tests/test_f_workspace_reopen.py` + `tests/js/test_f_workspace_reopen_node.js`,
+40 checks.** Source-level: every required `VW.workspace`/`VW.checkpoint` call is real call-site text
+in `workspaces.html`, the reopen path reuses `VW.popoutWindowName` (not a re-implemented naming
+regex), delete is behind a real `confirm()`, export/import handle errors correctly, and
+`handover.html` genuinely carries the new section. Real round-trips (Node `vm.createContext`, same
+convention as PR 2/3's own node tests): `workspaceDelete()` create→delete→confirm-gone-from-
+list/get, a refused-write case, and the cross-tab "delete" notification over a real
+`BroadcastChannel`; the checkpoint tests build a sandbox with a REAL `addEventListener` (captures
+handlers instead of a no-op stub) and a REAL `setInterval` (captures the callback instead of
+scheduling one), then fire shared.js's OWN module-load-time-registered `pagehide`/interval handlers
+directly — proving the wiring described above actually exists and actually works, including the
+"an empty-registry tab's pagehide must never clobber a real checkpoint" guard against a second tab
+sharing the same store. **Proven load-bearing**: 5 representative guarantees broken one at a time
+(removing the delete call site, re-implementing the naming regex, making `workspaceDelete()` a
+no-op, colliding the checkpoint key with the workspaces key, removing the handover section) and
+confirmed the relevant assertions genuinely failed (2, 3, 3, 4+2, 1 respectively), then restored and
+re-confirmed a clean 40/0.
+
+**A real regression caught and fixed before this shipped, not glossed over:** the auto-checkpoint
+block was originally inserted between `popoutControl()` and the final `var VW = {...}` assembly —
+harmless on its own, but `test_a2_popout.py` (PR 14) slices `popoutControl()`'s own body by scanning
+from its declaration up to the NEXT `"\n  var VW = {"` marker, an assumption that broke the moment
+another function's block sat between them, since that slice then also swallowed this PR's own
+comment prose mentioning `VW.windows.open(w.url, ...)` as an example, pushing PR 14's
+"exactly one `VW.windows.open(` call" assertion to 2. Caught by actually running the full
+`verify_all.py` before calling this done (not assumed clean from the new suite alone) — fixed by
+reordering `shared.js` so the checkpoint block sits BEFORE `popoutControl()`, restoring it as the
+last function immediately preceding the `VW` assembly; confirmed `test_a2_popout.py` back to a clean
+62/0 afterward.
+
+`rps_lint.py` clean — `workspaces.html` classified `MODERN_BY_DESIGN` (same class as `bench.html`:
+a localStorage-driven admin tool, not a core at-the-vehicle ES5-required page); `shared.js`/
+`handover.html` stay ES5-required and are unaffected.
+
+**Manual/real-browser verification** (this session's Browser-pane sandbox is documented to collapse
+multiple `window.open()` calls to one tab, a sandbox property prior PRs already reported, not a bug
+here): save/reopen/export/import/delete/checkpoint-restore exercised against a real running server —
+see the PR body for the specific observations.
+
+**Deliberately out of scope, matching PR 16's own plan-doc scope:** screen-aware placement (C, PR
+17), the kiosk/second-screen view (G, PR 18), and `VW.capabilities`-gated behavior on this page
+(Stage 6, not yet built) — this PR only ever reads `VW.workspace`/`VW.windows`/`VW.checkpoint` as
+they exist today.
+
+---
+
 ## [1.65.0] — 2026-09-04 — `VW.workspace` export/import (multi-window support, PR 3/25)
 
 Stage 2, PR 3 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — landed **out of the

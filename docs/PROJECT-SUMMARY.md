@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.62.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.63.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -126,8 +126,16 @@ while reading `/api/coverage` output during that initiative's own responsive-ver
 a real `cad.pct` bug fixed at both layers: `coverage.html`'s three percent meters now clamp their
 bar width to 0-100 while (per R13) keeping the numeric label honest above 100%, and
 `coverage.py`/`make_cad.py`'s denominator/numerator mismatch that let `cad.pct` read `156.3%` in the
-first place is fixed at the source, verified back to a clean `100.0%` (`[1.62.0]` — see the
-reconciliation notes below and §8 items 25–44). This document +
+first place is fixed at the source, verified back to a clean `100.0%` (`[1.62.0]`). Then, back on the
+multi-window plan, stage 4 PR 14 — **A2, per-page pop-out control**: a new `VW.popoutControl()` in
+`shared.js` gives every adopting page (`part`/`procedure`/`torque`/`jobcard`/`bench`) its own real
+`<button>` to pop *itself* out into a second window, using the byte-for-byte same window-naming
+transform as A1's `popoutName()` so a page popped out from the home nav and the same page popped out
+from its own new control land on one window, not two; the same action also registers as a Ctrl+K
+palette entry through a new, order-independent `window.__paletteQueue` handoff `palette.js` drains at
+two points, since `popoutControl()` cannot reach `palette.js`'s `COMMANDS` array directly on the
+normal shared.js-then-page-script-then-palette.js load order (`[1.63.0]` — see the reconciliation
+notes below and §8 items 25–45). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1367,6 +1375,44 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     a smaller numerator bug double-counting turntable sprite-sheet renders as separate parts. Both
     fixed at the source, with sync comments tying the two files' copies of the query logic
     together. Verified live: `cad.pct` 156.3% → 100.0%. See `CHANGELOG.md` `[1.62.0]`.
+
+45. **`[1.63.0]` — A2: per-page pop-out control (multi-window support, PR 14/25, stage 4).** The
+    mirror image of item 37's A1: a page a technician is *already on* now gets its own control to
+    pop itself out into a second window, instead of navigating back to the home nav first. New
+    `VW.popoutControl()` in `shared.js`, called once, zero-config, by a page's own inline script,
+    injects a real, keyboard-focusable `<button id="vw-popout-pill">` — never a `div`+click handler,
+    the same `[1.46.0]`/`[1.47.0]` accessibility convention item 37 followed — labeled with A1's own
+    `"Open X in a new window"` phrasing, with one shared `doPopout()` inner function backing both the
+    button and a new Ctrl+K palette entry so the open call is never duplicated between them.
+    **The window-naming logic is a byte-for-byte copy of A1's `popoutName()`** (`index.html`, ~line
+    592) — the entire reason A1's own comment named this PR in advance: popping `/torque` out from
+    the home nav, then clicking `/torque`'s own new control, lands on the SAME window, not a second
+    one; the new `engine/tests/test_a2_popout.py` extracts and compares the two files' actual
+    regex/string-transform source text to prove that, not just eyeballs it. **The palette entry
+    needed a new, order-independent registration hook that did not exist before this PR:**
+    `popoutControl()` cannot reach into `palette.js`'s `COMMANDS` array directly — on the normal load
+    order (`shared.js` in `<head>`, then the page's own inline script, then `palette.js` last)
+    `COMMANDS` does not exist yet at that moment — so it pushes a plain descriptor onto a new
+    `window.__paletteQueue` instead, and `palette.js` drains that queue into `COMMANDS` at **two**
+    points (right after `COMMANDS` is built, and again as the first statement inside `open()`) so a
+    descriptor lands correctly regardless of which of the two real script orders a future page ends
+    up using. Placement (`base.css`, `#vw-popout-pill{right:288px;bottom:12px}`) was measured in a
+    real browser rather than guessed — `#bench-pill`'s own rendered left edge sits around
+    `right:217px` at every width tested (1400/960/720 CSS px, and in kiosk mode), leaving this pill a
+    genuine ~70px clear gap; it does **not** touch item 43's already-known, separately-filed
+    `#vw-footer`/`#cmdk-pill`/`#bench-pill` overlap. Adopted on the 5 pages the plan names —
+    `part`/`procedure`/`torque`/`jobcard`/`bench` — each already carrying its item 40/`[1.58.0]`
+    responsive pass. New `engine/tests/test_a2_popout.py`, **62 assertions**, proven load-bearing by
+    reverting 5 representative fixes one at a time (the helper's own existence, the naming-transform
+    identity with A1, both palette drain call sites, one page's adoption call, the pill's placement
+    offset) and confirming the relevant assertion(s) genuinely failed, then restoring and
+    re-confirming a clean 62/0. `rps_lint` caught the same false-positive class this initiative has
+    hit before (item 34's backticks/ellipses, item 42's "class"): backticks used as plain
+    code-reference punctuation in a doc comment read as ES6 template literals by the blunt text
+    scan — reworded without backticks, not suppressed. **Owed manual check, not automatable here,
+    same as item 37's own PR:** pop out
+    `/torque` from its own new control, then pop out `/torque` again from the home nav's ↗ — confirm
+    one window, not two. See `CHANGELOG.md` `[1.63.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

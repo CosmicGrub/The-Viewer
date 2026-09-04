@@ -66,6 +66,11 @@
      behind it, otherwise reads as a glitch rather than as the other window's doing. */
   VW.channel.subscribe('bench', function(){ render(); toast('Bench updated in another window'); });
   render();
+
+  // v1.63.0 (A2, multi-window PR 14): a zero-config pop-out control for THIS page (button + Ctrl+K
+  // palette entry, both from shared.js). VW is already known-present on this page (used above), but
+  // the guard stays for consistency with the same call on the other 4 adopting pages.
+  if(window.VW && typeof VW.popoutControl==="function"){ VW.popoutControl(); }
 })();
 </script>
 <script src="/palette.js"></script>

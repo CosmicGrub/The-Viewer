@@ -74,7 +74,12 @@ body.kiosk-mode .menupop a,body.kiosk-mode .menupop button{min-height:44px;font-
 /* the discoverability pills and footer nav are compact pill/text controls, not boxy buttons -- keep
    their own padding/shape but still guarantee the 44px minimum footprint via min-height/min-width above */
 body.kiosk-mode #vw-footer a{padding:9px 10px;display:inline-flex;align-items:center;justify-content:center}
-body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill{padding:11px 16px;font-size:13px}
+/* v1.63.0 (A2, multi-window PR 14): #vw-popout-pill joins this same pill family -- a real <button>
+   (already covered by the bare `button` selector above for the 44px min-height/min-width itself),
+   this override just keeps its font-size/padding in lockstep with #cmdk-pill/#bench-pill in kiosk
+   mode instead of ballooning to the generic button's 15px/11px, which would grow this pill's
+   measured width past the clearance verified below. */
+body.kiosk-mode #cmdk-pill,body.kiosk-mode #bench-pill,body.kiosk-mode #vw-popout-pill{padding:11px 16px;font-size:13px}
 /* Recommendations annex #7 (touch-target-consistency): a @media(pointer:coarse) touch-sizing rule
    used to exist ONLY in index.html's own <style> block -- the home page auto-enlarged its tap
    targets on a touchscreen, but every OTHER page (torque.html, procedure.html, part.html, the
@@ -121,6 +126,25 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 #vw-footer a{color:var(--sub,#9aa6b6);text-decoration:none}
 #vw-footer a:hover,#vw-footer span:hover{color:var(--txt,#e6e9ee)}
 @media print{#vw-footer{display:none}}
+
+/* per-page pop-out control (shared.js VW.popoutControl(); v1.63.0, A2, multi-window PR 14). Same
+   fixed bottom:12px pill row as palette.js's #cmdk-pill (right:12px)/#bench-pill (right:150px);
+   right:288px is not a guess -- measured directly in a real browser against the actual rendered
+   pill widths at this exact CSS (cmdk-pill ~156px "Jump to anything", bench-pill ~67px "pin"):
+   bench-pill's own left edge lands at right-distance ~217px on a wide desktop viewport, and this
+   pill's own real "↗ Pop out" label is ~92px wide, so right:288px leaves a genuine ~70px clear gap
+   to bench-pill on every viewport width tested (1400/960/720 CSS px) and in kiosk mode alike --
+   fixed-position elements anchored from the same edge keep the SAME relative gap regardless of
+   viewport width, only their absolute position shifts together, so one measurement covers every
+   width. Does not touch the pre-existing #vw-footer / #cmdk-pill / #bench-pill overlap (a separate,
+   already-filed issue, not this pill's to fix) since this sits well clear of both on the same row. */
+#vw-popout-pill{position:fixed;right:288px;bottom:12px;z-index:9998;background:var(--panel,#171d26);
+  color:var(--sub,#9aa6b6);border:1px solid var(--line,#2b333f);border-radius:20px;
+  padding:10px 16px;font-size:13px;line-height:1;cursor:pointer;opacity:.85;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);min-height:44px;display:flex;align-items:center;
+  box-sizing:border-box}
+#vw-popout-pill:hover{opacity:1;color:var(--txt,#e6e9ee)}
+@media print{#vw-popout-pill{display:none}}
 /* honor reduced motion (backlog F46; ties to the RPS lite "animations off") */
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}

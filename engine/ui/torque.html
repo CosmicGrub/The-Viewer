@@ -119,6 +119,10 @@
   var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; }
   renderConv();
   if(pre) run();
+
+  // v1.63.0 (A2, multi-window PR 14): a zero-config pop-out control for THIS page (button + Ctrl+K
+  // palette entry, both from shared.js). Guarded in case /shared.js failed to load.
+  if(window.VW && typeof VW.popoutControl==="function"){ VW.popoutControl(); }
 })();
 </script>
 <script src="/palette.js"></script>

@@ -67,7 +67,17 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.61.0, shipped 2026-09-04** (responsive verification, batch 4 of 4 — the
+**True current state: v1.62.0, shipped 2026-09-04** (a real `cad.pct` bug, unrelated to the
+multi-window initiative — found while reading `/api/coverage` output during that initiative's own
+responsive-verification batches. `coverage.html`'s three percent meters built their bars via string
+concatenation with no clamp; routed through the page's own already-written but dead `pctBar()`
+helper, bar now clamped to 0-100 while (R13) the number stays honest above it, with an "over 100%"
+flag. Root cause fixed at the source: `coverage.py`'s `representative_parts` only counted `ref_nsn`
+rows with FLIS dimensional characteristics, undercounting by roughly a third against
+`make_cad.py`'s real render pool (which unions that with every NSN against a figure in `parts`) —
+20,869 counted vs 32,622 actually eligible — plus a smaller numerator bug double-counting turntable
+sprite-sheet renders as separate parts. Both fixed with sync comments tying the two files' copies of
+the query logic together. Verified live: `cad.pct` 156.3% → 100.0%. See §6 item 45). Immediately prior: **v1.61.0, shipped 2026-09-04** (responsive verification, batch 4 of 4 — the
 **last** of the four per-page batches that turn `[1.57.0]`'s shared breakpoints from written into
 verified, stage 3 / PR 11 of the multi-window/multi-tab initiative. The 12 specialized-visualization
 pages — `master`, `mastercov`, `packet`, `exploded`, `schematics`, `threed`, `deepzoom`, `stepflow`,
@@ -2237,6 +2247,34 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     three fixes deleted, `deepzoom`'s wrap moved outside its breakpoint, and `cadtex_test`'s canvas
     given a percentage width were each injected in turn and all five were caught.
     See `CHANGELOG.md` `[1.61.0]`.
+
+45. **`[1.62.0]` — a real `cad.pct` bug, unrelated to the multi-window initiative: found while
+    reading `/api/coverage` output during that initiative's own responsive-verification batches
+    (PRs 8-11), fixed at both layers.** `coverage.html`'s three percent meters (OCR, CAD renders,
+    Vectorized figures) built their bars via inline string concatenation and never clamped the
+    width, while the page's own `pctBar()` helper already did the right thing but was dead code —
+    an out-of-range ratio laid the inner `<i>` past its track, contained only by `.bar`'s
+    `overflow:hidden` and visually indistinguishable from exactly 100%. Routed all three through
+    `pctBar`. Per this project's R13 (fail loud, never silently misrepresent), the bar clamps to
+    0-100 but the number does not — it still reads the true ratio, now paired with a visible
+    "over 100%" flag and an amber/red treatment. The root cause: `representative_parts` only
+    counted `ref_nsn` rows with FLIS dimensional characteristics (`_THREED_WHERE`), but
+    `make_cad.py`'s `_collect()` — the actual render job — unions that with every NSN appearing in
+    `parts` against a figure (`fig_no IS NOT NULL`); measured live, that undercounted the
+    denominator by roughly a third (20,869 vs the real 32,622), which is ~99.7% of the gap that
+    produced `cad.pct = 156.3%`. A smaller numerator bug compounded it: `rendered_v3` did a raw
+    `_v3.png` suffix count in `cadcache/`, but `cad_render.spin_path()` also writes turntable
+    sprite sheets named `<nsn>_spinNN_v3.png` into the same directory, and the 'modern'/'lite' RPS
+    tiers both resolve to v3 style at different frame counts (24 vs 16) — one part can leave up to
+    3 files ending `_v3.png`. Fixed: `coverage.py` gained `_REP_PARTS_SQL` (mirroring
+    `make_cad.py`'s real `ref_nsn` UNION `parts.fig_no` query, with matching TRIM/empty-string
+    handling) for the denominator, and `_count_cad_v3()`, which excludes `_spin*_v3.png` sprite
+    sheets from the per-part numerator count — both files carry sync comments cross-referencing
+    each other so the WHERE clause / `_collect()` logic doesn't drift apart again. Verified against
+    the live index: `cad.pct` went from `156.3%` to a clean `100.0%` (32,622 rendered / 32,622
+    representative parts); `test_property_fuzz.py` (~18k cases, exercises `coverage.overview()`)
+    re-run clean. Shipped as its own PR (`fix/coverage-bar-clamp`), merged after the four
+    responsive batches. See `CHANGELOG.md` `[1.62.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

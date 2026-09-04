@@ -37,7 +37,7 @@ try:
 except Exception:
     fitz = None
 
-VERSION = "1.61.0"
+VERSION = "1.62.0"
 
 # v1.42.0: version-staleness detection. STARTUP_VERSION/STARTUP_TIME are captured once, here, at
 # import time -- they never change for the life of the process, even if the code on disk changes

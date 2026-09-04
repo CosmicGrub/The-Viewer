@@ -6,8 +6,15 @@ _Regenerate any time: `python engine/build_iteration_snapshot.py`. Visual versio
 
 | # of iterations | Latest | Legacy-tracked |
 |---|---|---|
-| 263 | 1.61.0 — Responsive verification, batch 4 of 4: the 12 specialized-visualization pages resized for real (multi-window support, PR 11/25) | 141 |
+| 264 | 1.62.0 — `cad.pct` could read over 100%: display clamp + the real denominator/numerator fix | 141 |
 
+
+---
+
+## [1.62.0] — 2026-09-04 — `cad.pct` could read over 100%: display clamp + the real denominator/numerator fix
+`FIX`
+
+- Found while reviewing `/api/coverage` output during the responsive-verification batches (PRs 8-11): `coverage.html`'s CAD-renders meter could read `156.3%`. Two fixes, one display-side and one root-cause, both on this version. **Display (`engine/ui/coverage.html`):** the three real percentage meters (OCR, CAD renders, Vectorized figures) built their bars via inline string concatenation and never clamped the width, while the page's own `pctBar()` helper already did the right thing but was dead code — an out-of-range ratio laid the inner `<i>` out past its track, contained only by `.bar`'s `overflow:hidden` and visually indistinguishable from exactly 100%. Routed all three meters through `pctBar`. Per this project's R13 discipline (fail loud, never silently misrepresent), the bar width is clamped to 0-100 but the **numeric label is not** — it still reads the true ratio, now paired with a visible "over 100%" flag and an amber/red treatment. **Root cause (`engine/coverage.py`, `engine/make_cad.py`):** `cad.pct` compares `rendered_v3` against `representative_parts`, and both were measured in the wrong units against `make_cad.py`'s actual render pool. Denominator (~99.7% of the gap, measured live: 20,869 vs the real 32,622): `representative_parts` only counted `ref_nsn` rows with FLIS dimensional characteristics (`_THREED_WHERE`), but `make_cad.py`'s `_collect()` — the actual render job — unions that with every NSN appearing in `parts` against a figure (`fig_no IS NOT NULL`); coverage.py was comparing renders against half the real population. Numerator (present, small in this dataset): `rendered_v3` did a raw `_v3.png` suffix count in `cadcache/`, but `cad_render.spin_path()` also writes turntable sprite sheets named `<nsn>_spinNN_v3.png` into the same directory, and the 'modern'/'lite' RPS tiers both resolve to v3 style at different frame counts (24 vs 16) — one part can leave up to 3 files ending `_v3.png`. Fix: `coverage.py` gained `_REP_PARTS_SQL` (mirroring `make_cad.py`'s real `ref_nsn` UNION `parts.fig_no` query, TRIM/empty-string handling matched) for the denominator, and `_count_cad_v3()`, which excludes `_spin*_v3.png` sprite sheets from the per-part numerator count. Both files carry sync comments cross-referencing each other so the WHERE clause / `_collect()` logic doesn't drift apart again. Verified against the live index: `cad.pct` went from `156.3%` to a clean `100.0%` (32,622 rendered / 32,622 representative parts). `test_property_fuzz.py` (~18k cases, exercises `coverage.overview()`) re-run clean; both files byte-compiled.
 
 ---
 

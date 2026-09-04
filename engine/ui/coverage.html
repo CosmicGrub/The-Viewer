@@ -14,6 +14,9 @@
   .muted{color:#8a98a8;font-size:12px}
   .bar{height:9px;background:#1b2430;border-radius:5px;overflow:hidden;margin:8px 0 4px}
   .bar>i{display:block;height:100%;background:linear-gradient(90deg,#2f9d63,#4f9dff)}
+  .bar-anom>i{background:linear-gradient(90deg,#e2a63b,#ff6b6b)}
+  .big.anom{color:#ffb454}
+  .pctflag{font-size:10px;font-weight:600;color:#ffb454;margin-left:5px;white-space:nowrap}
   table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
   td{padding:3px 4px;border-top:1px solid #1b2430}
   .ok{color:#7fdca0}.no{color:#ff9a94}
@@ -35,9 +38,22 @@
 (function(){
   function $(s){return document.querySelector(s);}
   /* esc()/toast() from /shared.js */
-  function pctBar(label, o){ var p=(o&&o.pct)||0; return '<div class="card"><h3>'+label+'</h3>'+
-    '<div class="big">'+p+'%</div><div class="bar"><i style="width:'+Math.max(0,Math.min(100,p))+'%"></i></div>'+
-    '<div class="muted" id="'+label+'sub"></div></div>'; }
+  /* pctBar: single path for every percent-meter card. The bar width is clamped to
+     0-100 (a ratio can legitimately exceed 100 percent -- e.g. more renders than
+     tracked parts -- and an unclamped width just overflows past the track). The
+     number itself is NEVER clamped: R13 says fail loud, not misrepresent, so an
+     out-of-range ratio still reads its true value with a visible flag rather than
+     looking like a quiet 100 percent. */
+  function pctBar(label, o, sub){
+    var raw=(o && o.pct!=null)?Number(o.pct):0; if(isNaN(raw)) raw=0;
+    var barp=Math.max(0,Math.min(100,raw));
+    var anom=(raw>100||raw<0);
+    var flag=anom?(' <span class="pctflag" title="ratio outside 0-100 percent -- bar shown capped at 100 percent, number is the true measured ratio">'+(raw>100?'over 100%':'below 0%')+'</span>'):'';
+    return '<div class="card"><h3>'+label+'</h3>'+
+      '<div class="big'+(anom?' anom':'')+'">'+raw+'%'+flag+'</div>'+
+      '<div class="bar'+(anom?' bar-anom':'')+'"><i style="width:'+barp+'%"></i></div>'+
+      (sub?('<div class="muted">'+sub+'</div>'):'')+'</div>';
+  }
   function num(label, v, sub){ return '<div class="card"><h3>'+label+'</h3><div class="big">'+(v==null?'—':Number(v).toLocaleString())+'</div>'+(sub?('<div class="muted">'+sub+'</div>'):'')+'</div>'; }
   function load(){
     $('#body').innerHTML='<div class="muted">loading…</div>';
@@ -45,9 +61,9 @@
       if(!d){ $('#body').innerHTML='<div class="no">could not load coverage.</div>'; return; }
       $('#gen').textContent=(d.version?('v'+d.version+'  ·  '):'')+'generated '+(d.generated||'');
       var h='<div class="grid">';
-      h+= '<div class="card"><h3>OCR</h3><div class="big">'+(d.ocr.pct)+'%</div><div class="bar"><i style="width:'+d.ocr.pct+'%"></i></div><div class="muted">'+Number(d.ocr.pages_ocr).toLocaleString()+' / '+Number(d.ocr.pages_total).toLocaleString()+' pages with text</div></div>';
-      h+= '<div class="card"><h3>CAD renders</h3><div class="big">'+(d.cad.pct)+'%</div><div class="bar"><i style="width:'+d.cad.pct+'%"></i></div><div class="muted">'+Number(d.cad.rendered_v3).toLocaleString()+' / '+Number(d.cad.representative_parts).toLocaleString()+' representative parts (v3)</div></div>';
-      h+= '<div class="card"><h3>Vectorized figures</h3><div class="big">'+(d.vectorize.pct)+'%</div><div class="bar"><i style="width:'+d.vectorize.pct+'%"></i></div><div class="muted">'+Number(d.vectorize.figures_vectorized).toLocaleString()+' / '+Number(d.vectorize.figure_pages).toLocaleString()+' figure pages</div></div>';
+      h+= pctBar('OCR', d.ocr, Number(d.ocr.pages_ocr).toLocaleString()+' / '+Number(d.ocr.pages_total).toLocaleString()+' pages with text');
+      h+= pctBar('CAD renders', d.cad, Number(d.cad.rendered_v3).toLocaleString()+' / '+Number(d.cad.representative_parts).toLocaleString()+' representative parts (v3)');
+      h+= pctBar('Vectorized figures', d.vectorize, Number(d.vectorize.figures_vectorized).toLocaleString()+' / '+Number(d.vectorize.figure_pages).toLocaleString()+' figure pages');
       h+= num('Documents', d.corpus.documents, Number(d.corpus.pages_total).toLocaleString()+' pages total');
       h+= num('Schematic netlists', d.schematics.netlist_pages, (d.schematics.reviewed||0)+' reviewed · avg conf '+(d.schematics.avg_confidence!=null?Math.round(d.schematics.avg_confidence*100)+'%':'—'));
       h+= num('Local 3-D models', d.local_models, 'index/models3d');

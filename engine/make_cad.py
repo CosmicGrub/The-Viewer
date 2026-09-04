@@ -18,6 +18,10 @@ import cad_render
 DB = os.path.abspath(os.path.join(HERE, "..", "index", "viewer.db"))
 CDIR = os.path.join(os.path.dirname(DB), "cadcache")
 
+# NOTE: mirrored in coverage.py as _THREED_WHERE (used there to build _REP_PARTS_SQL, coverage.py's
+# denominator for cad.representative_parts). _collect() below unions this with every NSN appearing against
+# a figure in `parts` -- coverage.py's denominator must match that same union or it undercounts against
+# this script's actual render pool. Keep both copies in sync if either changes.
 _THREED_WHERE = ("characteristics IS NOT NULL AND characteristics<>'' AND ("
                  "upper(characteristics) LIKE '%DIAMETER%' OR upper(characteristics) LIKE '%LENGTH%' OR "
                  "upper(characteristics) LIKE '%HEIGHT%' OR upper(characteristics) LIKE '%WIDTH%' OR "

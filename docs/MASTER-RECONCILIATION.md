@@ -67,7 +67,27 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.59.0, shipped 2026-09-04** (per-page responsive verification, **batch 2 of
+**True current state: v1.60.0, shipped 2026-09-04** (the responsive **per-page** pass, batch 3 of 4 —
+stage 3 / PR 10 of the multi-window/multi-tab initiative, and the first instalment of the debt
+`[1.57.0]` recorded against itself. Eleven pages — `learn`, `binaudit`, `coverage`, `ingest`, `ops`,
+`status`, `verify`, `command`, `collections`, `review`, `demo` — each loaded from the real server in a
+real browser **with their real data** and measured at **960 CSS px** and **720 CSS px**. Three real
+defects, all page-specific, all fixed in the page's own inline `<style>`/`<script>` with **`base.css`
+deliberately untouched** (three sibling batches were in flight against that same shared sheet):
+`binaudit.html` split every NSN in half mid-identifier once its table column fell from 127px to
+94px — on the one page built to tell apart look-alike NSNs, and *not* caused by `base.css`'s
+`overflow-wrap`, which was suppressed and re-measured to prove it; `status.html`'s NIIN format-drift
+queue split a variant mid-NSN at 720px, measured character-by-character with a `Range` as
+`5305-00-292-4587 · 5306-00-292-` / `4587 · 5605-00-292-4587`, on the table whose whole purpose is
+comparing those strings; and `demo.html`'s guided tour placed its tooltip **behind** the control bar
+at 720x620 (steps 3/14/15 by 44px/3px/59px) because `place()` hard-coded a 56px bar height that is
+really 119px there. Both table fixes pair `white-space:nowrap` with a real horizontal scroller,
+because the nowrap alone was measured turning into page-wide overflow (435 against 400, and 1023
+against 720); `overflow-x` on a `<table>` element was measured doing nothing at all. The other **8
+pages needed no change**, each reported as a measurement rather than a shrug. New
+`engine/tests/test_responsive_batch3.py`, 25 checks, proven non-vacuous by deliberately reverting all
+three fixes (18 passed / 7 failed, exit 1) and restoring the files `diff`-identical. Reserved
+`1.60.0` up front against sibling batches claiming `1.58.0`/`1.59.0`/`1.61.0`. See §6 item 43). Immediately prior: **v1.59.0, shipped 2026-09-04** (per-page responsive verification, **batch 2 of
 4** — stage 3 / PR 9 of the multi-window/multi-tab initiative, and the direct answer to the one thing
 `[1.57.0]` said it could not prove. Twelve pages — `solve`, `troubleshoot`, `ask`, `handover`,
 `circuitlab`, `scan`, `semantic`, `visual`, `kg`, `related`, `index`, `help` — each opened in a real
@@ -1785,7 +1805,6 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     the tree it just verified, which is run 1's trap exactly — so a confirmatory post-edit run on the
     finished tree is reported in the PR body instead.
     See `CHANGELOG.md` `[1.57.0]`.
-
 41. **`[1.58.0]` — responsive verification batch 1: 13 pages resized in a real browser, 2 real
     defects found and fixed (multi-window support, PR 8/25).** Stage 3 of the same plan, and the
     first of the four per-page passes item 40 shipped the shared rules *for* while stating plainly
@@ -2016,6 +2035,89 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     touched on any page**, both fixes being pure CSS, so the ES5 question never arose.
     `RPS GATE: PASS -- every ES5-required page is ES5-clean (10 modern-by-design pages noted)`.
     See `CHANGELOG.md` `[1.59.0]`.
+
+43. **`[1.60.0]` — responsive per-page pass, batch 3 of 4: 11 pages resized for real, 3 genuine
+    narrow-window defects fixed (multi-window support, PR 10/25).** Stage 3 of the same initiative,
+    and the first instalment of the debt item 40 recorded against itself ("not one real page has been
+    checked against these rules in a resized window yet"). `learn`, `binaudit`, `coverage`, `ingest`,
+    `ops`, `status`, `verify`, `command`, `collections`, `review` and `demo` were each loaded from the
+    real server in a real browser **with their real data** and measured at **960 CSS px** (half a
+    1080p monitor, the spec's own scenario) and **720 CSS px** (a docked or quarter-width window) —
+    not read statically, and not assumed correct because the shared sheet exists.
+    **(1) `binaudit.html` split every NSN in half, mid-identifier.** Its audit table is `width:100%`
+    inside a `max-width:1000px` wrap, so the NSN column measures 127px and holds one NSN per line at
+    1440px, but 123px at 960px and **94px at 720px**, where the hyphens inside an NSN become ordinary
+    soft-wrap opportunities and each identifier lands across two lines (`6115-01-` / `036-6374`).
+    Measured 1 line at 1440px against 2 lines at both 960px and 720px, so a genuine narrow-window
+    regression rather than a pre-existing state — and on the one page in this app whose stated job is
+    flagging **look-alike NSNs**, whose own warning copy reads "Easy to mix up; confirm the exact NSN
+    per vehicle." **Not** `base.css`'s `overflow-wrap:break-word`, checked rather than assumed: with
+    that rule suppressed on the column the NSNs still broke, because a hyphen is an ordinary break
+    opportunity unrelated to `overflow-wrap`. So this is precisely the per-page identifier override
+    item 40 left to these PRs. Two rules, not one: with only `white-space:nowrap`, a ~400px window
+    pushed `documentElement.scrollWidth` to **435 against a 400px client**; pairing it with
+    `overflow-x:auto` on `#out` (the static container the table renders into) gives 400 = 400 with
+    `#out` scrolling internally at 419/368. Verified from the real file at 720px afterwards: column
+    back to 127px, 3 of 3 NSNs on one line, page 720 = 720, `#out` computing `overflow-x: auto`.
+    **(2) `status.html`'s NIIN format-drift queue split a variant mid-NSN.** That queue's own
+    description is "Same NIIN written as different NSN strings"; its variants column is 375px at
+    960px (zero live rows break) and 232px at 720px, where measuring character-by-character with a
+    `Range` showed the live first row reading `5305-00-292-4587 · 5306-00-292-` / `4587 ·
+    5605-00-292-4587` — the middle variant cut in half, on the table built to spot a one-digit
+    difference. Scoped to the 720px step only. The `.tscroll` wrapper is load-bearing, not
+    decorative: nowrap alone is fine for today's data (884 groups, 877 with 2 variants and 7 with 3,
+    table 678px) but with a synthetic 5-variant row it pushed the page to **1023 against 720**, and
+    `overflow-x` set on the `<table>` element itself does nothing — Chrome keeps computing it
+    `visible`, measured rather than assumed — so the scroller has to be a real block wrapper. After:
+    40 live rows, **0 broken variant cells**, page 720 = 720; with the stress row re-inserted the
+    table grows to 982px while the wrapper scrolls it internally (638/982) and the page stays 720.
+    Proven inert above the breakpoint: at 960px the columns measure 80/375/141/267 with an 863px
+    table, byte-identical to the same measurement taken before the change, and `white-space` computes
+    `normal`. `aria-live="polite"` survives the wrapping. **(3) `demo.html`'s guided tour placed its
+    tooltip behind the control bar in a narrow window.** `place()` clamped against a hard-coded
+    `barH = 56`, the height that fixed bottom bar has only while it fits one row. At 720px it is
+    **119px**, from two independent causes neither of which existed when the literal was written: the
+    dots strip has always carried its own `flex-wrap` and 19 dots stop fitting well before 720px
+    (86px on its own, measured by forcing `flex-wrap:nowrap`), and item 40 then added
+    `flex-wrap:wrap` to the shared `.bar` selector at ≤960px, taking it from 86px to 119px. Stepping
+    the whole 19-step Mechanic tour at **720x620**, steps 3, 14 and 15 put the tooltip **44px, 3px
+    and 59px behind the bar** — exactly the window shape this initiative makes ordinary. Fixed by
+    reading the bar's real `offsetHeight`, which is correct at every width and also repairs the
+    pre-existing 86px case; afterwards all 18 measured steps clear it, worst case −5px (the clamp's
+    own 6px margin), and at **1440x900** the measured bar height is **exactly 56**, the same number
+    the literal hard-coded, so the change is inert at desktop width. ES5 only, `demo.html` being an
+    RPS/ES5-required page — and **`rps_lint`'s recurring false positive struck this initiative
+    again**: the phrase "the shared `.bar` class at 960px" in that fix's comment matched
+    `(?<![\w.])class\s+[A-Za-z_$]` as a class declaration and turned `RPS GATE` red on an ES5-clean
+    file; reworded to "selector", and written down because every PR here has tripped it at least
+    once. **The other 8 pages needed nothing, reported as measurements:** `learn` (a real quiz, then
+    all 10 answered with the score card and 10 citation links shown), `coverage` (the real
+    `/api/coverage` payload, cards reflowing 3→2 columns), `ingest` (preview card, air-gap
+    `<details>` expanded, and a synthetic progress card carrying a 130-character monospace path that
+    `base.css`'s `overflow-wrap` wraps cleanly — a direct positive check that two of item 40's rules
+    do real work on a real page, including `.bar` computing `flex-wrap: wrap` on a page that declares
+    none), `ops` (real data plus a worst-case 7-column run row, table 650px inside a 678px card),
+    `verify` (68-module chip roster, tiles 5→3 columns), `command` (real status plus the real 13-row
+    search-gaps table), `collections` (a real collection opened, 120 result rows, grid 3→2), and
+    `review` (two realistic queue items with full control rows). Two pre-existing oddities were found
+    and deliberately **not** fixed here because both measure identical at 1440px and are therefore not
+    responsive regressions: `coverage.html`'s CAD meter renders at 156.3% (its inner bar clipped by
+    the parent's `overflow:hidden`), and `command.html`'s `.cards` grid shrink-wraps to a single
+    150px column inside a `.row` flex at 1440, 1000 and 960px alike. **`base.css` was deliberately not
+    touched** — every defect was specific to one page, three sibling batches of this same pass were in
+    flight against the same shared sheet, and a page-specific rule leaking into it is exactly the
+    collision that would have hurt; the new suite asserts `#out`, `#niintbl` and `.tscroll` never
+    appear there. New `engine/tests/test_responsive_batch3.py`, **25 checks all passing**, which says
+    up front what it cannot do (this repo has no headless browser, so it cannot re-measure a layout)
+    and was **proven non-vacuous rather than claimed to be**: with all three fixes deliberately
+    reverted in place it reported **18 passed, 7 failed, exit 1**, naming exactly the reverted ones,
+    after which the three files were restored and confirmed `diff`-identical to their backups.
+    `1.58.0`/`1.59.0`/`1.61.0` are claimed by the three sibling batches built in parallel off the same
+    `main`, so this branch reserved **`1.60.0`** up front, and for the same reason took the **third**
+    free number in each doc's own numbered list (`HANDOFF-NOTE` thirty-second pass, `PROJECT-SUMMARY`
+    item 42, this item 43) — matching `1.60.0` being third of the four reserved versions, so four
+    parallel branches cannot silently land on the same number in non-overlapping lines.
+    See `CHANGELOG.md` `[1.60.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

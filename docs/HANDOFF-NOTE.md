@@ -4,6 +4,54 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-second pass):** stage 3, **PR 10** of the multi-window/
+> multi-tab initiative — the per-page responsive verification pass, **batch 3 of 4**, and the first
+> half of the debt `[1.57.0]` recorded against itself ("not one real page has been checked against
+> these rules in a resized window yet"). Eleven pages — `learn`, `binaudit`, `coverage`, `ingest`,
+> `ops`, `status`, `verify`, `command`, `collections`, `review`, `demo` — were each loaded from the
+> real server in a real browser **with their real data** and measured at **960 CSS px** (half a 1080p
+> monitor, the spec's own scenario) and **720 CSS px** (a docked or quarter-width window). Three real
+> defects, eight pages clean, and the eight are reported as measurements rather than as a shrug.
+> **(1) `binaudit.html` split every NSN in half, mid-identifier.** Its audit table's NSN column is
+> 127px wide and holds one NSN per line at 1440px, but 123px at 960px and **94px at 720px**, where
+> the hyphens inside an NSN become ordinary break opportunities and each identifier lands across two
+> lines (`6115-01-` / `036-6374`) — on the one page whose stated job is telling apart look-alike
+> NSNs. Checked rather than assumed: with `base.css`'s `overflow-wrap:break-word` suppressed on that
+> column the NSNs *still* broke, so this is the per-page identifier override `[1.57.0]` explicitly
+> left to these PRs, not a shared-rule bug. Fixed with `white-space:nowrap` on the NSN column **plus**
+> `overflow-x:auto` on `#out`, because the nowrap alone was measured pushing `scrollWidth` to 435
+> against a 400px client; with both, 400px gives `scrollWidth` 400 = `clientWidth` 400 and `#out`
+> scrolls internally at 419/368. **(2) `status.html`'s NIIN format-drift queue split a variant
+> mid-NSN** at 720px (variants column 232px, vs 375px at 960px where nothing breaks) — measured
+> character-by-character with a `Range`, the live first row read `5305-00-292-4587 · 5306-00-292-` /
+> `4587 · 5605-00-292-4587`, on the table whose entire purpose is comparing those strings. Fixed with
+> nowrap on the NIIN/variants columns at ≤720px inside a real `.tscroll` wrapper, because nowrap
+> alone with a synthetic 5-variant row pushed the page to `scrollWidth` 1023 against 720, and
+> `overflow-x` on a `<table>` element does nothing (Chrome keeps computing it `visible` — measured).
+> After: 40 live rows, **0 broken variant cells**, page 720 = 720; at 960px the column widths are
+> byte-identical to the pre-change measurement (80/375/141/267, 863px table). **(3) `demo.html`'s
+> guided tour placed its tooltip *behind* the control bar in a narrow window.** `place()` clamped
+> against a hard-coded `barH = 56`, true only while the bar fits one row; at 720px the bar is **119px**
+> (86px from its own dots strip wrapping, then 119px once `[1.57.0]` added `flex-wrap:wrap` to the
+> shared `.bar` selector at ≤960px), so at **720x620** steps 3, 14 and 15 of the 19-step Mechanic tour
+> put the tooltip **44px, 3px and 59px behind the bar**. Fixed by reading the bar's real
+> `offsetHeight`; after, all 18 measured steps clear it (worst −5px, the clamp's own margin) and at
+> 1440px the measured height is **exactly 56**, so the change is inert at desktop width. ES5 only —
+> and **`rps_lint`'s false positive bit this initiative again**: the phrase "the shared `.bar` class
+> at 960px" in that fix's comment matched `(?<![\w.])class\s+[A-Za-z_$]` as a class declaration and
+> turned the gate red on an ES5-clean file; reworded to "selector". **`base.css` was deliberately not
+> touched** — every defect was page-specific, three sibling batches were in flight against the same
+> shared sheet, and the new suite asserts `#out`/`#niintbl`/`.tscroll` never appear in it. New
+> `engine/tests/test_responsive_batch3.py`, **25 checks, all passing**, and proven non-vacuous rather
+> than claimed to be: with all three fixes deliberately reverted it reported **18 passed, 7 failed**,
+> exit 1, naming exactly the reverted ones, after which the three files were restored and confirmed
+> `diff`-identical to their backups. `1.58.0`/`1.59.0`/`1.61.0` are claimed by the three sibling
+> batches of this same pass built in parallel off the same `main`, so this branch reserved
+> **`1.60.0`** up front rather than race for a number — and, for the same reason, took the **third**
+> free ordinal/number in each doc's own list (this note, `PROJECT-SUMMARY` item 42,
+> `MASTER-RECONCILIATION` item 43), matching `1.60.0` being third of the four reserved versions, so
+> four parallel branches cannot land on the same number in non-overlapping lines.
+> Shipped as `[1.60.0]`. `main` is at `[1.57.0]` until this merges.
 > **Reconciliation note (2026-09-04, thirty-first pass):** stage 3, PR 9 of the multi-window/
 > multi-tab initiative — **per-page responsive verification, batch 2 of 4.** `[1.57.0]`/PR 7 added
 > the shared breakpoints to `base.css` and said plainly that not one real page had been opened in a

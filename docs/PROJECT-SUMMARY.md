@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.59.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.60.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -107,16 +107,20 @@ promotes the twice-duplicated "My Bench" accessor into `shared.js` and makes the
 live-sync across tabs — the first change in that initiative a technician can actually see repaint on
 its own (`[1.56.0]`) — a responsive breakpoint baseline for `base.css`, this app's first
 width-based CSS rules, CSS only with no page yet checked against them (`[1.57.0]`, reserved as
-`1.54.0` at authoring time then renumbered on merge) — then the first two of the four per-page
+`1.54.0` at authoring time then renumbered on merge) — then the first three of the four per-page
 verification batches that baseline exists for. Batch 1: 13 pages resized in a real browser at
 960px/720px against the real corpus, turning up two genuine defects (`procedure.html`'s reference
 rail wrapping but keeping its two-column width across a 35px band, and `measures.html`'s
 non-wrapping measurement rows scrolling the page sideways from 490px down), both fixed page-locally
 with `base.css` untouched (`[1.58.0]`). Batch 2: 12 more pages resized the same way, finding control
 labels splitting mid-word in `index.html`'s in-app viewer and a card silently clipping a too-wide
-table on `handover.html`, both also fixed page-locally (`[1.59.0]`; the other two batches in flight
-in parallel as `1.60.0`/`1.61.0` — see the reconciliation notes below and §8 items 25–41). This
-document +
+table on `handover.html`, both also fixed page-locally (`[1.59.0]`). Batch 3: 11 pages
+(`learn`/`binaudit`/`coverage`/`ingest`/`ops`/`status`/`verify`/`command`/`collections`/`review`/
+`demo`), finding 3 more genuine defects — NSNs split mid-identifier on the look-alike audit table, a
+NIIN variant split mid-string on the queue built to compare NSN strings, and the demo tour's tooltip
+landing behind a control bar that is 119px tall at 720px rather than the 56px its code hard-coded —
+and confirming the other 8 pages clean, `base.css` again untouched (`[1.60.0]`; the last batch in
+flight as `1.61.0` — see the reconciliation notes below and §8 items 25–42). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1149,7 +1153,6 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     the same page with `base.css` disabled overflows to 534. **Not proven:** anything about how the
     44 other real pages actually look at 960px — only a human resizing each does that, which is
     PRs 8-11. See `CHANGELOG.md` `[1.57.0]`.
-
 40. **`[1.58.0]` — responsive verification batch 1: 13 pages resized in a real browser, 2 real
     defects found and fixed (multi-window support, PR 8/25).** Stage 3, the first of the four
     per-page passes item 39 deliberately left undone. Covers `part` · `procedure` · `torque` ·
@@ -1266,6 +1269,45 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     fixes removed it returns `45 passed, 4 failed`, exit 1. `rps_lint` was checked before touching
     anything — of these 12 only `solve.html`/`help.html` are `ES5_REQUIRED`, and no inline `<script>`
     was touched on any page, both fixes being CSS. See `CHANGELOG.md` `[1.59.0]`.
+
+42. **`[1.60.0]` — responsive per-page pass, batch 3 of 4: 11 pages resized for real, 3 genuine
+    narrow-window defects fixed (multi-window support, PR 10/25).** Stage 3, the first instalment of
+    the debt item 39 recorded against itself. `learn`, `binaudit`, `coverage`, `ingest`, `ops`,
+    `status`, `verify`, `command`, `collections`, `review` and `demo` were each loaded from the real
+    server in a real browser **with their real data** and measured at **960 CSS px** (half a 1080p
+    monitor) and **720 CSS px** (a docked or quarter-width window). Three defects found.
+    **(1) `binaudit.html`** — its audit table's NSN column is 127px and holds one NSN per line at
+    1440px, but 123px at 960px and 94px at 720px, where the hyphens inside an NSN become ordinary
+    break opportunities and every identifier splits across two lines (`6115-01-` / `036-6374`) — on
+    the one page whose stated job is telling apart look-alike NSNs. Not `base.css`'s
+    `overflow-wrap`, checked by suppressing that rule and re-measuring: the NSNs still broke. Fixed
+    with `white-space:nowrap` on the column **plus** `overflow-x:auto` on `#out`, since the nowrap
+    alone pushed `scrollWidth` to 435 against a 400px client; with both, 400px measures 400 = 400
+    with `#out` scrolling internally at 419/368. **(2) `status.html`** — the NIIN format-drift queue
+    ("same NIIN written as different NSN strings") split a variant mid-NSN at 720px; measured
+    character-by-character with a `Range`, the live first row read `5305-00-292-4587 · 5306-00-292-`
+    / `4587 · 5605-00-292-4587`. Fixed with nowrap on the NIIN/variants columns at ≤720px inside a
+    real `.tscroll` wrapper — required, because nowrap alone with a 5-variant row pushed the page to
+    1023 against 720, and `overflow-x` on a `<table>` element does nothing (Chrome computes it
+    `visible`). After: 40 live rows, 0 broken variant cells, page 720 = 720; at 960px the column
+    widths are byte-identical to the pre-change measurement. **(3) `demo.html`** — `place()` clamped
+    the guided-tour tooltip against a hard-coded `barH = 56`, true only while the control bar fits
+    one row; at 720px it is 119px (86px from its own dots strip wrapping, then 119px once item 39
+    added `flex-wrap:wrap` to the shared `.bar` selector), so at 720x620 steps 3/14/15 of the
+    19-step Mechanic tour put the tooltip 44px/3px/59px **behind** the bar. Fixed by reading the
+    bar's real `offsetHeight`; after, every step clears it (worst −5px) and at 1440px the measured
+    height is exactly 56, so the change is inert at desktop width. ES5 only — and `rps_lint`'s
+    recurring false positive struck again, matching the words "class at 960px" in a comment as a
+    class declaration. The other **8 pages needed nothing**, each reported as a measurement rather
+    than a shrug (see `CHANGELOG.md` for what was loaded and checked on each), including two
+    pre-existing oddities deliberately left alone because they measure identical at 1440px:
+    `coverage.html`'s 156.3% meter and `command.html`'s `.cards` grid shrink-wrapping to one column
+    inside a `.row` flex. **`base.css` deliberately untouched** — every defect was page-specific and
+    three sibling batches were in flight against the same shared sheet. New
+    `engine/tests/test_responsive_batch3.py`, **25 checks all passing**, proven non-vacuous rather
+    than claimed: with all three fixes deliberately reverted it reported 18 passed / 7 failed, exit
+    1, naming exactly the reverted ones, after which the files were restored `diff`-identical. See
+    `CHANGELOG.md` `[1.60.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

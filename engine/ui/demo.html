@@ -366,7 +366,24 @@ table.t th{background:var(--p2);color:var(--sub)}
     var el=$(st.sel); if(!el) return;
     var r=el.getBoundingClientRect();
     var pad=8, x=r.left-pad, y=r.top-pad, w=r.width+pad*2, h=r.height+pad*2;
-    var W=window.innerWidth, H=window.innerHeight, barH=56;
+    /* v1.60.0 (multi-window plan PR 10 of 25, the per-page responsive pass): barH used to be the
+       hard-coded literal 56, the height this page's fixed bottom control bar has ONLY while it fits
+       on one row. It is the single number the tooltip clamp below leans on, so once the bar is
+       taller than 56 the clamp puts the tooltip UNDER the bar and hides the bottom of its text.
+       Measured in a real browser at 720 CSS px: the bar is 119px, not 56px. Two independent causes
+       stack up, and neither was visible when the constant was written. First, the dots strip has
+       always had its own flex-wrap and 19 dots stop fitting on one row well before 720px, which on
+       its own already made the bar 86px there. Second, base.css v1.57.0 added flex-wrap:wrap to the
+       shared .bar selector at 960px and below, which is right for this bar (without it the row would
+       have to squeeze rather than reflow) and takes it from 86px to 119px. Consequence, measured by
+       stepping the whole 19-step Mechanic tour at 720x620: steps 3, 14 and 15 put the tooltip 44px,
+       3px and 59px BEHIND the control bar, in that order. Reading the real offsetHeight instead of a literal is
+       correct at every width, fixes the pre-existing 86px case as well as the new 119px one, and
+       needs no new breakpoint. The 56 is kept only as the fallback for the impossible case where
+       the bar is not laid out yet (offsetHeight 0); place() is only ever reached after startTour
+       has already un-hidden it, and the existing resize listener re-runs place(), so the measured
+       value stays current when the window is dragged narrower. */
+    var W=window.innerWidth, H=window.innerHeight, barH=($('bar').offsetHeight||56);
     // ring
     var ring=$('ring'); ring.style.left=x+'px'; ring.style.top=y+'px'; ring.style.width=w+'px'; ring.style.height=h+'px';
     // 4 scrim rects (leave a hole around the ring)

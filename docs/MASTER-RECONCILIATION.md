@@ -92,8 +92,79 @@ showed no measurable benefit from `overflow-wrap`, and a pre-existing **width-in
 in the shared bottom-right chrome was found, confirmed identical at 1400px, and deliberately left
 alone. New `engine/tests/test_responsive_batch4.py`, 58 checks, proven load-bearing by mutation.
 Version and doc-list numbers reserved up front alongside three sibling batches claiming
-`1.58.0`/`1.59.0`/`1.60.0`. See §6 item 44). Immediately prior: **v1.57.0, shipped 2026-09-04**
-(the responsive baseline — this app's first
+`1.58.0`/`1.59.0`/`1.60.0`. See §6 item 44). Immediately prior: **v1.60.0, shipped 2026-09-04** (the responsive **per-page** pass, batch 3 of 4 —
+stage 3 / PR 10 of the multi-window/multi-tab initiative, and the first instalment of the debt
+`[1.57.0]` recorded against itself. Eleven pages — `learn`, `binaudit`, `coverage`, `ingest`, `ops`,
+`status`, `verify`, `command`, `collections`, `review`, `demo` — each loaded from the real server in a
+real browser **with their real data** and measured at **960 CSS px** and **720 CSS px**. Three real
+defects, all page-specific, all fixed in the page's own inline `<style>`/`<script>` with **`base.css`
+deliberately untouched** (three sibling batches were in flight against that same shared sheet):
+`binaudit.html` split every NSN in half mid-identifier once its table column fell from 127px to
+94px — on the one page built to tell apart look-alike NSNs, and *not* caused by `base.css`'s
+`overflow-wrap`, which was suppressed and re-measured to prove it; `status.html`'s NIIN format-drift
+queue split a variant mid-NSN at 720px, measured character-by-character with a `Range` as
+`5305-00-292-4587 · 5306-00-292-` / `4587 · 5605-00-292-4587`, on the table whose whole purpose is
+comparing those strings; and `demo.html`'s guided tour placed its tooltip **behind** the control bar
+at 720x620 (steps 3/14/15 by 44px/3px/59px) because `place()` hard-coded a 56px bar height that is
+really 119px there. Both table fixes pair `white-space:nowrap` with a real horizontal scroller,
+because the nowrap alone was measured turning into page-wide overflow (435 against 400, and 1023
+against 720); `overflow-x` on a `<table>` element was measured doing nothing at all. The other **8
+pages needed no change**, each reported as a measurement rather than a shrug. New
+`engine/tests/test_responsive_batch3.py`, 25 checks, proven non-vacuous by deliberately reverting all
+three fixes (18 passed / 7 failed, exit 1) and restoring the files `diff`-identical. Reserved
+`1.60.0` up front against sibling batches claiming `1.58.0`/`1.59.0`/`1.61.0`. See §6 item 43). Immediately prior: **v1.59.0, shipped 2026-09-04** (per-page responsive verification, **batch 2 of
+4** — stage 3 / PR 9 of the multi-window/multi-tab initiative, and the direct answer to the one thing
+`[1.57.0]` said it could not prove. Twelve pages — `solve`, `troubleshoot`, `ask`, `handover`,
+`circuitlab`, `scan`, `semantic`, `visual`, `kg`, `related`, `index`, `help` — each opened in a real
+browser against the running server at **960** and **720 CSS px**, with real content rather than an
+empty shell, and swept twice: an overflow probe over every rendered element, and a mid-word-break
+detector that re-measures every leaf height with `body.style.overflowWrap` forced back to `normal`.
+**Two pages needed a fix, both in the page's own inline `<style>`; `base.css` is untouched.**
+`index.html`'s in-app viewer had four control labels splitting **mid-word** at 720px (`Mirr / or`,
+`Loup / e`, `Callou / ts`, `Rese / t`; heights 52 → 71px) because its densest `.pgctl` row shrinks
+its children below their own labels and `[1.57.0]`'s shared `break-word` then splits them — a defect
+**no overflow check could have found**, since the row's `scrollWidth` and `clientWidth` were both
+688px either way; letting the row wrap at ≤960px restores every button to natural width at a uniform
+33px for 18px of toolbar height. `handover.html`'s `.card{overflow:hidden}` silently clips a table
+wider than the card — measured at 720px, 629px of a 1299px table simply gone, with no scrollbar and
+nothing on screen to say so — fixed by scrolling rather than hiding at ≤960px; honestly latent rather
+than observed, since the two tables that would hit it first are the ones not yet wired server-side.
+The other ten needed nothing, confirmed rather than assumed, `circuitlab.html`'s simulator stage
+included: it is **not** distorted or mis-tiled at either width, its background grid matching the
+stage exactly. One real collision was found and deliberately **not** fixed here — the bottom-right
+pill cluster overlaps itself, but identically at 1500px, so it is width-independent, pre-existing,
+and lives in shared chrome three sibling batches are also near. New
+`engine/tests/test_responsive_batch2.py`, 49/49, negative-controlled at `45 passed, 4 failed` with
+the fixes removed. `1.59.0` and §6 item 42 were both taken up front against three sibling batches
+holding `1.58.0`/`1.60.0`/`1.61.0`. See §6 item 42). Immediately prior: **v1.58.0, shipped 2026-09-04** (responsive verification batch 1 — stage 3 /
+PR 8 of the multi-window/multi-tab initiative, and the first of the four per-page passes the
+responsive baseline immediately below was built for. 13 pages — `part`, `procedure`, `torque`,
+`jobcard`, `bench`, `dossier`, `partdiff`, `locate`, `decode`, `fastener`, `pmcs`, `measures`,
+`readiness` — actually loaded against the real 227,908-row corpus with queries that return data, then
+measured in a real browser at **960px** and **720px** and swept to 360px. The first five land here
+because **PR 14 (A2, the per-page pop-out control) is blocked on exactly those**. **Two real defects
+found, both fixed in the page's own inline `<style>`, with `engine/ui/base.css` untouched** — three
+sibling batches of this same pass are in flight in parallel holding `1.59.0`/`1.60.0`/`1.61.0`, and a
+shared-file edit is what would collide with them. (1) `procedure.html`'s `.side` reference rail:
+**756px is the last side-by-side width**; at **755px** the `.cols` row wraps, which makes the page
+taller, which brings in a 15px scrollbar, which drops the usable width to 740px and holds it wrapped
+— and the rail keeps its declared `420px`/`46vw`, landing **332-347px wide inside a 677-696px row**,
+so the scanned page a technician checks the steps against renders at under half the width sitting
+empty beside it. That held 755→721px, until the shared 720px rule took over. Closed with one
+page-local `@media(max-width:755px)`. **The baseline PR predicted this band at ~20px; measurement
+makes it 35px** — the estimate came from the layout arithmetic alone and missed the scrollbar the
+wrap itself brings in. (2) `measures.html`'s `.m`/`.em` rows never declared `flex-wrap` and are not
+in the shared wrap list (correctly — they are page-local names), so the page overflowed from **490px**
+down, 116px past its viewport by 375px, pushing the citation link off the right edge; one
+`flex-wrap:wrap` each, and the fact that this sits **below the batch's own 960/720 anchors** is
+stated rather than glossed. The other 11 pages needed nothing, said per page rather than as a blanket
+claim. Also measured with touch emulation on at both widths, since the shared `pointer:coarse` block
+inflates every control to 44×44 and `jobcard`/`dossier` keep two-column grids at 960px. Measured and
+**deliberately not fixed**: the bottom-right fixed chrome overlaps itself, but with byte-identical
+rectangles at 1400/960/720px on a desktop pointer (a coarse pointer still shows them, only growing
+one pair) — pre-existing, width-independent, shared by all 48
+pages, and its own PR. `test_uiux_fixes.py` 273 → **285**, negative-tested. See §6 item 41).
+Immediately prior: **v1.57.0, shipped 2026-09-04** (the responsive baseline — this app's first
 width-based breakpoints in `base.css`, stage 3 / PR 7 of the multi-window/multi-tab initiative and
 the design spec's priority 3. Two anchors: **960px**, exactly half a 1080p monitor, which is the
 scenario `[1.53.0]`'s `VW.windows` makes ordinary rather than hypothetical; and **720px**, the number
@@ -114,7 +185,7 @@ media rules intact), and a `getComputedStyle` cascade harness at 1200/960/720/40
 is byte-for-byte inert above 960px and that 400px has no horizontal overflow where the same markup
 without `base.css` overflows to 534px. Reserved `1.54.0` at authoring time, built in parallel with two
 sibling PRs that claimed `1.55.0`/`1.56.0`; both merged first, so this PR takes the next free number
-on merge instead. See §6 item 40). Immediately prior: **v1.56.0, shipped 2026-09-03** (`VW.bench` —
+on merge instead. See §6 item 40). Before that: **v1.56.0, shipped 2026-09-03** (`VW.bench` —
 the one canonical "My Bench"
 accessor in `shared.js`, live-synced across tabs. Stage 4 / PR 13 of the multi-window/multi-tab
 initiative: PRs 1/2/5 built plumbing nothing rendered, item 38 (A1) was the first real UI consumer of
@@ -1759,6 +1830,319 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     the tree it just verified, which is run 1's trap exactly — so a confirmatory post-edit run on the
     finished tree is reported in the PR body instead.
     See `CHANGELOG.md` `[1.57.0]`.
+41. **`[1.58.0]` — responsive verification batch 1: 13 pages resized in a real browser, 2 real
+    defects found and fixed (multi-window support, PR 8/25).** Stage 3 of the same plan, and the
+    first of the four per-page passes item 40 shipped the shared rules *for* while stating plainly
+    that no real page had yet been opened in a resized window. This does that for `part`,
+    `procedure`, `torque`, `jobcard`, `bench`, `dossier`, `partdiff`, `locate`, `decode`,
+    `fastener`, `pmcs`, `measures` and `readiness` — the first five specifically because **PR 14
+    (A2, the per-page pop-out control) is blocked on them**. Three sibling batches covering the
+    other 35 pages are in flight in parallel and hold `1.59.0`/`1.60.0`/`1.61.0`, so this branch
+    took the lowest free number rather than racing, and **`engine/ui/base.css` is not touched**:
+    neither defect found was a shared-layer problem, and a shared-file edit is exactly what would
+    conflict with those three.
+
+    **Method, because "verified" is the word most likely to be doing no work in a pass like this.**
+    The real server, against the real 227,908-row `parts` corpus, with every page loaded on a query
+    that actually returns data — `alternator` for `part`/`torque`/`locate`/`measures`/`jobcard`/
+    `partdiff`, NSN `3040-01-521-7377` for `dossier`, `brake` for `procedure`, `5 TON` for `pmcs`,
+    `5310-01-359-2198` for `decode`, `fastener`'s static table as shipped, and `bench` seeded with
+    four real pinned rows — rather than the empty shells that are the easy way to "verify" a
+    responsive pass that finds nothing. Each page was then measured at 960px and 720px and swept to
+    360px, with a probe walking every non-`position:fixed` element in `body`, recording any whose
+    right edge passes the viewport and, separately, any whose own `scrollWidth` exceeds its
+    `clientWidth`. `readiness`'s `/api/fluids`/`/api/intervals` and `measures`'s `/api/external`
+    return nothing on this machine (unbuilt data / needs the open internet), so those two paths were
+    exercised with stubbed responses of the exact documented shape rather than reported as passing
+    on a blank page.
+
+    **Defect 1 — `procedure.html`'s reference rail wrapped but kept its two-column width (721-755px).**
+    Item 40 predicted this ("a rough ~20px band between its own natural wrap threshold and this PR's
+    720px rule"); it is real and larger than predicted. `.side{width:420px;max-width:46vw}` sits
+    beside `.steps{flex:1;min-width:340px}` in a `.cols` row the shared sheet makes wrap at ≤960px.
+    Measured one width at a time: **756px is the last width where the two sit side by side**
+    (steps 348 / side 348). At **755px** the row wraps — and wrapping makes the page taller, which
+    brings in a 15px vertical scrollbar, which drops the usable width to 740px and holds it wrapped:
+    a stable equilibrium, reproducible on every reload, not a flicker. The defect is what the rail
+    does once wrapped — it keeps its declared `420px`/`46vw` and lands **332-347px wide inside a
+    677-696px row**, so the scanned manual page a technician is checking the steps against renders
+    at under half the width sitting empty beside it, strictly worse than either neighbouring state.
+    That held from 755px down to 721px, where `base.css`'s `body .side{width:100%;max-width:none}`
+    finally took over. Fixed with one page-local rule,
+    `@media(max-width:755px){ .side{width:100%;max-width:none} }`. After: 756px unchanged (348/348,
+    and 480/420 at 960px), 755→721px now gives a **677-711px** rail, zero horizontal overflow at
+    every width tested. **The ~20px estimate was 15px short** because it was computed from the
+    layout arithmetic alone and did not account for the scrollbar the wrap itself brings in; 755px
+    is the measured wrap point, so that is the threshold used rather than a rounder guess.
+
+    **Defect 2 — `measures.html`'s `.m`/`.em` are non-wrapping flex rows that scrolled the page
+    sideways from 490px down.** Neither name appears in `base.css`'s shared
+    `header,.bar,.row,.cols,.search,.chips,.toolbar,.tools,.tabs{flex-wrap:wrap}` list, and
+    correctly so — those are shared class names and these two are the page's own; putting them in
+    the shared sheet is exactly the mistake item 40's entry warned about for `.grid`'s dual meaning.
+    The content floor is real: `.val`'s `min-width:120px`, `.ty`, `.ctx`, a `white-space:nowrap`
+    trust chip, the trailing `p.N ↗` citation link and four 12px gaps come to ~411px. Measured
+    overflow: **490px** (1px), **480px** (11px), **375px** (116px), with the citation link — the one
+    control on the row a technician has to reach — pushed off the right edge. One `flex-wrap:wrap`
+    on each, the same rule the shared sheet applies to the shared row classes. **This is below the
+    batch's own 960/720 anchors and is called out as such rather than dressed up as an anchor-width
+    find**; it was fixed anyway because 480px is a quarter of the same 1080p monitor the 960px
+    anchor is half of, and because the change provably does nothing above 491px.
+
+    **The other 11 pages needed nothing**, stated per page rather than as a blanket "all good":
+    `part.html` (its `.grid2` collapsed correctly by the shared `body .grid2` rule — measured as a
+    single `913px` column at 960px — with 2 tables and a torque-sequence SVG, clean to 360px),
+    `torque`, `jobcard` (its own `@media(max-width:720px)` `.grid` collapse fires), `bench`,
+    `dossier`, `partdiff` (its `auto-fill` `minmax(320px,1fr)` grid reflows on its own, as item 40
+    predicted when it declined to touch `.grid`), `locate`, `decode`, `pmcs`, `readiness`,
+    `fastener`. All eleven: `scrollWidth` equals `clientWidth` at both anchors, nothing past the
+    right edge, nothing with internal horizontal overflow. **Additionally** all 13 were measured at
+    720px with device emulation on (`pointer:coarse` matching, `min-width:44px` confirmed live on a
+    real button) and at 960px with a coarse pointer forced — the combination that matters, since
+    `jobcard`'s and `dossier`'s two-column grids are still live at 960px while collapsed at 720px.
+    Zero overflow in every combination.
+
+    **Found, measured, and deliberately not fixed here.** The bottom-right fixed chrome
+    (`#cmdk-pill`, `#bench-pill`, `#vw-footer`, `#vw-read-btn`) overlaps by 18×44, 156×4, 66×4 and
+    21×29 pixels — but measured at 1400px, 960px and 720px on a desktop pointer, the **four overlap
+    rectangles are byte-identical at all three widths**, so it is pre-existing and
+    width-independent, present at full desktop size. (With a coarse pointer the overlaps are still
+    present; touch sizing only grows the last pair, 21×29 → 21×44, rather than creating any of
+    them.) It comes from `palette.js`/`readaloud.js`/
+    `base.css` chrome shared by all 48 pages rather than from anything in these 13. Recorded so the
+    next person need not re-measure it; fixing it belongs in its own PR, not in one of four parallel
+    batches all touching the same files. Also below any named scenario and left alone:
+    `procedure.html` overflows 17px at 360px from its own deliberate `.steps{min-width:340px}` (the
+    exact floor item 40 used `:where()` specificity-0 to protect), and `fastener.html`'s 5-column
+    reference table overflows 26px at 360px.
+
+    **One trap worth carrying forward:** the server holds UI files in memory after first read, so
+    the first post-edit measurement showed the fix having no effect at all. It was not a bad fix —
+    the browser was being served the pre-edit file. Every "after" number above comes from a server
+    restarted on the edited tree, confirmed by `curl`-ing the page and grepping for the new rule
+    before measuring.
+
+    **Tests.** `engine/tests/test_uiux_fixes.py` gains 12 checks (**273 → 285**) guarding both
+    rules: that `procedure.html` carries its own `.side` breakpoint and still declares the
+    `420px`/`46vw` rail it overrides, that `base.css` still owns the shared 720px default, that the
+    page-local threshold **read back out of both files** sits above the shared one (a real
+    comparison, not a restated constant), that `.m`/`.em` are still flex rows declaring
+    `flex-wrap`, and that neither page-local class has been absorbed into the shared wrap list.
+    These are source-text assertions, **not layout measurements** — this suite has no browser, and
+    the layout evidence is the before/after numbers above. Negative-tested: reverting both fixes
+    turns 285/0 into **280 passed, 5 failed**; restoring returns 285/0.
+    See `CHANGELOG.md` `[1.58.0]`.
+42. **`[1.59.0]` — per-page responsive verification, batch 2 of 4: 12 pages resized for real
+    (multi-window support, PR 9/25).** Stage 3, PR 9 of the same plan — "PR 8-11: per-page
+    verification, batched by the app's existing 6 home-nav section groupings." This is the direct
+    answer to the one thing item 40 said it could not prove. `[1.57.0]` shipped the shared
+    breakpoints into `base.css` and stated plainly that not one real page had yet been opened in a
+    resized window; this closes that for one of the four batches. **Numbering:** three sibling
+    batches are being built in parallel on this machine and claimed `1.58.0`/`1.60.0`/`1.61.0`, so
+    `1.59.0` and item 42 were taken up front to keep four concurrent branches from colliding on the
+    same version *and* the same list position — a same-number collision on non-overlapping lines is
+    exactly what a git merge will not flag. If merge order ends up different, renumber; item 40 did
+    precisely that with its own version.
+    **The 12 pages:** `solve.html`, `troubleshoot.html`, `ask.html`, `handover.html`,
+    `circuitlab.html`, `scan.html`, `semantic.html`, `visual.html`, `kg.html`, `related.html`,
+    `index.html`, `help.html`. Each was loaded in a real browser against the running server at
+    **960 CSS px** (half a 1080p monitor — `base.css`'s primary anchor, and the concrete scenario the
+    design spec names) and **720 CSS px** (a docked or quarter-width window), **with real content
+    rather than an empty shell**: `solve` driven through both of its stages for `ALTERNATOR` (5
+    cards), `troubleshoot` opened onto a fault tree that actually has checks (`will not start`, 25
+    symptoms, 2 steps), `ask` left to finish its full ~25-second `/api/ask` round trip (5 cited
+    sentences), `semantic` at 15 real hits, `related` at 7 assemblies, `kg` against a real graph
+    node, `circuitlab` with the RLC sample loaded and simulating, `index` past its side-gate with 30
+    search results and its in-app document viewer open on a real page. Two instrumented passes ran on
+    every page: an **overflow probe** walking every rendered element (anything whose right edge
+    passes the viewport; anything whose `scrollWidth` exceeds its `clientWidth` under
+    `overflow-x:visible`; anything clipped by more than 20px under `overflow-x:hidden` — a silent
+    content-loss case an ordinary overflow check misses entirely — plus `documentElement.scrollWidth`
+    against `clientWidth`), and a **mid-word-break detector** added after the first finding below,
+    which records every leaf element's height, sets `document.body.style.overflowWrap='normal'`,
+    re-measures, and reports every element that is *taller* with `base.css`'s shared
+    `body{overflow-wrap:break-word}` than without — the exact signature of a word split where it
+    should not be.
+    **Two pages needed a fix. Both live in that page's own inline `<style>`; `base.css` is
+    untouched**, deliberately, since three sibling batches are editing the same page family in
+    parallel and a shared-sheet change is the likeliest source of conflict.
+    *(1) `index.html` — control labels split mid-word in the in-app document viewer; real, visible,
+    at 720px.* `.vbar`'s fourth `.pgctl` group is the densest control row in the app — Clean, four
+    range sliders with their text labels, then Mirror / HD / Loupe / Callouts / Reset. It is a plain
+    flex row with no wrap, so below roughly 960px every control is flex-shrunk narrower than its own
+    label, and once `[1.57.0]`'s shared `body{overflow-wrap:break-word}` is active at the same width
+    four of those labels break **inside the word**. Measured element heights at 720px before the fix:
+    `contrast` 16 → 32px, `zoom` 16 → 32px, and `↔ Mirror` / `🔎 Loupe` / `🏷 Callouts` / `⟲ Reset`
+    52 → 71px each, rendering on screen as `Mirr / or`, `Loup / e`, `Callou / ts`, `Rese / t`. The
+    cause matters: the row was **not** overflowing — its `scrollWidth` and `clientWidth` were both
+    688px with and without the rule — so **no overflow check would ever have found this**, which is
+    why the second detector was written. `[1.57.0]`'s own entry declared this trade honestly ("a long
+    part number can now wrap mid-string … PRs 8-11 can override it per page where a specific
+    identifier must stay intact"); this is the first page where it came due, and the answer turned
+    out better than the anticipated override. Fix:
+    `@media (max-width:960px){.pgctl{flex-wrap:wrap}}` — let the row wrap instead of crushing its own
+    children. After: every button back at natural width (`Clean` 76, `Mirror` 74, `HD` 54, `Loupe`
+    80, `Callouts` 87, `Reset` 70) at a uniform **33px** height with its label whole on one line, the
+    group going from one 71px row to two rows totalling 89px; the toolbar costs **18px** of height
+    (`.vbar` 249 → 267px) and buys back six readable controls, and the detector reports **zero**
+    mid-word breaks. It improves 960px too, where the labels already sat on a second line under their
+    icon (56px-tall buttons → 37px). Scoped at 960 *beside* — not merged into — this file's own
+    long-standing 920px block, which keeps its separate job (collapsing `main` and the `.vside` rail,
+    both re-verified working at 720px in this same pass). Not put in `base.css`: `.pgctl` is an
+    `index.html`-only class name, which `base.css`'s own `pointer:coarse` rule already describes as
+    "index.html's in-viewer zoom/contrast/tilt row".
+    *(2) `handover.html` — a card that silently clips a too-wide table; latent, measured, not
+    observed with today's data.* `.card` is `overflow:hidden`, which is what clips its rounded
+    corners around the full-width `<table>` inside it; the side effect is that a table *wider* than
+    the card is cut off with **no scrollbar, no page-level overflow, and nothing on screen to say a
+    column is missing**. Measured directly at 720px: a table forced to 1299px inside a 670px card,
+    629px of it simply gone. It is width-dependent — the same table fits at desktop width — so it
+    surfaces only as a window narrows, precisely the popped-out half-monitor case this pass exists
+    for. Fix: `@media (max-width:960px){.card{overflow-x:auto}}`; after, `overflow-x` is `auto` with
+    `overflow-y` still `hidden`, the lost 629px is reachable by scrolling, the corners still clip and
+    the page still has no horizontal overflow. **The honest scope, stated rather than implied:** with
+    today's data this is latent, not a break anyone has seen. Both *wired* tables (pending sign-off,
+    recent field notes) were measured at 720px with realistic rows — hyphenated NSNs, a superseded
+    `MS51922-17`, long names — and fit with room to spare. The two that would hit it first are the
+    conflicts and due-services tables, which render raw `JSON.stringify` output (a near-unbroken
+    token by construction, which `overflow-wrap` cannot break because it does not affect a table
+    column's min-content width) and whose server side is not wired yet, as the notes under those two
+    sections already say. One declaration, zero risk, so it was made rather than filed.
+    **The other ten needed nothing, and that was confirmed rather than assumed** — no horizontal
+    overflow, nothing past the viewport, nothing clipped, no mid-word breaks, at either width, with
+    real content. Worth recording individually: **`circuitlab.html`**, flagged up front as needing
+    extra care for its real-time simulator, holds its `194px 1fr 236px` shell at 720px (stage 290px)
+    and 960px (stage 530px), and the SVG stage is **not** distorted or mis-tiled — its background grid
+    `<rect>` measures exactly the stage width at both (290 = 290). A stale 530px grid rect observed
+    after resizing looked like a genuine mis-tile and was chased to ground rather than written up: it
+    was the *harness*, since CDP device-metrics emulation changes the viewport without firing a
+    `resize` event and this page redraws on `window.addEventListener("resize", draw)`; dispatching it
+    manually snapped the grid to 970px, and a fresh load at each width is correct. `base.css`'s
+    deliberate exclusions — `svg`/`canvas` from its `max-width:100%` rule, `.wrap` from its
+    `flex-wrap` rule (this page uses `.wrap` as a grid app shell) — are both confirmed correct here.
+    On `index.html` beyond the fix: `main` is `564px 340px` at 960 and a single `680px` column at
+    720; **A1's `↗` pop-out buttons from `[1.55.0]` are fully on screen** in the Tools dropdown at
+    720px (289px wide, left 138 / right 427, scrolling vertically under its own `max-height`); the
+    side-gate modal fits at 680px inside its `max-width:96vw`; and the in-viewer `.vside` rail goes
+    full-width with thumbnails hidden per this file's own 920px block. `visual.html`'s
+    `#preview{max-width:200px}` correctly beats the shared specificity-0 `:where(img,…)` rule, which
+    is exactly the outcome item 40's specificity choices were designed for.
+    **One real collision found and deliberately NOT fixed here.** The bottom-right pill cluster
+    overlaps itself on every page — `#vw-read-btn` 458→524, `#bench-pill` 503→570, `#cmdk-pill`
+    552→708, a 21px and an 18px overlap. It looks like a narrow-window defect and is not: re-measured
+    at **1500px** the identical overlap is present (`#vw-read-btn` 1238→1304, `#bench-pill`
+    1283→1350, `#cmdk-pill` 1332→1488). It is width-independent, pre-existing, and lives in shared
+    `palette.js` + `readaloud.js` chrome affecting all 48 pages, so fixing it inside one batch's PR
+    while three sibling batches touch the same page family would be exactly the shared-file change
+    most likely to conflict. Recorded here so it is not lost; it belongs in its own PR.
+    **Tests.** New `engine/tests/test_responsive_batch2.py` — **49 checks, 49 passed, 0 failed** —
+    picked up automatically by `verify_all.py`'s glob. It is explicit about its own limits: the
+    findings above are rendered-layout facts needing a real viewport and a real font, so the browser
+    measurements are the evidence and are quoted, while the file guards the structural half the
+    design spec calls "every markup-level change". It parses each page's inline `<style>` **with CSS
+    comments stripped first** — not cosmetic, since both fixes carry doc comments that name the very
+    properties they set, so a naive substring search would pass even if the real declaration were
+    deleted and only the prose left behind — brace-matches the `@media` blocks, and asserts: each fix
+    exists, declares the property that actually fixes the bug, is scoped to the breakpoint it was
+    measured at and *not* applied globally; `index.html`'s pre-existing 920px block still collapses
+    `main`, widens `.vside` and hides `.vthumbs` and was not absorbed into the new one;
+    `handover.html`'s `.card` base rule still carries `overflow:hidden` and the fix does not loosen
+    `overflow-y`; all 12 pages still link `/base.css` and still declare
+    `<meta name="viewport" content="width=device-width…">` (without it a narrow browser lays out at
+    ~980px and then scales, so every rule verified in this pass would silently never fire — an
+    invariant nothing else in the suite guards); and the eight pages that needed no fix still carry
+    no page-local width breakpoint, while `solve`'s 760px and `help`'s 720px collapses survive. The
+    suite was **negative-controlled**: with the two fixes programmatically removed it returns
+    `45 passed, 4 failed` and exit 1, so it fails for the right reasons; the files were then restored.
+    `rps_lint` was consulted **before** anything was touched, as the ES5 gate requires: of these 12
+    pages only `solve.html` and `help.html` are `ES5_REQUIRED`, the other ten (including `index.html`
+    and `circuitlab.html`) being `MODERN_BY_DESIGN` — and in the event **no inline `<script>` was
+    touched on any page**, both fixes being pure CSS, so the ES5 question never arose.
+    `RPS GATE: PASS -- every ES5-required page is ES5-clean (10 modern-by-design pages noted)`.
+    See `CHANGELOG.md` `[1.59.0]`.
+
+43. **`[1.60.0]` — responsive per-page pass, batch 3 of 4: 11 pages resized for real, 3 genuine
+    narrow-window defects fixed (multi-window support, PR 10/25).** Stage 3 of the same initiative,
+    and the first instalment of the debt item 40 recorded against itself ("not one real page has been
+    checked against these rules in a resized window yet"). `learn`, `binaudit`, `coverage`, `ingest`,
+    `ops`, `status`, `verify`, `command`, `collections`, `review` and `demo` were each loaded from the
+    real server in a real browser **with their real data** and measured at **960 CSS px** (half a
+    1080p monitor, the spec's own scenario) and **720 CSS px** (a docked or quarter-width window) —
+    not read statically, and not assumed correct because the shared sheet exists.
+    **(1) `binaudit.html` split every NSN in half, mid-identifier.** Its audit table is `width:100%`
+    inside a `max-width:1000px` wrap, so the NSN column measures 127px and holds one NSN per line at
+    1440px, but 123px at 960px and **94px at 720px**, where the hyphens inside an NSN become ordinary
+    soft-wrap opportunities and each identifier lands across two lines (`6115-01-` / `036-6374`).
+    Measured 1 line at 1440px against 2 lines at both 960px and 720px, so a genuine narrow-window
+    regression rather than a pre-existing state — and on the one page in this app whose stated job is
+    flagging **look-alike NSNs**, whose own warning copy reads "Easy to mix up; confirm the exact NSN
+    per vehicle." **Not** `base.css`'s `overflow-wrap:break-word`, checked rather than assumed: with
+    that rule suppressed on the column the NSNs still broke, because a hyphen is an ordinary break
+    opportunity unrelated to `overflow-wrap`. So this is precisely the per-page identifier override
+    item 40 left to these PRs. Two rules, not one: with only `white-space:nowrap`, a ~400px window
+    pushed `documentElement.scrollWidth` to **435 against a 400px client**; pairing it with
+    `overflow-x:auto` on `#out` (the static container the table renders into) gives 400 = 400 with
+    `#out` scrolling internally at 419/368. Verified from the real file at 720px afterwards: column
+    back to 127px, 3 of 3 NSNs on one line, page 720 = 720, `#out` computing `overflow-x: auto`.
+    **(2) `status.html`'s NIIN format-drift queue split a variant mid-NSN.** That queue's own
+    description is "Same NIIN written as different NSN strings"; its variants column is 375px at
+    960px (zero live rows break) and 232px at 720px, where measuring character-by-character with a
+    `Range` showed the live first row reading `5305-00-292-4587 · 5306-00-292-` / `4587 ·
+    5605-00-292-4587` — the middle variant cut in half, on the table built to spot a one-digit
+    difference. Scoped to the 720px step only. The `.tscroll` wrapper is load-bearing, not
+    decorative: nowrap alone is fine for today's data (884 groups, 877 with 2 variants and 7 with 3,
+    table 678px) but with a synthetic 5-variant row it pushed the page to **1023 against 720**, and
+    `overflow-x` set on the `<table>` element itself does nothing — Chrome keeps computing it
+    `visible`, measured rather than assumed — so the scroller has to be a real block wrapper. After:
+    40 live rows, **0 broken variant cells**, page 720 = 720; with the stress row re-inserted the
+    table grows to 982px while the wrapper scrolls it internally (638/982) and the page stays 720.
+    Proven inert above the breakpoint: at 960px the columns measure 80/375/141/267 with an 863px
+    table, byte-identical to the same measurement taken before the change, and `white-space` computes
+    `normal`. `aria-live="polite"` survives the wrapping. **(3) `demo.html`'s guided tour placed its
+    tooltip behind the control bar in a narrow window.** `place()` clamped against a hard-coded
+    `barH = 56`, the height that fixed bottom bar has only while it fits one row. At 720px it is
+    **119px**, from two independent causes neither of which existed when the literal was written: the
+    dots strip has always carried its own `flex-wrap` and 19 dots stop fitting well before 720px
+    (86px on its own, measured by forcing `flex-wrap:nowrap`), and item 40 then added
+    `flex-wrap:wrap` to the shared `.bar` selector at ≤960px, taking it from 86px to 119px. Stepping
+    the whole 19-step Mechanic tour at **720x620**, steps 3, 14 and 15 put the tooltip **44px, 3px
+    and 59px behind the bar** — exactly the window shape this initiative makes ordinary. Fixed by
+    reading the bar's real `offsetHeight`, which is correct at every width and also repairs the
+    pre-existing 86px case; afterwards all 18 measured steps clear it, worst case −5px (the clamp's
+    own 6px margin), and at **1440x900** the measured bar height is **exactly 56**, the same number
+    the literal hard-coded, so the change is inert at desktop width. ES5 only, `demo.html` being an
+    RPS/ES5-required page — and **`rps_lint`'s recurring false positive struck this initiative
+    again**: the phrase "the shared `.bar` class at 960px" in that fix's comment matched
+    `(?<![\w.])class\s+[A-Za-z_$]` as a class declaration and turned `RPS GATE` red on an ES5-clean
+    file; reworded to "selector", and written down because every PR here has tripped it at least
+    once. **The other 8 pages needed nothing, reported as measurements:** `learn` (a real quiz, then
+    all 10 answered with the score card and 10 citation links shown), `coverage` (the real
+    `/api/coverage` payload, cards reflowing 3→2 columns), `ingest` (preview card, air-gap
+    `<details>` expanded, and a synthetic progress card carrying a 130-character monospace path that
+    `base.css`'s `overflow-wrap` wraps cleanly — a direct positive check that two of item 40's rules
+    do real work on a real page, including `.bar` computing `flex-wrap: wrap` on a page that declares
+    none), `ops` (real data plus a worst-case 7-column run row, table 650px inside a 678px card),
+    `verify` (68-module chip roster, tiles 5→3 columns), `command` (real status plus the real 13-row
+    search-gaps table), `collections` (a real collection opened, 120 result rows, grid 3→2), and
+    `review` (two realistic queue items with full control rows). Two pre-existing oddities were found
+    and deliberately **not** fixed here because both measure identical at 1440px and are therefore not
+    responsive regressions: `coverage.html`'s CAD meter renders at 156.3% (its inner bar clipped by
+    the parent's `overflow:hidden`), and `command.html`'s `.cards` grid shrink-wraps to a single
+    150px column inside a `.row` flex at 1440, 1000 and 960px alike. **`base.css` was deliberately not
+    touched** — every defect was specific to one page, three sibling batches of this same pass were in
+    flight against the same shared sheet, and a page-specific rule leaking into it is exactly the
+    collision that would have hurt; the new suite asserts `#out`, `#niintbl` and `.tscroll` never
+    appear there. New `engine/tests/test_responsive_batch3.py`, **25 checks all passing**, which says
+    up front what it cannot do (this repo has no headless browser, so it cannot re-measure a layout)
+    and was **proven non-vacuous rather than claimed to be**: with all three fixes deliberately
+    reverted in place it reported **18 passed, 7 failed, exit 1**, naming exactly the reverted ones,
+    after which the three files were restored and confirmed `diff`-identical to their backups.
+    `1.58.0`/`1.59.0`/`1.61.0` are claimed by the three sibling batches built in parallel off the same
+    `main`, so this branch reserved **`1.60.0`** up front, and for the same reason took the **third**
+    free number in each doc's own numbered list (`HANDOFF-NOTE` thirty-second pass, `PROJECT-SUMMARY`
+    item 42, this item 43) — matching `1.60.0` being third of the four reserved versions, so four
+    parallel branches cannot silently land on the same number in non-overlapping lines.
+    See `CHANGELOG.md` `[1.60.0]`.
 
 44. **`[1.61.0]` — responsive verification, batch 4 of 4: the 12 specialized-visualization pages
     resized for real (multi-window support, PR 11/25).** Stage 3 of the same plan and the **last** of

@@ -20,6 +20,29 @@
   .ok{background:#123020;color:#7fd6a0;border:1px solid #1d9e75}
   .scanning{color:#7fd6a0;font-weight:700}
   .grpwarn{background:#1a130a;border:1px solid #4a3a17;border-radius:8px;padding:8px 12px;margin:8px 0;color:#e8c07a;font-size:12.5px}
+  /* v1.60.0 (multi-window plan PR 10 of 25 -- the per-page responsive pass over base.css's new
+     960/720 breakpoints). Measured in a real browser at 1440 / 960 / 720 CSS px: the audit table is
+     `width:100%` inside a `max-width:1000px` .wrap, so the NSN column measures 127px and each NSN
+     sits on ONE line at 1440px -- but 123px at 960px and 94px at 720px, at which point the browser
+     takes the hyphens inside an NSN as break opportunities and splits every identifier across two
+     lines ("6115-01-" / "036-6374"). Verified as a genuine narrow-window regression, not a
+     pre-existing state: 1 line per NSN at 1440px, 2 lines at both 960px and 720px. It is also not
+     base.css's `overflow-wrap:break-word` -- measured with that rule suppressed on this column and
+     the NSNs still broke, because a hyphen is a normal break opportunity. On the one page in this
+     app whose stated job is telling apart look-alike NSNs, an identifier chopped in half mid-string
+     is the specific thing that must not happen, which is exactly the per-page override the [1.57.0]
+     entry left to this PR ("where a specific identifier must stay intact").
+     Two rules, because `white-space:nowrap` alone is not safe on its own: with only the nowrap, a
+     ~400px window pushed documentElement.scrollWidth to 435 against a 400px client -- real sideways
+     page scroll. Pairing it with `overflow-x:auto` on #out (the static container the table is
+     rendered into) keeps the identifiers intact AND confines any residual overflow to the table's
+     own scroller: re-measured at 400px, page scrollWidth 400 = clientWidth 400, #out scrolls
+     internally at 419/368. Scoped inside the same 960px breakpoint base.css uses, so every value
+     above it is byte-identical to before this change. */
+  @media (max-width:960px){
+    #out{overflow-x:auto}
+    #out td:first-child{white-space:nowrap}
+  }
 </style></head><body>
 <div class="wrap">
   <h1>📦 Bin / shelf audit <span class="muted" id="scanind"></span></h1>

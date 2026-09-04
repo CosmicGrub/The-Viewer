@@ -266,6 +266,33 @@
   .setrow:last-child{border-bottom:none}
   .setrow span{color:var(--sub)} .setrow select{width:190px}
   /* responsive + touch */
+  /* v1.59.0 (per-page responsive verification; multi-window support, PR 9 of 25 in
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md). Found by resizing this page for
+     real, with the in-app document viewer open, at 720 CSS px.
+     THE BUG: .vbar's fourth .pgctl group is the densest control row in the app -- Clean, four range
+     sliders with their text labels, then Mirror / HD / Loupe / Callouts / Reset. It is a plain flex
+     row with no wrap, so once the window is narrower than its natural width every control gets
+     flex-shrunk narrower than its own label. At 720px that pushed six labels onto extra lines and,
+     because base.css's shared body{overflow-wrap:break-word} takes effect at the same kind of
+     width, split four of them MID-WORD. Measured element heights at 720px: contrast 16 -> 32px,
+     zoom 16 -> 32px, and Mirror / Loupe / Callouts / Reset 52 -> 71px each, rendering as
+     "Mirr / or", "Loup / e", "Callou / ts", "Rese / t".
+     THE FIX: let the row wrap instead of crushing its own children. Every button returns to its
+     natural width at a uniform 33px height with its label whole on one line; the group grows from
+     one 71px row to two rows totalling 89px, so the toolbar costs 18px of height and buys back six
+     readable controls. The first three .pgctl groups are short and never reach their wrap point, so
+     nothing outside this one row changes.
+     WHY 960 AND NOT THIS FILE'S OWN 920: 960 is the anchor the whole responsive pass uses (half a
+     1080p monitor, base.css's own primary breakpoint), and the squeeze is already visible at 960 --
+     there each label sits on a second line under its icon (56px-tall buttons) instead of breaking
+     mid-word. Wrapping is the right answer at both widths. The 920px block below keeps its own
+     separate job (collapsing main and the .vside rail) and is deliberately left untouched.
+     NOT PUT IN base.css: .pgctl is an index.html-only class name -- base.css's own pointer:coarse
+     rule already describes it as "index.html's in-viewer zoom/contrast/tilt row" -- so a
+     single-page layout problem is fixed on the single page that has it. */
+  @media (max-width:960px){
+    .pgctl{flex-wrap:wrap}
+  }
   @media (max-width:920px){
     main{grid-template-columns:1fr}
     header{flex-wrap:wrap;gap:10px}

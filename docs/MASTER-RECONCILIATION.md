@@ -69,20 +69,42 @@ the actual files on disk (not just memory) where practical. It supplements — d
 
 **True current state: v1.56.0, shipped 2026-09-03** (`VW.bench` — the one canonical "My Bench"
 accessor in `shared.js`, live-synced across tabs. Stage 4 / PR 13 of the multi-window/multi-tab
-initiative, and **the first change in it a technician can actually see**: PRs 1/2/5 built plumbing
-nothing rendered, while feature D is the first real UI consumer of `[1.51.0]`'s `VW.channel` — pin a
-part on one page, watch it appear on `/bench` in the other window with no reload. The same two-line
-read/write pair had been written out twice, independently, in `bench.html` and in `palette.js`'s ☆
-pin pill; promoted into `VW.bench.get()`/`VW.bench.put(list)` with the stored shape and the 100-entry
-cap carried over unchanged, `bench.html`'s local copy deleted rather than kept as a fallback, and
-every write publishing a deliberately thin `{action, count, at}` notification — write first, notify
-second, reads publish nothing. Conflicts are last-write-wins with no merge, per the design spec.
-Verified with 77 real checks across two `vm.createContext()` sandboxes sharing one `localStorage`,
-adversarially checked with 7 injected mutations, all 7 caught — two of which improved the test rather
-than merely confirming it. Owed manual check, stated rather than implied: two real browser windows.
-`1.54.0`/`1.55.0` are reserved by sibling PRs from the same initiative built in parallel off the same
-`main`. See §6 item 38).
-Immediately prior: v1.53.0, shipped 2026-09-03 (`VW.windows` — the one shared window-opening
+initiative: PRs 1/2/5 built plumbing nothing rendered, item 38 (A1) was the first real UI consumer of
+`[1.53.0]`'s `VW.windows`, and feature D is the first real UI consumer of `[1.51.0]`'s `VW.channel` —
+the first change in this initiative where a technician sees one window's edit repaint another's,
+live: pin a part on one page, watch it appear on `/bench` in the other window with no reload. The
+same two-line read/write pair had been written out twice, independently, in `bench.html` and in
+`palette.js`'s ☆ pin pill; promoted into `VW.bench.get()`/`VW.bench.put(list)` with the stored shape
+and the 100-entry cap carried over unchanged, `bench.html`'s local copy deleted rather than kept as a
+fallback, and every write publishing a deliberately thin `{action, count, at}` notification — write
+first, notify second, reads publish nothing. Conflicts are last-write-wins with no merge, per the
+design spec. Verified with 77 real checks across two `vm.createContext()` sandboxes sharing one
+`localStorage`, adversarially checked with 7 injected mutations, all 7 caught — two of which improved
+the test rather than merely confirming it. Owed manual check, stated rather than implied: two real
+browser windows. `1.54.0` is reserved by a sibling responsive-baseline PR built in parallel off the
+same `main`, not yet merged. See §6 item 39). Immediately prior: **v1.55.0, shipped 2026-09-03**
+(**A1 — home nav pop-out links**, stage 4 / PR 12
+of the multi-window/multi-tab initiative, and the *first real UI consumer* of `[1.53.0]`'s
+`VW.windows`, which until now had nothing calling it outside its own tests. All 30 entries in
+`index.html`'s Tools nav are now rows carrying their **original, byte-for-byte unchanged `<a>`** —
+same href/title/label, still navigating in place, still ctrl/middle-clickable — plus an adjacent ↗
+`<button>` that opens that same section in its own reusable window through
+`VW.windows.open(url, {name})`. An *additional* affordance, never a replacement: the spec's framing
+is that this app could always open things in new tabs and what was missing is discoverability, not
+capability. Each pop-out is a real focusable button with its own `aria-label` naming its own
+destination — confirmed live, all 30 at `tabIndex 0` and named in the accessibility tree — because an
+unlabeled icon target is exactly what the `[1.46.0]`/`[1.47.0]` a11y passes removed from this app.
+The url is read off the sibling link at click time so the menu's existing `threadQuery()` is not
+silently defeated, and the window name is derived from the base path with the query stripped
+(`/torque?q=bolt` → `vw-torque`) because the name *is* the reuse mechanism and must not move as the
+search box changes. Verified with 36 markup/wiring checks in the new
+`engine/tests/test_home_nav_popout.py`, checked for vacuousness with 7 injected mutations — a run
+that found a real cp1252 `UnicodeEncodeError` bug in the test's own diagnostic, since fixed.
+Explicitly **not** proven and stated as manual: that clicking ↗ really opens a separate window and
+that a second click refocuses it rather than opening a third — the embedded preview browser refuses
+popups outright, so reuse is unobservable there. `1.54.0`/`1.56.0` are claimed by sibling PRs built
+in parallel. No `shared.js` change. See §6 item 38). Before that: v1.53.0, shipped 2026-09-03
+(`VW.windows` — the one shared window-opening
 path in `shared.js`, stage 2 / PR 5 of the multi-window/multi-tab initiative, built on `[1.51.0]`'s
 `VW.channel`: `open(url, opts)` makes the *named* form of `window.open` the ergonomic default, since
 passing the same name twice is how a browser natively reuses a window and is the thing every call
@@ -1352,13 +1374,120 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     rather than suppressed. No UI changes: nothing calls `VW.windows` outside its own tests yet;
     A1 (home-nav pop-out links, PR 12), A2 (`popoutControl()`, PR 14) and B (curated launcher, PR 15)
     are the first real consumers. See `CHANGELOG.md` `[1.53.0]`.
-38. **`[1.56.0]` — `VW.bench`: My Bench promoted into `shared.js` and live-synced across tabs
-    (multi-window support, PR 13/25, feature D).** Stage 4 of the same plan, and **the first change
-    in this initiative a technician can actually see**: items 35/36/37 built plumbing nothing
-    rendered, while D is the first real UI consumer of item 35's `VW.channel`. (`1.54.0`/`1.55.0` are
-    reserved up front by sibling PRs from this same initiative built in parallel off the same `main`,
-    so this branch took the next free number rather than race for one — the same thing item 37 did
-    for `1.52.0`.) **The duplicate that made it necessary:** the same two-line read/write pair had
+38. **`[1.55.0]` — A1: home nav pop-out links (multi-window support, PR 12/25).** Stage 4 of the same
+    plan, and the **first real UI consumer** of item 37's `VW.windows`, which until this landed had
+    nothing calling it outside its own tests. (`1.54.0` and `1.56.0` are claimed by sibling PRs built
+    in parallel off the same `main`, so this branch reserved `1.55.0` up front rather than race for a
+    number.) Every one of the 30 entries in `index.html`'s Tools nav is now a `.mrow` carrying its
+    **original `<a>`, byte-for-byte unchanged** — same href, same `title`, same label — beside an
+    adjacent ↗ `<button>` that opens that same section in its own reusable window through
+    `VW.windows.open(url, {name})`. **The link keeps working exactly as it did:** a normal click
+    still navigates in place, ctrl/middle-click still opens a tab. The ↗ is an *additional, explicit*
+    affordance next to it and never a replacement, because the design spec's whole framing for A1 is
+    that this app has always been able to open things in new tabs and what is actually missing is
+    **discoverability**, not capability. **Accessibility, treated as a requirement rather than a
+    finishing touch:** each pop-out is a real `<button type="button">` — in the tab order by default,
+    picking up `base.css`'s shared `:focus-visible` outline — carrying its own `aria-label` naming
+    its own destination ("Open Torque quick-ref in a new window"), never a bare unlabeled glyph;
+    confirmed live in a real browser rather than assumed, with all 30 reporting `tabIndex 0` and each
+    exposed by full name in the accessibility tree. An icon-only, unlabeled click target is precisely
+    what the `[1.46.0]`/`[1.47.0]` contrast/focus-trap passes went through this app to remove, and
+    the new test fails if any row's label is empty, omits "new window", or has drifted onto a
+    neighbouring row's page name by copy-paste. **Two load-bearing decisions, documented in the code
+    itself:** (1) the url is read off the sibling link *at click time* rather than baked into the
+    button, because the menu's existing `threadQuery()` rewrites every link's href on every open so
+    whatever the mechanic just searched carries into the tool being opened — a button holding a
+    static copy of the url would silently drop that, the exact bug `threadQuery()` exists to fix, so
+    the button asks its own link where it currently points and the pop-out inherits the query for
+    free; (2) the window name is derived from the base path with the query stripped
+    (`/torque?q=bolt` → `vw-torque`), because the name is the *entire* mechanism by which
+    `VW.windows.open` reuses a window instead of stacking a new one up per click, so it must be the
+    same string on every click of the same row — and the href is not, since it gains and loses
+    `?q=…` as the search box changes. Deriving it in one small function rather than hand-writing 30
+    `data-` attributes also makes a copy-paste collision (two rows sharing a name, so one silently
+    steals the other's window) impossible rather than merely unlikely, and the name is keyed to the
+    **destination page** rather than to this menu on purpose, so A2's `popoutControl()` (PR 14) can
+    name its window the same way and land on the *same* window rather than opening a second one for
+    the same page. **One existing behavior deliberately changed:** the Tools popup already closed
+    itself whenever any `<button>` inside it was clicked (written for `#pnReviewBtn`); the ↗ buttons
+    are now exempt, since popping several sections out in a row is the whole point of multi-window
+    support and closing the menu after each one would force a re-open per pop-out *and* throw away
+    the keyboard focus the user just placed. `#pnReviewBtn` still closes it, unchanged, and
+    deliberately gets no pop-out of its own — it is not a link to anywhere, it opens a modal on this
+    page. **Deliberately not touched:** the three top-level header pills (Collections / My Bench /
+    Help), a `flex` row that already wraps at narrow widths and would be measurably worse with six
+    more controls in it, every one of them still ctrl/middle-clickable exactly as today; and the
+    `#legacyHome` ES5 fallback's own link list, since the spec's capability ladder puts the legacy
+    tier at "no advanced capability affordances shown in the UI at all" — with the gate that protects
+    that fallback (`engine/tools/check_es5_fallback.py`) asserted still green by the new test, so
+    this change cannot have leaked into it. `index.html` is `MODERN_BY_DESIGN` in `rps_lint.py`,
+    confirmed by reading that gate's own output before a line of inline JS was written rather than
+    assumed — but the new wiring is ES5 `var`/`function` regardless, because it lives in the same
+    IIFE as the existing Tools-menu toggle, which *is* ES5 and does run on legacy hardware, and a
+    pop-out that renders there and then does nothing when clicked would be worse than not shipping it
+    there at all (`VW.windows` itself is ES5 and present on every tier). **Verified with 36 checks**
+    in the new `engine/tests/test_home_nav_popout.py`, every one against the real shipped markup:
+    each nav link sits in a `.mrow` beside exactly one pop-out, and **no** link was missed (proved by
+    stripping the rows out and confirming nothing is left behind); each pop-out is a real
+    `<button type="button">` with a non-empty `aria-label` naming its *own* row; each link is still a
+    real `<a href="/…">` whose target is a currently-registered route, cross-checked against
+    `features/routes/*.py` (the same technique `test_uiux_fixes.py` already uses for the ES5
+    fallback's links); the naming rule yields a unique name per row and the same name whatever `?q=…`
+    is appended; the wiring really calls `VW.windows.open` with a name rather than a bare
+    `window.open`; `/shared.js` is really loaded on the page and really loads before the script that
+    uses it; `#pnReviewBtn` has no pop-out; the inline scripts still parse under `node --check`; and
+    the ES5 fallback span is still present and still clean. **Checked for vacuousness with 7 injected
+    mutations, all caught** — unwrapping one row from its `.mrow`, blanking an `aria-label`, giving a
+    row its neighbour's label, pointing two rows at the same route, removing the query strip from the
+    naming function, deleting the auto-close exemption, and swapping `VW.windows.open` for a bare
+    unnamed `window.open`. **That run found a real bug in the test itself, not in the feature:** the
+    diagnostic line printing a mismatched label crashed with `UnicodeEncodeError` on a cp1252 Windows
+    console (the nav labels are emoji-heavy), which — inside the block's `try/except` — converted an
+    ordinary FAIL into a swallowed exception *and* skipped every assertion after it; fixed with an
+    ASCII-safe `say()` helper matching the "ASCII output (cp1252-safe console)" convention
+    `engine/tools/check_onboarding_menu.py` already states, and re-run to confirm 3 clean FAILs with
+    a readable diagnostic instead. **What was verified live, and what remains manual:** the real
+    server was started and the real page driven in a browser — the menu renders correctly, all 30
+    pop-outs are present as real focusable buttons with their accessible names in the a11y tree,
+    `VW.windows` is on the page, the button reads `/torque` off its own sibling link, and at a 375px
+    viewport with a coarse pointer each pop-out measures exactly **44×44** through the existing
+    `@media (pointer:coarse)` touch-target rule (no new CSS needed), with no row overflowing and no
+    horizontal page overflow. **Not provable there, and stated as manual rather than implied
+    automated:** that clicking ↗ opens a genuinely separate window, and that clicking it twice
+    refocuses that same window rather than opening a third. The embedded preview browser refuses
+    popups outright — `window.open()` returned `null` and navigated the current tab in place — so
+    window reuse is genuinely unobservable in it, though that did usefully exercise `VW.windows`'s
+    documented blocked-popup path for real: it returned `null` and skipped the toast, the registry
+    write and the broadcast exactly as item 37 specifies, with no error. The owed manual check is the
+    same real-browser-only one item 37 already recorded for the layer underneath, unchanged and still
+    open; there is no in-browser JS test runner in this project's suite to close it. No `shared.js`
+    change: this PR only *calls* the already-merged `VW.windows.open` and needed nothing new
+    exported to do it. **One real, previously-undocumented test-infrastructure hazard was found and
+    run to ground on the way through, not re-run until green:** a later confirmatory
+    `verify_all.py --snapshot` failed hard on `test_ingest_routes.py` (`IndexError`, no results
+    printed), reproduced deterministically, and turned out to be a **cross-process port collision** —
+    that suite serves its in-process `ThreadingHTTPServer` on a fixed port (8894) and
+    `ThreadingHTTPServer.allow_reuse_address` is `1` by stdlib default, so on Windows a second bind
+    of a port another process already holds succeeds *silently* and the client's requests are
+    answered by the first listener. The route replied "A scan/OCR run is already in progress" while
+    this process's own `_INGEST` (same module object, id-checked) still read `{"proc": None}` and its
+    mocked `subprocess.Popen` had recorded nothing — only possible if the reply came from another
+    process, which `netstat` confirmed (a foreign `python3.13` on 8894, a different PID each run:
+    sibling agents running the same suite concurrently). The mechanism was reproduced in isolation
+    (second bind raises nothing; every request `answered-by-FIRST`), and a copy of the suite
+    differing **only** by `PORT = 8897` ran `175 passed, 0 failed` on this exact tree. Pre-existing
+    and unrelated to A1 (that suite references nothing this PR touches), deliberately left alone
+    rather than fixed in an unrelated PR — an ephemeral port, or `allow_reuse_address = 0` so a
+    collision fails loudly instead of silently, is a real change to a suite this PR does not go near
+    — and written down here rather than left as folklore, the same way item 37 handled the
+    `test_hardening.py` flake it found. See `CHANGELOG.md` `[1.55.0]`.
+39. **`[1.56.0]` — `VW.bench`: My Bench promoted into `shared.js` and live-synced across tabs
+    (multi-window support, PR 13/25, feature D).** Stage 4 of the same plan. Items 35/36/37 built
+    plumbing nothing rendered, item 38 (A1) was the first real UI consumer of item 37's
+    `VW.windows`, and D is the first real UI consumer of item 35's `VW.channel` — **the first change
+    in this initiative where a technician sees one window's edit repaint another's, live**.
+    (`1.54.0` is reserved by a sibling responsive-baseline PR built in parallel off the same `main`,
+    not yet merged.) **The duplicate that made it necessary:** the same two-line read/write pair had
     been written out twice, independently — once inline in `bench.html`, the page that renders the
     list, and once in `palette.js`, the ☆ pin pill that appears on every page. Both parsed the same
     `viewer_bench` key, both re-applied the same 100-entry cap, and neither knew the other existed,

@@ -78,6 +78,19 @@
   .menupop .mgrouplbl{font-size:11px;letter-spacing:.6px;color:var(--sub);text-transform:uppercase;
     font-weight:700;margin:0;padding:9px 11px 4px;white-space:nowrap}
   .menupop .mgrouplbl:not(:first-child){border-top:1px solid var(--line);margin-top:5px;padding-top:9px}
+  /* v1.55.0 (A1 -- home nav pop-out links; multi-window support, PR 12 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md): every entry in this menu is now a
+     ROW carrying its real <a> plus an adjacent "open in its own window" button. The link is
+     untouched -- same href, same ctrl/middle-click behavior it has always had; the arrow is an
+     ADDITIONAL, explicit affordance beside it, never a replacement for it.
+     No opacity dimming on the arrow, on purpose: it inherits the exact same var(--sub) the menu's
+     own link text already uses (a vetted, AA-passing pair on this panel), and dimming an icon that
+     IS the whole control is precisely the kind of quiet contrast regression the [1.45.0] WCAG pass
+     went through this file to remove. Hover/focus lift it to var(--txt) instead. */
+  .menupop .mrow{display:flex;align-items:stretch;gap:2px}
+  .menupop .mrow a{flex:1 1 auto;min-width:0}
+  .menupop .popout{flex:0 0 auto;width:auto;text-align:center;padding:8px 10px;color:var(--sub)}
+  .menupop .popout:hover{background:var(--panel2);color:var(--txt)}
   .chip{background:var(--chip);border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:12px;color:var(--sub)}
   .chip b{color:var(--txt)}
   button{font:inherit;cursor:pointer;border:none;border-radius:7px;padding:8px 13px;background:var(--accent);color:#06121f;font-weight:600}
@@ -319,47 +332,57 @@
         <!-- v1.18.0 (nav regroup): the old flat 31-item list (loosely broken by plain .msep dividers)
              regrouped into 6 labeled sections. My Bench moved out to the header (see above). Every
              other href/title/label/emoji is unchanged from before -- only the grouping changed. -->
+        <!-- v1.55.0 (A1 -- home nav pop-out links; multi-window support, PR 12 of
+             docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md): every entry above is now
+             wrapped in a .mrow carrying its ORIGINAL <a> (byte-for-byte the same href/title/label --
+             it still navigates in place, and still opens in a new tab on ctrl/middle-click exactly as
+             before) plus an adjacent ↗ button that opens that same section in its own reusable
+             window through VW.windows.open(). The ↗ is a real <button>, so it is in the tab order and
+             reachable from the keyboard, and it carries its own aria-label naming the destination --
+             an icon-only, unlabeled target would be exactly the kind of regression the [1.46.0]/
+             [1.47.0] accessibility passes went through this app to fix. #pnReviewBtn below gets no
+             pop-out: it is not a link to anywhere, it opens a modal on THIS page. -->
         <div class="mgrouplbl">Find &amp; identify</div>
-        <a href="/dossier" title="Everything about one part, in one page">📋 Part dossier</a>
-        <a href="/part" title="One fast pane per part: identity + dims + torque + procedure + cautions, all cited">🪪 Part page (fast)</a>
-        <a href="/partdiff" title="Tell apart parts that look identical but aren't">🔍 Look-Alike Parts</a>
-        <a href="/locate" title="Where does a part show up? Every figure &amp; page that calls it out">🧭 Find a part</a>
-        <a href="/decode" title="Paste any code off a page — NSN / SMR / CAGE / MS — and see what it means">🔣 Decode a code</a>
+        <div class="mrow"><a href="/dossier" title="Everything about one part, in one page">📋 Part dossier</a><button type="button" class="popout" aria-label="Open Part dossier in a new window" title="Open Part dossier in a new window">↗</button></div>
+        <div class="mrow"><a href="/part" title="One fast pane per part: identity + dims + torque + procedure + cautions, all cited">🪪 Part page (fast)</a><button type="button" class="popout" aria-label="Open Part page (fast) in a new window" title="Open Part page (fast) in a new window">↗</button></div>
+        <div class="mrow"><a href="/partdiff" title="Tell apart parts that look identical but aren't">🔍 Look-Alike Parts</a><button type="button" class="popout" aria-label="Open Look-Alike Parts in a new window" title="Open Look-Alike Parts in a new window">↗</button></div>
+        <div class="mrow"><a href="/locate" title="Where does a part show up? Every figure &amp; page that calls it out">🧭 Find a part</a><button type="button" class="popout" aria-label="Open Find a part in a new window" title="Open Find a part in a new window">↗</button></div>
+        <div class="mrow"><a href="/decode" title="Paste any code off a page — NSN / SMR / CAGE / MS — and see what it means">🔣 Decode a code</a><button type="button" class="popout" aria-label="Open Decode a code in a new window" title="Open Decode a code in a new window">↗</button></div>
 
         <div class="mgrouplbl">Reference</div>
-        <a href="/torque" title="Cited torque values for a part + ft-lb / in-lb / N·m converter">🔩 Torque quick-ref</a>
-        <a href="/fastener" title="Thread sizes: major dia, TPI/pitch, class — UNC/UNF/metric">🪛 Fastener reference</a>
-        <a href="/pmcs" title="Find Preventive Maintenance Checks &amp; Services tables by vehicle">🗓 PMCS finder</a>
-        <a href="/measures" title="Every measured value for a part/vehicle — dimensions, torque, pressure — each cited">📐 Measurements &amp; dimensions</a>
-        <a href="/readiness" title="Fluids matrix + service intervals + fleet shared-parts, by vehicle">🛢 Readiness (fluids · intervals)</a>
+        <div class="mrow"><a href="/torque" title="Cited torque values for a part + ft-lb / in-lb / N·m converter">🔩 Torque quick-ref</a><button type="button" class="popout" aria-label="Open Torque quick-ref in a new window" title="Open Torque quick-ref in a new window">↗</button></div>
+        <div class="mrow"><a href="/fastener" title="Thread sizes: major dia, TPI/pitch, class — UNC/UNF/metric">🪛 Fastener reference</a><button type="button" class="popout" aria-label="Open Fastener reference in a new window" title="Open Fastener reference in a new window">↗</button></div>
+        <div class="mrow"><a href="/pmcs" title="Find Preventive Maintenance Checks &amp; Services tables by vehicle">🗓 PMCS finder</a><button type="button" class="popout" aria-label="Open PMCS finder in a new window" title="Open PMCS finder in a new window">↗</button></div>
+        <div class="mrow"><a href="/measures" title="Every measured value for a part/vehicle — dimensions, torque, pressure — each cited">📐 Measurements &amp; dimensions</a><button type="button" class="popout" aria-label="Open Measurements &amp; dimensions in a new window" title="Open Measurements &amp; dimensions in a new window">↗</button></div>
+        <div class="mrow"><a href="/readiness" title="Fluids matrix + service intervals + fleet shared-parts, by vehicle">🛢 Readiness (fluids · intervals)</a><button type="button" class="popout" aria-label="Open Readiness (fluids · intervals) in a new window" title="Open Readiness (fluids · intervals) in a new window">↗</button></div>
 
         <div class="mgrouplbl">Search modes</div>
-        <a href="/semantic" title="Search by meaning, not just keywords (offline)">🧠 Semantic search</a>
-        <a href="/visual" title="Photo of a part → closest figure crops (offline)">🖼 Visual search</a>
-        <a href="/kg" title="Explore the part↔figure↔vehicle↔procedure↔spec knowledge graph, one hop at a time (offline)">🕸 Knowledge graph</a>
-        <a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🔗 Related parts</a>
+        <div class="mrow"><a href="/semantic" title="Search by meaning, not just keywords (offline)">🧠 Semantic search</a><button type="button" class="popout" aria-label="Open Semantic search in a new window" title="Open Semantic search in a new window">↗</button></div>
+        <div class="mrow"><a href="/visual" title="Photo of a part → closest figure crops (offline)">🖼 Visual search</a><button type="button" class="popout" aria-label="Open Visual search in a new window" title="Open Visual search in a new window">↗</button></div>
+        <div class="mrow"><a href="/kg" title="Explore the part↔figure↔vehicle↔procedure↔spec knowledge graph, one hop at a time (offline)">🕸 Knowledge graph</a><button type="button" class="popout" aria-label="Open Knowledge graph in a new window" title="Open Knowledge graph in a new window">↗</button></div>
+        <div class="mrow"><a href="/related" title="Related parts & assemblies — what a part sits inside / ships with">🔗 Related parts</a><button type="button" class="popout" aria-label="Open Related parts in a new window" title="Open Related parts in a new window">↗</button></div>
 
         <div class="mgrouplbl">Do the work</div>
-        <a href="/solve" title="Symptom → parts → how-to → tools → schematic, in one place">🛠 Solve it</a>
-        <a href="/procedure" title="Step-by-step remove/install, tools & cautions from the manuals">🔧 How to do it</a>
-        <a href="/troubleshoot" title="Symptom → checks → corrective action, straight from the fault trees">🌳 Guided troubleshooting</a>
-        <a href="/ask" title="Ask a question in plain words — cited answers from the manuals (offline)">💬 Ask the manuals</a>
-        <a href="/jobcard" title="One printable Work Order: procedures + tools + torque + parts + figures for a task">🧾 Work Order</a>
-        <a href="/handover" title="What's awaiting sign-off + recent field notes since last shift">🔄 Shift handover</a>
-        <a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a>
-        <a href="/scan" title="Camera barcode / NSN scan-in (offline)">📷 Scan (camera)</a>
+        <div class="mrow"><a href="/solve" title="Symptom → parts → how-to → tools → schematic, in one place">🛠 Solve it</a><button type="button" class="popout" aria-label="Open Solve it in a new window" title="Open Solve it in a new window">↗</button></div>
+        <div class="mrow"><a href="/procedure" title="Step-by-step remove/install, tools & cautions from the manuals">🔧 How to do it</a><button type="button" class="popout" aria-label="Open How to do it in a new window" title="Open How to do it in a new window">↗</button></div>
+        <div class="mrow"><a href="/troubleshoot" title="Symptom → checks → corrective action, straight from the fault trees">🌳 Guided troubleshooting</a><button type="button" class="popout" aria-label="Open Guided troubleshooting in a new window" title="Open Guided troubleshooting in a new window">↗</button></div>
+        <div class="mrow"><a href="/ask" title="Ask a question in plain words — cited answers from the manuals (offline)">💬 Ask the manuals</a><button type="button" class="popout" aria-label="Open Ask the manuals in a new window" title="Open Ask the manuals in a new window">↗</button></div>
+        <div class="mrow"><a href="/jobcard" title="One printable Work Order: procedures + tools + torque + parts + figures for a task">🧾 Work Order</a><button type="button" class="popout" aria-label="Open Work Order in a new window" title="Open Work Order in a new window">↗</button></div>
+        <div class="mrow"><a href="/handover" title="What's awaiting sign-off + recent field notes since last shift">🔄 Shift handover</a><button type="button" class="popout" aria-label="Open Shift handover in a new window" title="Open Shift handover in a new window">↗</button></div>
+        <div class="mrow"><a href="/circuitlab" title="Overlay editor + real-time circuit simulator">⚡ Circuit Lab</a><button type="button" class="popout" aria-label="Open Circuit Lab in a new window" title="Open Circuit Lab in a new window">↗</button></div>
+        <div class="mrow"><a href="/scan" title="Camera barcode / NSN scan-in (offline)">📷 Scan (camera)</a><button type="button" class="popout" aria-label="Open Scan (camera) in a new window" title="Open Scan (camera) in a new window">↗</button></div>
 
         <div class="mgrouplbl">Learn &amp; audit</div>
-        <a href="/learn" title="Cited multiple-choice quiz built from the manuals">🎓 Learn / quiz mode</a>
-        <a href="/binaudit" title="Scan bin/shelf NSNs → flag look-alikes &amp; superseded stock">📦 Bin / shelf audit</a>
-        <a href="/coverage" title="How enriched the corpus is — OCR, CAD, vectorized figures, netlists">📈 Coverage</a>
+        <div class="mrow"><a href="/learn" title="Cited multiple-choice quiz built from the manuals">🎓 Learn / quiz mode</a><button type="button" class="popout" aria-label="Open Learn / quiz mode in a new window" title="Open Learn / quiz mode in a new window">↗</button></div>
+        <div class="mrow"><a href="/binaudit" title="Scan bin/shelf NSNs → flag look-alikes &amp; superseded stock">📦 Bin / shelf audit</a><button type="button" class="popout" aria-label="Open Bin / shelf audit in a new window" title="Open Bin / shelf audit in a new window">↗</button></div>
+        <div class="mrow"><a href="/coverage" title="How enriched the corpus is — OCR, CAD, vectorized figures, netlists">📈 Coverage</a><button type="button" class="popout" aria-label="Open Coverage in a new window" title="Open Coverage in a new window">↗</button></div>
 
         <div class="mgrouplbl">Admin</div>
-        <a href="/ingest" title="Scan, index, and OCR new TMs / PDFs — no command line">➕ Add documents</a>
-        <a href="/ops" title="Ops dashboard — mode, cache, runs, coverage, file audit">📊 Ops</a>
-        <a href="/status" title="OCR status">🔤 OCR status</a>
-        <a href="/verify" title="Verification cockpit — proof state: tests · last verify · sidecars (admin)">✅ Verification cockpit</a>
-        <a href="/command" title="Command center — are-we-complete: OCR% · coverage · PUBLOG · gaps (admin)">🛰 Command center</a>
+        <div class="mrow"><a href="/ingest" title="Scan, index, and OCR new TMs / PDFs — no command line">➕ Add documents</a><button type="button" class="popout" aria-label="Open Add documents in a new window" title="Open Add documents in a new window">↗</button></div>
+        <div class="mrow"><a href="/ops" title="Ops dashboard — mode, cache, runs, coverage, file audit">📊 Ops</a><button type="button" class="popout" aria-label="Open Ops in a new window" title="Open Ops in a new window">↗</button></div>
+        <div class="mrow"><a href="/status" title="OCR status">🔤 OCR status</a><button type="button" class="popout" aria-label="Open OCR status in a new window" title="Open OCR status in a new window">↗</button></div>
+        <div class="mrow"><a href="/verify" title="Verification cockpit — proof state: tests · last verify · sidecars (admin)">✅ Verification cockpit</a><button type="button" class="popout" aria-label="Open Verification cockpit in a new window" title="Open Verification cockpit in a new window">↗</button></div>
+        <div class="mrow"><a href="/command" title="Command center — are-we-complete: OCR% · coverage · PUBLOG · gaps (admin)">🛰 Command center</a><button type="button" class="popout" aria-label="Open Command center in a new window" title="Open Command center in a new window">↗</button></div>
         <button id="pnReviewBtn" title="Review &amp; fix low-confidence part-number rows (OCR-noisy)">✎ Part# review</button>
       </div>
     </div>
@@ -504,7 +527,64 @@ if (VIEWER_LEGACY) { document.documentElement.className += " viewer-legacy-fallb
   b.addEventListener("click",function(ev){ ev.stopPropagation(); p.hidden?open_():close(); });
   document.addEventListener("click",function(ev){ if(!p.hidden && !p.contains(ev.target) && ev.target!==b) close(); });
   document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && !p.hidden){ close(); b.focus(); } });
-  p.addEventListener("click",function(ev){ if(ev.target.closest("button")) close(); }); // JS buttons (Part# review) close it too
+  p.addEventListener("click",function(ev){
+    var hit=ev.target.closest?ev.target.closest("button"):null;
+    if(!hit) return;
+    // v1.55.0 (A1): the ↗ pop-out buttons are the one deliberate exception to "a button in here
+    // closes the menu". Popping sections out is exactly the action a mechanic repeats several times
+    // in a row -- that IS multi-window support -- and closing the menu after each one would force a
+    // re-open per pop-out, and throw away the keyboard focus the user just placed on that button.
+    // Every other button in here (#pnReviewBtn) still closes it, unchanged.
+    if(/(^|\s)popout(\s|$)/.test(hit.className||"")) return;
+    close();
+  });
+
+  /* v1.55.0 -- A1: home nav pop-out links (multi-window support, PR 12 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md), the first real UI consumer of
+     [1.53.0]'s VW.windows. Each menu row's ↗ button opens that row's section in its own window. The
+     row's real <a> is untouched and keeps working exactly as it did: normal click navigates in
+     place, ctrl/middle-click still opens a tab. This is an ADDITIONAL affordance, not a replacement.
+
+     WHY THE URL IS READ OFF THE SIBLING LINK AT CLICK TIME rather than baked into the button:
+     threadQuery() above rewrites every menu link's href on every open so whatever the mechanic just
+     searched for carries into the tool being opened. A button holding its own static copy of the url
+     would silently drop that -- the exact bug threadQuery() exists to fix -- so the button asks its
+     own link where it currently points, and the pop-out therefore carries the query too.
+
+     WHY THE WINDOW NAME IS DERIVED FROM THE BASE PATH, with the query stripped: the name is the
+     entire mechanism by which VW.windows.open reuses a window instead of stacking up a new one per
+     click, so it has to be the SAME string on every click of the same row. The href is not -- it
+     gains and loses "?q=..." as the search box changes. Stripping the query gives "/torque" ->
+     "vw-torque", identical for two clicks a minute apart with different searches, so the second
+     click re-navigates and refocuses the window the first one opened instead of opening a second.
+     Deriving it here rather than hand-writing 30 data- attributes also makes a copy-paste collision
+     (two rows sharing one name, so one silently steals the other's window) impossible rather than
+     merely unlikely. The name is keyed to the DESTINATION PAGE, not to this menu, on purpose: A2's
+     per-page popoutControl() (PR 14) can name its window the same way and land on the SAME window
+     rather than opening a second one for the same page. */
+  function popoutName(href){
+    var base=String(href||"").split("?")[0].split("#")[0].replace(/^\/+/,"").replace(/\/+$/,"");
+    return "vw-"+(base?base.replace(/[^A-Za-z0-9_-]+/g,"-"):"home");
+  }
+  function wirePopouts(){
+    var btns=p.querySelectorAll("button.popout"), i;
+    for(i=0;i<btns.length;i++){
+      btns[i].onclick=function(){
+        var link=this.parentNode?this.parentNode.querySelector("a[href]"):null;
+        var href=link?link.getAttribute("href"):null;
+        if(!href) return;
+        // shared.js loads first on every page, so VW.windows is normally right there. If it somehow
+        // isn't (a failed/blocked /shared.js), fall back to a plain NAMED window.open rather than
+        // leaving a dead button -- same reuse semantics, just without the registry/broadcast/toast.
+        if(window.VW && VW.windows && typeof VW.windows.open==="function"){
+          VW.windows.open(href,{name:popoutName(href)});
+        } else {
+          try{ window.open(href, popoutName(href)); }catch(e){}
+        }
+      };
+    }
+  }
+  wirePopouts();
 })();
 </script>
 

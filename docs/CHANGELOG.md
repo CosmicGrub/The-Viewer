@@ -12,11 +12,12 @@ every change going forward.
 
 ---
 
-## [1.54.0] — 2026-09-03 — Responsive baseline: the app's first shared width breakpoints in `base.css` (multi-window support, PR 7/25)
+## [1.57.0] — 2026-09-04 — Responsive baseline: the app's first shared width breakpoints in `base.css` (multi-window support, PR 7/25)
 
-**VERSION → `1.54.0`.** (Two sibling PRs are being built in parallel off the same `main` and have
-claimed `1.55.0` and `1.56.0`, so this branch reserved `1.54.0` up front rather than race for a
-number — the same convention `[1.53.0]` and `[1.52.0]` used for exactly this reason.)
+**VERSION → `1.57.0`.** (Reserved `1.54.0` up front when this branch was built in parallel with two
+sibling PRs that claimed `1.55.0`/`1.56.0` — the same convention `[1.53.0]`/`[1.52.0]` used. Both
+merged first while this PR was still under review, so on merge it takes the next free number instead,
+the same renumbering this initiative has already done for doc-conflict collisions elsewhere.)
 
 Stage 3, PR 7 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — the design spec's
 priority 3, "a real, verified responsive baseline." **This PR is the shared CSS rules only.** No
@@ -212,6 +213,393 @@ The docs edits and the `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html` regen
 this necessarily happened *after* that green run — writing a run's result into the repo modifies the
 tree it just verified, which is the same ordering trap run 1 fell into. A confirmatory post-edit run
 on the finished tree is reported in the PR body instead.
+
+---
+
+## [1.56.0] — 2026-09-03 — `VW.bench`: My Bench, promoted into `shared.js` and live-synced across tabs (multi-window support, PR 13/25)
+
+**VERSION → `1.56.0`.** (`1.54.0` and `1.55.0` are claimed up front by sibling PRs from the same
+initiative being built in parallel off the same `main`, so this branch reserved `1.56.0` from the
+start rather than race for a number — the same thing `[1.53.0]` did for `1.52.0`.)
+
+Stage 4, PR 13 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — **feature D, the
+first real UI consumer of `[1.51.0]`'s `VW.channel`.** Everything before this in the initiative built
+plumbing that nothing rendered; this is the first change a technician can actually see: pin a part on
+one page and it appears on the bench in the other window, with no reload.
+
+**The duplicate that made this necessary.** The same two-line read/write pair had been written out
+twice, independently: once inline in `bench.html` (the page that renders the list) and once in
+`palette.js` (the ☆ pin pill on every page). Both parsed the same `viewer_bench` key, both re-applied
+the same 100-entry cap, and neither knew the other existed — so a change to the cap, or to how a
+corrupt stored value is handled, had to be made in two places or silently drift apart. That is the
+exact situation `shared.js` was created for, and the same promotion `[1.52.0]` and `[1.53.0]` already
+performed for this initiative.
+
+- **`VW.bench.get()`** → the pinned list, always an array: never `null`, never a throw. Plain
+  `localStorage` access itself throws in a private-browsing profile, and the stored value could be
+  anything at all if it was hand-edited in devtools. Anything that is not a JSON array now reads as
+  an empty bench rather than being handed to a caller that immediately calls `.length` or `.filter`
+  on it — **that was a real, live bug**: `palette.js`'s pin path did exactly that, so a stored JSON
+  object made a pin fail silently. Entries that are not objects are dropped from the *returned view*
+  only; a read never rewrites storage, so a corrupt value stays inspectable in devtools instead of
+  being destroyed by the act of looking at it, and the next `put()` clears it for good.
+- **`VW.bench.put(list)`** → `true` when the list was really stored, `false` when it was not (a
+  non-array argument, or storage refusing the write). The boolean is new — `bench.html`'s original
+  `put()` returned nothing — and it is here for the same reason `VW.workspace.create()` reports a
+  refused write instead of handing back a plausible-looking id: a caller that cannot tell a stored
+  bench from an unstored one can only ever lie to the user about it. Nothing at all is written for a
+  non-array argument, which matches the old behavior exactly (the old copy called `.slice` on it,
+  threw, and swallowed that in its own `try`/`catch`). Entries are stored **verbatim** — this is the
+  one canonical accessor for a shape other code owns, not a validator of it.
+- **The stored data shape and the 100-entry cap are unchanged**, deliberately. Newest entries sit at
+  the *head* of the array (`palette.js` unshifts each new pin), so the cap keeps the 100 most recent
+  and drops the oldest — the behavior that was already there, now asserted rather than assumed.
+- **Every write publishes on `VW.channel`, with a deliberately thin payload.** `localStorage` is
+  already shared across every tab on this origin for free — a second tab does not need the bench list
+  pushed to it, it needs to be *told* something changed so it can re-read and repaint. The channel is
+  a notification layer over storage that is already shared, never a second copy of the truth. So
+  `put()` publishes only `{action, count, at}`: enough for an open `/bench` tab to know it should
+  repaint, small enough that the channel's storage-fallback size guard can never fire on it, and
+  incapable of going stale against the real stored value, since a receiver always re-reads. The write
+  happens **first** and the notification second, so a tab reacting to a notification always reads an
+  already-committed value. `get()` publishes nothing — a read that broadcast would be a live-lock the
+  moment a subscriber repaints by calling `get()`.
+- **Conflicts are last-write-wins, with no merge** — decided early in this initiative's scoping and
+  unchanged since, stated in the code rather than left to be inferred. Two tabs writing the bench in
+  the same instant leave the second write standing, whole. Merging would trade a rare and immediately
+  visible surprise (a pin that has to be added again) for a permanent family of subtle ones (rows the
+  user explicitly removed quietly coming back). Because every write notifies, the losing tab repaints
+  from storage within a frame instead of sitting on a list that no longer exists.
+
+**`engine/ui/bench.html`** drops its local `get()`/`put()` entirely — deleted, not left as a
+redundant fallback — calls `VW.bench` instead, and subscribes to the `"bench"` channel to re-render.
+Neither channel transport echoes back to the tab that published, so a tab's own edits repaint exactly
+once, from their own call site, rather than twice. Two smaller changes came with it, both consequences
+of live sync rather than unrelated polish: **removal now matches a row by its `url`, not by the index
+it was painted at** (another window can now pin or remove something between the list being drawn and
+the click, and a stale index would delete the wrong pin — the painted index survives only as the
+fallback for an entry somehow stored without a url); and a cross-tab repaint raises a short toast,
+because a row appearing or vanishing on its own with no click behind it otherwise reads as a glitch
+rather than as the other window's doing.
+
+**`engine/ui/palette.js` also routes through `VW.bench`, and that is not scope creep — it is what
+makes D real.** The ☆ pin pill performs nearly every actual bench write in the app; had it kept its
+own private copy, the only cross-tab sync that would ever fire is one `/bench` tab editing while a
+*second* `/bench` tab is open, which is not the scenario this feature exists for. It keeps its direct
+`localStorage` path as a fallback for exactly two pages — `circuitlab.html` and `scan.html`, the only
+pages that load `palette.js` without `shared.js` (the same two already named in its `kioskOn` note) —
+both of which do show the pin pill, so removing that path would break pinning outright on them. That
+fallback is not a redundant second copy of live logic: a page with no `shared.js` has no `VW.channel`
+either, so there would be nothing to notify with regardless.
+
+**Verified for real, not just asserted.** `engine/tests/js/test_bench_node.js` — **77 checks, all
+passing** (`node engine/tests/js/test_bench_node.js` → `77 passed, 0 failed`). Every assertion goes
+through the real exported functions loaded from the real `shared.js`; where a check needs to know what
+was actually persisted it parses the raw `viewer_bench` value out of the store directly rather than
+trusting the API to describe itself. Two `vm.createContext()` sandboxes stand in for two browser tabs
+**sharing one `localStorage` object** — exactly what two tabs on one origin have — so D's central
+claim is exercised end to end: tab A writes, tab B receives the notification over Node's real global
+`BroadcastChannel`, and tab B then really does find the new list through its own `get()`. The
+sandbox's `Date` is a controllable clock, so the notification's `at` is asserted as an exact value.
+Also covered: the unchanged stored record shape, which end of the list the cap drops, five kinds of
+non-array argument, **seven** shapes of corrupt/hand-edited stored value, storage that refuses reads
+and storage that refuses writes, last-write-wins with nothing merged, that a read and a refused or
+rejected write all publish nothing, that a bench write does not wake a subscriber on another channel,
+and the same notification over the storage-event fallback transport with `BroadcastChannel` hidden.
+
+**Adversarially checked** by injecting 7 real mutations into `shared.js` and re-running the suite —
+all 7 caught: dropping the publish from `put()` (10 FAIL), weakening the cap (5), removing the
+`.slice` entirely (5), reporting a storage-refused write as success (4), publishing *before* the
+write instead of after (4), removing `get()`'s non-array guard (1), and removing its per-entry object
+filter (3). Two of those runs improved the test rather than just confirming it. Dropping the publish
+originally **crashed** the run on a `TypeError` instead of reporting failures, taking every later
+section with it — the notification's record is now defaulted so a broken build reports clean FAILs.
+And the non-array guard originally **survived**: with no such value in the fixtures, the per-entry
+object filter alone absorbed every corrupt case tested, so the guard was decorative as far as the
+suite could tell. An array-*like* stored object (`{"0":{…},"length":1}`) is the one shape only that
+guard rejects; adding it is what makes the guard load-bearing, and the same mutation then failed
+correctly. A third mutation attempt was itself wrong and is worth recording: the first patch aimed at
+`benchGet`'s guard silently hit **`_wsRead`'s byte-identical line higher up the file** instead, and
+"survived" for that reason alone — caught by printing the mutated function back out rather than
+trusting the patch, and re-run against a unique anchor.
+
+**What this cannot prove, stated plainly.** Node has no real `storage` event across contexts (that
+IPC lives in the browser/OS, not in V8), so the fallback transport is exercised by invoking the
+listener `shared.js` itself registered with the envelope the publishing tab really wrote — everything
+either side of the OS delivery hop is production code, but the hop itself is stood in for. And no
+test here renders `bench.html`: **the owed manual check is two real browser windows** — `/bench` open
+in one, any page in the other, click ☆ pin, confirm the row appears without a reload; then remove a
+row in one window and confirm the other repaints.
+
+Gates, every line actually run and seen on this branch:
+
+- `node --check engine/ui/shared.js` → exit 0 (`--check` prints nothing on success).
+- `python engine/tests/rps_lint.py` → `RPS GATE: PASS -- every ES5-required page is ES5-clean (10
+  modern-by-design pages noted)`, with `shared.js` and `palette.js` both listed `[ ok ] ES5-clean`.
+  It caught one real ES5 false positive on the way through, the third time this initiative has hit
+  that class: the plain-English phrase "a permanent **class of** subtle ones" in a new doc comment,
+  which the linter's blunt text-level regex reads as a `class` declaration. Reworded, not suppressed.
+- `node engine/tests/js/test_bench_node.js` → `77 passed, 0 failed`.
+- `python engine/tests/test_shared_bench.py` → `PASS shared_js_parses_with_node` ·
+  `PASS vw_bench_real_accessor_and_live_cross_tab_sync` · `2 passed, 0 failed`.
+- `python engine/build_iteration_snapshot.py` → `R10 integrity OK -- all 257 changelog versions
+  present in the snapshot.`
+- `python engine/tests/verify_all.py --snapshot` (full run) → `PASS test_shared_bench.py (0.4s)` ·
+  `PASS test_shared_channel.py` · `PASS test_shared_windows.py` · `PASS test_shared_workspace.py`
+  (all four shared-module suites green side by side) · `PASS rps_lint.py` ·
+  `PASS safeguard verify` (`verify vs SNAP_20260903_232829_pre-ingest: 735 files, 735 OK, 0
+  DAMAGED`) · **`65 checks | 65 ok | 0 FAILED`** · `ALL GREEN -- suites pass and every protected file
+  matches the vault.` 65, not `[1.53.0]`'s 64, because `verify_all` auto-discovers `test_*.py` by
+  glob — `test_shared_bench.py` joined the gate with nothing to register. Free disk was checked first
+  (45.6 GB on `C:`) after an earlier PR in this initiative hit a real false-failure cascade from a
+  nearly-full drive.
+- A **second, confirmatory** `verify_all.py --snapshot` was then run with the tree fully settled —
+  after every doc edit and the final `build_iteration_snapshot.py`, so the whole tree was covered
+  rather than just the code — and came back identically: `PASS test_ingest_routes.py (35.1s)` ·
+  `PASS test_shared_bench.py` · `PASS safeguard verify` (`verify vs
+  SNAP_20260903_233230_pre-ingest: 735 files, 735 OK, 0 DAMAGED`) · **`65 checks | 65 ok | 0
+  FAILED`** · `ALL GREEN`.
+
+**A pre-existing flake found, reproduced deliberately, and run to ground — not waved away.** The
+first full `verify_all --snapshot` pass came back `65 checks | 63 ok | 2 FAILED`, on
+`test_ingest_routes.py` and `safeguard verify`. Both were chased rather than re-run until green:
+
+- **`safeguard verify` was self-inflicted and is fully explained.** It reported exactly two files
+  `MODIFIED` — `engine/viewer_app.py` (47066 → 47871 bytes) and `docs/PROJECT-SUMMARY.md`
+  (99161 → 100193 bytes). Both were edited *after* that run's own snapshot was taken, by a
+  line-ending normalization: two `docs`/`engine` files had been rewritten by a Python helper that
+  read in text mode and wrote with `newline=""`, silently converting CRLF to LF for the whole file.
+  The byte deltas confirm it exactly — `+805` on a file with 805 lines, `+1032` on one with 1032 —
+  and `git diff --stat` stayed at `1` and `50` changed lines respectively throughout, because
+  `core.autocrlf=true` normalizes both forms to the same committed content. Restored to CRLF and
+  re-verified.
+- **`test_ingest_routes.py` is a pre-existing concurrency flake in that suite, and the mechanism is
+  now known rather than guessed at.** It died on an `IndexError: list index out of range` at
+  `_popen_calls[0]` — the mocked subprocess launcher had recorded nothing. Standalone it passed
+  **20/20 consecutive runs**: 10 on this branch, and 10 more with `main`'s own
+  `shared.js`/`bench.html`/`palette.js`/`viewer_app.py` checked out over this branch's, so on
+  genuinely pristine pre-`1.56.0` code. Then it was **reproduced deliberately**: two instances run
+  concurrently failed **6 out of 6** times, in exactly the observed way. The cause is in the test
+  file itself — it binds a **fixed port** (`ThreadingHTTPServer(("127.0.0.1", 8894), V.Handler)`,
+  line 103) and mutates process-global state (`V._EXPOSED`, `V._AUTH_TOKEN`,
+  `VIEWER_INGEST_ROOTS`), so a second instance's requests reach the *other* process's server, which
+  has different mocks installed and a different `_popen_calls` list; the caller's own list stays
+  empty and the index blows up. That port is machine-wide, not per-worktree, which matters here
+  because sibling PRs from this same initiative are being built in parallel in other worktrees on
+  this same host. This is the same suite, and the same class of load/port sensitivity, that
+  `[1.52.0]` already documented. **Deliberately left alone**: fixing an unrelated suite's port
+  binding does not belong in this PR, and it is written down here rather than left as folklore.
+
+- **`engine/ui/shared.js`**: `VW.bench.get/put`, added to the `VW` export alongside the existing
+  helpers; nothing already there was touched.
+- **`engine/ui/bench.html`**: local accessor deleted, `VW.bench` adopted, `VW.channel` subscription
+  added, removal matched by url.
+- **`engine/ui/palette.js`**: `getBench`/`putBench` delegate to `VW.bench` when `shared.js` is
+  present, keeping the direct path for the two pages that load it alone.
+- **`engine/tests/js/test_bench_node.js`** (new): the 77-check test described above.
+- **`engine/tests/test_shared_bench.py`** (new): `node --check` syntax gate + wires that test into
+  this project's usual test-runner output, gracefully skipping in a node-less environment.
+  Auto-discovered by `verify_all.py`'s glob, so it joins the standard suite with no registration.
+
+---
+
+## [1.55.0] — 2026-09-03 — A1: home nav pop-out links (multi-window support, PR 12/25)
+
+**VERSION → `1.55.0`.** (`1.54.0` and `1.56.0` are claimed by sibling PRs being built in parallel off
+the same `main`, so this branch reserved `1.55.0` from the start rather than race for a number.)
+
+Stage 4, PR 12 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — and the **first
+real UI consumer** of `[1.53.0]`'s `VW.windows`, which until now had nothing calling it outside its
+own tests. Every one of the 30 entries in `index.html`'s Tools nav gains an adjacent ↗ control that
+opens that section in its own reusable window.
+
+**The existing link is untouched, and that is the point.** Each row is now
+`<div class="mrow"><a href="/torque" …>🔩 Torque quick-ref</a><button class="popout" …>↗</button></div>`
+— the `<a>` keeps its exact href, title and label, still navigates in place on a normal click, and is
+still ctrl/middle-clickable into a tab exactly as it has always been. The ↗ is an **additional,
+explicit affordance beside it, never a replacement for it**: the design spec's whole framing is that
+this app has always been able to open things in new tabs, and what is missing is
+*discoverability*, not capability.
+
+**Keyboard-reachable and screen-reader-named, not an icon-only click target.** Each pop-out is a real
+`<button type="button">` — in the tab order by default, focusable, and picking up `base.css`'s shared
+`:focus-visible` outline — carrying its own `aria-label` naming its own destination ("Open Torque
+quick-ref in a new window"), not a bare ↗ glyph. An unlabeled icon control is precisely what the
+`[1.46.0]`/`[1.47.0]` accessibility passes went through this app to remove, and a test below fails if
+any row's label is empty, missing "new window", or has drifted onto a neighbouring row's page name by
+copy-paste. Verified live in a real browser rather than assumed: all 30 report `tabIndex 0`, and the
+accessibility tree exposes each one by its full label.
+
+**Two decisions worth stating, because both are load-bearing:**
+
+- **The url is read off the sibling link at click time, not baked into the button.** The menu's
+  existing `threadQuery()` rewrites every link's href on every open so whatever the mechanic just
+  searched carries into the tool being opened. A button holding a static copy of the url would
+  silently drop that — the exact bug `threadQuery()` exists to fix — so the button asks its own link
+  where it currently points, and the pop-out inherits the query for free.
+- **The window name is derived from the base path with the query stripped** (`/torque?q=bolt` →
+  `vw-torque`). The name is the entire mechanism by which `VW.windows.open` reuses a window instead
+  of stacking a new one up per click, so it must be the *same* string on every click of the same row
+  — and the href is not, since it gains and loses `?q=…` as the search box changes. Deriving it in
+  one small function rather than hand-writing 30 `data-` attributes also makes a copy-paste
+  collision (two rows sharing a name, so one silently steals the other's window) impossible rather
+  than merely unlikely. It is keyed to the **destination page**, not to this menu, deliberately: A2's
+  `popoutControl()` (PR 14) can name its window the same way and land on the *same* window rather
+  than opening a second one for the same page.
+
+**One existing behavior deliberately changed, and one deliberately not.** The Tools popup already
+closed itself whenever any `<button>` inside it was clicked (written for `#pnReviewBtn`). The ↗
+buttons are now exempt: popping several sections out in a row is the whole point of multi-window
+support, and closing the menu after each one would force a re-open per pop-out and throw away the
+keyboard focus the user just placed. `#pnReviewBtn` still closes it, unchanged. And `#pnReviewBtn`
+itself gets **no** pop-out — it is not a link to anywhere, it opens a modal on this page.
+
+**Not touched, on purpose:** the three top-level header pills (Collections / My Bench / Help) and the
+`#legacyHome` ES5 fallback's own link list. A1 names the sectioned nav list; the header pills are a
+`flex` row that already wraps at narrow widths and would be measurably worse with six more controls
+in it, and every one of them remains ctrl/middle-clickable exactly as today. `#legacyHome` is what a
+true ES5 engine sees, and the design spec's capability ladder puts the legacy tier at "no advanced
+capability affordances shown in the UI at all". The gate that protects that fallback
+(`engine/tools/check_es5_fallback.py`) is asserted still green by the new test, so this change cannot
+have leaked into it.
+
+`index.html` is `MODERN_BY_DESIGN` in `rps_lint.py` (confirmed by reading the gate's own output, not
+assumed), so the ES5 syntax restriction does not bind here — but the new wiring is written `var`/
+`function` ES5 anyway, in the same IIFE as the existing Tools-menu toggle, which is itself ES5 and
+**does** run on legacy hardware. A pop-out control that renders on a legacy machine and then does
+nothing when clicked would be worse than not shipping it there, and `VW.windows` itself is ES5 and
+present on every tier.
+
+**Tested — and honest about the split.** `engine/tests/test_home_nav_popout.py` (new, 36 checks)
+asserts against the real shipped markup: every nav link sits in a `.mrow` beside exactly one pop-out
+(and, by stripping the rows and confirming nothing is left, that **no** link was missed); every
+pop-out is a real `<button type="button">` with a non-empty `aria-label` that names its *own* row;
+every link is still a real `<a href="/…">` whose target is a currently-registered route
+(cross-checked against `features/routes/*.py`, the same technique `test_uiux_fixes.py` already uses);
+the naming rule yields a unique name per row and the same name whatever `?q=…` is appended; the
+wiring really calls `VW.windows.open` with a name; `/shared.js` is really loaded and really loads
+before the script that uses it; `#pnReviewBtn` has no pop-out; the inline scripts still parse under
+`node --check`; and the ES5 fallback span is still present and still clean.
+
+The test was checked for vacuousness by injecting **7 real mutations** into `index.html` and
+confirming the right checks flipped — unwrapping one row from its `.mrow` (1 FAIL:
+`every_nav_link_is_inside_a_popout_row`), blanking one `aria-label` (3), giving one row a
+neighbour's label (1: `every_popout_aria_label_names_its_own_row`), pointing two rows at the same
+route (1: `window_names_are_unique_per_row`), removing the query strip from the naming function (1),
+deleting the pop-out's auto-close exemption (1), and swapping `VW.windows.open` for a bare unnamed
+`window.open` (1). **That run found a real bug in the test itself**, not in the feature: the
+diagnostic line printing a mismatched label crashed with `UnicodeEncodeError` on a cp1252 Windows
+console (the labels are full of emoji), which — inside the block's `try/except` — converted an
+ordinary FAIL into a swallowed exception *and* skipped every assertion after it. Fixed with an
+ASCII-safe `say()` helper, matching the "ASCII output (cp1252-safe console)" convention
+`engine/tools/check_onboarding_menu.py` already states, and re-run to confirm the mutation now
+reports 3 clean FAILs with a readable diagnostic instead.
+
+**What is verified live, and what is still manual.** The real server was started and the real page
+driven in a browser: the menu renders correctly, all 30 pop-outs are present as real focusable
+buttons with their accessible names in the a11y tree, `VW.windows` is on the page, and the button
+reads `/torque` off its own sibling link. At a 375px viewport with a coarse pointer the pop-out
+measures exactly **44×44** — the existing `@media (pointer:coarse)` touch-target rule reaches it with
+no new CSS — with **no row overflowing and no horizontal page overflow**. What could **not** be
+proven there: that clicking ↗ opens a *separate* window, and that clicking it twice lands on the
+*same* one. The embedded preview browser refuses popups outright — `window.open()` returned `null`
+and navigated the current tab instead — so window reuse is genuinely unobservable in it. (That did
+usefully exercise `VW.windows`'s documented blocked-popup path for real: it returned `null` and
+skipped the toast, the registry write and the broadcast, exactly as `[1.53.0]` specifies, with no
+error.) **Owed manual check, stated as manual rather than implied automated:** in a real browser,
+click a ↗ once and confirm a second window opens; click the same one again and confirm it refocuses
+that window instead of opening a third, with the "Already open — switched to that window" toast.
+This is the same real-browser-only caveat `[1.53.0]` recorded for the layer underneath, unchanged and
+still owed; there is no in-browser JS test runner in this project's suite to close it.
+
+Real command output from this branch, every line actually run and seen:
+
+- `python engine/tests/rps_lint.py` → `RPS GATE: PASS -- every ES5-required page is ES5-clean (10
+  modern-by-design pages noted).` (`index.html` listed `[info] … (modern)`, i.e. exempt — the point
+  that had to be confirmed rather than assumed before writing any inline JS here.)
+- `python engine/tools/check_es5_fallback.py` → `check_es5_fallback: OK -- fallback span is ES5-clean
+  (101 lines scanned)`.
+- `python engine/tests/test_home_nav_popout.py` → `36 passed, 0 failed (A1 home-nav pop-out links,
+  multi-window PR 12)`.
+- `python engine/tests/verify_all.py --snapshot` (full run) → `PASS test_home_nav_popout.py (0.3s)`
+  (`36 passed, 0 failed`) · `PASS rps_lint.py (0.2s)` · `PASS safeguard verify (0.5s)` (`verify vs
+  SNAP_20260903_230556_pre-ingest: 735 files, 735 OK, 0 DAMAGED`) · **`65 checks | 65 ok | 0
+  FAILED`** · `ALL GREEN -- suites pass and every protected file matches the vault.` 65, not
+  `[1.53.0]`'s 64, because this PR brings its own suite with it. `test_routes.py` came back
+  `296 passed, 0 failed` — the `/api/ask` timeout flake this project's suite has hit before did not
+  reproduce in either run here. Free disk was checked first (45.6 GB on `C:`) after an earlier PR in
+  this initiative hit a real false-failure cascade from a nearly-full drive.
+- An **earlier** full run of the same command, taken before the doc edits were finished, came back
+  `65 checks | 64 ok | 1 FAILED` on `safeguard verify` — and is recorded rather than quietly
+  discarded, because the cause is worth naming: every test suite passed, and the one failure was
+  `MODIFIED docs/MASTER-RECONCILIATION.md` / `MODIFIED docs/PROJECT-SUMMARY.md`, i.e. **this
+  session editing those two files while that run was in flight**, after its own opening snapshot had
+  already been taken. Not a regression, not flaky — an ordering mistake, fixed by re-running with the
+  tree held still, which is the `ALL GREEN` result above.
+- `python engine/build_iteration_snapshot.py` → `R10 integrity OK -- all 257 changelog versions
+  present in the snapshot.`
+
+`verify_all.py` auto-discovers `test_*.py` by glob, so `test_home_nav_popout.py` joined the gate with
+nothing to register.
+
+**A real, previously-undocumented test-infrastructure hazard found and run to ground on the way
+through — not re-run until green.** A later confirmatory `verify_all.py --snapshot` (taken after the
+doc edits, so the whole tree was covered) came back `65 checks | 64 ok | 1 FAILED` on
+`test_ingest_routes.py`, which had passed in both earlier runs — and it failed *hard*, with an
+`IndexError: list index out of range` at its `POST /api/ingest launches viewer_ingest.py's 'run'
+subcommand` check, so the suite aborted and printed no results at all. Chased instead of retried:
+
+- It reproduced **deterministically** standalone, which ruled out an ordinary intermittent flake.
+- An instrumented copy of the suite (an untracked scratch copy — the tracked file was never edited)
+  showed the route answering `{"ok":false,"error":"A scan/OCR run is already in progress."}` while
+  the test's *own* `features.ingest_feature._INGEST` — same module object, id-checked — still read
+  `{"proc": None}`, and its mocked `subprocess.Popen` had recorded nothing. A guard firing on state
+  the test could see was empty is only possible if **the reply came from a different process.**
+- It did. `test_ingest_routes.py` serves its in-process `ThreadingHTTPServer` on a **fixed** port
+  (8894), and `ThreadingHTTPServer.allow_reuse_address` is `1` by stdlib default — so on Windows a
+  second bind of a port another process is already LISTENing on **succeeds silently**, and the
+  client's requests are answered by the *first* listener. `netstat` confirmed a foreign
+  `python3.13` holding 8894 throughout, its PID changing run to run: sibling agents running this
+  same suite concurrently on this machine. The mechanism was reproduced in isolation
+  (`ThreadingHTTPServer.allow_reuse_address = 1` → *"second server ALSO bound on the same port -- no
+  error raised"* → four consecutive requests all `answered-by-FIRST`).
+- Proof it is not this branch: a copy of the suite differing **only** by `PORT = 8897` ran green on
+  this exact tree — **`175 passed, 0 failed`**. And `test_ingest_routes.py` contains zero references
+  to anything this PR touches (`index.html`, `.mrow`, `.popout` — grepped, 0 hits).
+
+So: a pre-existing hazard in that suite's fixed-port design, exposed by concurrent runs on one
+machine, not a regression here and not flakiness in the ordinary sense — the run was answered by
+someone else's server. Deliberately **not** fixed in this PR (giving that suite an ephemeral port, or
+`allow_reuse_address = 0` so a collision fails loudly instead of silently, is a real change to a
+suite A1 does not touch, and belongs in its own PR), but written down here rather than left as
+folklore, exactly as `[1.53.0]` did with the `test_hardening.py` flake it found. Worth noting for
+contrast, since it is the same file's own answer to the same problem: `test_routes.py` binds
+`("127.0.0.1", 0)` — an ephemeral port — and is structurally immune to this.
+
+**Last full run, stated exactly as it came out rather than rounded up.** A final
+`verify_all.py --snapshot`, taken with the sibling agents still hammering the machine, returned
+`PASS safeguard verify (0.6s)` — the whole tree, docs included, matching the vault — with
+**`65 checks | 63 ok | 2 FAILED`**: `test_ingest_routes.py` (the fixed-port collision above, hijacked
+again — `netstat` showed a foreign listener on 8894 through the run) and `test_routes.py`
+`295 passed, 1 failed` on `GET /api/ask?q=… -> request error: timed out`, which is **this project's
+already-known, pre-existing `/api/ask` timeout flake**, not new here and not reproduced in the two
+earlier runs on this branch. The authoritative full-suite result for this PR is therefore the
+`65 checks | 65 ok | 0 FAILED · ALL GREEN` run quoted above, taken on identical code with the machine
+quieter — plus the isolated-port `175 passed, 0 failed` proof for the one suite the collision reaches.
+This closing paragraph was written after that last run, so its `safeguard verify` covered every file
+in this PR except these lines and the two snapshot files regenerated from them.
+
+- **`engine/ui/index.html`**: 30 nav rows rewrapped as `.mrow` + `↗` pop-out button (hrefs, titles
+  and labels byte-for-byte unchanged); 4 new CSS rules under `.menupop`; `popoutName()`/
+  `wirePopouts()` added to the existing Tools-menu IIFE; that IIFE's button-click auto-close now
+  exempts `.popout`.
+- **`engine/tests/test_home_nav_popout.py`** (new): the 36-check markup/wiring suite described above.
+- **`engine/viewer_app.py`**: `VERSION` → `1.55.0`.
+
+No `shared.js` change: this PR only *calls* the already-merged `VW.windows.open`, and needed nothing
+new exported to do it.
+
+---
 
 ## [1.53.0] — 2026-09-03 — `VW.windows`: one window-opening path, named reuse, instant toast (multi-window support, PR 5/18)
 

@@ -12,6 +12,210 @@ every change going forward.
 
 ---
 
+## [1.57.0] — 2026-09-04 — Responsive baseline: the app's first shared width breakpoints in `base.css` (multi-window support, PR 7/25)
+
+**VERSION → `1.57.0`.** (Reserved `1.54.0` up front when this branch was built in parallel with two
+sibling PRs that claimed `1.55.0`/`1.56.0` — the same convention `[1.53.0]`/`[1.52.0]` used. Both
+merged first while this PR was still under review, so on merge it takes the next free number instead,
+the same renumbering this initiative has already done for doc-conflict collisions elsewhere.)
+
+Stage 3, PR 7 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — the design spec's
+priority 3, "a real, verified responsive baseline." **This PR is the shared CSS rules only.** No
+`engine/ui/*.html` file is touched, and **not one real page has been checked against these rules in
+a resized window yet.** That is explicitly PRs 8-11, batched by the home nav's own 6 section
+groupings, where real overflow and collision get found and fixed page by page. Everything below is
+the foundation those four PRs inherit, and nothing more — said plainly so the "responsive baseline"
+line item is not read as finished when it is one PR of five.
+
+**The premise, checked rather than taken from the spec.** The spec claims zero width-based
+breakpoints exist in `base.css`. Verified directly: before this change the file's only media queries
+were `(pointer:coarse)`, `print` and `(prefers-reduced-motion: reduce)` — three, none width-based.
+So the one sheet 48 of 48 pages `<link>` contributed *literally nothing* to a narrow window. Eight
+pages had since grown their own ad-hoc width breakpoints, at seven different numbers
+(1280/920/820/780/760/720/620 — `index.html`, `dossier`, `exploded`, `help`, `jobcard`, `part`,
+`solve`, `procedure`'s print rule); the other forty had none at all.
+
+**Two anchors, neither invented.** `960px` is exactly half of a 1080p monitor — the concrete
+scenario the spec names, and the one `[1.53.0]`'s `VW.windows` makes ordinary rather than
+hypothetical (the whole point of a pop-out is reading `torque.html` at ~960 CSS px instead of
+~1900). `720px` — a docked or quarter-width window — is the number four of this app's own pages
+already picked for themselves (`help`/`jobcard`/`solve` at 720-760, `part` at 760), so the shared
+sheet agrees with the pages instead of fighting them.
+
+**The part that would have made this whole PR inert, and how it was avoided.** `base.css` is
+`<link>`ed in `<head>` *before* every page's own inline `<style>` block, and a media query adds no
+specificity. A plain `@media(max-width:960px){.grid2{...}}` written in `base.css` therefore **loses**
+to `part.html`'s later, equal-specificity `.grid2{grid-template-columns:1fr 1fr}` — the rule would
+parse, match, and be overridden, and the sheet would look correct while doing nothing. Each of the
+seven rules added here picks its weight deliberately: `:where(...)` (specificity 0) for the safety
+nets any page must stay free to override, a bare element/class selector where no page declares that
+property at all, and `body .x` (one notch up) *only* where the rule genuinely has to beat a page's
+own declaration. This is verified below, not asserted.
+
+**What was added** — one unbreakpointed rule and six inside two media queries:
+
+- `#vw-toast{max-width:calc(100vw - 24px)}` — deliberately *not* inside a breakpoint: it is
+  `base.css`'s own chrome (no page defines `#vw-toast`) and the constraint is self-limiting, binding
+  only once the viewport is actually narrower than the toast. `[1.53.0]` made toasts routine on this
+  exact path — "Already open — switched to that window" fires on every pop-out reuse — and the
+  longest of those strings is wider than a narrow popped-out window.
+- **≤960px** — `header,.bar,.row,.cols,.search,.chips,.toolbar,.tools,.tabs{flex-wrap:wrap}`. Not a
+  new convention: this app's own, finished. Counted across the page family, `.search` already
+  declares `flex-wrap:wrap` in **18 of its 18** flex definitions, `.toolbar` 2/2, `.chips` 2/2,
+  `.cols` 1/1, `.tools` 1/1, `.row` 7/8, `.bar` 8/14, `header` 5/9, `.tabs` 0/1. The pages that
+  forgot are precisely the ones that break when squeezed. `flex-wrap` is inert on a non-flex element
+  (several pages reuse `.bar` for a progress meter and `.tools` for a plain block) and inert on a
+  row that still fits. `.wrap` is deliberately excluded — `circuitlab.html` and `deepzoom.html` use
+  it as a full-height flex/grid app shell, where wrapping a column-direction container is meaningful.
+- **≤960px** — `:where(.grid,.grid2,.cards,.tiles,.cols,.bar,.row,.search)>*{min-width:0}`. Grid and
+  flex items default to `min-width:auto`, so one wide table or one long unbreakable token inside a
+  column forces the whole track wider than its container and scrolls the page sideways. This is not
+  a theoretical failure: `index.html` hit it and worked around it locally *twice* — its
+  `grid-template-columns:minmax(0,1fr) 420px` carries the comment "the results column can never force
+  sideways overflow", and its own 920px block sets `.vside{min-width:0}`. `:where()` keeps this at
+  specificity 0 so a page's deliberate floor still wins; `procedure.html`'s
+  `.steps{flex:1;min-width:340px}` is untouched, which is the intended outcome rather than a gap.
+- **≤960px** — `body{overflow-wrap:break-word}`. NSNs, CAGE codes, part numbers and file paths are
+  what this app is made of, and a single unbreakable one forces a horizontal scrollbar. Inherited,
+  so one declaration covers table cells (18 pages carry `<table>`) and card bodies alike;
+  `break-word` only ever breaks a word that could not fit a line on its own. No page sets
+  `overflow-wrap`/`word-wrap`/`word-break` anywhere, so a bare `body` selector is enough. **Honest
+  trade:** in a narrow window a long part number can now wrap mid-string. That is worse to read than
+  an unbroken one and better than a page that scrolls sideways; PRs 8-11 can override it per page
+  where a specific identifier must stay intact.
+- **≤960px** — `:where(img,video,iframe){max-width:100%}`. Specificity 0, so pages that size images
+  explicitly (thumbnail strips at `width:84px`, `object-fit` covers) keep their own sizing. `svg` and
+  `canvas` are deliberately excluded: the 3-D/deep-zoom/circuit stages size theirs by script.
+- **≤960px** — `body .grid2{grid-template-columns:1fr}`. The one class in this app actually *named*
+  for being a two-column split (`part.html`, `1fr 1fr` with its own 760px collapse) collapses at the
+  half-monitor width instead. `body .` because it has to beat that page's later declaration.
+- **≤720px** — `body .side{width:100%;max-width:none}`. `procedure.html`'s
+  `.side{width:420px;max-width:46vw}` next to `.steps{min-width:340px}` is this app's only
+  `.side`-named split today: below roughly 740px the two stop fitting, the wrapping `.cols` row drops
+  the rail underneath, and it lands there still only ~330px wide — worse than either layout on its
+  own. One consumer today; PRs 8-11 may find more, and this is the shared rule they inherit.
+
+**What was deliberately NOT done, and why.** `.grid` is *not* collapsed to a single column, which is
+the obvious rule to reach for and would have been wrong. It means two different things across this
+app: an explicit two-column `1fr 1fr` split on 5 pages (`dossier`/`help`/`jobcard`/`solve`/`exploded`
+— every one of which already collapses itself at 720-820px) and a
+`repeat(auto-fill,minmax(150-320px,1fr))` card grid on 6 others
+(`collections`/`coverage`/`schematics`/`threed`/`partdiff`/`demo`) that already reflows correctly on
+its own. A blanket collapse fixes nothing on the first group and turns the second into a column of
+900px-wide cards. That judgement needs a real resized window per page. Also considered and dropped:
+tightening `.wrap`'s horizontal padding (44 of 48 pages use `.wrap`, but two of them use it as a
+full-viewport app shell with no padding at all, so a blanket override in the shared sheet would
+silently change those two to buy ~12px on the other 42). And `procedure.html` still has a rough
+~20px band between its own natural wrap threshold (~740px) and this PR's 720px rule — real, known,
+and exactly the kind of thing PR 8-11's per-page pass exists to tune.
+
+**Verified for real, in a real browser, before/after.** There is no CSS linter in this repo, so the
+file was checked three ways rather than eyeballed. (1) Brace balance with comments stripped: `{` 57 ·
+`}` 57, nesting depth never negative, final depth 0, `/*` 31 = `*/` 31. (2) A real browser was made
+to *parse* the file — the whole of `base.css` inlined into a `<style>` and read back through
+`document.styleSheets[…].cssRules`, which silently drops anything it cannot parse: **43 top-level
+rules**, and all five media rules present with every inner rule intact — `(pointer: coarse)` 4,
+`print` 1, `(prefers-reduced-motion: reduce)` 1, **`(max-width: 960px)` 5**, **`(max-width: 720px)`
+1**. Nothing was dropped, `:where()` included. (3) A cascade harness reproducing the real load order
+(this `base.css` in one `<style>`, then a second `<style>` holding verbatim copies of `part.html`'s
+`.grid2`, `procedure.html`'s `.cols`/`.steps`/`.side`, `solve.html`'s `header`/`.bar` and
+`collections.html`'s `.grid`), served over HTTP and measured with `getComputedStyle`. The real
+measured values, at 1200px → 960px → 720px:
+
+- `header` / `.bar` `flex-wrap`: `nowrap` → `wrap`.
+- `.grid2` columns: `593px 593px` → `960px` (collapsed) → `720px`; its child's `min-width`
+  `auto` → `0px`.
+- `.grid` (the `auto-fill` kind, from `collections.html`): 4 columns → **3 columns** → 2 columns —
+  i.e. deliberately untouched by this PR at every width.
+- `.steps` `min-width` (the page's own floor): `340px` → **`340px`** → **`340px`** — untouched, as
+  the specificity-0 `:where()` choice intends.
+- `.side`: `420px` / `max-width:552px` → `420px` / `441.6px` → **`720px` / `max-width:none`**.
+- `body` `overflow-wrap`: `normal` → `break-word`.
+- `img.thumb`: `max-width` `none` → `100%`, while `width` stays **`84px`** at both.
+
+Three things those numbers are there to prove, and do: at **1200px every value is byte-identical to
+what it was before this change** (the block is completely inert above 960px — R1); at 960px the
+`auto-fill` `.grid` is still 3 columns and `.steps` still has its intentional 340px floor, i.e. the
+`:where()` specificity-0 choice really does let pages win where they should; and the `body .`
+selectors really do beat a page's later declaration where they must (`.grid2`, `.side`). Finally,
+the overflow claim measured rather than asserted — same harness at **400px** wide:
+`documentElement.scrollWidth` **400** = `clientWidth` **400**, no horizontal overflow; with the
+`base.css` `<style>` toggled `disabled=true` on the same live page, the identical markup immediately
+overflows to `scrollWidth` **534** against a 400px client. The rules are doing the work, not the
+markup.
+
+**What this still cannot prove, stated plainly.** Everything above is a synthetic harness holding
+copies of four pages' rules — it demonstrates that the shared block behaves as designed against those
+patterns, and nothing at all about whether the other 44 real pages look right at 960px. Only a human
+resizing each one does that, which is PRs 8-11, and this entry should not be read as having done it.
+
+Real command output from this branch, every line of it actually run and seen:
+
+- Brace/comment audit of `engine/ui/base.css` → `{ 57 } 57` · `final depth 0` · `min depth 0` ·
+  `/*=31 */=31`.
+- Browser parse of the whole file → `topLevelRules: 43`, media rules
+  `(pointer: coarse)`:4 · `print`:1 · `(prefers-reduced-motion: reduce)`:1 · `(max-width: 960px)`:5 ·
+  `(max-width: 720px)`:1.
+- `python engine/build_iteration_snapshot.py` → `R10 integrity OK -- all 257 changelog versions
+  present in the snapshot.`
+- Free disk checked before the suite ran (42.5 GB on `C:`), after a sibling PR hit a real
+  false-failure cascade from a nearly-full drive.
+- `python engine/tests/verify_all.py --snapshot` — the final full run:
+  **`64 checks | 64 ok | 0 FAILED` · `ALL GREEN -- suites pass and every protected file matches the
+  vault.`** All 61 `test_*.py` suites PASS, including the four that reference `engine/ui/base.css`
+  — `test_uiux_fixes.py` **273 passed, 0 failed** (it string-splits this very file to assert on the
+  kiosk-mode and `pointer:coarse` blocks, so it is the direct check that inserting a new section did
+  not disturb them), `test_hardening.py` (`/base.css` served), `test_demo_tour.py`,
+  `test_readaloud_stepnav.py` — plus `rps_lint.py` → `RPS GATE: PASS -- every ES5-required page is
+  ES5-clean (10 modern-by-design pages noted)`, `test_routes.py` PASS (no sign of the known
+  pre-existing `/api/ask` timeout flake), and `safeguard verify: 734 files, 734 OK, 0 DAMAGED`.
+
+**Getting to that took three full runs, and both intermediate failures are written down rather than
+re-run until green — neither was this change's content, and both were chased to root cause.**
+
+1. **Run 1** — every suite PASS, `64 checks | 63 ok | 1 FAILED` on `safeguard verify`, reporting
+   `734 files, 731 OK, 3 DAMAGED`: `engine/ui/base.css`, `docs/HANDOFF-NOTE.md` and
+   `docs/MASTER-RECONCILIATION.md` as `MODIFIED (grew / edited)`. Self-inflicted ordering:
+   `--snapshot` baselines at the *start* of a ~3.5-minute run, and those three files were still
+   being edited while it was in flight. Nothing truncated or shrunk — all three *grew*, by exactly
+   the bytes of the edits made.
+2. **Run 2** — every suite PASS again, but `safeguard verify` crashed outright with
+   `FileNotFoundError: ...\backups\vault\SNAP_20260903_230927_pre-ingest\manifest.json`. Root cause
+   found rather than guessed: `verify_all.py` calls `safeguard.py verify` with **no** snapshot id,
+   so `safeguard.latest_snapid()` picks the lexicographically-last `SNAP_*` directory — which after
+   a full run is one the *test suites themselves* created (`ingest_feature.py` takes a real
+   `safeguard.snapshot("pre-ingest")` before every ingest, and `test_ingest_routes.py` drives it).
+   That is long-standing, documented behaviour, not new — `[1.53.0]`'s own entry records
+   `verify vs SNAP_20260903_181820_pre-ingest`. What was new is that one of those test-created
+   snapshots had a `files/` directory but no `manifest.json`, left behind by an aborted launch. All
+   of this lives in `backups/`, which is **gitignored and not part of this PR at all**. Proof this
+   PR's content is sound regardless:
+   `python engine/safeguard.py verify --snap SNAP_20260903_230713_verify_all` (run 2's *own*
+   baseline) → **`734 files, 734 OK, 0 DAMAGED`**. The manifest-less directory was then removed as
+   the garbage it was, and a plain `safeguard.py verify` immediately returned
+   `verify vs SNAP_20260903_230920_pre-ingest: 734 files, 734 OK, 0 DAMAGED`.
+3. **Run 3** — `64 checks | 62 ok | 2 FAILED`: `test_routes.py` (the known pre-existing
+   `FAIL GET /api/ask?q=... -> request error: timed out`, 295 passed / 1 failed) and
+   `test_ingest_routes.py` with `IndexError: list index out of range` on `_popen_calls[0]`. The
+   second one was traced, not assumed: `test_ingest_routes.py` stands up its own server on the
+   **hard-coded port 8894**, and `netstat` showed 8894 already `LISTENING`, held by a
+   `tests/test_ingest_routes.py` process whose parent shell was running out of **a different
+   worktree entirely** — one of the sibling PRs being built in parallel on this machine, looping
+   that same suite. `HTTPServer.allow_reuse_address` lets the second bind succeed on Windows, so the
+   requests reached the *other* process, whose `subprocess.Popen` is not the one this run
+   monkeypatched — hence an empty `_popen_calls`. This is precisely the false-failure mode
+   `[1.52.0]` already documented for this exact file ("checks depend on process-global state and a
+   fixed port"). Their processes were **left alone**; once port 8894 was free,
+   `python engine/tests/test_ingest_routes.py` standalone → **`175 passed, 0 failed`**, and the
+   final full run above came back ALL GREEN with `test_ingest_routes.py` PASS (34.2s).
+
+The docs edits and the `ITERATION-SNAPSHOTS.md`/`ITERATION-DASHBOARD.html` regeneration that record
+this necessarily happened *after* that green run — writing a run's result into the repo modifies the
+tree it just verified, which is the same ordering trap run 1 fell into. A confirmatory post-edit run
+on the finished tree is reported in the PR body instead.
+
+---
+
 ## [1.56.0] — 2026-09-03 — `VW.bench`: My Bench, promoted into `shared.js` and live-synced across tabs (multi-window support, PR 13/25)
 
 **VERSION → `1.56.0`.** (`1.54.0` and `1.55.0` are claimed up front by sibling PRs from the same

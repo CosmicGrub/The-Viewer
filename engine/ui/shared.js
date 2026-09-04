@@ -835,7 +835,14 @@
      ever revised, both copies have to move together (engine/tests/test_a2_popout.py asserts the two
      source files' regex literals stay identical, specifically to catch a drift like that). Applied
      here to location.pathname (which already carries no query/hash of its own -- the same
-     stripping is still applied for defensive symmetry with the href-based caller). */
+     stripping is still applied for defensive symmetry with the href-based caller).
+
+     v1.64.0 (B, curated workspace launcher, PR 15 of the same plan): also exported directly below as
+     VW.popoutWindowName, not just used internally by popoutControl -- B opens OTHER pages (from
+     jobcard.html/solve.html, neither of which IS /procedure or /torque), so it needs this same
+     transform for a page it is not currently on, which popoutControl()'s own location.pathname read
+     cannot give it. Exporting the existing function is a one-line addition, not a new naming rule --
+     the byte-for-byte-identical-with-A1 guarantee above holds exactly the same for every caller. */
   function _popoutWindowName(pathOrHref) {
     var base = String(pathOrHref || "").split("?")[0].split("#")[0].replace(/^\/+/, "").replace(/\/+$/, "");
     return "vw-" + (base ? base.replace(/[^A-Za-z0-9_-]+/g, "-") : "home");
@@ -917,7 +924,7 @@
 
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
              toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
-             trapFocus: trapFocus, popoutControl: popoutControl,
+             trapFocus: trapFocus, popoutControl: popoutControl, popoutWindowName: _popoutWindowName,
              channel: { publish: channelPublish, subscribe: channelSubscribe },
              workspace: { create: workspaceCreate, list: workspaceList,
                           get: workspaceGet, touch: workspaceTouch },

@@ -37,6 +37,7 @@
     <input id="q" placeholder="replace the alternator  ·  2920-00-054-7819  ·  ALTERNATOR" aria-label="Search for a job card by task, NSN, or part name" autofocus>
     <button class="go" id="go">Preview</button>
     <button class="wo" id="wo" disabled>🧾 Generate Work Order</button>
+    <button class="btn" id="launchWO" title="Open Procedures, Torque and Part lookup together in their own windows, each prefilled with this search">🗂 Launch Work Order</button>
     <a class="btn" id="partspdf" href="#" target="_blank" style="pointer-events:none;opacity:.45">🖨 Print parts-request sheet</a>
     <a class="btn" href="/api/form_2407" target="_blank" title="Blank DA-2407 maintenance-request worksheet — no search needed">🖨 Print blank maintenance request (DA 2407)</a>
     <a class="btn" href="/">← search</a>
@@ -119,6 +120,50 @@
   $('#q').addEventListener('keydown',function(e){ if(e.key==='Enter') preview(); });
   $('#wo').onclick=function(){ if(last) window.open('/api/jobcard?q='+encodeURIComponent(last),'_blank'); };
   var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; preview(); }
+
+  // v1.64.0 (B, curated workspace launcher, PR 15 of
+  // docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 5): "Launch Work Order" opens
+  // Procedures + Torque + Part lookup together, each prefilled with this page's CURRENT search --
+  // one VW.workspace.create() call records the launch as a real, named workspace (something PR 16/F
+  // will allow a technician to save/reopen later; this PR only ever launches a fresh one), then each
+  // page opens via VW.windows.open() so a repeat click reuses whatever is already open instead of
+  // stacking duplicate windows.
+  function launchWorkOrder(){
+    // Design-doc item 8's "Addition this revision" (docs/superpowers/specs/2026-09-03-multi-window-
+    // tabs-design.md): before opening several windows at once, check VW.capabilities.tier and warn on
+    // constrained hardware. VW.capabilities is Stage 6 (PR 19-25) and does not exist yet, so this is
+    // written feature-detected end to end -- today it reads as "no tier info" and does nothing; the
+    // day PR 19 ships a real VW.capabilities, this starts warning with no change needed here.
+    var caps=window.VW && VW.capabilities;
+    var tier=(caps && typeof caps.tier==='string') ? caps.tier : null;
+    if((tier==='lite' || tier==='legacy') &&
+       !window.confirm('Opening 3 windows at once can slow this device down. Continue?')){ return; }
+
+    // Read #q's CURRENT value at click time, not whatever the URL had on load -- the technician may
+    // have retyped it since. Same reasoning as index.html's threadQuery() (A1): a stale value here
+    // would silently carry the WRONG part/vehicle context into every window this opens.
+    var q=($('#q').value||'').trim();
+    var pages=['/procedure','/torque','/part'];
+    var items=[];
+    for(var i=0;i<pages.length;i++){ items.push({page:pages[i], params: q?{q:q}:{}}); }
+    var name='Work Order'+(q?(' — '+q):'');
+    if(window.VW && VW.workspace && typeof VW.workspace.create==='function'){
+      VW.workspace.create(name, items, 'template');
+    }
+    for(var j=0;j<pages.length;j++){
+      var url=pages[j]+(q?('?q='+encodeURIComponent(q)):'');
+      // Reuses shared.js's OWN window-naming transform (VW.popoutWindowName -- the exact function
+      // A1/A2 already use, exported for this PR rather than re-implemented) so a page already open
+      // via A1's home-nav ↗, A2's own pop-out control, or a previous launch gets REUSED, never
+      // duplicated. See shared.js's _popoutWindowName comment for why that sameness matters.
+      if(window.VW && typeof VW.popoutWindowName==='function' && VW.windows && typeof VW.windows.open==='function'){
+        VW.windows.open(url, {name: VW.popoutWindowName(url)});
+      } else {
+        try{ window.open(url); }catch(e){}
+      }
+    }
+  }
+  $('#launchWO').onclick=launchWorkOrder;
 
   // v1.63.0 (A2, multi-window PR 14): a zero-config pop-out control for THIS page (button + Ctrl+K
   // palette entry, both from shared.js). Guarded in case /shared.js failed to load.

@@ -4,6 +4,66 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-03, twenty-seventh pass):** stage 4, PR 13 of the multi-window/
+> multi-tab initiative — `VW.bench`, and **the first change in this initiative a technician can
+> actually see.** PRs 1/2/5 built plumbing nothing rendered; feature D is the first real UI consumer
+> of `[1.51.0]`'s `VW.channel`: pin a part on one page, watch it appear on `/bench` in the other
+> window, no reload. The same two-line bench read/write pair had been written out twice,
+> independently — inline in `bench.html` and again in `palette.js`'s ☆ pin pill — both parsing the
+> same `viewer_bench` key, both re-applying the same 100-entry cap, neither knowing the other
+> existed. Promoted into `shared.js` as `VW.bench.get()`/`VW.bench.put(list)`, keeping the stored
+> shape and the cap byte-for-byte, and `bench.html`'s local copy is **deleted**, not kept as a
+> fallback. `get()` now returns an array unconditionally (a stored JSON *object* used to make
+> `palette.js`'s pin fail silently, since its pin path called `.filter` on whatever came back — a
+> real live bug, not a hypothetical), and `put()` returns a real true/false so a caller can tell a
+> stored bench from an unstored one. Every write publishes a deliberately thin `{action, count, at}`
+> on `VW.channel` — storage is already shared across tabs on this origin for free, so the message is
+> only "re-read and repaint", never a second copy of the truth; the write happens first and the
+> notification second; reads publish nothing. **Conflicts are last-write-wins with no merge**, per
+> the design spec and unchanged since scoping — merging would trade a rare, immediately visible
+> surprise for a permanent family of subtle ones (rows the user explicitly removed coming back).
+> `palette.js` routes through `VW.bench` too, which is what makes D real rather than scope creep:
+> the pin pill performs nearly every actual bench write in the app, so without it the only sync that
+> would ever fire is one `/bench` tab editing while a *second* `/bench` tab is open. It keeps its
+> direct `localStorage` path for exactly `circuitlab.html` and `scan.html` — the only two pages that
+> load `palette.js` without `shared.js`, both of which show the pin pill — and that is not a
+> redundant copy of live logic, since a page with no `shared.js` has no `VW.channel` to notify with
+> either. Verified with **77 checks** in `engine/tests/js/test_bench_node.js`: two
+> `vm.createContext()` sandboxes sharing one `localStorage` object (exactly what two tabs on one
+> origin have), a real `BroadcastChannel` between them, a controllable clock, the storage-event
+> fallback transport, seven shapes of corrupt stored value, storage that refuses reads and storage
+> that refuses writes, last-write-wins with nothing merged, and that a read, a refused write and a
+> rejected argument all publish nothing. **Adversarially checked with 7 injected mutations, all 7
+> caught** — and two of those runs improved the test rather than confirming it: dropping the publish
+> originally *crashed* the run instead of reporting failures (the record is now defaulted), and the
+> non-array guard originally *survived* until an array-like stored object was added as a fixture,
+> which is the one shape only that guard rejects. A third mutation attempt was itself wrong and is
+> worth remembering: the first patch aimed at `benchGet`'s guard silently hit `_wsRead`'s
+> byte-identical line higher up the file and "survived" for that reason alone — caught by printing
+> the mutated function back out rather than trusting the patch. `rps_lint` caught one more ES5 false
+> positive, the third time this initiative has hit that class: the plain-English phrase "a permanent
+> **class of** subtle ones" in a doc comment, which the linter's blunt text scan reads as a `class`
+> declaration. Reworded, not suppressed. **Owed manual check, not automatable here:** two real
+> browser windows — `/bench` in one, any page in the other, click ☆ pin, confirm the row appears
+> with no reload; then remove a row and confirm the other window repaints. `1.54.0`/`1.55.0` are
+> claimed by sibling PRs from this same initiative built in parallel off the same `main`, so this
+> branch reserved `[1.56.0]` from the start rather than race for a number. **Two `verify_all`
+> failures were chased rather than re-run until green.** `safeguard verify` reported exactly two
+> files `MODIFIED` and was self-inflicted: a line-ending normalization ran *after* that pass's own
+> snapshot was taken, silently converting `engine/viewer_app.py` and `docs/PROJECT-SUMMARY.md` from
+> CRLF to LF — the byte deltas match their line counts exactly (`+805`, `+1032`), `git diff --stat`
+> never moved because `core.autocrlf=true` normalizes both forms to the same committed content, and
+> both files were restored to CRLF. `test_ingest_routes.py` died on an `IndexError` at
+> `_popen_calls[0]`, passed **20/20** standalone (10 on this branch, 10 more with `main`'s own copies
+> of every file this PR touches checked out over it), and was then **reproduced deliberately**: two
+> instances run concurrently fail **6/6**. The cause is in that test file — it binds a **fixed port
+> 8894** and mutates process-global state (`V._EXPOSED`, `V._AUTH_TOKEN`, `VIEWER_INGEST_ROOTS`), so
+> a second instance's requests reach the other process's server, whose mocks and `_popen_calls` list
+> are different ones. That port is machine-wide, not per-worktree, which matters because sibling PRs
+> from this initiative are being built in parallel in other worktrees on this same host. Same suite
+> and same class of sensitivity `[1.52.0]` already documented; deliberately left alone rather than
+> fixed in an unrelated PR, and written down rather than left as folklore.
+>
 > **Reconciliation note (2026-09-03, twenty-sixth pass):** stage 2, PR 5 of the multi-window/
 > multi-tab initiative — `VW.windows`, the one shared window-opening path, built on `[1.51.0]`'s
 > `VW.channel`. `VW.windows.open(url, opts)` makes the *named* form of `window.open` the ergonomic

@@ -67,7 +67,22 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.53.0, shipped 2026-09-03** (`VW.windows` — the one shared window-opening
+**True current state: v1.56.0, shipped 2026-09-03** (`VW.bench` — the one canonical "My Bench"
+accessor in `shared.js`, live-synced across tabs. Stage 4 / PR 13 of the multi-window/multi-tab
+initiative, and **the first change in it a technician can actually see**: PRs 1/2/5 built plumbing
+nothing rendered, while feature D is the first real UI consumer of `[1.51.0]`'s `VW.channel` — pin a
+part on one page, watch it appear on `/bench` in the other window with no reload. The same two-line
+read/write pair had been written out twice, independently, in `bench.html` and in `palette.js`'s ☆
+pin pill; promoted into `VW.bench.get()`/`VW.bench.put(list)` with the stored shape and the 100-entry
+cap carried over unchanged, `bench.html`'s local copy deleted rather than kept as a fallback, and
+every write publishing a deliberately thin `{action, count, at}` notification — write first, notify
+second, reads publish nothing. Conflicts are last-write-wins with no merge, per the design spec.
+Verified with 77 real checks across two `vm.createContext()` sandboxes sharing one `localStorage`,
+adversarially checked with 7 injected mutations, all 7 caught — two of which improved the test rather
+than merely confirming it. Owed manual check, stated rather than implied: two real browser windows.
+`1.54.0`/`1.55.0` are reserved by sibling PRs from the same initiative built in parallel off the same
+`main`. See §6 item 38).
+Immediately prior: v1.53.0, shipped 2026-09-03 (`VW.windows` — the one shared window-opening
 path in `shared.js`, stage 2 / PR 5 of the multi-window/multi-tab initiative, built on `[1.51.0]`'s
 `VW.channel`: `open(url, opts)` makes the *named* form of `window.open` the ergonomic default, since
 passing the same name twice is how a browser natively reuses a window and is the thing every call
@@ -79,7 +94,7 @@ earlier draft of it. Explicitly **not** proven there: that a real browser reuses
 which only a human in a real browser can confirm. Layout capture/restore is PR 6, not this. `1.52.0` was
 reserved up front by a sibling stage-2 PR built in parallel off the same `main`, since merged and
 rebased onto here. See §6 item 37).
-Immediately prior: v1.52.0, shipped 2026-09-03 (`VW.workspace` — saved, named sets of pages,
+Before that: v1.52.0, shipped 2026-09-03 (`VW.workspace` — saved, named sets of pages,
 `create/list/get/touch` over `{id, name, items: [{page, params}], created, lastOpened, source}`,
 stored as one JSON array under a new `viewer_workspaces` localStorage key, every mutation
 publishing a deliberately thin notification on `VW.channel` so a second tab re-reads rather than
@@ -1337,6 +1352,107 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     rather than suppressed. No UI changes: nothing calls `VW.windows` outside its own tests yet;
     A1 (home-nav pop-out links, PR 12), A2 (`popoutControl()`, PR 14) and B (curated launcher, PR 15)
     are the first real consumers. See `CHANGELOG.md` `[1.53.0]`.
+38. **`[1.56.0]` — `VW.bench`: My Bench promoted into `shared.js` and live-synced across tabs
+    (multi-window support, PR 13/25, feature D).** Stage 4 of the same plan, and **the first change
+    in this initiative a technician can actually see**: items 35/36/37 built plumbing nothing
+    rendered, while D is the first real UI consumer of item 35's `VW.channel`. (`1.54.0`/`1.55.0` are
+    reserved up front by sibling PRs from this same initiative built in parallel off the same `main`,
+    so this branch took the next free number rather than race for one — the same thing item 37 did
+    for `1.52.0`.) **The duplicate that made it necessary:** the same two-line read/write pair had
+    been written out twice, independently — once inline in `bench.html`, the page that renders the
+    list, and once in `palette.js`, the ☆ pin pill that appears on every page. Both parsed the same
+    `viewer_bench` key, both re-applied the same 100-entry cap, and neither knew the other existed,
+    so a change to the cap or to corrupt-value handling had to be made in two places or silently
+    drift apart. That is the exact situation `shared.js` was created for. **`VW.bench.get()`**
+    returns the pinned list, always an array: never `null`, never a throw. Anything that is not a
+    JSON array now reads as an empty bench rather than being handed to a caller that immediately
+    calls `.length` or `.filter` on it — **a real, live bug, not a hypothetical**: `palette.js`'s pin
+    path did exactly that, so a stored JSON object made a pin fail silently. Entries that are not
+    objects are dropped from the *returned view* only; a read never rewrites storage, so a corrupt
+    value stays inspectable in devtools instead of being destroyed by the act of looking at it, and
+    the next `put()` clears it for good. **`VW.bench.put(list)`** returns `true` when the list was
+    really stored and `false` when it was not (a non-array argument, or storage refusing the write) —
+    new, since `bench.html`'s original `put()` returned nothing, and there for the same reason
+    `VW.workspace.create()` reports a refused write instead of handing back a plausible-looking id: a
+    caller that cannot tell a stored bench from an unstored one can only ever lie to the user.
+    Nothing at all is written for a non-array argument, matching the old behavior exactly. **The
+    stored data shape and the 100-entry cap are unchanged**, deliberately; newest entries sit at the
+    *head* of the array (`palette.js` unshifts each pin), so the cap keeps the 100 most recent and
+    drops the oldest — the behavior that was already there, now asserted rather than assumed.
+    **Every write publishes a deliberately thin `{action, count, at}` on `VW.channel`**: storage is
+    already shared across every tab on this origin for free, so a second tab does not need the list
+    pushed to it, it needs to be *told* to re-read and repaint — the channel is a notification layer
+    over already-shared storage, never a second copy of the truth. The write happens first and the
+    notification second, so a tab reacting to one always reads an already-committed value; `get()`
+    publishes nothing, since a read that broadcast would be a live-lock the moment a subscriber
+    repaints by calling `get()`. **Conflicts are last-write-wins with no merge**, per the design
+    spec and unchanged since scoping: merging would trade a rare and immediately visible surprise (a
+    pin that has to be added again) for a permanent family of subtle ones (rows the user explicitly
+    removed quietly coming back), and because every write notifies, the losing tab repaints within a
+    frame instead of sitting on a list that no longer exists. `bench.html` drops its local accessor
+    **entirely** — deleted, not left as a redundant fallback — subscribes to the `"bench"` channel to
+    re-render, and gained two changes that are consequences of live sync rather than unrelated
+    polish: **removal now matches a row by its `url`, not by the index it was painted at** (another
+    window can now pin or remove something between the list being drawn and the click, and a stale
+    index would delete the wrong pin), and a cross-tab repaint raises a short toast, because a row
+    appearing or vanishing with no click behind it otherwise reads as a glitch rather than as the
+    other window's doing. **`palette.js` routes through `VW.bench` too, and that is what makes D real
+    rather than scope creep**: the pin pill performs nearly every actual bench write in the app, so
+    had it kept its own private copy the only sync that would ever fire is one `/bench` tab editing
+    while a *second* `/bench` tab is open — not the scenario this feature exists for. It keeps its
+    direct `localStorage` path for exactly two pages, `circuitlab.html` and `scan.html`, the only
+    ones that load `palette.js` without `shared.js` (the same two already named in its own `kioskOn`
+    note) and both of which do show the pin pill, so removing that path would break pinning outright
+    on them; it is not a redundant second copy of live logic, since a page with no `shared.js` has no
+    `VW.channel` to notify with either. **Verified with 77 real checks** in
+    `engine/tests/js/test_bench_node.js`: two `vm.createContext()` sandboxes sharing one
+    `localStorage` object (exactly what two tabs on one origin have), a real global
+    `BroadcastChannel` between them, and a controllable clock so the notification's `at` is asserted
+    as an exact value. Covers the unchanged stored record shape, which end of the list the cap drops,
+    five kinds of non-array argument, seven shapes of corrupt or hand-edited stored value, storage
+    that refuses reads and storage that refuses writes, last-write-wins with nothing merged, that a
+    read and a refused or rejected write all publish nothing, that a bench write does not wake a
+    subscriber on another channel, that a publishing tab is never echoed its own message (which is
+    what stops a tab repainting twice for its own edit), and the same notification over the
+    storage-event fallback transport with `BroadcastChannel` hidden. **Adversarially checked with 7
+    injected mutations, all 7 caught** (publish dropped → 10 FAIL; cap weakened → 5; `.slice` removed
+    → 5; refused write reported as success → 4; notify-before-write → 4; non-array guard removed → 1;
+    per-entry object filter removed → 3), and two of those runs improved the test rather than merely
+    confirming it: dropping the publish originally **crashed** the run on a `TypeError` instead of
+    reporting failures, so the notification record is now defaulted; and the non-array guard
+    originally **survived**, because with no array-like value in the fixtures the per-entry object
+    filter absorbed every corrupt case tested — adding an array-*like* stored object
+    (`{"0":{…},"length":1}`), the one shape only that guard rejects, is what makes it load-bearing,
+    and the same mutation then failed correctly. A third mutation attempt was itself wrong and is
+    recorded rather than quietly dropped: the first patch aimed at `benchGet`'s guard silently hit
+    **`_wsRead`'s byte-identical line higher up the file** instead and "survived" for that reason
+    alone — caught by printing the mutated function back out rather than trusting the patch, and
+    re-run against a unique anchor. **What this cannot prove, stated plainly:** Node has no real
+    `storage` event across contexts, so that transport is exercised by invoking the listener
+    `shared.js` itself registered with the envelope the publishing tab really wrote — everything
+    either side of the OS delivery hop is production code, but the hop is stood in for; and no test
+    here renders `bench.html`, so **the owed manual check is two real browser windows** (`/bench` in
+    one, any page in the other: click ☆ pin and confirm the row appears with no reload, then remove a
+    row and confirm the other window repaints). `rps_lint` caught one more ES5 false positive on the
+    way through, the third time this initiative has hit that class: the plain-English phrase "a
+    permanent *class of* subtle ones" in a new doc comment, which the linter's blunt text-level regex
+    reads as a `class` declaration — reworded, not suppressed. **Two `verify_all` failures were
+    chased rather than re-run until green.** `safeguard verify`'s was self-inflicted and fully
+    explained: a line-ending normalization ran *after* that pass's own snapshot was taken, silently
+    converting `engine/viewer_app.py` and `docs/PROJECT-SUMMARY.md` from CRLF to LF — byte deltas
+    matching their line counts exactly (`+805`, `+1032`), with `git diff --stat` never moving because
+    `core.autocrlf=true` normalizes both forms to the same committed content; both restored.
+    `test_ingest_routes.py`'s was a **pre-existing concurrency flake whose mechanism is now known
+    rather than guessed at**: it passed 20/20 standalone (10 on this branch, 10 more on genuinely
+    pristine pre-`1.56.0` code with `main`'s own copies of every file this PR touches checked out
+    over it), and was then reproduced deliberately — two instances run concurrently fail 6/6, because
+    that file binds a **fixed port 8894** and mutates process-global state (`V._EXPOSED`,
+    `V._AUTH_TOKEN`, `VIEWER_INGEST_ROOTS`), so a second instance's requests reach the other
+    process's server, whose mocks and `_popen_calls` list are different objects. That port is
+    machine-wide rather than per-worktree, which matters because sibling PRs from this initiative are
+    being built in parallel in other worktrees on this same host. Same suite and the same class of
+    load/port sensitivity item 36 already documented; deliberately left alone rather than fixed in an
+    unrelated PR. See `CHANGELOG.md` `[1.56.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

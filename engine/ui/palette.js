@@ -122,8 +122,24 @@
     return '<div class="cmdk-sec">Recent</div>'+rowsHtml(sub.map(function(r){return {ic:"🕘",label:r.title,hint:r.q?("“"+r.q+"”"):""};}),0);
   }
   // ---- QoL: "My Bench" — pin the current page for later ----
-  function getBench(){ try{ return JSON.parse(window.localStorage.getItem("viewer_bench")||"[]"); }catch(e){ return []; } }
-  function putBench(l){ try{ window.localStorage.setItem("viewer_bench", JSON.stringify(l.slice(0,100))); }catch(e){} }
+  // v1.56.0 (multi-window PR 13, feature D): the canonical bench accessor now lives in shared.js as
+  // VW.bench.get()/VW.bench.put(), so a pin made here publishes the cross-tab change notification an
+  // open /bench window listens for. That is the whole headline behavior of D — pin on one page,
+  // watch it appear on the bench in the other window, no reload — and it only works if the pill that
+  // does almost every real bench write goes through the same one accessor the bench page does.
+  // Every page that loads palette.js also loads shared.js EXCEPT circuitlab.html and scan.html (the
+  // same two named in the kioskOn note above), and both of those DO show the pin pill, so the direct
+  // localStorage path below stays as their fallback rather than breaking pinning outright on them.
+  // It is not a redundant second copy of live logic: on a page with no shared.js there is no
+  // VW.channel either, so there would be nothing to notify with even if it went through here.
+  function getBench(){
+    if(window.VW && window.VW.bench) return window.VW.bench.get();
+    try{ return JSON.parse(window.localStorage.getItem("viewer_bench")||"[]"); }catch(e){ return []; }
+  }
+  function putBench(l){
+    if(window.VW && window.VW.bench) return window.VW.bench.put(l);
+    try{ window.localStorage.setItem("viewer_bench", JSON.stringify(l.slice(0,100))); }catch(e){}
+  }
   function pinCurrent(){
     try{
       var path=location.pathname; if(path==="/bench") return false;

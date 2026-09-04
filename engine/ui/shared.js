@@ -722,13 +722,102 @@
     return win;
   }
 
+  /* v1.56.0: VW.bench -- the ONE canonical accessor for "My Bench", the technician's pinned list of
+     parts, procedures and pages (multi-window support, PR 13 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 4, feature D). Rides
+     VW.channel above, exactly the way VW.workspace does.
+
+     WHY THIS MOVED HERE. The same two-line read/write pair had been written out twice,
+     independently: once inline in bench.html (the page that renders the list) and once in palette.js
+     (the pill that pins the current page). Both parsed the same "viewer_bench" key, both re-applied
+     the same 100-entry cap, and neither knew the other existed -- so a change to the cap, or to how
+     a corrupt stored value is handled, had to be made in two places or silently drift apart. That is
+     the exact situation shared.js itself was created for, and the same promotion the two PRs before
+     this one (VW.workspace, VW.windows) already established for this initiative.
+
+     WHY EVERY WRITE PUBLISHES ON VW.channel, AND WHY THE PAYLOAD IS DELIBERATELY THIN. localStorage
+     is already shared across every tab on this origin for free -- a second tab does not need the
+     bench list pushed to it, it needs to be TOLD something changed so it can re-read and repaint.
+     The channel is a notification layer over storage that is already shared, never a second copy of
+     the truth. So put() publishes only {action, count, at}: enough for an open /bench tab to know it
+     should repaint, small enough that the channel's storage-event fallback size guard can never fire
+     on it, and incapable of going stale against the real stored value, since a receiver always
+     re-reads. The write happens FIRST and the notification second, so a tab reacting to a
+     notification always reads an already-committed value. get() publishes nothing -- there is
+     nothing for another tab to react to, and a read that broadcast would be a live-lock waiting to
+     happen the moment a subscriber repaints by calling get().
+
+     CONFLICTS ARE LAST-WRITE-WINS, WITH NO MERGE -- decided early in this initiative's scoping and
+     unchanged since. Two tabs writing the bench in the same instant leave the second write standing,
+     whole. No merge is attempted, on purpose: the bench is a short, human-curated list a person
+     edits deliberately one row at a time, not a shared document with concurrent editors, so merging
+     would trade a rare and immediately-visible surprise (a pin that has to be added again) for a
+     permanent family of subtle ones (rows the user explicitly removed quietly coming back). Because
+     every write notifies, the losing tab repaints from storage within a frame instead of sitting on
+     a list that no longer exists.
+
+     The 100-entry cap and the stored record shape are carried over UNCHANGED from bench.html's own
+     copy. Newest entries sit at the HEAD of the array (palette.js unshifts each new pin), so the cap
+     keeps the 100 most recent and drops the oldest, which is the behavior that was already there. */
+  var _BENCH_KEY = "viewer_bench";
+  var _BENCH_MAX = 100;
+  var _BENCH_CHANNEL = "bench";
+
+  /* get() -> the pinned list, always an array: never null, never a throw. Plain localStorage access
+     itself throws in a private-browsing profile, and the stored value could be anything at all if it
+     was hand-edited in devtools or written by a future build. Anything that is not a JSON array
+     reads as an empty bench rather than being handed to a caller that will immediately call .length
+     or .filter on it -- palette.js's pin path did exactly that, so a stored JSON object used to make
+     a pin fail silently. Entries that are not objects are dropped from the RETURNED VIEW only, the
+     same way VW.workspace's own read filters its records; a read deliberately never rewrites
+     storage, so a corrupt value stays inspectable in devtools instead of being destroyed by the act
+     of looking at it, and the next put() clears it for good, which is the correct outcome since it
+     was unusable either way. */
+  function benchGet() {
+    var raw = null;
+    try { raw = window.localStorage.getItem(_BENCH_KEY); } catch (e) { return []; }
+    if (!raw) return [];
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { return []; }
+    if (!parsed || Object.prototype.toString.call(parsed) !== "[object Array]") return [];
+    var out = [];
+    for (var i = 0; i < parsed.length; i++) {
+      if (parsed[i] && typeof parsed[i] === "object") out.push(parsed[i]);
+    }
+    return out;
+  }
+
+  /* put(list) -> true when the list was really stored, false when it was not: a non-array argument,
+     or storage refusing the write in a private-browsing profile or on a full origin quota. The
+     boolean return is new -- bench.html's original put() returned nothing -- and it is here for the
+     same reason VW.workspace.create() reports a refused write instead of handing back a
+     plausible-looking id: a caller that cannot tell a stored bench from an unstored one can only
+     ever lie to the user about it. Nothing at all is written for a non-array argument, which matches
+     the old behavior exactly (the old copy called .slice on it, threw, and swallowed that in its own
+     try/catch, so nothing was stored either way). Entries themselves are stored verbatim: this is
+     the one canonical accessor for a shape other code owns, not a validator of it. */
+  function benchPut(list) {
+    if (Object.prototype.toString.call(list) !== "[object Array]") return false;
+    var capped = list.slice(0, _BENCH_MAX);
+    try { window.localStorage.setItem(_BENCH_KEY, JSON.stringify(capped)); }
+    catch (e) { return false; }
+    /* Wrapped because the write above has ALREADY committed: channelPublish throws by design on an
+       oversized storage-fallback payload, and any transport can be missing in a hostile environment.
+       A failure to hint at a repaint must never turn a saved bench into a reported failure. */
+    try {
+      channelPublish(_BENCH_CHANNEL, { action: "put", count: capped.length, at: Date.now() });
+    } catch (e) { /* the list is safely stored; a missed repaint hint is not worth failing over */ }
+    return true;
+  }
+
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
              toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
              trapFocus: trapFocus,
              channel: { publish: channelPublish, subscribe: channelSubscribe },
              workspace: { create: workspaceCreate, list: workspaceList,
                           get: workspaceGet, touch: workspaceTouch },
-             windows: { open: windowsOpen, registry: windowsRegistry } };
+             windows: { open: windowsOpen, registry: windowsRegistry },
+             bench: { get: benchGet, put: benchPut } };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

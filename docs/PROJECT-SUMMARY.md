@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.53.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.55.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -98,11 +98,12 @@ instead (`[1.49.0]`); then, found by the final release-cut `verify_all.py --snap
 in the same tool — restoring a mutated file's *text* left its *compiled bytecode cache* stale, so a
 mutant's logic could silently outlive its own SHA-256-verified restore and leak into whatever imported
 the module next, including the real application; fixed by purging the target's `__pycache__` entry after
-every restore (`[1.50.0]`); then the first three implementation PRs of the multi-window/multi-tab
+every restore (`[1.50.0]`); then the first four implementation PRs of the multi-window/multi-tab
 initiative — `VW.channel`, a real cross-window publish/subscribe layer in `shared.js` (`[1.51.0]`),
-`VW.workspace`, the saved-set-of-pages data model riding it (`[1.52.0]`), and `VW.windows`, the
-one shared window-opening path with named reuse and an instant toast (`[1.53.0]`) — see the
-reconciliation notes below and §8 items 25–36). This document +
+`VW.workspace`, the saved-set-of-pages data model riding it (`[1.52.0]`), `VW.windows`, the
+one shared window-opening path with named reuse and an instant toast (`[1.53.0]`), and A1, the home
+nav's ↗ pop-out links — the first real UI consumer of any of it (`[1.55.0]`) — see the
+reconciliation notes below and §8 items 25–37). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -965,6 +966,83 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     the same class `[1.51.0]` hit twice), reworded rather than suppressed. No UI changes — nothing
     calls `VW.windows` outside its own tests; A1 (PR 12), A2 (PR 14) and B (PR 15) are the first real
     consumers. See `CHANGELOG.md` `[1.53.0]`.
+37. **`[1.55.0]` — A1: home nav pop-out links (multi-window support, PR 12/25).** Stage 4 of the
+    same plan, and the **first real UI consumer** of item 36's `VW.windows` — which until now had
+    nothing calling it outside its own tests. (`1.54.0` and `1.56.0` are claimed by sibling PRs built
+    in parallel off the same `main`, so this branch reserved `1.55.0` up front rather than race for a
+    number.) Each of the 30 entries in `index.html`'s Tools nav is now a `.mrow` carrying its
+    **original `<a>`, byte-for-byte unchanged** — same href, title and label, still navigating in
+    place on a normal click and still ctrl/middle-clickable into a tab exactly as before — plus an
+    adjacent ↗ `<button>` that opens that same section in its own reusable window through
+    `VW.windows.open(url, {name})`. The ↗ is an *additional, explicit* affordance beside the link,
+    never a replacement for it: the design spec's whole framing is that this app has always been able
+    to open things in new tabs, and what is missing is **discoverability**, not capability. Each
+    pop-out is a real `<button type="button">` — in the tab order by default, picking up `base.css`'s
+    shared `:focus-visible` outline — carrying its own `aria-label` naming its own destination
+    ("Open Torque quick-ref in a new window"), not a bare glyph; confirmed live in a real browser
+    (all 30 report `tabIndex 0`, each exposed by full name in the accessibility tree), because an
+    unlabeled icon-only control is exactly what the `[1.46.0]`/`[1.47.0]` accessibility passes went
+    through this app to remove. **Two load-bearing decisions:** the url is read off the sibling link
+    *at click time* rather than baked into the button, so the menu's existing `threadQuery()` (which
+    rewrites every href on every open so the mechanic's current search carries into the tool being
+    opened) is not silently defeated — the pop-out inherits the query for free; and the window name
+    is derived from the base path with the query stripped (`/torque?q=bolt` → `vw-torque`), because
+    the name is the *entire* mechanism by which `VW.windows.open` reuses a window instead of stacking
+    a new one up per click, so it has to be identical across clicks while the href is not. Deriving
+    it in one small function rather than hand-writing 30 `data-` attributes makes a copy-paste
+    collision (two rows sharing a name, one silently stealing the other's window) impossible rather
+    than merely unlikely, and it is keyed to the **destination page** rather than to this menu on
+    purpose, so A2's `popoutControl()` (PR 14) can name its window the same way and land on the same
+    window. One existing behavior deliberately changed: the Tools popup's "any button in here closes
+    the menu" rule (written for `#pnReviewBtn`) now exempts `.popout`, since popping several sections
+    out in a row is the whole point of multi-window support and closing after each one would force a
+    re-open per pop-out and discard the keyboard focus just placed; `#pnReviewBtn` still closes it,
+    and deliberately gets no pop-out of its own, being a modal opener rather than a link.
+    **Deliberately untouched:** the three top-level header pills (Collections / My Bench / Help — a
+    `flex` row that already wraps at narrow widths, and all three still ctrl/middle-clickable), and
+    the `#legacyHome` ES5 fallback's own link list, since the spec's capability ladder puts the
+    legacy tier at "no advanced capability affordances shown in the UI at all"; the gate protecting
+    that fallback (`check_es5_fallback.py`) is asserted still green by the new test, so this change
+    cannot have leaked into it. `index.html` is `MODERN_BY_DESIGN` in `rps_lint.py` — confirmed by
+    reading that gate's own output before any JS was written, not assumed — but the wiring is ES5
+    `var`/`function` regardless, because it lives in the same IIFE as the Tools-menu toggle, which
+    *is* ES5 and does run on legacy hardware, and a control that renders there and then does nothing
+    would be worse than not shipping it there. **Verified with 36 checks** in the new
+    `engine/tests/test_home_nav_popout.py`, all against the real shipped markup: every nav link in a
+    row beside exactly one pop-out, and no link missed (proved by stripping the rows and confirming
+    nothing is left behind); every pop-out a real focusable `<button>` with a non-empty `aria-label`
+    naming its *own* row; every href still a real, currently-registered route (cross-checked against
+    `features/routes/*.py`, the same technique `test_uiux_fixes.py` already uses); window names
+    unique per row and unchanged by any appended `?q=…`; the wiring really calling `VW.windows.open`
+    with a name; `/shared.js` really loaded and really loading first; `#pnReviewBtn` with no pop-out;
+    `node --check` clean on the inline scripts; the ES5 fallback span still present and clean.
+    Checked for vacuousness with **7 injected mutations**, every one caught — and that run **found a
+    real bug in the test itself**, not the feature: its mismatch diagnostic crashed with
+    `UnicodeEncodeError` on a cp1252 Windows console (the nav labels are emoji-heavy), converting a
+    clean FAIL into a swallowed exception *and* skipping every assertion after it; fixed with an
+    ASCII-safe helper matching `check_onboarding_menu.py`'s stated convention, and re-run to confirm
+    3 clean FAILs with a readable diagnostic. **What is live-verified vs. still manual:** the real
+    server was started and the real page driven — the menu renders correctly, and at a 375px viewport
+    with a coarse pointer each pop-out measures exactly 44×44 through the existing
+    `@media (pointer:coarse)` rule, with no row overflow and no horizontal page overflow. **Not**
+    provable there, and stated as manual rather than implied automated: that clicking ↗ opens a real
+    separate window and that a second click *refocuses* it instead of opening a third. The embedded
+    preview browser refuses popups outright (`window.open()` returned `null` and navigated the
+    current tab in place), so reuse is genuinely unobservable in it — though that did usefully
+    exercise `VW.windows`'s documented blocked-popup path for real, returning `null` and correctly
+    skipping the toast, the registry write and the broadcast with no error. The owed manual check is
+    the same real-browser-only one `[1.53.0]` recorded for the layer underneath, unchanged and still
+    open. No `shared.js` change: this PR only *calls* the already-merged `VW.windows.open` and needed
+    nothing new exported. **One real, previously-undocumented test-infrastructure hazard was found
+    and run to ground on the way through:** a later confirmatory `verify_all.py --snapshot` failed
+    hard on `test_ingest_routes.py`, reproduced deterministically, and proved to be a **cross-process
+    port collision** — that suite uses a fixed port (8894) and `ThreadingHTTPServer`'s stdlib default
+    `allow_reuse_address = 1`, so on Windows a second bind of a port another process already holds
+    succeeds *silently* and the requests are answered by the first listener (sibling agents running
+    the same suite concurrently, confirmed by `netstat`; mechanism reproduced in isolation). A copy
+    of the suite differing only by `PORT = 8897` ran `175 passed, 0 failed` on this exact tree.
+    Pre-existing, unrelated to A1, deliberately left alone rather than fixed in an unrelated PR, and
+    written down rather than left as folklore. See `CHANGELOG.md` `[1.55.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

@@ -810,9 +810,114 @@
     return true;
   }
 
+  /* v1.63.0: VW.popoutControl -- A2, per-page pop-out control (multi-window support, PR 14 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 4). A1 (index.html's home-nav
+     ↗ buttons, v1.55.0) pops a SECTION out from the home page; A2 is the mirror image -- a page a
+     technician is ALREADY on gets its own control to pop ITSELF out into a second window, so the
+     mechanic doesn't have to navigate back to the home nav first just to duplicate the page they're
+     already reading onto a second monitor. Called once, zero-config, by a page's own inline script
+     (adopted first on part.html/procedure.html/torque.html/jobcard.html/bench.html) -- everything it
+     needs (path, query, title) is read off location/document itself, matching this file's own
+     _footerNav/_staleBanner "call once, self-contained" shape rather than accepting per-page
+     options that would add no real value here.
+
+     WHY THE WINDOW NAME MUST MATCH A1's popoutName() (engine/ui/index.html, ~line 592) EXACTLY, and
+     why this is not a coincidence to maintain by hand: the name is the ENTIRE mechanism VW.windows.
+     open() uses to reuse a window instead of stacking up a new one, so two different pop-out controls
+     for the SAME destination page have to compute the identical string or a mechanic who pops
+     /torque out from the home nav and then, already on /torque, clicks THIS page's own pop-out
+     control ends up with two separate "torque" windows fighting for the same monitor real estate
+     instead of the second click simply refocusing the first window -- exactly the failure mode A1's
+     own comment names this PR to avoid. _popoutWindowName below is therefore a deliberate
+     byte-for-byte copy of index.html's popoutName(href) transform (strip the query, strip the
+     hash, strip leading/trailing slashes, replace every run of anything outside [A-Za-z0-9_-] with a
+     single "-", prefix "vw-", fall back to "home" for the empty/root path) -- if that transform is
+     ever revised, both copies have to move together (engine/tests/test_a2_popout.py asserts the two
+     source files' regex literals stay identical, specifically to catch a drift like that). Applied
+     here to location.pathname (which already carries no query/hash of its own -- the same
+     stripping is still applied for defensive symmetry with the href-based caller). */
+  function _popoutWindowName(pathOrHref) {
+    var base = String(pathOrHref || "").split("?")[0].split("#")[0].replace(/^\/+/, "").replace(/\/+$/, "");
+    return "vw-" + (base ? base.replace(/[^A-Za-z0-9_-]+/g, "-") : "home");
+  }
+
+  /* THE PALETTE-QUEUE HANDOFF (window.__paletteQueue). On every page this adopts today, shared.js
+     runs first (in <head>) and palette.js runs last (just before </body>) -- but nothing here may
+     assume that stays true for every future page, so this never reaches into palette.js's internal
+     COMMANDS array directly (which does not exist yet on the normal load order, and reaching into
+     another module's private closure state would be fragile even when it does). Instead it always
+     pushes a small, plain, JSON-shaped descriptor onto a shared array on window, creating that
+     array on its first use. palette.js drains this queue into COMMANDS during its own init (after
+     building COMMANDS, before the palette can ever be opened/searched) AND again right before every
+     open(), so a descriptor lands correctly whichever of the two real script orders this app ends up
+     with on some future page -- see palette.js's _drainPaletteQueue for the other half of this. */
+  function popoutControl(opts) {
+    try {
+      var o = opts || {};
+      var path = (g.location && g.location.pathname) || "/";
+      if (path === "/" || path === "/index.html" || path === "") return;   // A1 already covers home
+      if (document.getElementById("vw-popout-pill")) return;                // never wired twice
+      var qs = (g.location && g.location.search) || "";
+      var url = path + qs;
+      var name = _popoutWindowName(path);
+      var title = (typeof o.title === "string" && o.title) ? o.title :
+        (document.title || path).replace(/\s*[—–-]\s*THE VIEWER.*$/i, "").trim() || path;
+      var label = "Open " + title + " in a new window";
+
+      /* The ONE shared action -- the visible button and the Ctrl+K palette entry must perform
+         exactly this, never two independent copies of the open call. Mirrors index.html's
+         wirePopouts() fallback exactly: shared.js loads first on every adopting page, so VW.windows
+         is normally right there; if it somehow is not (a failed/blocked /shared.js -- which, since
+         this very function lives inside shared.js, would mean this code never ran at all, but the
+         same defensive shape is kept here for consistency with every other pop-out call site and in
+         case a future refactor ever calls this helper from outside this closure), fall back to a
+         plain NAMED window.open() rather than leaving a dead control. */
+      function doPopout() {
+        if (g.VW && VW.windows && typeof VW.windows.open === "function") {
+          VW.windows.open(url, { name: name });
+        } else {
+          try { g.open(url, name); } catch (e) { /* blocked/refused -- nothing left to do */ }
+        }
+      }
+
+      function mount() {
+        try {
+          if (!document.body || document.getElementById("vw-popout-pill")) return;
+          var b = document.createElement("button");
+          b.type = "button";
+          b.id = "vw-popout-pill";
+          b.textContent = "↗ Pop out";
+          b.setAttribute("aria-label", label);
+          b.title = label;
+          if (!document.querySelector('link[href="/base.css"]')) {
+            b.style.cssText = "position:fixed;right:288px;bottom:12px;z-index:9998;" +
+              "background:#171d26;color:#9aa6b6;border:1px solid #2b333f;border-radius:20px;" +
+              "padding:10px 16px;font-size:13px;line-height:1;" +
+              "font-family:-apple-system,Segoe UI,Arial,sans-serif;cursor:pointer;opacity:.85;" +
+              "box-shadow:0 4px 14px rgba(0,0,0,.35);min-height:44px;display:flex;" +
+              "align-items:center;box-sizing:border-box";
+          }
+          b.onclick = doPopout;
+          document.body.appendChild(b);
+        } catch (e) { /* never break the host page over a pop-out pill */ }
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", mount);
+      } else {
+        mount();
+      }
+
+      try {
+        if (!g.__paletteQueue) g.__paletteQueue = [];
+        g.__paletteQueue.push({ ic: "↗", label: label,
+          hint: "opens (or refocuses) this page in its own window", act: doPopout });
+      } catch (e) { /* never break the host page over a palette registration */ }
+    } catch (e) { /* never break the host page over the pop-out control */ }
+  }
+
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
              toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
-             trapFocus: trapFocus,
+             trapFocus: trapFocus, popoutControl: popoutControl,
              channel: { publish: channelPublish, subscribe: channelSubscribe },
              workspace: { create: workspaceCreate, list: workspaceList,
                           get: workspaceGet, touch: workspaceTouch },

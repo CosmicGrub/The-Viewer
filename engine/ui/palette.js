@@ -70,6 +70,37 @@
     {ic:"🖥",label:"Toggle kiosk mode",hint:"big-touch · high-contrast for the bay floor",act:function(){toggleKiosk();}}
   ];
 
+  // ---- A2 (v1.63.0, multi-window PR 14): drain shared.js's window.__paletteQueue into COMMANDS. ----
+  // shared.js's VW.popoutControl() (part.html/procedure.html/torque.html/jobcard.html/bench.html so
+  // far) cannot reach into COMMANDS directly -- on the normal load order (shared.js in <head>, the
+  // page's own inline script next, palette.js last, right before </body>) COMMANDS does not exist
+  // yet at the moment popoutControl() runs. Rather than depend on that order holding for every page
+  // forever, popoutControl() always pushes a plain {ic,label,hint,act} descriptor onto
+  // window.__paletteQueue (creating the array on first use) and this file drains that queue instead
+  // of being reached into. Drained TWICE, on purpose, to cover BOTH real script orders: once right
+  // here, immediately after COMMANDS is built and before the palette can ever be opened or searched
+  // (the normal order -- shared.js's page-adoption call already ran, so the queue is already
+  // populated by this point); and again at the top of open() below, in case a future page's own
+  // inline script runs AFTER palette.js instead of before it -- by the time a person can actually
+  // press Ctrl+K, every earlier synchronous script on the page (including a late popoutControl()
+  // call) has already run, so draining again right there catches that order too. Queue entries are
+  // spliced out as they drain (not just read), so the same descriptor can never be appended to
+  // COMMANDS twice across the two drain calls.
+  function _drainPaletteQueue(){
+    try{
+      var q=window.__paletteQueue;
+      if(!q || !q.length) return;
+      for(var i=0;i<q.length;i++){
+        var c=q[i];
+        if(c && typeof c.act==="function" && typeof c.label==="string"){
+          COMMANDS.push({ic:c.ic||"↗",label:c.label,hint:c.hint||"",act:c.act});
+        }
+      }
+      q.length=0;   // drained -- never re-added on the next drain call
+    }catch(e){ /* a bad queue entry must never break the palette itself */ }
+  }
+  _drainPaletteQueue();
+
   var css=""
     + ".cmdk-ov{position:fixed;inset:0;background:rgba(6,10,16,.62);z-index:9999;display:none;align-items:flex-start;justify-content:center}"
     + ".cmdk-ov.on{display:flex}"
@@ -203,7 +234,7 @@
   function move(d){ if(!items.length)return; sel=(sel+d+items.length)%items.length; paint();
     var el=document.getElementById("cmdkl").querySelectorAll(".cmdk-it")[sel]; if(el&&el.scrollIntoView)el.scrollIntoView({block:"nearest"}); }
   var _prevFocus=null;
-  function open(){ _prevFocus=document.activeElement; ov.className="cmdk-ov on"; var q=document.getElementById("cmdkq"); q.value=""; build(""); q.focus(); }
+  function open(){ _drainPaletteQueue(); _prevFocus=document.activeElement; ov.className="cmdk-ov on"; var q=document.getElementById("cmdkq"); q.value=""; build(""); q.focus(); }
   function close(){ ov.className="cmdk-ov"; try{ if(_prevFocus&&_prevFocus.focus) _prevFocus.focus(); }catch(e){} }
   window.cmdkOpen=open;
 

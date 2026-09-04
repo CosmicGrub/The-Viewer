@@ -4,6 +4,44 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-fifth pass):** stage 4, PR 14 of the multi-window/
+> multi-tab initiative — **A2, per-page pop-out control**, the mirror image of PR 12's A1: a page a
+> technician is *already on* now gets its own control to pop itself out into a second window, instead
+> of having to navigate back to the home nav first just to duplicate the page they're already reading.
+> `shared.js` gained `VW.popoutControl()` — called once, zero-config, by a page's own inline script —
+> injecting a real, keyboard-focusable `<button id="vw-popout-pill">` (never a `div`+click handler,
+> the same `[1.46.0]`/`[1.47.0]` accessibility convention) labeled with A1's own `"Open X in a new
+> window"` phrasing, and one shared `doPopout()` inner function backs both the button and the new
+> Ctrl+K palette entry so the open call is never duplicated. **The window-naming logic is a
+> byte-for-byte copy of A1's `popoutName()`** (index.html, ~line 592) — the entire reason A1's own
+> comment named this PR in advance: popping `/torque` out from the home nav, then clicking `/torque`'s
+> own new control, lands on the SAME window rather than a second one. `test_a2_popout.py` extracts and
+> compares the two files' actual regex/string-transform source text to prove that, not just eyeballs
+> it. **The palette entry required a new, order-independent registration hook that did not exist
+> before this PR:** `popoutControl()` cannot reach into `palette.js`'s `COMMANDS` array directly (on
+> the normal load order — `shared.js` in `<head>`, then the page's own inline script, then
+> `palette.js` last — `COMMANDS` doesn't exist yet at that moment), so it pushes a plain descriptor
+> onto a new `window.__paletteQueue` instead, and `palette.js` drains that queue into `COMMANDS` at
+> **two** points (right after `COMMANDS` is built, and again as the first statement inside `open()`)
+> so a descriptor lands correctly regardless of which of the two real script orders a future page ends
+> up using. Placement (`base.css`, `#vw-popout-pill{right:288px;bottom:12px}`) was **measured in a
+> real browser**, not guessed — `#bench-pill`'s own rendered left edge sits around `right:217px` at
+> every width tested (1400/960/720 CSS px, and in kiosk mode), leaving this pill a genuine ~70px clear
+> gap; it does not touch the separately-filed, already-known `#vw-footer`/`#cmdk-pill`/`#bench-pill`
+> overlap flagged earlier this session. Adopted on the 5 pages the plan names — `part`, `procedure`,
+> `torque`, `jobcard`, `bench` — each already carrying its PR 8/`[1.58.0]` responsive pass. New
+> `engine/tests/test_a2_popout.py`: **62 assertions**, proven load-bearing by reverting 5
+> representative fixes one at a time (the helper's own existence, the naming-transform identity with
+> A1, both palette drain call sites, one page's adoption call, the pill's placement offset) and
+> confirming the relevant assertion(s) genuinely failed before restoring and re-confirming a clean
+> 62/0. `rps_lint` caught the exact same false-positive class `[1.51.0]` first documented (backticks
+> used as plain code-reference punctuation in a doc comment, here around `location`/`_footerNav`,
+> read as ES6 template literals by the blunt text scan) — reworded without backticks, not
+> suppressed. **Owed manual check, not automatable here, same as A1's own PR:** pop out
+> `/torque` from its own new control, then pop out `/torque` again from the home nav's ↗ — confirm one
+> window, not two. Shipped as `[1.63.0]`. `main` is at `[1.62.0]` as of this pass.
+>
+
 > **Reconciliation note (2026-09-04, thirty-fourth pass):** not a multi-window-plan PR — found in
 > passing while reviewing `/api/coverage` output during the PR 8-11 responsive-verification
 > batches. `coverage.html`'s CAD-renders meter could read `156.3%`, and the display bug and the

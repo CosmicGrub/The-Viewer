@@ -28,6 +28,29 @@ th{color:var(--sub);font-weight:500}
 button{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
 button:hover{background:var(--p2)}input{background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:240px}
 .pill{font-size:12px;color:var(--sub)}
+/* v1.60.0 (multi-window plan PR 10 of 25 -- the per-page responsive pass over base.css's new
+   960/720 breakpoints). Found by resizing this page for real. The NIIN format-drift queue exists to
+   compare NSN *strings* against each other ("Same NIIN written as different NSN strings"), and at
+   720 CSS px its variants column measures 232px against the ~375px it gets at 960px -- narrow enough
+   that the browser takes the hyphens inside an NSN as break opportunities and splits a variant
+   across two lines. Measured character-by-character with a Range at 720px, the live first row read
+   "5305-00-292-4587 · 5306-00-292-" / "4587 · 5605-00-292-4587": the middle variant chopped in half,
+   on the one table whose whole job is spotting a one-digit difference between those strings. At
+   960px zero rows break, so this is scoped to the 720px step only, exactly where base.css's own
+   second breakpoint sits.
+   Why the wrapper is needed and not just the nowrap. `white-space:nowrap` alone is correct for
+   today's data (max 3 variants across all 884 groups in this corpus; the table stays 678px wide and
+   the page does not scroll sideways) but not durable: re-measured with a synthetic 5-variant row,
+   nowrap alone pushed documentElement.scrollWidth to 1023 against a 720px client -- real sideways
+   page scroll. `overflow-x` set on the <table> element itself does nothing (Chrome keeps computing
+   it `visible` on a table box -- measured, not assumed), so the scroller has to be a real block
+   wrapper around it. With .tscroll in place a too-wide queue scrolls inside its own card instead of
+   dragging the whole page sideways, and every variant stays one unbroken string. */
+.tscroll{overflow-x:auto}
+@media (max-width:720px){
+  #niintbl th:nth-child(1),#niintbl th:nth-child(2),
+  #niintbl td:nth-child(1),#niintbl td:nth-child(2){white-space:nowrap}
+}
 </style><script src="/rps.js"></script></head><body><div class="wrap" role="main" aria-label="System status dashboard">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>THE VIEWER — System Status</h1><div class="muted" id="gen">loading…</div></div>
@@ -70,7 +93,7 @@ button:hover{background:var(--p2)}input{background:var(--p2);color:var(--txt);bo
   <div class="muted" style="margin-bottom:8px">Same NIIN written as different NSN strings. <span class="tag bad">FSC conflict</span> = different supply class on one NIIN (likely an extraction error). Your decisions are saved append-only (history kept); the main index is never changed.</div>
   <div style="margin-bottom:8px"><button id="niinfilter" onclick="toggleNiin()">Show: pending</button>
     <span class="pill" id="niinprog" style="margin-left:8px"></span></div>
-  <table id="niintbl" aria-live="polite"><thead><tr><th>NIIN</th><th>variants</th><th>flag</th><th>decision</th></tr></thead><tbody></tbody></table>
+  <div class="tscroll"><table id="niintbl" aria-live="polite"><thead><tr><th>NIIN</th><th>variants</th><th>flag</th><th>decision</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <div class="sec card">

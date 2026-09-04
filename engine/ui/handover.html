@@ -28,6 +28,23 @@ tbody tr:last-child td{border-bottom:none}
 .none{color:var(--sub);font-size:12.5px;padding:14px 12px}
 .fwd{color:var(--sub);font-size:12px;margin-top:6px}
 .k{font-weight:600}
+/* v1.59.0 (per-page responsive verification; multi-window support, PR 9 of 25 in
+   docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md). .card above is overflow:hidden so
+   its rounded corners clip the full-width table sitting inside it. The side effect is that a table
+   WIDER than the card is silently cut off -- no scrollbar, no page-level overflow, just missing
+   columns. Measured directly in a 720px-wide window: a table forced to 1299px was clipped to a
+   670px card with nothing on screen to say so. It is width-dependent, so it only appears as the
+   window narrows, which is exactly the popped-out half-monitor case this pass exists for.
+   HONEST SCOPE: with today's data this is a LATENT hazard, not an observed break. Both wired
+   tables (pending sign-off, recent field notes) were measured at 720px with realistic rows --
+   hyphenated NSNs, superseded part numbers, long names -- and fit with room to spare. The two that
+   would hit it first are the conflicts and due-services tables, which render raw JSON.stringify
+   output (a near-unbroken token by construction, which overflow-wrap cannot break because it does
+   not affect a table column's min-content width) and whose server side is not wired yet, as the
+   notes under those two sections already say.
+   Scrolling the card instead of hiding the overflow keeps the rounded corners (overflow-x:auto
+   still clips the painted corner) and never drops a column. overflow-y stays hidden. */
+@media (max-width:960px){ .card{overflow-x:auto} }
 </style><script src="/rps.js"></script></head><body><div class="wrap">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>🔄 Shift handover</h1>

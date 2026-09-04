@@ -67,28 +67,32 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.52.0, shipped 2026-09-03** (`VW.workspace` — saved, named sets of pages
-(`create/list/get/touch` over `{id, name, items: [{page, params}], created, lastOpened, source}`),
-the second implementation PR of the multi-window/multi-tab initiative and the first consumer of
-`[1.51.0]`'s `VW.channel`. CRUD only — export/import and templates follow in PRs 3/4. Stored as one
-JSON array under a new `viewer_workspaces` localStorage key (an array, not an id-keyed object,
-because `list()` is the dominant read and an array preserves a stable creation order for free —
-documented in the code rather than left implicit). Every mutation publishes a deliberately thin
-`{action, id, name, at}` notification on `VW.channel`: storage is already shared across tabs on this
-origin for free, so a second tab does not need the data pushed to it, it needs to be told to re-read
-and repaint — the same philosophy the design spec describes for D (Bench sync). Verified with 73
-real checks in which two `vm.createContext()` sandboxes stand in for two tabs sharing one
-`localStorage` object, so a workspace created in one is genuinely read back through the other's own
-`list()` after a real `BroadcastChannel` notification; adversarially checked by injecting 6
-mutations, 5 caught and the 6th confirmed directly as an equivalent mutant. See §6 item 36).
-Immediately prior: v1.51.0, shipped 2026-09-03 (`VW.channel` — a real, reusable cross-window
+**True current state: v1.53.0, shipped 2026-09-03** (`VW.windows` — the one shared window-opening
+path in `shared.js`, stage 2 / PR 5 of the multi-window/multi-tab initiative, built on `[1.51.0]`'s
+`VW.channel`: `open(url, opts)` makes the *named* form of `window.open` the ergonomic default, since
+passing the same name twice is how a browser natively reuses a window and is the thing every call
+site forgets, plus a per-tab registry, a broadcast of every open on the `"windows"` channel, and an
+instant toast on open *and* refocus. Verified with 48 checks against the real `shared.js` in a `vm`
+sandbox with a mocked `window.open` that records every call — and the test itself checked for
+vacuousness by deliberately breaking `shared.js` three ways, which caught a real weakness in an
+earlier draft of it. Explicitly **not** proven there: that a real browser reuses a named window,
+which only a human in a real browser can confirm. Layout capture/restore is PR 6, not this. `1.52.0` was
+reserved up front by a sibling stage-2 PR built in parallel off the same `main`, since merged and
+rebased onto here. See §6 item 37).
+Immediately prior: v1.52.0, shipped 2026-09-03 (`VW.workspace` — saved, named sets of pages,
+`create/list/get/touch` over `{id, name, items: [{page, params}], created, lastOpened, source}`,
+stored as one JSON array under a new `viewer_workspaces` localStorage key, every mutation
+publishing a deliberately thin notification on `VW.channel` so a second tab re-reads rather than
+being pushed a second copy of the truth; verified with 73 real checks across two
+`vm.createContext()` sandboxes sharing one `localStorage`, adversarially checked with 6 injected
+mutations — item 36). Before that: `VW.channel` — a real, reusable cross-window
 publish/subscribe layer in `shared.js`, the first implementation PR of the multi-window/multi-tab
 initiative: `BroadcastChannel` primary transport with a `storage`-event fallback for RPS/legacy
 browsers, per-(channel,tab) sequence numbers for gap detection, schema versioning, an explicit
 oversized-payload guard on the fallback path. Verified with two independent `vm.createContext()`
 sandboxes standing in for two real browser tabs, sharing Node's real global `BroadcastChannel`
 constructor — production code exercising a real implementation, not a reimplementation of the logic
-under test. See §6 item 35). Before that: found by the final, fresh `verify_all.py --snapshot`
+under test (`[1.51.0]`, item 35). Before that: found by the final, fresh `verify_all.py --snapshot`
 pass at the actual release-cut point: `tests/mutate.py`'s restore step rewrote and SHA-verified a mutated
 target's *text* but never touched its *derived bytecode cache* — a mutant's `.pyc` could silently outlive
 its own verified-clean source restore and leak into whatever imported the module next, including the real
@@ -1253,6 +1257,86 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     Confirmed directly rather than assumed, and reported as the equivalent mutant it is rather than
     papered over. No UI changes yet — nothing calls `VW.workspace` outside its own tests. See
     `CHANGELOG.md` `[1.52.0]`.
+37. **`[1.53.0]` — `VW.windows`: one window-opening path, named reuse, instant toast (multi-window
+    support, PR 5/18).** Stage 2 of the same plan, built on item 35's `VW.channel`; layout
+    capture/restore is explicitly PR 6, deliberately not this one. (`1.52.0` was reserved up front by the
+    sibling stage-2 PR in item 36 — `VW.workspace` CRUD — built in parallel off the same `main`,
+    so this branch took the next number rather than race for one; that sibling has since merged and
+    this work was rebased onto it, the real `shared.js` conflict — both PRs add a block just above
+    the `VW` export object — resolved by keeping both, `VW.workspace` then `VW.windows`, with both
+    suites re-run green afterward.) **Why it exists when `window.open()` is already one
+    line:** passing the same *second* argument (the window name) twice is how a browser natively
+    reuses a window instead of stacking up a fresh one per click — that behavior is free, and it is
+    also the thing every call site forgets, because nothing about writing `window.open(url)`
+    suggests you were supposed to name anything. A technician tapping the same "pop out the torque
+    table" affordance four times across one job ends up with four identical windows fighting over
+    the second monitor. `VW.windows.open(url, opts)` makes the named form the ergonomic default (a
+    caller passes `opts.name` once and stops thinking about reuse) and layers on three things a bare
+    call site could not sensibly do for itself: a per-tab **registry** (`VW.windows.registry()`
+    reports `[{name, url}, ...]` — the hook PR 6 extends with real `screenX`/`screenY`/`outerWidth`/
+    `outerHeight` bounds); a **broadcast** of every successful open (`{event, name, url, count}`) on
+    `VW.channel`'s `"windows"` channel, plumbing for a future cross-tab "N windows open" that
+    nothing renders yet; and an instant **toast** on open *and* on refocus, reusing `shared.js`'s
+    existing `toast()` rather than inventing another one — the design spec's priority 2 ("snappy
+    UI: one window-opening path, named-window reuse, instant toast feedback"), aimed squarely at the
+    reuse case, where on some window managers the reused window comes forward *behind* the current
+    one and the click otherwise looks like it did nothing at all. Distinct messages for the two
+    outcomes ("Opened in a new window" vs. "Already open — switched to that window") make which one
+    happened visible. **Limits documented in the code rather than left to be discovered later:** the
+    registry is per tab and in memory — it lists what *this* tab opened during *this* page load, not
+    every VIEWER window on the machine, which is exactly why each open is broadcast (a cross-tab view
+    has to be assembled from the messages, never read off one tab's registry); it is a best-effort
+    mirror of the browser's own named-window table rather than the truth, since the browser reuses a
+    named window whether or not this registry knows about it (so after a reload a reuse can be
+    reported as a fresh open), with handles reporting `closed === true` pruned on every `registry()`
+    call and before every reuse decision, which covers the common case — the user closed the pop-out
+    — exactly; without `opts.name` there is no reuse and no tracking at all, because an unnamed
+    `window.open()` returns a fresh anonymous window every call and nothing can ever look it up
+    again, so such a call opens and toasts (a click must always visibly register) but never enters
+    the registry; no window-features argument is ever passed on this path, since supplying one turns
+    what the browser would have opened as an ordinary tab into a stripped chrome-less popup,
+    overriding the user's own new-window preference (PR 6's `restoreLayout()` is the one place that
+    will legitimately pass explicit bounds, because there the user asked for exactly that); and a
+    blocked (`null`) or outright-throwing `window.open` returns `null` and skips the toast, the
+    registry write *and* the broadcast alike, since none of them may claim a window opened when none
+    did. **Verified with 48 real checks**: `engine/tests/js/test_windows_node.js` loads the real
+    `shared.js` into a `vm.createContext()` sandbox (the same document/localStorage shimming approach
+    `test_channel_node.js` uses) with a **mocked `window.open`** that records every call it receives
+    — url, name, argument count — and hands back a fake window handle, then asserts on what the
+    production `VW.windows.open()`/`registry()` code actually did with it: same name twice produces
+    ONE registry entry while still really calling `window.open` a second time (the browser does the
+    reuse; skipping the call would leave the existing window untouched and still sitting behind
+    whatever is in front of it), different names produce separate entries, a new url on an existing
+    name updates the tracked url, an unnamed open neither throws nor pollutes the registry but still
+    toasts, the popup-blocked and `window.open`-throws paths return `null` with no toast, no entry
+    and no broadcast, a closed window is pruned and re-opening that name is a fresh open rather than
+    a reuse, and the returned registry is a copy that cannot be mutated back into the real one. The
+    broadcast half is **not** mocked at all: a second, independent sandbox subscribes over Node's
+    real global `BroadcastChannel` and the full 6-event sequence is asserted end to end. The test was
+    itself checked for vacuousness by deliberately breaking `shared.js` three times and confirming
+    the right checks flipped to FAIL — keying the registry by `name + Math.random()` (10 FAIL,
+    including "same name twice produces ONE registry entry, not two"), moving the `toast()` above the
+    popup-blocked guard (6 FAIL), and disabling the `channelPublish` call (2 FAIL). The second of
+    those **caught a real weakness in an earlier draft of the test**: it asserted "a blocked open
+    does not toast" by comparing the toast text before and after, and the deliberately-broken code
+    passed anyway, because the text it wrongly wrote happened to equal the text already there. The
+    fake DOM now exposes `textContent` as an accessor that logs every *write*, so the test counts
+    real DOM writes instead of comparing values — and the same mutation then failed correctly.
+    **What this cannot prove, stated plainly rather than glossed over** (the same framing the design
+    spec uses for every other real-hardware-only behavior): whether a real browser genuinely reuses a
+    window when the same name is passed twice. That is browser behavior, not this codebase's —
+    `shared.js`'s entire reuse strategy is to hand the name to `window.open` and let the browser's own
+    named-window table do the work, and Node has no `window.open` to be right or wrong about it. The
+    mock mirrors that table because it is the semantic the production code is written against, but a
+    mock agreeing with the code it was written to exercise proves nothing about Chrome or Firefox.
+    The owed manual check: open a pop-out twice in a real browser, confirm ONE window results. Real
+    popup-blocker behavior and real raise-to-front/focus behavior are equally out of reach here.
+    `rps_lint` caught one ES5 false positive on the way through — the plain-English word "let"
+    followed by a space inside a new doc comment, which the linter's blunt text-level regex scan
+    cannot distinguish from a real `let` declaration, the same class item 35 hit twice — reworded
+    rather than suppressed. No UI changes: nothing calls `VW.windows` outside its own tests yet;
+    A1 (home-nav pop-out links, PR 12), A2 (`popoutControl()`, PR 14) and B (curated launcher, PR 15)
+    are the first real consumers. See `CHANGELOG.md` `[1.53.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

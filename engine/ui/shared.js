@@ -613,12 +613,122 @@
     return true;
   }
 
+  /* v1.53.0: VW.windows -- the one shared window-opening path for this app (multi-window support,
+     PR 5 of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 2, riding VW.channel
+     above).
+
+     WHY this exists when window.open() is already one line: passing the same SECOND argument (the
+     window name) twice is how a browser natively reuses a window instead of stacking up a fresh one
+     per click. That behavior is free, and it is also the thing every call site forgets, because
+     nothing about writing window.open(url) suggests you were supposed to name anything. A technician
+     who taps the same "pop out the torque table" affordance four times across one job ends up with
+     four identical windows fighting over the second monitor. Making the named form the ERGONOMIC
+     DEFAULT -- a caller passes opts.name once and never thinks about reuse again -- is the point, and
+     three things are layered on top that a bare window.open() call site could not sensibly do for
+     itself:
+
+       1. A registry. This tab remembers what it opened, keyed by name, so registry() can report it,
+          and so a later PR can record and restore each window's real screen position (PR 6, which is
+          deliberately NOT part of this one).
+       2. A broadcast. Every successful open publishes an event on the "windows" channel, so a future
+          feature can show a live "N windows open" across every tab with no tab polling anything.
+          This PR builds that plumbing only; nothing renders it yet.
+       3. A toast, fired the instant a window opens or is refocused. Design priority 2 of the spec is
+          a snappy UI, and the worst case for a pop-out control is precisely the reuse case: on some
+          window managers the reused window comes forward behind the current one, so the click looks
+          like it did nothing at all. An immediate toast makes every click visibly register, whether
+          a new window appeared or an existing one was reused.
+
+     Honest limits of the registry, stated here rather than discovered later:
+       - It is per tab, in memory. It lists what THIS tab opened during THIS page load -- not every
+         VIEWER window on the machine. Another tab's opens, and this tab's own opens from before a
+         reload, are simply not in it. That is exactly why each open is broadcast: a cross-tab view
+         has to be assembled from the messages, never read off one tab's registry.
+       - It is a best-effort mirror of the browser's own named-window table, not the truth. The
+         browser reuses a named window whether or not this registry knows about it (the window this
+         tab opened before its own reload is still out there under that name, and will still be
+         reused), so after a reload a reuse can be reported as a fresh open. Entries whose handle
+         reports closed === true are pruned on every registry() call and before every reuse decision,
+         which covers the common case -- the user closed the pop-out -- exactly.
+
+     Without opts.name there is no reuse and no tracking, and that is a property of the platform, not
+     a shortcut taken here: an unnamed window.open() returns a fresh anonymous window on every single
+     call, no key exists to store it under, and nothing can ever look it up again. Such a call still
+     opens the window and still toasts (a click must always visibly register), it just never appears
+     in registry(). Pass a name whenever a repeat click should land on the window already open.
+
+     No window-features argument is passed on this path, on purpose: supplying one turns what the
+     browser would have opened as an ordinary tab into a stripped chrome-less popup, overriding the
+     user's own new-window preference. PR 6's restoreLayout() is the one place that will legitimately
+     pass explicit bounds, because there the user asked for exactly that.
+
+     Popup blockers: every intended call site is a real click handler and browsers permit
+     user-gesture-initiated opens, so a block should never happen in practice. It is still handled,
+     because window.open() returns null when it does happen and can throw outright in a locked-down
+     configuration: open() returns null, and the toast, the registry write and the broadcast are all
+     skipped, since none of them may claim a window opened when none did. */
+  var _WINDOWS_CHANNEL = "windows";
+  var _winReg = {};    // name -> {name: name, url: url, win: window handle}
+
+  /* Drops every entry whose window has since been closed. window.closed is readable across
+     same-origin windows and stays readable after the close, so this is a real check rather than a
+     guess. A handle that throws on property access (a rare torn-down state) counts as closed instead
+     of being allowed to break the caller. */
+  function _winPrune() {
+    var name, w, dead;
+    for (name in _winReg) {
+      if (!Object.prototype.hasOwnProperty.call(_winReg, name)) continue;
+      w = _winReg[name].win;
+      try { dead = !w || w.closed === true; } catch (e) { dead = true; }
+      if (dead) delete _winReg[name];
+    }
+  }
+
+  /* Currently-tracked open windows THIS tab opened, newly-built plain objects each call, so a caller
+     can never reach in and corrupt the registry by mutating what it was handed. */
+  function windowsRegistry() {
+    _winPrune();
+    var out = [], name;
+    for (name in _winReg) {
+      if (!Object.prototype.hasOwnProperty.call(_winReg, name)) continue;
+      out.push({ name: _winReg[name].name, url: _winReg[name].url });
+    }
+    return out;
+  }
+
+  function windowsOpen(url, opts) {
+    var o = opts || {};
+    var name = (typeof o.name === "string" && o.name) ? o.name : null;
+    _winPrune();                       // a window the user closed must not be reported as reused
+    var reused = !!(name && _winReg[name]);
+    var win = null;
+    /* Always really call window.open, reuse or not: the reuse, the navigation to a possibly-new url,
+       and the raise-to-front are all things the BROWSER does in response to this call. Skipping it
+       because the registry already knows the name would leave the existing window untouched and
+       still sitting behind whatever is in front of it. */
+    try { win = name ? window.open(url, name) : window.open(url); }
+    catch (e) { win = null; }
+    if (!win) return null;             // blocked or refused -- claim nothing, break nothing
+    try { if (win.focus) win.focus(); } catch (e) { /* some window managers refuse this; harmless */ }
+    if (name) _winReg[name] = { name: name, url: url, win: win };
+    /* Feedback and bookkeeping must never take down a window that already opened successfully. */
+    try {
+      toast(reused ? "Already open — switched to that window" : "Opened in a new window");
+    } catch (e) { /* a page with no body yet, etc. */ }
+    try {
+      channelPublish(_WINDOWS_CHANNEL, { event: reused ? "reuse" : "open", name: name, url: url,
+        count: windowsRegistry().length });   // count is named/tracked windows only, see above
+    } catch (e) { /* a broadcast failure must never surface to the user who just opened a window */ }
+    return win;
+  }
+
   var VW = { esc: esc, $: $, $all: $all, getJSON: getJSON, postJSON: postJSON,
              toast: toast, debounce: debounce, fmtInt: fmtInt, kioskOn: kioskOn, confTier: confTier,
              trapFocus: trapFocus,
              channel: { publish: channelPublish, subscribe: channelSubscribe },
              workspace: { create: workspaceCreate, list: workspaceList,
-                          get: workspaceGet, touch: workspaceTouch } };
+                          get: workspaceGet, touch: workspaceTouch },
+             windows: { open: windowsOpen, registry: windowsRegistry } };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

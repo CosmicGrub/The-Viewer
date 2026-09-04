@@ -4,6 +4,24 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-fourth pass):** not a multi-window-plan PR — found in
+> passing while reviewing `/api/coverage` output during the PR 8-11 responsive-verification
+> batches. `coverage.html`'s CAD-renders meter could read `156.3%`, and the display bug and the
+> root cause were both real. Display: the three percent meters built their bars via string
+> concatenation and never clamped the width (the page's own `pctBar()` helper already did it right
+> but was dead code) — routed all three through it, bar clamped to 0-100, but per R13 the number
+> stays honest (still `156.3%`, now with a visible "over 100%" flag) rather than being silently
+> corrected. Root cause: `representative_parts` only counted `ref_nsn` rows with FLIS dimensional
+> characteristics, undercounting against `make_cad.py`'s real render pool (which unions that with
+> every NSN appearing in `parts` against a figure) by roughly a third — 20,869 counted vs 32,622
+> actually eligible; a smaller numerator bug (`rendered_v3` counting turntable `_spinNN_v3.png`
+> sprite sheets as separate parts) compounded it. Fixed both, with sync comments so the two files'
+> copies of the query logic don't drift apart again. Verified live: `cad.pct` now reads a clean
+> `100.0%`. Filed as its own PR (`fix/coverage-bar-clamp`) since it's unrelated to the multi-window
+> initiative in flight — shipped as `[1.62.0]`, after the four responsive batches. `main` is at
+> `[1.61.0]` as of this pass; see `CHANGELOG.md` `[1.62.0]`.
+>
+
 > **Reconciliation note (2026-09-04, twenty-ninth pass):** stage 3, PR 7 of the multi-window/
 > multi-tab initiative — the **responsive baseline**, this app's first width-based breakpoints in
 > `engine/ui/base.css`, and the design spec's priority 3. **Read the scope first, because it is the

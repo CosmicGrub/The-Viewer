@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.57.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.62.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -108,7 +108,12 @@ live-sync across tabs — the first change in that initiative a technician can a
 its own (`[1.56.0]`) — and a responsive breakpoint baseline for `base.css`, this app's first
 width-based CSS rules, CSS only with no page yet checked against them (`[1.57.0]`, reserved as
 `1.54.0` at authoring time then renumbered on merge — see the reconciliation notes below and §8
-items 25–39). This document +
+items 25–39). Then, unrelated to the multi-window initiative — found while reading `/api/coverage`
+output during that initiative's own responsive-verification batches — a real `cad.pct` bug fixed at
+both layers: `coverage.html`'s three percent meters now clamp their bar width to 0-100 while (per R13)
+keeping the numeric label honest above 100%, and `coverage.py`/`make_cad.py`'s denominator/numerator
+mismatch that let `cad.pct` read `156.3%` in the first place is fixed at the source, verified back to
+a clean `100.0%` (`[1.62.0]`, item 40 below). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1141,6 +1146,20 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     the same page with `base.css` disabled overflows to 534. **Not proven:** anything about how the
     44 other real pages actually look at 960px — only a human resizing each does that, which is
     PRs 8-11. See `CHANGELOG.md` `[1.57.0]`.
+
+40. **`[1.62.0]` — a real `cad.pct` bug, unrelated to the multi-window initiative: found while
+    reading `/api/coverage` output during that initiative's own responsive-verification batches,
+    fixed at both layers.** `coverage.html`'s three percent meters built their bars via string
+    concatenation with no width clamp, while the page's own `pctBar()` helper already did it right
+    but was dead code — routed all three through it. Per R13 (fail loud, never silently
+    misrepresent), the bar clamps to 0-100 but the number does not — an out-of-range ratio still
+    reads true, now with a visible "over 100%" flag. Root cause: `coverage.py`'s
+    `representative_parts` only counted `ref_nsn` rows with FLIS dimensional characteristics,
+    undercounting by roughly a third against `make_cad.py`'s real render pool (which unions that
+    with every NSN against a figure in `parts`) — 20,869 counted vs 32,622 actually eligible — plus
+    a smaller numerator bug double-counting turntable sprite-sheet renders as separate parts. Both
+    fixed at the source, with sync comments tying the two files' copies of the query logic
+    together. Verified live: `cad.pct` 156.3% → 100.0%. See `CHANGELOG.md` `[1.62.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

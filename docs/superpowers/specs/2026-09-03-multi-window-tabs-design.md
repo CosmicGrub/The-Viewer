@@ -227,13 +227,13 @@ VW.channel.publish(name, data)         // data may include any JSON-serializable
 VW.channel.subscribe(name, fn)         // fn(data, meta) -- meta: {seq, v}
 ```
 
-### `VW.workspace` *(CRUD + export/import landed; built-in templates next; IndexedDB + schemaVersion +
-backup-vault mirroring are Stage 6 additions on top of the same public surface)*
+### `VW.workspace` *(CRUD + delete + export/import landed; built-in templates next; IndexedDB +
+schemaVersion + backup-vault mirroring are Stage 6 additions on top of the same public surface)*
 ```
 { id, name, items: [{page, params}], created, lastOpened, source: "manual"|"template",
   schemaVersion }
 VW.workspace.create(name, items) -> id
-VW.workspace.list() / .get(id) / .touch(id)
+VW.workspace.list() / .get(id) / .touch(id) / .delete(id)
 VW.workspace.exportUrl(id) -> string      // shareable query-string form
 VW.workspace.exportFile(id) -> Blob       // downloadable .json; File System Access API used
                                            // in place of a plain download where available
@@ -241,6 +241,18 @@ VW.workspace.importUrl(qs) -> id
 VW.workspace.importFile(blob) -> id
 VW.workspace.templates() -> [{name, items}, ...]
 ```
+
+### `VW.checkpoint` *(new, PR 16/F — the auto-checkpoint from item 9's "Addition this revision")*
+```
+VW.checkpoint.get() -> {at, windows: [{name, url}, ...]} | null
+VW.checkpoint.clear() -> boolean
+```
+A single well-known slot, always overwritten, never a growing list — distinct from a named
+`VW.workspace` record on every axis (storage key, silent write, never appears in
+`VW.workspace.list()`). Written by `shared.js` itself (not exposed as a public "save") on `pagehide`
+and a 2-minute safety-net interval, skipped whenever the writing tab's own `VW.windows.registry()`
+is empty so an idle tab can never clobber a real checkpoint written by a different one. Offered as a
+user-triggered "restore" button on `/workspaces` only — never restored automatically.
 
 ### `VW.windows` *(open/reuse/toast core in progress; layout capture/restore next)*
 ```

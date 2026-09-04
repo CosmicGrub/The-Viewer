@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Saved Workspaces — THE VIEWER</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+  body{background:#0c1116;color:#e6edf4;font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0}
+  .wrap{max-width:960px;margin:0 auto;padding:22px 18px 70px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:#8a98a8;font-size:12.5px}
+  h2{font-size:14px;margin:26px 0 8px;color:#7fbfff}
+  .bar{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap;align-items:center}
+  a.btn,button{background:#1b2735;color:#cfe;border:1px solid #2f4858;border-radius:8px;padding:9px 13px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  button.go{background:#1f6feb;border-color:#1f6feb;color:#fff;font-weight:600}
+  button.danger{background:#2a130c;border-color:#6b4636;color:#f2c3ad}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .item{background:#10151c;border:1px solid #223;border-radius:10px;padding:12px 14px;margin:8px 0}
+  .item .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .item .name{font-weight:600;font-size:14px}
+  .item .meta{color:#8a98a8;font-size:11.5px;margin-top:2px}
+  .item .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .item .actions button,.item .actions a.btn{font-size:12px;padding:7px 11px}
+  .empty{color:#6b7787;font-size:13px;padding:16px 0;line-height:1.6}
+  .banner{background:#16202b;border:1px solid #2f4858;border-radius:10px;padding:13px 15px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .banner.hidden{display:none}
+  .banner .msg{font-size:13.5px}
+  .banner .msg .sub{color:#8a98a8;font-size:11.5px;display:block;margin-top:2px}
+  .banner .actions{display:flex;gap:8px}
+  .panel{background:#10151c;border:1px solid #223;border-radius:10px;padding:14px 15px;margin:8px 0}
+  .panel textarea{width:100%;box-sizing:border-box;background:#0c1116;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:9px 11px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace;min-height:56px;resize:vertical}
+  .row2{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;align-items:center}
+  .err{color:#f2a49c;font-size:12px;margin-top:8px;min-height:1em}
+  .sharebox{display:none;margin-top:8px}
+  .sharebox input{width:100%;box-sizing:border-box;background:#0c1116;border:1px solid #2f4858;border-radius:8px;color:#e6edf4;padding:8px 10px;font-size:12px;font-family:ui-monospace,Consolas,monospace}
+</style></head><body>
+<div class="wrap" role="main" aria-label="Saved workspaces">
+  <h1>🗂 Saved Workspaces</h1>
+  <div class="muted">Name and reopen the whole set of windows you had open for a job — a work order, a troubleshoot, whatever you're mid-task on. Export one to hand it to the next shift on <a href="/handover" style="color:#7fbfff">the shift handover page</a>.</div>
+  <div class="bar">
+    <a class="btn" href="/">← search</a>
+    <button class="go" id="save" title="Save every window this tab currently has open (via a pop-out or a launch button) as a new named workspace">💾 Save current windows as a workspace</button>
+  </div>
+
+  <div class="banner hidden" id="checkpointBanner" role="status">
+    <div class="msg" id="checkpointMsg"></div>
+    <div class="actions">
+      <button class="go" id="checkpointRestore">↺ Restore</button>
+      <button id="checkpointDismiss" title="Not now — this stays available on your next visit">✕ Dismiss</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <h2>Import a workspace</h2>
+  <div class="panel">
+    <div class="muted">Paste a share link (or a bare <code>ws=…</code> string) from another technician's "copy share link" button.</div>
+    <div class="row2">
+      <textarea id="importText" placeholder="https://…/workspaces?ws=%7B%22name%22…  or  ws=%7B%22name%22…" aria-label="Paste a workspace share link"></textarea>
+    </div>
+    <div class="row2">
+      <button class="go" id="importGo">⬇ Import from link</button>
+      <button id="importFileBtn">📁 Import from file…</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+    </div>
+    <div class="err" id="importErr" aria-live="polite"></div>
+  </div>
+</div>
+<script>
+(function(){
+  function $(s){return document.querySelector(s);}
+  /* esc()/toast() come from /shared.js, same as every other page adopting it. */
+
+  // ------------------------------------------------------------------------------------------
+  // URL <-> {page, params} helpers. VW.workspace records store items as {page, params}, never a
+  // pre-built URL string (see shared.js's own _wsItems()) -- reopening builds the url back up with
+  // the SAME encodeURIComponent-based, manual-concatenation approach jobcard.html/solve.html's own
+  // launch buttons already use for their single "q" param, generalized here to an arbitrary params
+  // object since a SAVED workspace's items can carry more than just "q" (whatever query a popped-out
+  // window actually had at save time). Saving reverses the same transform: a currently-open window's
+  // real url is split back into {page, params} by hand, matching shared.js's own manual query
+  // parsing in workspaceImportUrl() rather than reaching for URLSearchParams.
+  // ------------------------------------------------------------------------------------------
+  function paramsToQuery(params){
+    var out=[], k;
+    for(k in params){
+      if(!Object.prototype.hasOwnProperty.call(params,k)) continue;
+      out.push(encodeURIComponent(k)+'='+encodeURIComponent(params[k]));
+    }
+    return out.length ? ('?'+out.join('&')) : '';
+  }
+  function urlToPageParams(url){
+    var u=String(url||''), qIdx=u.indexOf('?');
+    var page=qIdx===-1?u:u.slice(0,qIdx), qs=qIdx===-1?'':u.slice(qIdx+1);
+    var params={};
+    if(qs){
+      var parts=qs.split('&'), i, eq, k, v;
+      for(i=0;i<parts.length;i++){
+        eq=parts[i].indexOf('=');
+        k=eq===-1?parts[i]:parts[i].slice(0,eq);
+        v=eq===-1?'':parts[i].slice(eq+1);
+        try{ params[decodeURIComponent(k)]=decodeURIComponent(v); }
+        catch(e){ params[k]=v; }
+      }
+    }
+    return {page:page, params:params};
+  }
+
+  function humanWhen(ts){
+    if(!ts) return '?';
+    try{ return new Date(ts).toLocaleString(); }catch(e){ return String(ts); }
+  }
+  function humanAge(ts){
+    var s=Math.floor((Date.now()-ts)/1000);
+    if(s<5) return 'just now';
+    if(s<60) return s+'s ago';
+    var m=Math.floor(s/60);
+    if(m<60) return m+' minute'+(m===1?'':'s')+' ago';
+    var h=Math.floor(m/60);
+    if(h<48) return h+' hour'+(h===1?'':'s')+' ago';
+    var d=Math.floor(h/24);
+    return d+' day'+(d===1?'':'s')+' ago';
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // LIST + REOPEN + DELETE + EXPORT
+  // ------------------------------------------------------------------------------------------
+  function render(){
+    var all=VW.workspace.list().slice();
+    all.sort(function(a,b){ return (b.lastOpened||0)-(a.lastOpened||0); });   // most-recently-opened first
+    var host=$('#list');
+    if(!all.length){
+      host.innerHTML='<div class="empty">No saved workspaces yet. Pop a few pages out (a work order launch, a torque table, a procedure), then click <b>Save current windows as a workspace</b> above.</div>';
+      return;
+    }
+    var h='';
+    all.forEach(function(ws){
+      var n=(ws.items||[]).length;
+      h+='<div class="item" data-id="'+esc(ws.id)+'">'
+        +'<div class="top"><div><div class="name">'+esc(ws.name)+'</div>'
+        +'<div class="meta">'+n+' window'+(n===1?'':'s')+' · created '+esc(humanWhen(ws.created))+' · last opened '+esc(humanWhen(ws.lastOpened))+(ws.source==='template'?' · from a launch button':'')+'</div></div></div>'
+        +'<div class="actions">'
+        +'<button class="go reopen" data-id="'+esc(ws.id)+'">↗ Reopen</button>'
+        +'<button class="copylink" data-id="'+esc(ws.id)+'">🔗 Copy share link</button>'
+        +'<button class="dlfile" data-id="'+esc(ws.id)+'">⬇ Download .json</button>'
+        +'<button class="danger del" data-id="'+esc(ws.id)+'">🗑 Delete</button>'
+        +'</div>'
+        +'<div class="sharebox" id="share-'+esc(ws.id)+'"><input type="text" readonly></div>'
+        +'</div>';
+    });
+    host.innerHTML=h;
+    wireRowButtons();
+  }
+
+  function wireRowButtons(){
+    $('#list').querySelectorAll('.reopen').forEach(function(b){ b.onclick=function(){ reopen(b.getAttribute('data-id')); }; });
+    $('#list').querySelectorAll('.del').forEach(function(b){ b.onclick=function(){ del(b.getAttribute('data-id')); }; });
+    $('#list').querySelectorAll('.copylink').forEach(function(b){ b.onclick=function(){ copyLink(b.getAttribute('data-id')); }; });
+    $('#list').querySelectorAll('.dlfile').forEach(function(b){ b.onclick=function(){ downloadFile(b.getAttribute('data-id')); }; });
+  }
+
+  // REOPEN: touch() first (so "last opened" genuinely reflects this reopen, matching what
+  // "reopening" should mean), then open every item's page via the SAME VW.windows.open +
+  // VW.popoutWindowName pairing every other launch feature in this app uses (A1/A2/B) -- never a
+  // re-implemented naming copy, so a workspace item that is ALSO already open via some other
+  // feature's pop-out gets refocused instead of duplicated.
+  function reopen(id){
+    var ws=VW.workspace.get(id);
+    if(!ws){ toast('That workspace no longer exists.'); render(); return; }
+    VW.workspace.touch(id);
+    (ws.items||[]).forEach(function(it){
+      var url=it.page+paramsToQuery(it.params);
+      if(window.VW && typeof VW.popoutWindowName==='function' && VW.windows && typeof VW.windows.open==='function'){
+        VW.windows.open(url, {name: VW.popoutWindowName(url)});
+      } else {
+        try{ window.open(url); }catch(e){}
+      }
+    });
+    render();
+  }
+
+  function del(id){
+    var ws=VW.workspace.get(id);
+    var label=ws?('"'+ws.name+'"'):'this workspace';
+    if(!window.confirm('Delete '+label+'? This cannot be undone.')) return;
+    if(VW.workspace.delete(id)){ toast('Deleted.'); } else { toast('Could not delete — it may already be gone.'); }
+    render();
+  }
+
+  function shareLink(id){
+    var q=VW.workspace.exportUrl(id);
+    if(!q) return null;
+    var origin=(window.location && window.location.origin) || '';
+    return origin+'/workspaces?'+q;
+  }
+
+  function copyLink(id){
+    var link=shareLink(id);
+    if(!link){ toast('Could not build a share link.'); return; }
+    var box=$('#share-'+id), input=box?box.querySelector('input'):null;
+    function shown(){ if(box){ box.style.display='block'; } if(input){ input.value=link; input.focus(); input.select(); } }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(link).then(function(){ toast('Share link copied.'); }, function(){ shown(); toast('Could not copy automatically — link is shown below to copy by hand.'); });
+    } else {
+      shown();
+      toast('Clipboard access isn\'t available here — link is shown below to copy by hand.');
+    }
+  }
+
+  // EXPORT FILE: same real Blob + URL.createObjectURL + <a download> pattern circuitlab.html's own
+  // download() already uses for this app's other JSON exports -- not a new download mechanism.
+  function downloadFile(id){
+    var blob=VW.workspace.exportFile(id);
+    var ws=VW.workspace.get(id);
+    if(!blob){ toast('Could not export that workspace.'); return; }
+    var name=((ws&&ws.name)||'workspace').replace(/[^\w-]+/g,'-').replace(/^-+|-+$/g,'')||'workspace';
+    var u=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=u; a.download=name+'.json'; document.body.appendChild(a); a.click(); a.parentNode.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(u); }, 800);
+    toast('Downloaded '+name+'.json');
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // SAVE current windows: VW.windows.registry() is THIS TAB's own {name,url} record of what it has
+  // opened (via a pop-out, a launch button, or a previous reopen) -- turn that into workspace items
+  // ({page, params}) and hand it to VW.workspace.create(). A plain window.prompt() collects the
+  // name, the same lightweight pattern index.html's own "name this collection" flow already uses
+  // (no heavier modal exists anywhere in this codebase for a single short text field).
+  // ------------------------------------------------------------------------------------------
+  function saveCurrent(){
+    var reg=(window.VW && VW.windows && typeof VW.windows.registry==='function') ? VW.windows.registry() : [];
+    if(!reg.length){
+      toast('No windows open in this tab yet — pop a few out first (a launch button, or any page\'s own ↗ pop-out), then save.');
+      return;
+    }
+    var suggestion='Workspace — '+new Date().toLocaleString();
+    var name=window.prompt('Name this workspace ('+reg.length+' window'+(reg.length===1?'':'s')+'):', suggestion);
+    if(name===null) return;   // cancelled
+    var items=reg.map(function(w){ return urlToPageParams(w.url); });
+    var id=VW.workspace.create(name, items, 'manual');
+    if(id){ toast('Saved "'+(name||'Untitled workspace')+'".'); } else { toast('Could not save — storage may be full or unavailable.'); }
+    render();
+  }
+  $('#save').onclick=saveCurrent;
+
+  // ------------------------------------------------------------------------------------------
+  // IMPORT: paste (share link or bare ws=… string) or upload a .json file. Both go straight
+  // through VW.workspace.importUrl()/importFile() -- PR 3's own validated import path -- and both
+  // catch the real, specific Error those throw/reject with rather than letting it become an
+  // unhandled exception, per that PR's contract.
+  // ------------------------------------------------------------------------------------------
+  function showImportErr(msg){
+    $('#importErr').textContent=msg||'';
+    if(msg) toast(msg);
+  }
+  // A pasted share link may be the FULL absolute URL (…/workspaces?ws=…), just the "?ws=…"
+  // fragment, or the bare "ws=…" string exportUrl() itself returns. importUrl() only ever strips a
+  // single leading "?", so a full URL's own "https://host/workspaces" prefix would otherwise be
+  // read as part of the "ws" key and fail to parse. Slicing from the first "?" onward (when one is
+  // present) normalizes all three shapes to what importUrl() already knows how to read, without
+  // touching shared.js's own parsing at all.
+  function extractWsQuery(raw){
+    var s=String(raw||'').trim();
+    var qIdx=s.indexOf('?');
+    return qIdx===-1 ? s : s.slice(qIdx);
+  }
+  function importFromText(){
+    showImportErr('');
+    var raw=$('#importText').value;
+    if(!raw || !raw.trim()){ showImportErr('Paste a share link first.'); return; }
+    try{
+      var id=VW.workspace.importUrl(extractWsQuery(raw));
+      var ws=VW.workspace.get(id);
+      toast('Imported "'+((ws&&ws.name)||'workspace')+'".');
+      $('#importText').value='';
+      render();
+    }catch(e){
+      showImportErr((e&&e.message)||'That link could not be read.');
+    }
+  }
+  $('#importGo').onclick=importFromText;
+
+  $('#importFileBtn').onclick=function(){ $('#importFile').click(); };
+  $('#importFile').addEventListener('change', function(ev){
+    showImportErr('');
+    var f=ev.target.files[0];
+    ev.target.value='';
+    if(!f) return;
+    VW.workspace.importFile(f).then(function(id){
+      var ws=VW.workspace.get(id);
+      toast('Imported "'+((ws&&ws.name)||'workspace')+'".');
+      render();
+    }, function(e){
+      showImportErr((e&&e.message)||'That file could not be read.');
+    });
+  });
+
+  // A share link someone opened directly (rather than pasting) lands here with ?ws=… already in
+  // the address bar -- prefill the paste box from it so the one remaining step is a single click on
+  // Import, but never import automatically: an opened link is not the same as a deliberate "yes,
+  // add this" click, and every other irreversible/creating action on this page (save, delete,
+  // import) already requires one.
+  (function prefillFromLocation(){
+    try{
+      var qs=(window.location && window.location.search) || '';
+      if(qs.indexOf('ws=')!==-1){ $('#importText').value=qs; toast('A shared workspace link was detected below — click Import to add it.'); }
+    }catch(e){ /* never break the page over a convenience prefill */ }
+  })();
+
+  // ------------------------------------------------------------------------------------------
+  // AUTO-CHECKPOINT restore offer (design doc item 9's "Addition this revision"). shared.js writes
+  // this silently (on pagehide + a periodic safety-net interval, see its own comment) from ANY page
+  // that has windows open, not just this one; this page is the ONE place that ever OFFERS to act on
+  // it. "a checkpoint exists" is the whole heuristic, per the design doc's own explicit sanction of
+  // that baseline over a more elaborate staleness rule. Restoring is entirely user-triggered -- a
+  // real button click, never anything on load -- mirroring this app's established stance that a web
+  // page cannot run code "on launch" unprompted (the same reasoning A1/A2/B's own pop-out controls
+  // are all click-driven, never automatic).
+  // ------------------------------------------------------------------------------------------
+  function checkpointLabel(url){
+    var p=String(url||'').split('?')[0].replace(/^\/*/,'')||'home';
+    return p.charAt(0).toUpperCase()+p.slice(1);
+  }
+  function showCheckpoint(){
+    try{
+      if(window.sessionStorage && window.sessionStorage.getItem('viewer_checkpoint_dismissed')==='1') return;
+    }catch(e){ /* private-mode sessionStorage access can throw -- just show the banner */ }
+    var cp=(window.VW && VW.checkpoint && typeof VW.checkpoint.get==='function') ? VW.checkpoint.get() : null;
+    if(!cp || !cp.windows || !cp.windows.length) return;
+    var names=cp.windows.map(function(w){ return checkpointLabel(w.url); }).join(', ');
+    $('#checkpointMsg').innerHTML='Restore your last '+cp.windows.length+' window'+(cp.windows.length===1?'':'s')+'?'
+      +'<span class="sub">'+esc(names)+' — saved '+esc(humanAge(cp.at))+'</span>';
+    $('#checkpointBanner').className='banner';
+    $('#checkpointRestore').onclick=function(){
+      cp.windows.forEach(function(w){
+        if(window.VW && VW.windows && typeof VW.windows.open==='function'){ VW.windows.open(w.url, {name: w.name}); }
+        else { try{ window.open(w.url, w.name); }catch(e){} }
+      });
+      if(window.VW && VW.checkpoint && typeof VW.checkpoint.clear==='function') VW.checkpoint.clear();
+      $('#checkpointBanner').className='banner hidden';
+    };
+    $('#checkpointDismiss').onclick=function(){
+      $('#checkpointBanner').className='banner hidden';
+      try{ window.sessionStorage.setItem('viewer_checkpoint_dismissed','1'); }catch(e){ /* best effort only */ }
+    };
+  }
+
+  render();
+  showCheckpoint();
+
+  // v1.63.0 (A2, multi-window PR 14): a zero-config pop-out control for THIS page (button + Ctrl+K
+  // palette entry, both from shared.js). Guarded in case /shared.js failed to load, same as every
+  // other adopting page.
+  if(window.VW && typeof VW.popoutControl==="function"){ VW.popoutControl(); }
+})();
+</script>
+<script src="/palette.js"></script>
+</body></html>

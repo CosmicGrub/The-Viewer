@@ -105,15 +105,29 @@ one shared window-opening path with named reuse and an instant toast (`[1.53.0]`
 nav's ↗ pop-out links — the first real UI consumer of any of it (`[1.55.0]`) — `VW.bench`, which
 promotes the twice-duplicated "My Bench" accessor into `shared.js` and makes the pinned list
 live-sync across tabs — the first change in that initiative a technician can actually see repaint on
-its own (`[1.56.0]`) — and a responsive breakpoint baseline for `base.css`, this app's first
+its own (`[1.56.0]`) — a responsive breakpoint baseline for `base.css`, this app's first
 width-based CSS rules, CSS only with no page yet checked against them (`[1.57.0]`, reserved as
-`1.54.0` at authoring time then renumbered on merge — see the reconciliation notes below and §8
-items 25–39). Then, unrelated to the multi-window initiative — found while reading `/api/coverage`
-output during that initiative's own responsive-verification batches — a real `cad.pct` bug fixed at
-both layers: `coverage.html`'s three percent meters now clamp their bar width to 0-100 while (per R13)
-keeping the numeric label honest above 100%, and `coverage.py`/`make_cad.py`'s denominator/numerator
-mismatch that let `cad.pct` read `156.3%` in the first place is fixed at the source, verified back to
-a clean `100.0%` (`[1.62.0]`, item 40 below). This document +
+`1.54.0` at authoring time then renumbered on merge) — then all four of the per-page verification
+batches that baseline exists for. Batch 1: 13 pages resized in a real browser at 960px/720px against
+the real corpus, turning up two genuine defects (`procedure.html`'s reference rail wrapping but
+keeping its two-column width across a 35px band, and `measures.html`'s non-wrapping measurement rows
+scrolling the page sideways from 490px down), both fixed page-locally with `base.css` untouched
+(`[1.58.0]`). Batch 2: 12 more pages resized the same way, finding control labels splitting mid-word
+in `index.html`'s in-app viewer and a card silently clipping a too-wide table on `handover.html`,
+both also fixed page-locally (`[1.59.0]`). Batch 3: 11 pages
+(`learn`/`binaudit`/`coverage`/`ingest`/`ops`/`status`/`verify`/`command`/`collections`/`review`/
+`demo`), finding 3 more genuine defects — NSNs split mid-identifier on the look-alike audit table, a
+NIIN variant split mid-string on the queue built to compare NSN strings, and the demo tour's tooltip
+landing behind a control bar that is 119px tall at 720px rather than the 56px its code hard-coded —
+and confirming the other 8 pages clean, `base.css` again untouched (`[1.60.0]`). Batch 4, the last:
+the 12 specialized-visualization pages, fixing three more real defects, all in the pages' own inline
+styles and none in `base.css` (`[1.61.0]`). Then, unrelated to the multi-window initiative — found
+while reading `/api/coverage` output during that initiative's own responsive-verification batches —
+a real `cad.pct` bug fixed at both layers: `coverage.html`'s three percent meters now clamp their
+bar width to 0-100 while (per R13) keeping the numeric label honest above 100%, and
+`coverage.py`/`make_cad.py`'s denominator/numerator mismatch that let `cad.pct` read `156.3%` in the
+first place is fixed at the source, verified back to a clean `100.0%` (`[1.62.0]` — see the
+reconciliation notes below and §8 items 25–44). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1146,8 +1160,201 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     the same page with `base.css` disabled overflows to 534. **Not proven:** anything about how the
     44 other real pages actually look at 960px — only a human resizing each does that, which is
     PRs 8-11. See `CHANGELOG.md` `[1.57.0]`.
+40. **`[1.58.0]` — responsive verification batch 1: 13 pages resized in a real browser, 2 real
+    defects found and fixed (multi-window support, PR 8/25).** Stage 3, the first of the four
+    per-page passes item 39 deliberately left undone. Covers `part` · `procedure` · `torque` ·
+    `jobcard` · `bench` · `dossier` · `partdiff` · `locate` · `decode` · `fastener` · `pmcs` ·
+    `measures` · `readiness`; the first five land here because **PR 14 (A2, the per-page pop-out
+    control) is blocked on exactly those**. Three sibling batches are in flight in parallel holding
+    `1.59.0`/`1.60.0`/`1.61.0`, so this took the lowest free number rather than racing for one, and
+    **`engine/ui/base.css` is not touched** — neither defect was a shared-layer problem, and a
+    shared-file edit is precisely what would collide with those three. Method, because "verified" is
+    the word most likely to be doing no work in a pass like this: the real server against the real
+    227,908-row corpus, each page loaded with a query that actually returns data (`alternator` /
+    NSN `3040-01-521-7377` / `brake` / `5 TON` / `5310-01-359-2198`) rather than an empty shell, then
+    measured at 960px and 720px and swept to 360px with a probe walking every non-fixed element in
+    `body` for a right edge past the viewport and for internal `scrollWidth > clientWidth`;
+    `readiness`'s fluids/intervals and `measures`'s external references return nothing on this
+    machine, so those two were exercised with stubbed responses of the documented shape rather than
+    counted as passing on a blank page. **Fixed (1):** `procedure.html`'s `.side` rail —
+    **756px is the last side-by-side width** (348/348); at **755px** the `.cols` row wraps, which
+    makes the page taller, which brings in a 15px scrollbar, which drops the usable width to 740px
+    and holds it wrapped (a stable, reproducible equilibrium, not a flicker) — and the rail then
+    keeps its declared `420px`/`46vw`, landing **332-347px wide inside a 677-696px row**, so the
+    scanned page a technician checks the steps against renders at under half the width sitting empty
+    beside it. That held 755→721px, where `base.css`'s shared 720px rule took over. Closed with one
+    page-local `@media(max-width:755px){ .side{width:100%;max-width:none} }`; after, 756px is
+    unchanged and 755-721px gives a **677-711px** rail. **Item 39 predicted this band at ~20px; it
+    is 35px** — that estimate came from the layout arithmetic alone and missed the scrollbar the
+    wrap itself brings in. **Fixed (2):** `measures.html`'s `.m`/`.em`, row-shaped flex containers
+    that never declared `flex-wrap`; neither name is in `base.css`'s shared wrap list, correctly, so
+    the fix went in the page (adding a single-page class to the shared sheet is the exact mistake
+    item 39's own entry warned about for `.grid`). Content floor ~411px, so the page overflowed at
+    **490px** (1px), **480px** (11px), **375px** (116px), pushing the `p.N ↗` citation link — the
+    one control on the row — off the right edge. **Openly below this batch's own 960/720 anchors**,
+    fixed anyway because 480px is a quarter of the same 1080p monitor the 960px anchor is half of,
+    and because it provably changes nothing above 491px. The other **11 pages needed nothing**, per
+    page rather than as a blanket claim. Also measured: all 13 at 720px with device emulation on
+    (`pointer:coarse` matching, 44×44 minimums live) and at 960px with a coarse pointer forced —
+    the case that matters, since `jobcard`'s and `dossier`'s two-column grids are still live at
+    960px while collapsed at 720px — zero overflow in every combination. **Measured and deliberately
+    not fixed:** the bottom-right fixed chrome overlaps itself (18×44 / 156×4 / 66×4 / 21×29 px),
+    but the four rectangles are **byte-identical at 1400/960/720px on a desktop pointer** (a coarse
+    pointer still shows them, touch sizing only growing the last pair 21×29 → 21×44),
+    so it is pre-existing, width-independent, shared by all 48 pages, and belongs in its own PR;
+    plus two 360px-only overflows (`procedure`'s own deliberate `.steps{min-width:340px}` floor,
+    `fastener`'s 5-column table), both below any named scenario. **One trap worth carrying:** the
+    server holds UI files in memory after first read, so the first post-edit measurement showed the
+    fix doing nothing — the browser was being served the pre-edit file. Every "after" number comes
+    from a server restarted on the edited tree, confirmed by `curl`-ing the page for the new rule
+    first. Tests: `test_uiux_fixes.py` 273 → **285**, negative-tested (reverting both fixes gives
+    `280 passed, 5 failed`; restoring gives 285/0) — source-text assertions, **not** layout
+    measurements. See `CHANGELOG.md` `[1.58.0]`.
+41. **`[1.59.0]` — per-page responsive verification, batch 2 of 4: 12 pages resized for real
+    (multi-window support, PR 9/25).** Stage 3 of the same plan, and the answer to the thing item 39
+    explicitly could not prove. `[1.57.0]` shipped the shared breakpoints and stated that not one
+    real page had been opened in a resized window; this is that work for one of the four batches.
+    (Numbered 41 here, and `1.59.0`, because three sibling batches are in flight in parallel and
+    claimed `1.58.0`/`1.60.0`/`1.61.0`; if merge order differs, renumber — `[1.57.0]` did exactly
+    that with its own version.) **The 12:** `solve`, `troubleshoot`, `ask`, `handover`, `circuitlab`,
+    `scan`, `semantic`, `visual`, `kg`, `related`, `index`, `help` — each loaded against the running
+    server at **960** and **720 CSS px** with real content, not an empty shell (`solve` driven
+    through both stages, `troubleshoot` onto a fault tree that really has checks, `ask` left to
+    finish its ~25-second round trip, `circuitlab` with the RLC sample simulating, `index` past its
+    side-gate with 30 results and the in-app document viewer open). Two instrumented passes each: an
+    **overflow probe** (anything past the viewport, any `scrollWidth > clientWidth` under
+    `overflow-x:visible`, anything clipped by >20px under `overflow-x:hidden` — the silent
+    content-loss case an ordinary overflow check misses — plus document-level scroll width) and a
+    **mid-word-break detector** (record every leaf element's height, set
+    `body.style.overflowWrap='normal'`, re-measure, report anything *taller* with the shared rule
+    than without). **Two pages needed a fix, both in that page's own inline `<style>`; `base.css` is
+    untouched.** (1) **`index.html`**: `.vbar`'s densest `.pgctl` row (Clean, four sliders,
+    Mirror/HD/Loupe/Callouts/Reset) is a flex row with no wrap, so below ~960px every control is
+    shrunk narrower than its own label — and `[1.57.0]`'s shared `body{overflow-wrap:break-word}`
+    then split four of them **inside the word**. Measured at 720px: `contrast` 16→32px, `zoom`
+    16→32px, Mirror/Loupe/Callouts/Reset 52→71px each, rendering as `Mirr / or`, `Loup / e`,
+    `Callou / ts`, `Rese / t`. **No overflow check would ever have found this** — the row's
+    `scrollWidth` and `clientWidth` were both 688px with and without the rule.
+    `@media(max-width:960px){.pgctl{flex-wrap:wrap}}` returns every button to its natural width at a
+    uniform 33px with its label whole on one line, costing 18px of toolbar height (`.vbar` 249→267px)
+    and buying back six readable controls; the detector then reports zero breaks. This is the first
+    page where `[1.57.0]`'s own honestly-declared `break-word` trade came due, and the answer turned
+    out to be better than the per-page override that entry anticipated. Scoped at 960 *beside* — not
+    merged into — this file's own long-standing 920px block, which keeps its separate job (collapsing
+    `main` and the `.vside` rail, both re-verified working at 720px). Not put in `base.css` because
+    `.pgctl` is an `index.html`-only class name that `base.css`'s own `pointer:coarse` rule already
+    describes as "index.html's in-viewer zoom/contrast/tilt row". (2) **`handover.html`**: `.card` is
+    `overflow:hidden` for its rounded corners, so a table wider than the card is cut off with **no
+    scrollbar and nothing on screen to say a column is missing** — measured at 720px, a 1299px table
+    inside a 670px card, 629px simply gone. `@media(max-width:960px){.card{overflow-x:auto}}` makes
+    it reachable while keeping `overflow-y:hidden` and the corners. **Honest scope:** latent, not
+    observed — both *wired* tables fit at 720px with realistic rows (hyphenated NSNs, a superseded
+    `MS51922-17`); the two that would hit it first render raw `JSON.stringify` output, which
+    `overflow-wrap` cannot break because it does not affect a table column's min-content width, and
+    are not wired server-side yet, as the page's own notes already say. **The other ten needed
+    nothing**, confirmed rather than assumed — notably **`circuitlab.html`**, flagged up front for
+    its real-time simulator stage: the `194px 1fr 236px` shell still fits at 720px (stage 290px) and
+    960px (530px), and the SVG stage is **not** distorted or mis-tiled, its background grid `<rect>`
+    measuring exactly the stage width at both. A stale 530px grid rect seen after resizing was chased
+    to ground and was the *harness*, not the page — CDP device-metrics emulation changes the viewport
+    without firing `resize`, and this page redraws on `window.addEventListener("resize", draw)`;
+    dispatching it manually snapped the grid to 970px, and a fresh load at each width is correct.
+    A1's `↗` pop-out buttons from `[1.55.0]` are fully on screen in the Tools dropdown at 720px.
+    **One real collision found and deliberately NOT fixed here:** the bottom-right pill cluster
+    overlaps itself (`#vw-read-btn` 458→524, `#bench-pill` 503→570, `#cmdk-pill` 552→708). It is not
+    a responsive bug — the identical overlap is present at **1500px** — so it is width-independent,
+    pre-existing, and lives in shared `palette.js`/`readaloud.js` chrome affecting all 48 pages,
+    exactly the shared-file change most likely to conflict with the three sibling batches in flight.
+    Recorded rather than lost; it belongs in its own PR. New `engine/tests/test_responsive_batch2.py`
+    (**49 checks, 49 passed**) parses each page's inline `<style>` with CSS comments stripped first —
+    not cosmetic, since both fixes carry doc comments naming the very properties they set — and
+    asserts each fix exists, is scoped to its measured breakpoint and not global, that the
+    pre-existing 920px and `.card{overflow:hidden}` rules survive, that all 12 pages still link
+    `/base.css` and declare a `width=device-width` viewport meta (without which a narrow browser lays
+    out at ~980px and scales, and every rule verified here would silently never fire), and that the
+    eight no-fix pages still carry no page-local width breakpoint. Negative-controlled: with the
+    fixes removed it returns `45 passed, 4 failed`, exit 1. `rps_lint` was checked before touching
+    anything — of these 12 only `solve.html`/`help.html` are `ES5_REQUIRED`, and no inline `<script>`
+    was touched on any page, both fixes being CSS. See `CHANGELOG.md` `[1.59.0]`.
 
-40. **`[1.62.0]` — a real `cad.pct` bug, unrelated to the multi-window initiative: found while
+42. **`[1.60.0]` — responsive per-page pass, batch 3 of 4: 11 pages resized for real, 3 genuine
+    narrow-window defects fixed (multi-window support, PR 10/25).** Stage 3, the first instalment of
+    the debt item 39 recorded against itself. `learn`, `binaudit`, `coverage`, `ingest`, `ops`,
+    `status`, `verify`, `command`, `collections`, `review` and `demo` were each loaded from the real
+    server in a real browser **with their real data** and measured at **960 CSS px** (half a 1080p
+    monitor) and **720 CSS px** (a docked or quarter-width window). Three defects found.
+    **(1) `binaudit.html`** — its audit table's NSN column is 127px and holds one NSN per line at
+    1440px, but 123px at 960px and 94px at 720px, where the hyphens inside an NSN become ordinary
+    break opportunities and every identifier splits across two lines (`6115-01-` / `036-6374`) — on
+    the one page whose stated job is telling apart look-alike NSNs. Not `base.css`'s
+    `overflow-wrap`, checked by suppressing that rule and re-measuring: the NSNs still broke. Fixed
+    with `white-space:nowrap` on the column **plus** `overflow-x:auto` on `#out`, since the nowrap
+    alone pushed `scrollWidth` to 435 against a 400px client; with both, 400px measures 400 = 400
+    with `#out` scrolling internally at 419/368. **(2) `status.html`** — the NIIN format-drift queue
+    ("same NIIN written as different NSN strings") split a variant mid-NSN at 720px; measured
+    character-by-character with a `Range`, the live first row read `5305-00-292-4587 · 5306-00-292-`
+    / `4587 · 5605-00-292-4587`. Fixed with nowrap on the NIIN/variants columns at ≤720px inside a
+    real `.tscroll` wrapper — required, because nowrap alone with a 5-variant row pushed the page to
+    1023 against 720, and `overflow-x` on a `<table>` element does nothing (Chrome computes it
+    `visible`). After: 40 live rows, 0 broken variant cells, page 720 = 720; at 960px the column
+    widths are byte-identical to the pre-change measurement. **(3) `demo.html`** — `place()` clamped
+    the guided-tour tooltip against a hard-coded `barH = 56`, true only while the control bar fits
+    one row; at 720px it is 119px (86px from its own dots strip wrapping, then 119px once item 39
+    added `flex-wrap:wrap` to the shared `.bar` selector), so at 720x620 steps 3/14/15 of the
+    19-step Mechanic tour put the tooltip 44px/3px/59px **behind** the bar. Fixed by reading the
+    bar's real `offsetHeight`; after, every step clears it (worst −5px) and at 1440px the measured
+    height is exactly 56, so the change is inert at desktop width. ES5 only — and `rps_lint`'s
+    recurring false positive struck again, matching the words "class at 960px" in a comment as a
+    class declaration. The other **8 pages needed nothing**, each reported as a measurement rather
+    than a shrug (see `CHANGELOG.md` for what was loaded and checked on each), including two
+    pre-existing oddities deliberately left alone because they measure identical at 1440px:
+    `coverage.html`'s 156.3% meter and `command.html`'s `.cards` grid shrink-wrapping to one column
+    inside a `.row` flex. **`base.css` deliberately untouched** — every defect was page-specific and
+    three sibling batches were in flight against the same shared sheet. New
+    `engine/tests/test_responsive_batch3.py`, **25 checks all passing**, proven non-vacuous rather
+    than claimed: with all three fixes deliberately reverted it reported 18 passed / 7 failed, exit
+    1, naming exactly the reverted ones, after which the files were restored `diff`-identical. See
+    `CHANGELOG.md` `[1.60.0]`.
+
+43. **`[1.61.0]` — responsive verification, batch 4 of 4: the 12 specialized-visualization pages
+    resized for real (multi-window support, PR 11/25).** The **last** of the four per-page batches
+    that turn item 39's shared CSS from "written" into "verified" — `master`, `mastercov`, `packet`,
+    `exploded`, `schematics`, `threed`, `deepzoom`, `stepflow`, `keywords`, `publog`, `audit`,
+    `cadtex_test`. (Item number 43 and version `1.61.0` were both reserved up front: three sibling
+    batches of this same pass were being built in parallel, claiming `1.58.0`/`1.59.0`/`1.60.0` and
+    items 40–42; if one does not land, this renumbers on merge exactly as item 39 did.) Each page
+    was served by a real `viewer_app.py`, opened in a real browser and measured at **960px and
+    720px** with `getComputedStyle`/`getBoundingClientRect`. Several of these pages render a
+    WebGL/canvas/SVG stage that sizes itself by script — the reason `base.css` excludes
+    `svg`/`canvas` from its image clamp — and **those stages were out of scope and untouched**; what
+    was checked is the chrome around them. **Three real defects, each fixed in that page's own
+    inline `<style>`, none in `base.css`:** `cadtex_test.html`'s three *fixed* `310px` grid tracks
+    (`3*310 + 2*14` gap `+ 2*20` body margin = **998px**) overflowed by **210px at 768px** and 18px
+    at 960px, clipping whole test cards and their canvases — fixed with an `auto-fit` fallback to as
+    many *whole* 310px tracks as fit, deliberately chosen so the `290x220` canvases stay untouched;
+    `deepzoom.html`'s `.top` bar of up to 11 controls declared no `flex-wrap` and pushed the page
+    **77px sideways at 720px** (`scrollWidth` 797 vs 720) whenever the Editions/Ask-this-page buttons
+    are live — `.top` is declared on exactly two pages app-wide and the other already wraps, so it
+    was a genuine one-page gap rather than a hole in the shared sheet; and `schematics.html`'s sheet
+    title, `flex:1 1 0%` in a 15-control bar, shrank to **3px at 720px** (needing 182px), fixed by
+    giving it a row of its own below 960px. All three are scoped inside `@media (max-width:960px)`
+    so wide-desktop layout is byte-identical to before (R1), verified by re-measuring at 1400px.
+    **Nine pages needed no change and that was measured, not assumed** — zero escaping elements at
+    both widths, with each page's *own* render output injected verbatim where this host has no data
+    built, so the real tables and card lists were exercised rather than measured empty.
+    `packet.html` got the print check it was owed: the new breakpoints **do** bind during print
+    (the real page box is 710px/688px after its own `@page{margin:14mm}`), but exactly one of the
+    seven rules reaches it (`overflow-wrap:break-word`, which helps), so nothing screen-only leaks
+    into the printed sheet. Two honest negatives recorded rather than dropped: `publog.html` showed
+    **no** measurable benefit from `overflow-wrap` (its long string breaks at its own commas), and a
+    pre-existing, **width-independent** overlap in the shared bottom-right chrome (`#vw-footer` vs
+    the `palette.js` pills, 4px; the read-aloud button vs the bench pill, 21px) was found, confirmed
+    identical at 1400px, and deliberately left alone as app-wide chrome outside a 12-page batch. New
+    `engine/tests/test_responsive_batch4.py`, **58 checks**, proven load-bearing by mutation (all 5
+    injected regressions caught); two of its checks are real arithmetic over the page's own parsed
+    CSS rather than string matching. See `CHANGELOG.md` `[1.61.0]`.
+
+44. **`[1.62.0]` — a real `cad.pct` bug, unrelated to the multi-window initiative: found while
     reading `/api/coverage` output during that initiative's own responsive-verification batches,
     fixed at both layers.** `coverage.html`'s three percent meters built their bars via string
     concatenation with no width clamp, while the page's own `pctBar()` helper already did it right

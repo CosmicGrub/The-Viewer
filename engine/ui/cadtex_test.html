@@ -3,7 +3,24 @@
 <style>body{background:#10151c;color:#cfe;font:13px system-ui;margin:20px}
 .g{display:grid;grid-template-columns:repeat(3,310px);gap:14px}
 .c{background:#1a222d;border:1px solid #2f4858;border-radius:10px;padding:10px;text-align:center}
-canvas{width:290px;height:220px;display:block;background:#dfe6ee;border-radius:8px}</style>
+canvas{width:290px;height:220px;display:block;background:#dfe6ee;border-radius:8px}
+/* v1.61.0 (responsive verification pass, multi-window plan PR 11 of 25).
+   .g asks for three FIXED 310px tracks: 3*310 + 2*14 of gap = 958px, plus body margin:20px each
+   side = 998px of content against a narrower window. Measured in a real browser, before this rule:
+   at a 768px viewport documentElement.scrollWidth was 978 against clientWidth 768 -- 210px of
+   sideways scroll, with the whole third column of test cards and their WebGL canvases off-screen;
+   at 960px (half a 1080p monitor, the width [1.57.0] anchors on) it was 978 vs 960, 18px out, which
+   clipped the right-hand card's canvas.
+   None of the shared rules in base.css can reach this, correctly so: .g is not one of the class
+   names its :where(.grid,.grid2,.cards,.tiles,...) safety net lists, and min-width:0 cannot shrink a
+   fixed 310px track anyway. So the fix is here, and it is deliberately the one that leaves the
+   stages alone -- auto-fit simply lays down as many whole 310px tracks as actually fit (2 at 960px
+   and at 768px) instead of forcing three. The canvases keep their own fixed 290x220 sizing
+   untouched, which is the point: gl3d.js drives what is inside them and base.css already excludes
+   canvas from its image clamp for exactly this reason.
+   Scoped to <=960px so the 3-across desktop layout this page was built for is unchanged above it
+   (verified at 1400px: still 310px 310px 310px, canvas still 290x220, zero overflow). */
+@media (max-width:960px){ .g{grid-template-columns:repeat(auto-fit,310px)} }</style>
 <script src="gl3d.js"></script></head><body>
 <h2>gl3d CAD-texture verification &mdash; material klass 1..6 (v0.95.0)</h2>
 <div class="g" id="g"></div>

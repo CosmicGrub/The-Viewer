@@ -13,7 +13,20 @@
   .types{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
   .tchip{background:#16202b;border:1px solid #26333f;border-radius:999px;padding:4px 11px;font-size:12px;color:#8a98a8;cursor:pointer}
   .tchip.on{background:#1d9e75;border-color:#1d9e75;color:#06121f;font-weight:700}
-  .m{background:#10151c;border:1px solid #223;border-radius:9px;padding:9px 13px;margin:7px 0;display:flex;gap:12px;align-items:center}
+  /* v1.58.0 (multi-window plan PR 8 of 25, responsive batch 1): .m and .em (identical row shape,
+     corpus values vs external ones) are row-shaped flex containers that never declared flex-wrap,
+     and neither name is in base.css's shared
+     header/.bar/.row/.cols/.search/.chips/.toolbar/.tools/.tabs wrap list -- correctly, since those
+     are shared class names and these two are this page's own. Their content floor is real: .val's
+     120px min-width, .ty, .ctx, a nowrap trust chip, the trailing "p.N" citation link and four 12px
+     gaps come to about 411px, so measured in a real browser this page starts scrolling sideways at
+     490px (1px over) and is 116px past its viewport by 375px -- with the citation link, the one
+     control on the row a technician has to reach, pushed off the right edge. That is below this
+     batch's own 960/720 anchors but still inside real use: 480px is a quarter of the 1080p monitor
+     the 960px anchor is half of. The rule is the same one base.css applies to the shared row
+     classes, applied to this page's own two: inert on a row that still fits, so 960px and 720px
+     render byte-identically to before. */
+  .m{background:#10151c;border:1px solid #223;border-radius:9px;padding:9px 13px;margin:7px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .m .val{font-size:15px;font-weight:700;color:#7fd6a0;min-width:120px}
   .m .ty{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#8a98a8;border:1px solid #2f4858;border-radius:5px;padding:1px 6px}
   .m .ctx{flex:1;color:#cdd8e4;font-size:12.5px} .m a{color:#4f9dff;text-decoration:none;border:1px solid #2f4858;border-radius:6px;padding:2px 8px;font-size:11.5px}
@@ -23,7 +36,8 @@
   .ext{margin-top:22px;border-top:1px dashed #3a4b39;padding-top:14px}
   .ext h2{font-size:14px;margin:0 0 3px;color:#d7b06a}
   .ext .lead{color:#8a98a8;font-size:11.5px;margin-bottom:8px}
-  .em{background:#171207;border:1px solid #4a3a17;border-radius:9px;padding:9px 13px;margin:7px 0;display:flex;gap:12px;align-items:center}
+  /* flex-wrap here for the same reason as .m above -- same row shape, same missing declaration. */
+  .em{background:#171207;border:1px solid #4a3a17;border-radius:9px;padding:9px 13px;margin:7px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .em .val{font-size:15px;font-weight:700;color:#e8c07a;min-width:120px}
   .em .badge{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#0c0a04;background:#d7b06a;border-radius:5px;padding:1px 6px;font-weight:800}
   .em .ctx{flex:1;color:#cdb98e;font-size:12.5px}

@@ -4,6 +4,45 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-seventh pass):** stage 2, PR 3 of the multi-window/
+> multi-tab initiative — **`VW.workspace` export/import**, landed OUT OF the plan doc's own stage
+> order: it belongs right after PR 2 (CRUD) but was skipped over during this session's earlier
+> parallel-dispatch of other PRs, and is inserted now, after PR 15/B, because PR 16 (F — save &
+> reopen named workspaces, next in the queue) explicitly depends on it existing first. Four new
+> `shared.js` exports alongside PR 2's `create`/`list`/`get`/`touch`: `exportUrl(id)`/`exportFile(id)`
+> hand a workspace's `{name, items}` (deliberately never its id or timestamps — meaningless or
+> actively misleading once recreated on a different machine) to a different technician's browser as a
+> `"ws=<json>"` query string or a downloadable `application/json` `Blob`; both return `null` (never
+> throw) for an unknown id, matching `get()`'s own not-found convention. `importUrl(qs)`/
+> `importFile(blob)` (the latter a `Promise`, via a plain `.then()` chain — never an arrow function or
+> async/await) share one internal parse-validate-create helper: shape-validated BEFORE anything
+> touches storage, throwing/rejecting with a specific `Error` message on any mismatch, matching the
+> design spec's edge case verbatim ("validated before being written, rejected with a clear message on
+> any mismatch") — deliberately stricter than `create()`'s own lenient item coercion, since an import
+> is trusting a file that could have been hand-edited, corrupted, or tampered with. **Item shape
+> checking is not reimplemented a second time:** validation reuses PR 2's own `_wsItems()` as the
+> arbiter — if `_wsItems()` would drop an entry, that entry was invalid, and the whole import is
+> refused rather than silently keeping only the entries that survived. **A fresh id is always
+> minted**, via the same `workspaceCreate()`/`_wsNewId()` path every other workspace goes through;
+> neither import function ever reads (or trusts) an `id` field the incoming payload might carry, even
+> a deliberately spoofed one — proven directly in the new test, not merely argued. New
+> `test_workspace_export_import.py` + `test_workspace_export_import_node.js` (both under
+> `engine/tests/`): **53 real round-trip assertions** (not source-text matching — actual calls through the
+> real exported functions, exportUrl→importUrl and exportFile→importFile each run across TWO
+> SEPARATE `localStorage` stores, one per simulated browser, so the round trip proves the exported
+> payload is genuinely portable), proven load-bearing by temporarily making import trust an incoming
+> `id` field (3 assertions genuinely failed) and by temporarily skipping shape validation before the
+> write (9 assertions genuinely failed), each confirmed failing then reverted and re-confirmed a
+> clean 53/0. `rps_lint` clean (`shared.js` is ES5-required; the only close call was a doc comment's
+> own `"..."` ellipsis reading as a false-positive spread/rest hit, reworded rather than suppressed).
+> Design doc's own `VW.workspace` API-block header comment updated from "CRUD in progress;
+> export/import/templates next" to "CRUD + export/import landed; built-in templates next" — nothing
+> else in that spec file touched. Deliberately out of scope, matching PR 3's own plan-doc scope:
+> `schemaVersion`/migration-on-read (Stage 6), the File System Access API path for `exportFile` (the
+> design doc's own deferred note), and any UI over these four functions — that's PR 16/F's job, which
+> depends on this PR existing first. Shipped as `[1.65.0]`. `main` is at `[1.64.0]` as of this pass.
+>
+
 > **Reconciliation note (2026-09-04, thirty-sixth pass):** stage 5, PR 15 of the multi-window/
 > multi-tab initiative — **B, curated workspace launcher**. Two real launch sets, one click each:
 > "Launch Work Order" on `jobcard.html` opens `procedure.html` + `torque.html` + `part.html`; "Launch

@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.64.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.65.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -144,7 +144,17 @@ feature-detected against a capability that does not exist until Stage 6, a genui
 real popup-blocker test found and reported an honest limitation — this session's own Browser-pane
 preview tool cannot demonstrate true multi-window fan-out at all (confirmed with a code-independent
 page), so that remains a manual, real-desktop-browser check (`[1.64.0]` — see the reconciliation notes
-below and §8 items 25–46). This document +
+below and §8 items 25–46). Then, out of the plan doc's own stage order (it belongs right after PR 2
+but was skipped over during this session's earlier parallel-dispatch of other PRs, and is inserted
+now because PR 16/F, next in the queue, depends on it) — stage 2, PR 3, **`VW.workspace`
+export/import**: `exportUrl(id)`/`exportFile(id)` hand a workspace's `{name, items}` (deliberately
+never its id or timestamps) to a different technician's browser as a `"ws=<json>"` query string or a
+downloadable `.json` `Blob`; `importUrl(qs)`/`importFile(blob)` share one parse-validate-create
+helper that shape-validates BEFORE any write (reusing PR 2's own `_wsItems()` as the arbiter of a
+well-formed item, rather than re-checking item shape a second time), throws/rejects with a specific
+message on any mismatch, and always mints a brand-new id — never trusting one that might arrive in
+the payload, even a deliberately spoofed one, proven directly rather than argued (`[1.65.0]` — see
+§8 item 47). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1467,6 +1477,52 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     of scope, matching the plan's own PR 15 scope, not a shortfall:** these workspaces launch fresh
     every time and are never saved/listed/reopened — that's PR 16/F's job, which depends on B
     existing first. See `CHANGELOG.md` `[1.64.0]`.
+
+47. **`[1.65.0]` — `VW.workspace` export/import (multi-window support, PR 3/25, stage 2 — landed out
+    of order).** The plan doc placed this right after PR 2 (CRUD); it was skipped over during this
+    session's earlier parallel-dispatch of other PRs and is inserted now, after PR 15/B, because PR
+    16 (F — save & reopen named workspaces, next in the queue) explicitly depends on it existing
+    first. Four new `shared.js` exports alongside PR 2's `create`/`list`/`get`/`touch`:
+    `exportUrl(id)` returns a `"ws=<json>"` query-string encoding for handing one workspace to a
+    DIFFERENT technician's browser; `exportFile(id)` wraps the identical payload as a downloadable
+    `application/json` `Blob`; both return `null` (never throw) for an unknown id, matching `get()`'s
+    own not-found convention. **The exported payload deliberately carries only `{name, items}`** —
+    never this browser's internal id or `created`/`lastOpened` timestamps, meaningless (the id) or
+    actively misleading (the timestamps) once recreated on a different machine.
+    `importUrl(qs)` (a bare query string or a full `"?ws=..."` fragment, either accepted) and
+    `importFile(blob)` (Blob→text via a plain `.then()` chain — never an arrow function or
+    async/await, matching `palette.js`'s existing `fetch().then()` convention) share one internal
+    parse-validate-create helper: shape-validated BEFORE anything touches storage, throwing/rejecting
+    with a specific `Error` message on any mismatch, matching the design spec's edge case verbatim
+    ("validated before being written, rejected with a clear message on any mismatch") — deliberately
+    stricter than `create()`'s own lenient item coercion, since an import is trusting a file that
+    could have been hand-edited, corrupted, or tampered with, not a payload this same page built for
+    itself. **Item shape checking is not reimplemented a second time:** validation reuses PR 2's own
+    `_wsItems()` as the arbiter — if `_wsItems()` would drop an entry (no usable `page`, not an
+    object), that entry was invalid, and unlike `create()` the entire import is refused rather than
+    silently keeping only the entries that happened to survive. **A fresh id is always minted**, via
+    the same `workspaceCreate()`/`_wsNewId()` path every other workspace goes through; neither import
+    function ever reads an `id` field off the incoming payload — not even a deliberately spoofed one,
+    proven directly in the new test rather than merely argued.
+    **New `engine/tests/test_workspace_export_import.py`** (`node --check` syntax coverage) **+
+    `tests/js/test_workspace_export_import_node.js`, 53 real round-trip assertions** — not
+    source-text matching, actual calls through the real exported functions. The exportUrl→importUrl
+    and exportFile→importFile round trips each run across TWO SEPARATE `localStorage` stores (one per
+    simulated browser, unlike PR 2's own node test which deliberately shares one store between two
+    tabs) so the round trip proves the exported payload is genuinely portable rather than two
+    contexts quietly sharing one store. Proven load-bearing by two targeted, restored-afterward
+    breaks: temporarily making import trust an incoming `id` field (3 "never reuse a spoofed id"
+    assertions genuinely failed), and temporarily skipping shape validation before the write (9
+    assertions genuinely failed, covering both the "throws" and the "storage left untouched" halves
+    of the malformed-import cases) — each confirmed failing, then reverted and re-confirmed a clean
+    53/0. `rps_lint.py` clean (`shared.js` is ES5-required; the only close call was a doc comment's
+    own `"..."` ellipsis reading as a false-positive spread/rest hit, reworded rather than
+    suppressed). Design doc's own `VW.workspace` API-block header comment updated from "CRUD in
+    progress; export/import/templates next" to "CRUD + export/import landed; built-in templates
+    next". **Deliberately out of scope, matching PR 3's own plan-doc scope, not a shortfall:**
+    `schemaVersion`/migration-on-read (Stage 6), the File System Access API path for `exportFile`
+    (the design doc's own deferred note), and any UI over these four functions — that UI is PR 16/F's
+    job, which depends on this PR existing first. See `CHANGELOG.md` `[1.65.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

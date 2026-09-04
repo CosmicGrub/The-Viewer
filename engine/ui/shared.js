@@ -419,9 +419,9 @@
   /* v1.52.0: VW.workspace -- saved, named sets of pages (stage 2 of
      docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, PR 2 of 18). A workspace is the
      data behind "reopen everything I had open for this job": a name plus an ordered list of
-     {page, params} entries. This PR is CRUD only -- export/import (PR 3) and the built-in
-     templates (PR 4) build on exactly this record shape and this storage key, and are deliberately
-     not here.
+     {page, params} entries. This original PR was CRUD only; v1.65.0 (PR 3 of 18) adds
+     exportUrl/exportFile/importUrl/importFile directly below the CRUD functions, on exactly this
+     same record shape and storage key. The built-in templates (PR 4) are still a later addition.
 
      Record shape, straight from the design spec:
        { id, name, items: [{page, params}], created, lastOpened, source: "manual" or "template" }
@@ -489,8 +489,9 @@
   }
 
   /* Ids only ever need to be unique within ONE browser profile's own storage: they are never sent
-     anywhere and never merged with another machine's set (PR 3's import will mint a fresh id
-     rather than trusting an incoming one). A base-36 timestamp plus 6 random base-36 characters is
+     anywhere and never merged with another machine's set (importUrl/importFile below mint a fresh
+     id via this same path rather than trusting one that might arrive in an imported payload). A
+     base-36 timestamp plus 6 random base-36 characters is
      therefore plenty -- the timestamp separates any two creations more than a millisecond apart,
      the suffix covers two within the same millisecond. Rather than leave that as a probability
      argument, _wsNewId checks the ids actually stored and regenerates on a hit, so a duplicate is
@@ -611,6 +612,134 @@
     if (!_wsWrite(all)) return false;
     _wsNotify("touch", hit);
     return true;
+  }
+
+  /* v1.65.0: VW.workspace export/import (PR 3 of 18, stage 2 -- inserted after PR 15/B/16-F's
+     launcher work because PR 16 (F, save & reopen named workspaces) depends on this landing first;
+     see the plan doc's own note on the reordering). The point is handing one saved workspace to a
+     DIFFERENT technician's browser -- a shareable link (exportUrl/importUrl) or a downloadable
+     .json (exportFile/importFile) -- so export/import deliberately carry only {name, items}, never
+     this browser's internal id/created/lastOpened. Leaking the id would be actively misleading
+     (it means nothing on another machine) and leaking timestamps would misrepresent when the
+     RECEIVING technician actually created their own copy.
+
+     WHY IMPORT IS STRICTER THAN create()'s OWN COERCION: create() is fed a payload this same page
+     built for its own use, so _wsItems() quietly drops any one bad entry and keeps the rest moving
+     -- there is no "someone else's file" to distrust. Import is different: the JSON came from a
+     file or a URL that could have been hand-edited, corrupted in transit, or deliberately tampered
+     with, so the design spec's edge case ("Workspace import of a malformed/tampered file")
+     requires the WHOLE thing validated before anything is written, and rejected with a clear
+     message on any mismatch -- never a silent partial import. _wsValidateImportShape below reuses
+     _wsItems() itself as the arbiter of "is this item well-formed" (rather than re-implementing
+     the same {page, params} checks a second time): if _wsItems() would drop an entry, that entry
+     was invalid, and unlike create() that is treated as a reason to refuse the whole import.
+
+     WHY IMPORT ALWAYS MINTS A FRESH ID: an imported payload never even carries an id field (see
+     _wsExportPayload below), and even if a crafted/tampered payload smuggled one in, _wsImportFromJson
+     only ever reads .name and .items off the parsed object and hands them to workspaceCreate(),
+     which mints via the same _wsNewId() path every other workspace goes through -- there is no code
+     path anywhere in here that could reuse an incoming id even by accident. */
+
+  /* The data an export hands to a different browser: name + items only. Shared by exportUrl and
+     exportFile so this shape is written exactly once. */
+  function _wsExportPayload(ws) {
+    return { name: ws.name, items: ws.items };
+  }
+
+  /* Shape-validates a parsed import payload before ANYTHING is written to storage. Returns null
+     when the payload is well-formed, or a short, specific reason string otherwise (never throws
+     itself -- the caller turns a non-null reason into a real Error with a clear .message). */
+  function _wsValidateImportShape(parsed) {
+    if (!parsed || typeof parsed !== "object" ||
+        Object.prototype.toString.call(parsed) !== "[object Object]") {
+      return "expected a workspace object";
+    }
+    if (typeof parsed.name !== "string") return "workspace name must be a string";
+    if (Object.prototype.toString.call(parsed.items) !== "[object Array]") {
+      return "workspace items must be an array";
+    }
+    /* _wsItems() drops any entry that is not a plain object with a non-empty page: if the coerced
+       array is shorter than the raw one, at least one item failed that check, and the whole import
+       is refused rather than silently keeping only the entries that happened to survive. */
+    if (_wsItems(parsed.items).length !== parsed.items.length) {
+      return "one or more workspace items is missing a valid page";
+    }
+    return null;
+  }
+
+  /* Shared by importUrl/importFile: parses JSON text, validates its shape, and on success creates a
+     BRAND NEW workspace from just its name/items -- never anything else the payload might carry.
+     source is hardcoded "manual": a technician importing someone else's hand-off is not "using a
+     template". Throws a real Error with a specific, catchable .message on ANY parse or shape
+     failure, and -- because the throw happens before workspaceCreate() is ever reached -- storage
+     is never touched on a rejected import. */
+  function _wsImportFromJson(raw) {
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (e) { throw new Error("Workspace import failed: not valid JSON."); }
+    var reason = _wsValidateImportShape(parsed);
+    if (reason) throw new Error("Workspace import failed: " + reason + ".");
+    return workspaceCreate(parsed.name, parsed.items, "manual");
+  }
+
+  /* exportUrl(id) -> a compact, URL-safe query-string encoding of the workspace ("ws=<json>"),
+     meant to be handed to a different technician's browser via importUrl(). A plain
+     JSON.stringify + encodeURIComponent under one query key -- consistent with this file's
+     no-dependencies style, no compression/base64 library reached for. Returns null (never throws)
+     when the id is not stored, matching get()'s own not-found convention: exportUrl is a read, not
+     an import, so it stays on the soft-null side of this file's error-handling split. */
+  function workspaceExportUrl(id) {
+    var ws = workspaceGet(id);
+    if (!ws) return null;
+    return "ws=" + encodeURIComponent(JSON.stringify(_wsExportPayload(ws)));
+  }
+
+  /* exportFile(id) -> the same payload as exportUrl, wrapped as a real downloadable Blob (caller's
+     choice how to hand it off -- a download link, or the File System Access API later; both are
+     explicitly out of scope here). Returns null under the same not-found convention as exportUrl. */
+  function workspaceExportFile(id) {
+    var ws = workspaceGet(id);
+    if (!ws) return null;
+    return new Blob([JSON.stringify(_wsExportPayload(ws))], { type: "application/json" });
+  }
+
+  /* importUrl(qs) -> id. Accepts either a bare query string (as exportUrl returns it) or a full
+     "?"-prefixed fragment (e.g. handed location.search directly), so a caller never has to strip a
+     leading "?" first. Parses the "ws" key by hand rather than reaching for URLSearchParams (not
+     available on the legacy tier this file supports elsewhere). Throws with a clear message (never
+     returns null) on any parse or shape failure -- per the design spec's malformed/tampered-import
+     edge case, unlike this file's usual not-found convention, a bad import is a caller mistake or a
+     tampered file, not a routine "nothing there yet". */
+  function workspaceImportUrl(qs) {
+    var s = (qs === null || qs === undefined) ? "" : String(qs);
+    if (s.charAt(0) === "?") s = s.slice(1);
+    var raw = null;
+    var parts = s.split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf("=");
+      var key = eq === -1 ? parts[i] : parts[i].slice(0, eq);
+      if (key === "ws") { raw = eq === -1 ? "" : parts[i].slice(eq + 1); break; }
+    }
+    if (raw === null) throw new Error("Workspace import failed: no 'ws' value found.");
+    var decoded;
+    try { decoded = decodeURIComponent(raw); }
+    catch (e) { throw new Error("Workspace import failed: could not decode the share link."); }
+    return _wsImportFromJson(decoded);
+  }
+
+  /* importFile(blob) -> a Promise resolving to the new id. Blob reading is inherently
+     asynchronous; this follows the same ES5-safe .then()-chain pattern already used elsewhere in
+     this codebase (e.g. palette.js's window.fetch call, chained with plain .then() callbacks),
+     never an arrow function or async/await. Rejects with the same clear-message Error as importUrl
+     on any parse or shape failure (a synchronous throw inside a .then() callback becomes a
+     rejection, so _wsImportFromJson's throws propagate correctly here). */
+  function workspaceImportFile(blob) {
+    if (!blob || typeof blob.text !== "function") {
+      return Promise.reject(new Error("Workspace import failed: not a readable file."));
+    }
+    return blob.text().then(function (text) {
+      return _wsImportFromJson(text);
+    });
   }
 
   /* v1.53.0: VW.windows -- the one shared window-opening path for this app (multi-window support,
@@ -927,7 +1056,9 @@
              trapFocus: trapFocus, popoutControl: popoutControl, popoutWindowName: _popoutWindowName,
              channel: { publish: channelPublish, subscribe: channelSubscribe },
              workspace: { create: workspaceCreate, list: workspaceList,
-                          get: workspaceGet, touch: workspaceTouch },
+                          get: workspaceGet, touch: workspaceTouch,
+                          exportUrl: workspaceExportUrl, exportFile: workspaceExportFile,
+                          importUrl: workspaceImportUrl, importFile: workspaceImportFile },
              windows: { open: windowsOpen, registry: windowsRegistry },
              bench: { get: benchGet, put: benchPut } };
   g.VW = VW;

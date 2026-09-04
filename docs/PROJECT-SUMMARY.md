@@ -105,14 +105,18 @@ one shared window-opening path with named reuse and an instant toast (`[1.53.0]`
 nav's ↗ pop-out links — the first real UI consumer of any of it (`[1.55.0]`) — `VW.bench`, which
 promotes the twice-duplicated "My Bench" accessor into `shared.js` and makes the pinned list
 live-sync across tabs — the first change in that initiative a technician can actually see repaint on
-its own (`[1.56.0]`) — and a responsive breakpoint baseline for `base.css`, this app's first
+its own (`[1.56.0]`) — a responsive breakpoint baseline for `base.css`, this app's first
 width-based CSS rules, CSS only with no page yet checked against them (`[1.57.0]`, reserved as
-`1.54.0` at authoring time then renumbered on merge) — and then the first of the four per-page
-verification batches that baseline exists for, 12 real pages resized to 960px and 720px against the
-running server, which found control labels splitting mid-word in `index.html`'s in-app viewer and a
-card silently clipping a too-wide table on `handover.html` (`[1.59.0]`; batch 2 of 4, the other three
-in flight in parallel as `1.58.0`/`1.60.0`/`1.61.0` — see the reconciliation notes below and §8
-items 25–41). This document +
+`1.54.0` at authoring time then renumbered on merge) — then the first two of the four per-page
+verification batches that baseline exists for. Batch 1: 13 pages resized in a real browser at
+960px/720px against the real corpus, turning up two genuine defects (`procedure.html`'s reference
+rail wrapping but keeping its two-column width across a 35px band, and `measures.html`'s
+non-wrapping measurement rows scrolling the page sideways from 490px down), both fixed page-locally
+with `base.css` untouched (`[1.58.0]`). Batch 2: 12 more pages resized the same way, finding control
+labels splitting mid-word in `index.html`'s in-app viewer and a card silently clipping a too-wide
+table on `handover.html`, both also fixed page-locally (`[1.59.0]`; the other two batches in flight
+in parallel as `1.60.0`/`1.61.0` — see the reconciliation notes below and §8 items 25–41). This
+document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1146,6 +1150,56 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     44 other real pages actually look at 960px — only a human resizing each does that, which is
     PRs 8-11. See `CHANGELOG.md` `[1.57.0]`.
 
+40. **`[1.58.0]` — responsive verification batch 1: 13 pages resized in a real browser, 2 real
+    defects found and fixed (multi-window support, PR 8/25).** Stage 3, the first of the four
+    per-page passes item 39 deliberately left undone. Covers `part` · `procedure` · `torque` ·
+    `jobcard` · `bench` · `dossier` · `partdiff` · `locate` · `decode` · `fastener` · `pmcs` ·
+    `measures` · `readiness`; the first five land here because **PR 14 (A2, the per-page pop-out
+    control) is blocked on exactly those**. Three sibling batches are in flight in parallel holding
+    `1.59.0`/`1.60.0`/`1.61.0`, so this took the lowest free number rather than racing for one, and
+    **`engine/ui/base.css` is not touched** — neither defect was a shared-layer problem, and a
+    shared-file edit is precisely what would collide with those three. Method, because "verified" is
+    the word most likely to be doing no work in a pass like this: the real server against the real
+    227,908-row corpus, each page loaded with a query that actually returns data (`alternator` /
+    NSN `3040-01-521-7377` / `brake` / `5 TON` / `5310-01-359-2198`) rather than an empty shell, then
+    measured at 960px and 720px and swept to 360px with a probe walking every non-fixed element in
+    `body` for a right edge past the viewport and for internal `scrollWidth > clientWidth`;
+    `readiness`'s fluids/intervals and `measures`'s external references return nothing on this
+    machine, so those two were exercised with stubbed responses of the documented shape rather than
+    counted as passing on a blank page. **Fixed (1):** `procedure.html`'s `.side` rail —
+    **756px is the last side-by-side width** (348/348); at **755px** the `.cols` row wraps, which
+    makes the page taller, which brings in a 15px scrollbar, which drops the usable width to 740px
+    and holds it wrapped (a stable, reproducible equilibrium, not a flicker) — and the rail then
+    keeps its declared `420px`/`46vw`, landing **332-347px wide inside a 677-696px row**, so the
+    scanned page a technician checks the steps against renders at under half the width sitting empty
+    beside it. That held 755→721px, where `base.css`'s shared 720px rule took over. Closed with one
+    page-local `@media(max-width:755px){ .side{width:100%;max-width:none} }`; after, 756px is
+    unchanged and 755-721px gives a **677-711px** rail. **Item 39 predicted this band at ~20px; it
+    is 35px** — that estimate came from the layout arithmetic alone and missed the scrollbar the
+    wrap itself brings in. **Fixed (2):** `measures.html`'s `.m`/`.em`, row-shaped flex containers
+    that never declared `flex-wrap`; neither name is in `base.css`'s shared wrap list, correctly, so
+    the fix went in the page (adding a single-page class to the shared sheet is the exact mistake
+    item 39's own entry warned about for `.grid`). Content floor ~411px, so the page overflowed at
+    **490px** (1px), **480px** (11px), **375px** (116px), pushing the `p.N ↗` citation link — the
+    one control on the row — off the right edge. **Openly below this batch's own 960/720 anchors**,
+    fixed anyway because 480px is a quarter of the same 1080p monitor the 960px anchor is half of,
+    and because it provably changes nothing above 491px. The other **11 pages needed nothing**, per
+    page rather than as a blanket claim. Also measured: all 13 at 720px with device emulation on
+    (`pointer:coarse` matching, 44×44 minimums live) and at 960px with a coarse pointer forced —
+    the case that matters, since `jobcard`'s and `dossier`'s two-column grids are still live at
+    960px while collapsed at 720px — zero overflow in every combination. **Measured and deliberately
+    not fixed:** the bottom-right fixed chrome overlaps itself (18×44 / 156×4 / 66×4 / 21×29 px),
+    but the four rectangles are **byte-identical at 1400/960/720px on a desktop pointer** (a coarse
+    pointer still shows them, touch sizing only growing the last pair 21×29 → 21×44),
+    so it is pre-existing, width-independent, shared by all 48 pages, and belongs in its own PR;
+    plus two 360px-only overflows (`procedure`'s own deliberate `.steps{min-width:340px}` floor,
+    `fastener`'s 5-column table), both below any named scenario. **One trap worth carrying:** the
+    server holds UI files in memory after first read, so the first post-edit measurement showed the
+    fix doing nothing — the browser was being served the pre-edit file. Every "after" number comes
+    from a server restarted on the edited tree, confirmed by `curl`-ing the page for the new rule
+    first. Tests: `test_uiux_fixes.py` 273 → **285**, negative-tested (reverting both fixes gives
+    `280 passed, 5 failed`; restoring gives 285/0) — source-text assertions, **not** layout
+    measurements. See `CHANGELOG.md` `[1.58.0]`.
 41. **`[1.59.0]` — per-page responsive verification, batch 2 of 4: 12 pages resized for real
     (multi-window support, PR 9/25).** Stage 3 of the same plan, and the answer to the thing item 39
     explicitly could not prove. `[1.57.0]` shipped the shared breakpoints and stated that not one

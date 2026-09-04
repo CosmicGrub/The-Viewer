@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.53.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.54.0 · 2026-09-03** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -965,6 +965,51 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     the same class `[1.51.0]` hit twice), reworded rather than suppressed. No UI changes — nothing
     calls `VW.windows` outside its own tests; A1 (PR 12), A2 (PR 14) and B (PR 15) are the first real
     consumers. See `CHANGELOG.md` `[1.53.0]`.
+
+37. **`[1.54.0]` — responsive baseline: the app's first shared width breakpoints in `base.css`
+    (multi-window support, PR 7/25).** Stage 3 of the same plan — the design spec's priority 3, "a
+    real, verified responsive baseline." **CSS only, and only the shared rules**: no
+    `engine/ui/*.html` file is touched and no real page has been checked in a resized window yet;
+    that is PRs 8-11, batched by the home nav's own 6 section groupings. (`1.55.0`/`1.56.0` are
+    reserved by two sibling PRs built in parallel off the same `main`, so this branch took `1.54.0`
+    up front rather than race for a number, the same convention items 35/36 used.) The spec's claim
+    was checked rather than trusted: before this change `base.css` held exactly three media queries
+    and not one was width-based (`pointer:coarse`, `print`, `prefers-reduced-motion`), so the one
+    sheet all 48 pages link contributed literally nothing to a narrow window, while eight pages had
+    grown their own ad-hoc breakpoints at seven different numbers (1280/920/820/780/760/720/620) and
+    the other forty had none. Two anchors, neither invented: **960px** is exactly half a 1080p
+    monitor — the scenario `[1.53.0]`'s `VW.windows` makes ordinary rather than hypothetical — and
+    **720px** is the number four of this app's own pages already picked for themselves. Seven rules:
+    a self-limiting `#vw-toast{max-width:calc(100vw - 24px)}` outside any breakpoint (`[1.53.0]`
+    made toasts routine and the longest of them is wider than a narrow pop-out); at ≤960px,
+    `flex-wrap:wrap` on the row-shaped classes (**not a new convention — the app's own, finished**:
+    `.search` already declares it in 18 of 18 flex definitions, `.toolbar` 2/2, `.chips` 2/2,
+    `.cols` 1/1, `.tools` 1/1, `.row` 7/8, `.bar` 8/14, `header` 5/9, `.tabs` 0/1), `min-width:0` on
+    layout-container children (generalising the lesson `index.html` already learned locally twice —
+    its `minmax(0,1fr)` comment and its own `.vside{min-width:0}`), `body{overflow-wrap:break-word}`
+    so an unbreakable NSN/CAGE/part number wraps instead of scrolling the page sideways,
+    `max-width:100%` on `img`/`video`/`iframe`, and a collapse of `.grid2` (this app's only class
+    actually *named* for being a two-column split); at ≤720px, `.side` stacks full-width. **The
+    thing that would have made the whole PR inert:** `base.css` is linked *before* every page's
+    inline `<style>` and a media query adds no specificity, so a plain `.grid2{...}` here loses to
+    `part.html`'s later equal-specificity rule — every rule therefore picks its weight deliberately
+    (`:where()` at specificity 0 for safety nets any page must be free to override, a bare selector
+    where no page declares that property at all, `body .x` only where it genuinely must win).
+    Deliberately **not** done: collapsing `.grid`, which means an explicit `1fr 1fr` split on 5 pages
+    (all of which already collapse themselves at 720-820px) *and* an `auto-fill` card grid on 6
+    others that already reflows — a blanket rule fixes nothing on the first and turns the second into
+    a column of 900px-wide cards. Verified with no CSS linter available: brace/comment audit
+    (`{`57 = `}`57, depth never negative, `/*`31 = `*/`31); a real browser made to parse the whole
+    file and read back `cssRules` (43 top-level rules, all five media rules intact with every inner
+    rule — `(max-width: 960px)`:5, `(max-width: 720px)`:1, nothing silently dropped, `:where()`
+    included); and a cascade harness reproducing the real load order, served over HTTP and measured
+    with `getComputedStyle` at 1200/960/720/400px — proving at 1200px every value is byte-identical
+    to before the change (inert above the breakpoint, R1), at 960px that the `:where()` choice really
+    does let `procedure.html` keep its intentional `.steps{min-width:340px}` and the `auto-fill`
+    `.grid` keep 3 columns, and at 400px that `scrollWidth` equals `clientWidth` (400 = 400) where
+    the same page with `base.css` disabled overflows to 534. **Not proven:** anything about how the
+    44 other real pages actually look at 960px — only a human resizing each does that, which is
+    PRs 8-11. See `CHANGELOG.md` `[1.54.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

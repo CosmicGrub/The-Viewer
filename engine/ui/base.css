@@ -127,6 +127,105 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 /* ============================================================================================
+   RESPONSIVE BASELINE -- this app's first width-based breakpoints (v1.54.0; the multi-window /
+   multi-tab design spec's priority 3, plan PR 7 of 25). CSS ONLY: no page markup is touched here,
+   and no page has been verified against these rules yet -- that is PRs 8-11, batched by the home
+   nav's own 6 section groupings, where real overflow/collision gets found and fixed page by page.
+
+   WHY THIS EXISTS NOW. Every page in this app was laid out for a maximised desktop browser. The
+   multi-window work makes the opposite case ordinary: [1.53.0]'s VW.windows exists so a technician
+   can pop torque.html out onto half of a second monitor and read it at ~960 CSS px, not ~1900.
+   Before this block this file held exactly three media queries and not one of them was width-based
+   (pointer:coarse, print, prefers-reduced-motion) -- the shared sheet contributed
+   literally nothing to a narrow window. Eight pages had since grown their own ad-hoc width
+   breakpoints at seven different numbers (1280/920/820/780/760/720/620); the other forty had none
+   at all.
+
+   THE ANCHOR IS 960px -- exactly half of a 1080p monitor, the concrete scenario the design spec
+   names. The second, narrower 720px step is not invented either: it is the number four of this
+   app's own pages already picked for themselves (help/jobcard/solve at 720-760, part at 760), so
+   the shared sheet agrees with the pages instead of fighting them.
+
+   HOW EACH RULE IS WEIGHTED -- this matters, and getting it wrong would have left the whole block
+   inert. base.css is <link>ed in <head> BEFORE each page's own inline <style>, and a media query
+   adds no specificity, so a plain `.grid{...}` written here LOSES to a page's later,
+   equal-specificity `.grid{...}`. Every rule below therefore picks its weight on purpose:
+     - `:where(...)` (specificity 0) for the safety nets any page must stay free to override;
+     - a bare element/class selector where no page declares that property at all (nothing to lose
+       to, and a page can still override it later if it ever wants to);
+     - `body .x` (one notch up) ONLY where the rule genuinely has to beat a page's own declaration.
+
+   WHAT IS DELIBERATELY NOT HERE. `.grid` is not collapsed to a single column. It means two
+   different things across this app: an explicit two-column `1fr 1fr` split on 5 pages
+   (dossier/help/jobcard/solve/exploded -- every one of which already collapses itself at 720-820px)
+   and a `repeat(auto-fill,minmax(150-320px,1fr))` card grid on 6 others (collections/coverage/
+   schematics/threed/partdiff/demo) that already reflows correctly on its own. A blanket collapse
+   would fix nothing on the first group and turn the second into a column of 900px-wide cards.
+   That judgement needs a real resized window per page -- PRs 8-11 -- not a blind shared rule.
+   ============================================================================================ */
+
+/* Not inside a breakpoint on purpose. #vw-toast is base.css's OWN chrome (no page defines it), and
+   the constraint is self-limiting: it binds only once the viewport is actually narrower than the
+   toast, so it needs no width query to be correct. [1.53.0] made toasts routine on this exact
+   code path -- "Already open -- switched to that window" fires on every pop-out reuse -- and the
+   longest of those messages is wider than a narrow popped-out window. */
+#vw-toast{max-width:calc(100vw - 24px)}
+
+/* ---- ~half of a 1080p monitor --------------------------------------------------------------- */
+@media (max-width:960px){
+  /* Row-shaped flex containers wrap instead of overflowing. This is not a new convention -- it is
+     this app's own convention, finished. Counted across the page family: .search declares
+     flex-wrap:wrap in 18 of its 18 flex definitions, .toolbar 2/2, .chips 2/2, .cols 1/1,
+     .tools 1/1, .row 7/8, .bar 8/14, header 5/9, .tabs 0/1. The pages that forgot are exactly the
+     ones that break when squeezed. flex-wrap is inert on a non-flex element (several pages reuse
+     .bar for a progress meter and .tools for a plain block) and inert on a row that still fits, so
+     this only does anything at the moment a row would otherwise push the page sideways.
+     .wrap is deliberately excluded: two pages (circuitlab.html, deepzoom.html) use it as a
+     full-height flex/grid app shell, where wrapping a column-direction container is meaningful. */
+  header,.bar,.row,.cols,.search,.chips,.toolbar,.tools,.tabs{flex-wrap:wrap}
+
+  /* Grid and flex items default to min-width:auto, so a single wide table or one long unbreakable
+     token inside a column can force the WHOLE track wider than its container and scroll the page
+     sideways. index.html already hit this and worked around it locally, twice: its
+     `grid-template-columns:minmax(0,1fr) 420px` carries the comment "the results column can never
+     force sideways overflow", and its own 920px block sets `.vside{min-width:0}`. This generalises
+     that lesson to the shared layout classes. :where() keeps it at specificity 0 so a page's own
+     deliberate floor still wins -- procedure.html's `.steps{flex:1;min-width:340px}` is untouched
+     by this rule, which is the intended outcome, not a gap in it. */
+  :where(.grid,.grid2,.cards,.tiles,.cols,.bar,.row,.search)>*{min-width:0}
+
+  /* Long unbreakable strings -- NSNs, CAGE codes, part numbers, file paths, of which this app is
+     made -- break rather than force a horizontal scrollbar. overflow-wrap inherits, so one
+     declaration covers table cells and card bodies alike, and `break-word` only ever breaks a word
+     that could not fit on a line of its own: anything that still fits is left intact. No page sets
+     overflow-wrap / word-wrap / word-break anywhere, so a bare `body` selector is enough. */
+  body{overflow-wrap:break-word}
+
+  /* Media never wider than the column it sits in. Specificity 0, so the pages that size images
+     explicitly (thumbnail strips at width:84px, object-fit covers) keep their own sizing untouched.
+     `svg` and `canvas` are deliberately NOT in this list: the 3-D, deep-zoom and circuit stages
+     size theirs by script inside their own clipped viewports, where a 100% clamp could distort or
+     mis-tile them -- that is a per-page call for PRs 8-11, not a blind shared one. */
+  :where(img,video,iframe){max-width:100%}
+
+  /* The one class in this app actually NAMED for being a two-column split -- part.html's .grid2
+     (`1fr 1fr`, with its own 760px collapse) -- collapses at the half-monitor width instead.
+     `body .` because it has to beat part.html's own later, equal-specificity declaration. */
+  body .grid2{grid-template-columns:1fr}
+}
+
+/* ---- narrower still: a docked or quarter-width window --------------------------------------- */
+@media (max-width:720px){
+  /* A fixed-width reference rail stacks properly instead of wrapping at its fixed width.
+     procedure.html's `.side{width:420px;max-width:46vw}` sitting next to `.steps{min-width:340px}`
+     is this app's only `.side`-named split today: below roughly 740px those two stop fitting, the
+     wrapping .cols row drops the rail underneath, and it lands there still only ~330px wide --
+     worse than either layout on its own. `body .` to beat the page's own width declaration. One
+     consumer today; PRs 8-11 may well find more, and this is the shared rule they inherit. */
+  body .side{width:100%;max-width:none}
+}
+
+/* ============================================================================================
    PREMIUM MODE -- opt-in, hardware-gated visual-effects layer on top of "Performance"/"modern".
    See engine/rps.py's mode_for_setting()/premium_active(): the server only ever sets flags.premium_ui
    (and rps.js only ever adds this body class) when the hardware probe independently agrees the

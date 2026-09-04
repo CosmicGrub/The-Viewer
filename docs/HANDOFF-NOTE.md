@@ -4,6 +4,63 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-ninth pass):** stage 2, PR 6 of the multi-window/
+> multi-tab initiative — **`VW.windows` layout capture + user-triggered restore**, landed OUT OF the
+> plan doc's own stage order (same shape the thirty-seventh pass's PR 3 already used): it belongs
+> right after PR 5 (open/reuse/toast core) but was skipped over during this session's earlier
+> parallel-dispatch of other PRs, and is inserted now because PR 17 (C — screen-aware placement, next
+> in the queue) explicitly depends on it existing first. `registry()` now returns LIVE
+> `screenX`/`screenY`/`outerWidth`/`outerHeight` per tracked window, read off the SAME handle
+> `_winReg` already holds at CALL time (never captured once at open-time and cached — a technician can
+> move/resize a window after opening it), each property read guarded INDEPENDENTLY so one
+> throwing/unreadable field degrades only itself to `null`, never the other three, never another
+> window's entry in the same call. `windowsOpen(url, opts)` gained an optional
+> `opts.left`/`top`/`width`/`height` position/size hint, matching `window.open()`'s own
+> features-string vocabulary directly — threaded into the real third `window.open()` argument ONLY on
+> a genuinely NEW open, NEVER a reuse (browsers generally only honor position/size features on a
+> window's first open — a real, stated-plainly browser limitation), sanity-checked against
+> `window.screen.availWidth`/`availHeight` first (a generous 4x ceiling — the design doc's own named
+> "monitor unplugged since the position was saved" fallback), dropped ENTIRELY rather than partially
+> on any failure, never a throw. New `VW.windows.restoreLayout(entries)` calls THROUGH `windowsOpen()`
+> — not a second, parallel copy of open/reuse/toast/broadcast — once per well-formed entry, skipping a
+> malformed one without aborting the batch, returning one `{name, url, ok, reused}` result per input
+> entry. **MUST NEVER be called from a load/init/`DOMContentLoaded` handler anywhere in this
+> codebase** — restoring windows unprompted is exactly the design doc's own "a web page cannot run
+> code 'on app launch' unprompted" case; nothing in this diff wires one, an API-only PR matching PR
+> 2/3/5's own precedent of shipping without a dedicated UI page. New `test_windows_layout.py` +
+> `test_windows_layout_node.js`, **51 real assertions** (41 behavioral through the real production
+> code in a `vm.createContext()` sandbox extending PR 5's own dual-sandbox convention, + 10 static
+> checks proving `restoreLayout` is never auto-invoked anywhere in the diff — a comment-stripped
+> full-source scan, a `git diff`-scoped scan of this PR's own added lines, and a check that no
+> `DOMContentLoaded`/`load`/`pagehide` handler body mentions `restoreLayout` even in a comment),
+> proven load-bearing by breaking 6 representative guarantees one at a time (live-not-cached read,
+> per-field throw independence, implausible-hint drop, reuse-never-threads-bounds, malformed-entry
+> skip, load-handler-never-calls-it) and confirming the right assertions genuinely failed each time
+> (5, 1, 5, 2, 7, 1), then reverting to a clean 51/0. PR 5's own `test_windows_node.js` updated for
+> the new registry shape, not broken around. **A real hazard checked for and avoided, not just
+> hoped around:** PR 16's own agent had discovered `test_a2_popout.py` slices `popoutControl()`'s
+> body up to the next `"var VW = {"` marker, so inserting new functions BETWEEN existing marked
+> sections can silently get swallowed into that scan — this PR's new functions all landed immediately
+> after `windowsOpen()`, before `popoutControl()`'s own section begins, specifically to avoid it; a
+> full `verify_all.py` run confirmed `test_a2_popout.py` unaffected at a clean 62/0. One unrelated,
+> pre-existing flake observed and confirmed NOT this PR's regression: `test_hardening.py`'s
+> cross-origin-POST check failed once inside a full-suite run, then passed clean both standalone and
+> on an immediate full-suite re-run — the same fixed-port test-isolation flakiness class
+> `test_ingest_routes.py`'s own documented port-8894 hazard already names. `rps_lint.py` clean
+> (`shared.js` is ES5-required; two prose word choices — "let alone" and an "…" ellipsis inside new
+> comments — read as false-positive ES6 `let`/spread-rest hits, reworded not suppressed, same
+> near-miss category the thirty-seventh pass already named). Design doc's own `VW.windows` item-4
+> header updated from "PR 5 — in progress ...; layout capture/restore is PR 6" to "PR 5 + PR 6
+> landed" — nothing else in that spec file touched. **Deliberately out of scope, matching this PR's
+> own plan-doc scope:** any UI page/button calling `restoreLayout()` (PR 17 and/or a later PR's job);
+> PR 17's own feature-detected, permission-gated `getScreenDetails()` placement API; and the actual
+> on-screen placement behavior on real, possibly multi-monitor, hardware — Node has no `window.open`
+> to be right or wrong about whether position/size features are genuinely honored on a new window and
+> genuinely ignored on a reuse, or whether the "monitor unplugged" fallback actually lands somewhere
+> reachable; both stated plainly as manual, real-hardware-only checks in the PR body. Shipped as
+> `[1.67.0]`. `main` is at `[1.66.0]` as of this pass.
+>
+
 > **Reconciliation note (2026-09-04, thirty-eighth pass):** stage 5, PR 16 of the multi-window/
 > multi-tab initiative — **F, save & reopen named workspaces + the auto-checkpoint**, the UI over
 > everything PR 2/3/15 built. New `engine/ui/workspaces.html` (`/workspaces`): list every saved

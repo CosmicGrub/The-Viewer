@@ -176,8 +176,13 @@ var reg1 = tab.VW.windows.registry();
 check("registry has exactly one entry", reg1.length === 1);
 check("registry entry carries name and url",
   reg1.length === 1 && reg1[0].name === "vw-a" && reg1[0].url === "/torque.html");
-check("registry entry exposes only name/url in this PR (no layout fields yet -- that is PR 6)",
-  reg1.length === 1 && Object.keys(reg1[0]).sort().join(",") === "name,url");
+check("registry entry now also carries the PR 6 layout fields (null here -- the mock window handle " +
+  "this harness uses sets no screenX/screenY/outerWidth/outerHeight of its own; a real handle's " +
+  "live bounds are exercised in engine/tests/js/test_windows_layout_node.js)",
+  reg1.length === 1 &&
+  Object.keys(reg1[0]).sort().join(",") === "name,outerHeight,outerWidth,screenX,screenY,url" &&
+  reg1[0].screenX === null && reg1[0].screenY === null &&
+  reg1[0].outerWidth === null && reg1[0].outerHeight === null);
 var toastAfterOpen = toastText(tab);
 check("exactly one toast was written to the DOM on open", toastWrites(tab).length === 1);
 check("the open toast says a new window opened", /new window/i.test(toastAfterOpen || ""));

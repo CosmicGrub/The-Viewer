@@ -4,6 +4,75 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-03, twenty-seventh pass):** stage 4, PR 12 of the multi-window/
+> multi-tab initiative — **A1, home nav pop-out links**, and the first real UI consumer of
+> `[1.53.0]`'s `VW.windows`, which until now had nothing calling it outside its own tests. All 30
+> entries in `index.html`'s Tools nav are now rows carrying their **original, byte-for-byte unchanged
+> `<a>`** (same href/title/label — still navigates in place, still ctrl/middle-clickable into a tab
+> exactly as before) plus an adjacent ↗ button that opens that same section in its own reusable
+> window via `VW.windows.open(url, {name})`. The ↗ is an *additional* affordance, never a
+> replacement: the spec's framing is that this app could always open things in new tabs and what was
+> missing is discoverability, not capability. Each pop-out is a real `<button type="button">` — in
+> the tab order, picking up `base.css`'s shared `:focus-visible` outline — with its own `aria-label`
+> naming its own destination, not a bare icon; confirmed live in a real browser (all 30 report
+> `tabIndex 0`, each exposed by full name in the accessibility tree), because an unlabeled icon
+> target is exactly what the `[1.46.0]`/`[1.47.0]` a11y passes went through this app to remove. Two
+> load-bearing decisions: the **url is read off the sibling link at click time**, not baked into the
+> button, so the menu's existing `threadQuery()` (which rewrites every href on every open so the
+> current search carries into the tool) is not silently defeated; and the **window name is derived
+> from the base path with the query stripped** (`/torque?q=bolt` → `vw-torque`), because the name is
+> the entire reuse mechanism and must be identical across clicks while the href is not — derived in
+> one function rather than 30 hand-written `data-` attributes so a copy-paste collision (one row
+> stealing another's window) is impossible, and keyed to the *destination page* so A2's
+> `popoutControl()` (PR 14) can name its window the same way and land on the same one. The Tools
+> popup's existing "any button in here closes the menu" rule now exempts `.popout` (popping several
+> sections out in a row is the whole point, and closing after each would force a re-open per pop-out
+> and discard the focus just placed); `#pnReviewBtn` still closes it and deliberately gets no
+> pop-out, being a modal opener rather than a link. Deliberately untouched: the three header pills
+> (Collections/My Bench/Help — a `flex` row that already wraps, and all still ctrl-clickable) and the
+> `#legacyHome` ES5 fallback's link list (the capability ladder puts the legacy tier at "no advanced
+> affordances at all"); the gate protecting that fallback is asserted still green by the new test.
+> `index.html` is `MODERN_BY_DESIGN` per `rps_lint.py` — checked in the gate's own output before any
+> JS was written, not assumed — but the wiring is ES5 `var`/`function` anyway, since it lives in the
+> same IIFE as the Tools-menu toggle, which *is* ES5 and does run on legacy hardware. Verified with
+> **36 checks** in the new `engine/tests/test_home_nav_popout.py`, against the real shipped markup
+> (every link in a row beside exactly one pop-out; no link missed, proved by stripping the rows and
+> finding nothing left; every `aria-label` non-empty and naming its *own* row; every href still a
+> registered route, cross-checked against `features/routes/*.py`; unique, query-stable window names;
+> the wiring really calling `VW.windows.open` with a name; `/shared.js` loaded and loaded first;
+> `node --check` on the inline scripts; the ES5 fallback span still clean) — and checked for
+> vacuousness with **7 injected mutations**, all caught. That mutation run **found a real bug in the
+> test itself**: its diagnostic print crashed with `UnicodeEncodeError` on a cp1252 console (the nav
+> labels are emoji-heavy), turning a clean FAIL into a swallowed exception and skipping every later
+> assertion in that block; fixed with an ASCII-safe helper and re-run. **Explicitly manual and still
+> owed**, in the same framing `[1.53.0]` used for the layer underneath: that clicking ↗ opens a real
+> separate window and that a second click *refocuses* it rather than opening a third. The embedded
+> preview browser refuses popups outright (`window.open()` returned `null` and navigated in place),
+> so reuse is unobservable there — though that did usefully exercise `VW.windows`'s documented
+> blocked-popup path for real (null returned; toast, registry write and broadcast all correctly
+> skipped, no error). What *was* observed live: the menu renders correctly, and at a 375px viewport
+> with a coarse pointer each pop-out measures exactly 44×44 via the existing
+> `@media (pointer:coarse)` rule, with no row overflow and no horizontal page overflow. `1.54.0` and
+> `1.56.0` are claimed by sibling PRs built in parallel off the same `main`, so this branch reserved
+> `[1.55.0]` from the start rather than race for a number; `main` is at `[1.53.0]` until this merges.
+> No `shared.js` change — this PR only *calls* the already-merged `VW.windows.open` and needed
+> nothing new exported. **One real, previously-undocumented test-infrastructure hazard was found and
+> run to ground on the way through, worth knowing before the next session hits it:**
+> `test_ingest_routes.py` serves its in-process `ThreadingHTTPServer` on a **fixed** port (8894), and
+> `ThreadingHTTPServer.allow_reuse_address` is `1` by stdlib default — so on Windows a second bind of
+> a port another process already holds **succeeds silently**, and the client's requests are answered
+> by the *first* listener. With sibling agents running the same suite concurrently on this machine,
+> that suite failed hard (`IndexError`, no results printed) because the route reply came from
+> *someone else's process*: it said "A scan/OCR run is already in progress" while this process's own
+> `_INGEST` (same module object, id-checked) still read `{"proc": None}` and its mocked
+> `subprocess.Popen` had recorded nothing. `netstat` confirmed a foreign `python3.13` on 8894 with a
+> different PID each run; the mechanism was reproduced in isolation (second bind raises nothing, all
+> requests `answered-by-FIRST`); and a copy of the suite differing **only** by `PORT = 8897` ran
+> `175 passed, 0 failed` on this exact tree. Pre-existing, unrelated to A1 (that suite mentions
+> nothing this PR touches), and deliberately left alone rather than fixed in an unrelated PR — an
+> ephemeral port, or `allow_reuse_address = 0` so a collision fails loudly instead of silently, is a
+> real change to a suite this PR does not otherwise go near.
+>
 > **Reconciliation note (2026-09-03, twenty-sixth pass):** stage 2, PR 5 of the multi-window/
 > multi-tab initiative — `VW.windows`, the one shared window-opening path, built on `[1.51.0]`'s
 > `VW.channel`. `VW.windows.open(url, opts)` makes the *named* form of `window.open` the ergonomic

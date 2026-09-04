@@ -5,10 +5,30 @@ sidecars, and the review queues. Pure stdlib; reads the index (mode=ro) + the si
 take db_path + index_dir explicitly (no core injection)."""
 import os, sqlite3, time
 
+# NOTE: this is only HALF of what "representative" means for CAD purposes -- see _REP_PARTS_SQL below,
+# which mirrors make_cad.py's _collect() to match the actual v3-render candidate pool. Keep both WHERE
+# clauses in sync with make_cad.py's copies if either changes.
 _THREED_WHERE = ("characteristics IS NOT NULL AND characteristics<>'' AND ("
                  "upper(characteristics) LIKE '%DIAMETER%' OR upper(characteristics) LIKE '%LENGTH%' OR "
                  "upper(characteristics) LIKE '%HEIGHT%' OR upper(characteristics) LIKE '%WIDTH%' OR "
                  "upper(characteristics) LIKE '%THICKNESS%')")
+
+# The full "representative 3-D parts" population, matching make_cad.py's _collect(): every ref_nsn row with
+# FLIS dimensional characteristics (_THREED_WHERE) UNIONed with every distinct NSN that appears in the
+# `parts` table against a figure (fig_no IS NOT NULL) -- make_cad.py renders v3 CAD images for BOTH sources
+# (its own docstring calls this combined pool "the representative 3-D library"), not just the first one.
+# Counting only the _THREED_WHERE half here (as this used to) undercounts the denominator against
+# coverage.py's own `rendered_v3` numerator, which is why cad.pct could read >100% (e.g. 32623/20869 =
+# 156.3%: 20869 is just the _THREED_WHERE count, while the real render pool -- and rendered_v3 -- is
+# ~32622). TRIM() + the '' exclusion mirror make_cad.py's Python-side `nsn.strip()` / `if n` filtering so
+# the two pools dedupe identically.
+_REP_PARTS_SQL = (
+    "SELECT COUNT(*) FROM ("
+    "  SELECT TRIM(nsn) AS n FROM ref_nsn WHERE " + _THREED_WHERE + " "
+    "  UNION "
+    "  SELECT TRIM(p.nsn) AS n FROM parts p WHERE p.fig_no IS NOT NULL AND COALESCE(TRIM(p.nsn),'')<>''"
+    ") WHERE n IS NOT NULL AND n<>''"
+)
 
 
 def _db(db_path):
@@ -21,6 +41,30 @@ def _count_files(d, suffix, cap=400000):
         with os.scandir(d) as it:
             for e in it:
                 if e.name.endswith(suffix):
+                    n += 1
+                    if n >= cap:
+                        break
+    except Exception:
+        pass
+    return n
+
+
+def _count_cad_v3(cadcache_dir, cap=400000):
+    """Count RENDERED PARTS (one file per NSN) at v3, not raw files in cadcache/. cad_render.cache_path()
+    writes one static per-part image named '<nsn>_v3.png', but cad_render.spin_path() ALSO writes turntable
+    sprite sheets named '<nsn>_spin<n>_v3.png' into the same directory -- and both the 'modern' and 'lite'
+    RPS tiers resolve to v3 (see cad_render.TIER_STYLE) yet request DIFFERENT frame counts (TIER_FRAMES: 24
+    vs 16), so one part can leave behind '<nsn>_v3.png', '<nsn>_spin24_v3.png' AND '<nsn>_spin16_v3.png' --
+    up to 3 files, all ending in '_v3.png', once its /cadimg and /cadspin routes have both been hit under
+    both tiers. A naive endswith('_v3.png') count (what this used to be) therefore counts renders, not
+    parts, and can run well past representative_parts' one-row-per-NSN denominator (this is what produced
+    the >100% cad.pct seen in production: 32623 files / 20869 parts). Filtering out '_spin' filenames here
+    gets back to (at most) one file per rendered part, matching the denominator's units."""
+    n = 0
+    try:
+        with os.scandir(cadcache_dir) as it:
+            for e in it:
+                if e.name.endswith("_v3.png") and "_spin" not in e.name:
                     n += 1
                     if n >= cap:
                         break
@@ -66,7 +110,7 @@ def overview(db_path, index_dir):
         docs = scalar("SELECT COUNT(*) FROM documents")
         total_pages = scalar("SELECT COUNT(*) FROM pages")
         ocr_pages = scalar("SELECT COUNT(*) FROM pages WHERE COALESCE(body_text,'')<>''")
-        rep = scalar("SELECT COUNT(DISTINCT nsn) FROM ref_nsn WHERE " + _THREED_WHERE)
+        rep = scalar(_REP_PARTS_SQL)
         parts_fig_pages = scalar("SELECT COUNT(*) FROM (SELECT DISTINCT document_id, page FROM parts "
                                  "WHERE fig_no IS NOT NULL AND page IS NOT NULL)")
         # v1.13.5: real OCR-quality signal (previously only 'ran' vs 'did not run' existed at all --
@@ -87,7 +131,7 @@ def overview(db_path, index_dir):
     except Exception:
         pass
 
-    cad = _count_files(os.path.join(index_dir, "cadcache"), "_v3.png")
+    cad = _count_cad_v3(os.path.join(index_dir, "cadcache"))
     schem = _tsv_rows(os.path.join(index_dir, "schemgraph_coverage.tsv"))
     vec = _tsv_rows(os.path.join(index_dir, "vectorize_coverage.tsv"))
     fig = _count_files(os.path.join(index_dir, "figcache"), ".png")

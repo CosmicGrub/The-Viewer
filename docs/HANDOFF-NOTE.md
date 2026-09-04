@@ -4,6 +4,102 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, thirty-third pass):** stage 3, PR 11 of the multi-window/
+> multi-tab initiative — **responsive verification, batch 4 of 4**, and the last of the four per-page
+> batches that turn the twenty-ninth pass's shared breakpoints from *written* into *verified*. That
+> note said plainly that not one real page had been opened in a resized window; this pass does it for
+> twelve: `master`, `mastercov`, `packet`, `exploded`, `schematics`, `threed`, `deepzoom`, `stepflow`,
+> `keywords`, `publog`, `audit`, `cadtex_test` — the specialized-visualization group. **Scope first,
+> because it is the thing most likely to be misread:** several of these render a WebGL/canvas/SVG
+> stage that sizes itself by script inside its own clipped viewport (exactly why `base.css` excludes
+> `svg`/`canvas` from its `max-width:100%` clamp), and **those stages were out of scope and were not
+> touched.** What was checked is the chrome around them: toolbars, title bars, card grids, tables,
+> search rows. Each page was served by a real `viewer_app.py` on a real port, opened in a real
+> browser and measured at **960px and 720px** with `getComputedStyle`/`getBoundingClientRect`.
+> **A methodological trap worth carrying forward, because it manufactures false findings:** the
+> browser automation here switches into **mobile device emulation below 768px** (Android UA,
+> `maxTouchPoints:5`), which makes `(pointer:coarse)` match — and `base.css`'s coarse block sets
+> `min-width:44px` on inputs at specificity `0,2,1`, outranking a page's own
+> `.search input{min-width:240px}` at `0,1,1`. The first 720px reading therefore showed
+> `master.html`'s search box collapsed to **55px**, which is real touch-tablet behaviour but *not*
+> the popped-out-desktop-window scenario this work is about. Every 720px measurement was re-taken
+> with that one media block surgically disabled (rewriting its `mediaText`, so nothing else changes),
+> and `cadtex_test.html` — which has **no `<meta name="viewport">` at all**, so emulation falls back
+> to a 980px layout viewport and hides its defect entirely — was measured at **768px**, the widest
+> point still inside the ≤960px band and still on the desktop pointer path.
+> **Three real defects found, each fixed in that page's own inline `<style>`, none in `base.css`.**
+> `cadtex_test.html` was the worst: `.g` asks for three *fixed* tracks, `repeat(3,310px)` + `2x14px`
+> gap + `body{margin:20px}` both sides = **998px** of content, giving `scrollWidth` **978** against
+> `clientWidth` **768** (210px out, the whole third column of test cards and their canvases
+> off-screen) and 978 vs 960 (18px out, clipping the right-hand canvas); no shared rule can reach it
+> and none should, since `.g` is not in the `:where(.grid,.grid2,.cards,.tiles,…)` list and
+> `min-width:0` cannot shrink a fixed track — fixed with an `auto-fit` repeat of the *same* 310px
+> track, chosen over anything that resizes the cards precisely so the `290x220` canvases stay
+> untouched. `deepzoom.html`'s `.top` is one flex row of up to **11 controls** with no `flex-wrap`
+> and is not one of the class names the shared wrap rule covers — checked, not assumed: `.top` is
+> declared on exactly **two** pages app-wide, here and `pmcs.html`, and `pmcs.html` already wraps
+> itself, so a genuine one-page gap; with `#edbtn`/`#pqabtn` live (they are `display:none` on a bare
+> host but real whenever `dedup.db` holds another edition or the host is GPU-tier) 720px gave
+> `scrollWidth` **797** vs **720**, `#cinfo` at `711..797` entirely past the edge → fixed, 797 → 720.
+> `schematics.html`'s sheet title (`.gbar .sp`, `flex:1 1 0%` in a ~15-control bar) got only the
+> leftover space on its flex line and measured **66px at 1400, 60px at 960, 3px at 720** against the
+> 182px it needed — not one legible character while the operator is still looking at the drawing; a
+> `min-width` floor was tried and rejected (it only steals the space back from the controls), so the
+> title takes a row of its own below 960px → 917px / 692px. **All three are scoped inside
+> `@media (max-width:960px)` and re-measured at 1400px to prove wide-desktop layout is byte-identical
+> (R1)** — for `deepzoom` that was verified in both the default *and* the all-buttons configuration.
+> **Nine pages needed no change, and that is measured, not assumed:** `scrollWidth == clientWidth`
+> with zero escaping elements at both widths, and where this host has no data built (Masterfile,
+> PUBLOG, provenance, figure-parts are all empty here) each page's *own* render output was injected
+> verbatim — the exact markup its `renderFiltered`/`renderRaw`/`renderRecord`/`renderList` build,
+> with realistic long NSNs, CAGE codes and characteristic strings — so the tables and card lists were
+> actually exercised rather than measured empty. Two things fell out of that: `stepflow.html`'s
+> `.bar` declares no `flex-wrap` of its own and gets `wrap` **from `base.css`** (the shared rule
+> doing real work on a real page, confirmed by reading the computed value), and `threed.html`'s
+> `.gside` is a fixed 320px rail that correctly does **not** match `body .side{width:100%}`.
+> **`packet.html` got the print check it was owed, and the answer is specific rather than "probably
+> fine":** the new breakpoints **do** bind during print — measured in an iframe at the real printed
+> page box, US Letter 816px and A4 794px each minus this page's own `@page{margin:14mm}` (2 x 52.9px)
+> → **710px / 688px**, where both queries match — but of the seven shared rules exactly **one**
+> reaches this page, `body{overflow-wrap:break-word}`, which *helps* (it stops a long NSN pushing
+> `table.parts` off the paper). The page carries none of
+> `.grid/.grid2/.cards/.tiles/.cols/.chips/.tabs/.side`, its only `<img>` is the QR at an inline
+> `width:74px`, and its screen-only `.toolbar` is `display:none!important` in print regardless. No
+> screen-only chrome leaks into the printed sheet; no change needed.
+> **Two honest negatives, recorded rather than quietly dropped.** `publog.html` was expected to
+> demonstrate `overflow-wrap:break-word` earning its keep; measured with the rule and with it forced
+> back to `normal`, `scrollWidth` was **720 both ways** — the real characteristic string breaks at its
+> own commas anyway. And a **pre-existing, width-independent** overlap was found in the shared
+> bottom-right chrome: `#vw-footer` (bottom:52px) bottom-edge 848 against the `palette.js` pills'
+> top-edge 844 (4px), and the read-aloud button overlapping the bench pill by 21px — `base.css`'s own
+> comment claims `bottom:52px` clears those pills, which stopped being true once they became 44px
+> tall. Confirmed identical at 1400px with `pointer:fine`, so **not** a responsive regression; it
+> predates this initiative and affects all 46 pages, and fixing shared chrome from inside a 12-page
+> batch while three sibling branches were in flight would have been the wrong call. On the record so
+> the next pass can pick it up deliberately.
+> **`base.css` was not touched, and the new suite asserts that rather than promising it** — three
+> sibling batches of this same pass were in flight and the shared sheet is the one file they could
+> collide on. **ES5 classification was read from `rps_lint.py`'s own source, not its printout:** the
+> gate prints `[ ok ] … ES5-clean` both for an ES5-required page and for a modern page that merely
+> contains no ES6, so the output alone cannot tell them apart. In this batch `packet.html`,
+> `stepflow.html` and `keywords.html` are ES5-required and the other nine modern-by-design — moot in
+> practice, since **this PR changes no JavaScript at all, only CSS**, but the new suite now guards
+> those three pages' inline scripts directly. New `engine/tests/test_responsive_batch4.py`, **58
+> checks**, auto-discovered by `verify_all.py`'s glob; it states its own limits (no browser, so it
+> does not re-assert pixel numbers) and locks down what a browser check cannot — that each fix is
+> still present and still *inside* its breakpoint, that the preconditions have not drifted, that the
+> canvases kept their fixed sizing, and that `base.css` still holds all six of the twenty-ninth
+> pass's rules with `svg`/`canvas` still excluded from the image clamp. Two of its checks are real
+> arithmetic over numbers parsed from the page's own CSS (`3*310 + 2*14 + 2*20 = 998 > 960`), and the
+> `@media` rule is only *required* while that arithmetic still overflows, so shrinking the cards
+> later will not fail spuriously. Proven load-bearing by mutation: the three fixes deleted,
+> `deepzoom`'s wrap moved outside its breakpoint, and `cadtex_test`'s canvas given a percentage width
+> were injected in turn and **all five were caught**. `1.61.0` and the doc-list numbers
+> (`MASTER-RECONCILIATION` item 44, `PROJECT-SUMMARY` item 43, this thirty-third pass) were reserved
+> up front alongside three sibling batches claiming `1.58.0`/`1.59.0`/`1.60.0` and the numbers between
+> — if one does not land, this renumbers on merge exactly as `[1.57.0]` did from its reserved
+> `1.54.0`. Shipped as `[1.61.0]`; `main` is at `[1.57.0]` until this merges.
+>
 > **Reconciliation note (2026-09-04, twenty-ninth pass):** stage 3, PR 7 of the multi-window/
 > multi-tab initiative — the **responsive baseline**, this app's first width-based breakpoints in
 > `engine/ui/base.css`, and the design spec's priority 3. **Read the scope first, because it is the

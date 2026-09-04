@@ -42,6 +42,26 @@
   .trustchip{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 7px;font-weight:700;white-space:nowrap;display:inline-block}
   .pqatext{margin-top:8px;color:#cdd8e4;font-size:13px;line-height:1.4}
   .pqadisclaim{margin-top:6px;color:#e8c07a;font-size:11px}
+  /* v1.61.0 (responsive verification pass, multi-window plan PR 11 of 25).
+     .top holds up to 11 visible controls in a single flex row and declares no wrap, and .top is not
+     one of the class names [1.57.0]'s shared max-width:960px rule covers (header/.bar/.row/.cols/
+     .search/.chips/.toolbar/.tools/.tabs). That is correct of the shared sheet rather than a hole in
+     it: .top is declared on exactly two pages in this app -- here and pmcs.html -- and pmcs.html
+     already sets flex-wrap:wrap on its own, so this is a one-page gap and the fix belongs here.
+     The failure, measured in a real browser at a 720px viewport with #edbtn (Editions) and #pqabtn
+     (Ask this page) visible -- both are display:none on a bare host, but are switched on for real
+     whenever index/dedup.db holds another edition of the manual, or the host is GPU-tier:
+     documentElement.scrollWidth 797 against clientWidth 720, i.e. 77px of genuine sideways page
+     scroll, with #cinfo (the callout-status text) laid out at 711..797, entirely past the right
+     edge. With this rule the same configuration measures 797 -> 720 and the bar wraps to 3 rows.
+     Scoped to <=960px on purpose, for two measured reasons. It is enough: at 960px the same
+     all-buttons row still fits without wrapping (scrollWidth == clientWidth, the controls merely
+     compress), so 720 is where the real break is and the 960 anchor covers it. And it keeps R1
+     exact: above the breakpoint every child of .top sits at byte-identical coordinates to before
+     this change, verified at 1400px in both the default and the all-buttons configuration.
+     Nothing else here is touched -- #stage is the deep-zoom canvas viewport and sizes itself by
+     script, so it is deliberately left alone. */
+  @media (max-width:960px){ .top{flex-wrap:wrap} }
 </style></head><body>
 <div class="wrap">
   <div class="top">

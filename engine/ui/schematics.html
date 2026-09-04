@@ -35,6 +35,24 @@ button:hover{border-color:var(--acc);background:var(--p2)}
 .rail .r img{width:100%;height:60px;object-fit:cover;display:block}
 .rail .r div{font-size:9px;color:#0a0e12;background:#dfe3ea;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .count2{font-size:12px;color:var(--sub)}
+/* v1.61.0 (responsive verification pass, multi-window plan PR 11 of 25). The sheet viewer's .gbar is
+   one wrapping flex row of ~15 fixed-width controls, and .sp (the title of the sheet you are looking
+   at) is flex:1 1 0% -- so it is only ever as wide as whatever space happens to be left over on its
+   own flex line, and it has white-space:nowrap + text-overflow:ellipsis to absorb the difference.
+   Measured in a real browser on this page with the sheet "24 V SUPPLY (JERRV) COUGAR" open, which
+   needs 182px to render in full: the title got 66px at a 1400px viewport, 60px at 960px, and 3px at
+   720px -- not one legible character. At half or quarter of a 1080p monitor, which [1.53.0]'s
+   VW.windows makes an ordinary way to use this page, the operator loses every trace of which sheet
+   is open while still looking at the drawing.
+   A min-width floor was tried first and rejected: it only steals the space back from the control
+   row, shuffling the buttons instead of fixing the title. Since the bar has already had to wrap at
+   these widths anyway, the title simply takes a row of its own instead -- flex-basis:100% forces the
+   line break after it, so it gets the full bar width and the controls reflow underneath.
+   Deliberately scoped to <=960px and left at flex:1 above it, so the wide-desktop layout this page
+   was designed for is byte-identical to before (verified: at 1400px title 66px / .gbar 99px /
+   .gstage 706px, exactly the pre-change numbers). Cost at <=960px is one extra ~25px bar row taken
+   off the stage height (.gbar 99px -> 124px), which the stage absorbs by re-fitting itself. */
+@media (max-width:960px){ .gbar .sp{flex:0 0 100%} }
 </style><script src="/rps.js"></script><script src="/schemhl.js"></script><script src="/schemflow.js"></script><script src="/loupe.js"></script></head><body><div class="wrap" role="main" aria-label="Schematics library">
 <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px">
   <div><h1>🔌 Schematics Library <span class="muted" id="count"></span></h1>

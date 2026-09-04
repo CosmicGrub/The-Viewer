@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.57.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.61.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -107,8 +107,12 @@ promotes the twice-duplicated "My Bench" accessor into `shared.js` and makes the
 live-sync across tabs — the first change in that initiative a technician can actually see repaint on
 its own (`[1.56.0]`) — and a responsive breakpoint baseline for `base.css`, this app's first
 width-based CSS rules, CSS only with no page yet checked against them (`[1.57.0]`, reserved as
-`1.54.0` at authoring time then renumbered on merge — see the reconciliation notes below and §8
-items 25–39). This document +
+`1.54.0` at authoring time then renumbered on merge) — and the last of the four per-page batches
+that turn those rules from written into verified, resizing the 12 specialized-visualization pages
+in a real browser and fixing three real defects found there, all in the pages' own inline styles
+and none in `base.css` (`[1.61.0]`, number reserved up front alongside three sibling batches
+claiming `1.58.0`/`1.59.0`/`1.60.0` — see the reconciliation notes below and §8
+items 25–43). This document +
 `docs/PORTING.md` (the copy checklist — reconciled to v1.13.2 on
 2026-08-08, now several point releases behind again; not touched in this update, see §9) + `docs/CHANGELOG.md`
 (the full version history) + `docs/MASTER-RECONCILIATION.md` (the cross-checked feature inventory this
@@ -1141,6 +1145,44 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     the same page with `base.css` disabled overflows to 534. **Not proven:** anything about how the
     44 other real pages actually look at 960px — only a human resizing each does that, which is
     PRs 8-11. See `CHANGELOG.md` `[1.57.0]`.
+
+43. **`[1.61.0]` — responsive verification, batch 4 of 4: the 12 specialized-visualization pages
+    resized for real (multi-window support, PR 11/25).** The **last** of the four per-page batches
+    that turn item 39's shared CSS from "written" into "verified" — `master`, `mastercov`, `packet`,
+    `exploded`, `schematics`, `threed`, `deepzoom`, `stepflow`, `keywords`, `publog`, `audit`,
+    `cadtex_test`. (Item number 43 and version `1.61.0` were both reserved up front: three sibling
+    batches of this same pass were being built in parallel, claiming `1.58.0`/`1.59.0`/`1.60.0` and
+    items 40–42; if one does not land, this renumbers on merge exactly as item 39 did.) Each page
+    was served by a real `viewer_app.py`, opened in a real browser and measured at **960px and
+    720px** with `getComputedStyle`/`getBoundingClientRect`. Several of these pages render a
+    WebGL/canvas/SVG stage that sizes itself by script — the reason `base.css` excludes
+    `svg`/`canvas` from its image clamp — and **those stages were out of scope and untouched**; what
+    was checked is the chrome around them. **Three real defects, each fixed in that page's own
+    inline `<style>`, none in `base.css`:** `cadtex_test.html`'s three *fixed* `310px` grid tracks
+    (`3*310 + 2*14` gap `+ 2*20` body margin = **998px**) overflowed by **210px at 768px** and 18px
+    at 960px, clipping whole test cards and their canvases — fixed with an `auto-fit` fallback to as
+    many *whole* 310px tracks as fit, deliberately chosen so the `290x220` canvases stay untouched;
+    `deepzoom.html`'s `.top` bar of up to 11 controls declared no `flex-wrap` and pushed the page
+    **77px sideways at 720px** (`scrollWidth` 797 vs 720) whenever the Editions/Ask-this-page buttons
+    are live — `.top` is declared on exactly two pages app-wide and the other already wraps, so it
+    was a genuine one-page gap rather than a hole in the shared sheet; and `schematics.html`'s sheet
+    title, `flex:1 1 0%` in a 15-control bar, shrank to **3px at 720px** (needing 182px), fixed by
+    giving it a row of its own below 960px. All three are scoped inside `@media (max-width:960px)`
+    so wide-desktop layout is byte-identical to before (R1), verified by re-measuring at 1400px.
+    **Nine pages needed no change and that was measured, not assumed** — zero escaping elements at
+    both widths, with each page's *own* render output injected verbatim where this host has no data
+    built, so the real tables and card lists were exercised rather than measured empty.
+    `packet.html` got the print check it was owed: the new breakpoints **do** bind during print
+    (the real page box is 710px/688px after its own `@page{margin:14mm}`), but exactly one of the
+    seven rules reaches it (`overflow-wrap:break-word`, which helps), so nothing screen-only leaks
+    into the printed sheet. Two honest negatives recorded rather than dropped: `publog.html` showed
+    **no** measurable benefit from `overflow-wrap` (its long string breaks at its own commas), and a
+    pre-existing, **width-independent** overlap in the shared bottom-right chrome (`#vw-footer` vs
+    the `palette.js` pills, 4px; the read-aloud button vs the bench pill, 21px) was found, confirmed
+    identical at 1400px, and deliberately left alone as app-wide chrome outside a 12-page batch. New
+    `engine/tests/test_responsive_batch4.py`, **58 checks**, proven load-bearing by mutation (all 5
+    injected regressions caught); two of its checks are real arithmetic over the page's own parsed
+    CSS rather than string matching. See `CHANGELOG.md` `[1.61.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

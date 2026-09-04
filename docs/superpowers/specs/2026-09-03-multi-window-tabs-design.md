@@ -278,8 +278,17 @@ VW.locks.withLock(name, fn)   // wraps navigator.locks.request; on lite/legacy t
 ```
 
 ### C's extension to `VW.windows`
-Feature-detected via `VW.capabilities.windowPlacement`, permission requested only when a placement
-is actually attempted, any denial or absence falls back to `VW.windows.open()`'s normal behavior.
+**Built (PR 17) as:** feature-detected via `typeof window.getScreenDetails === "function"` AND
+`window.RPS.mode === "modern"` — `VW.capabilities.windowPlacement` (as originally named above) is
+Stage 6 (PR 19-25) and did not exist yet when this PR shipped, so it gates directly on `rps.js`'s
+already-live `window.RPS.mode` instead, the same real fallback PR 15 reached for and found nothing
+to use for `VW.capabilities.tier` (that PR shipped inert; this one has a real signal, so it gates for
+real). A future Stage 6 PR may swap this direct check for `VW.capabilities.windowPlacement` once that
+exists, matching PR 15's own tier-check comment. Permission is requested only when a placement is
+actually attempted (i.e. `opts.screen` is passed to `VW.windows.open()`), fired AFTER the window has
+already opened synchronously — never before, so `getScreenDetails()` is never awaited ahead of
+`window.open()` — and any denial or absence falls back to `VW.windows.open()`'s normal behavior,
+silently.
 
 ### G's kiosk/reference route
 A new server route rendering a minimal, large-text template built from the existing `viewer_kiosk`

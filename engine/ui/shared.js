@@ -834,7 +834,14 @@
      user-gesture-initiated opens, so a block should never happen in practice. It is still handled,
      because window.open() returns null when it does happen and can throw outright in a locked-down
      configuration: open() returns null, and the toast, the registry write and the broadcast are all
-     skipped, since none of them may claim a window opened when none did. */
+     skipped, since none of them may claim a window opened when none did.
+
+     opts.screen (v1.68.0, PR 17, C -- screen-aware placement): a truthy hint meaning "prefer a
+     different screen than this tab's own, if one exists and is available" -- ignored gracefully
+     everywhere the feature-detected Window Management API isn't available or the hardware tier
+     doesn't qualify. Handled entirely AFTER this function's own synchronous open/reuse/toast/
+     broadcast steps above, by _attemptScreenPlacement below -- see its own header comment for the
+     full permission-timing reasoning (the crux of this whole PR) and the doc/code gap it resolves. */
   var _WINDOWS_CHANNEL = "windows";
   var _winReg = {};    // name -> {name: name, url: url, win: window handle}
 
@@ -1008,6 +1015,11 @@
       channelPublish(_WINDOWS_CHANNEL, { event: reused ? "reuse" : "open", name: name, url: url,
         count: windowsRegistry().length });   // count is named/tracked windows only, see above
     } catch (e) { /* a broadcast failure must never surface to the user who just opened a window */ }
+    /* v1.68.0 (PR 17, C -- screen-aware placement): opt-in per call via opts.screen, attempted ONLY
+       after every synchronous step above -- see the big comment on _attemptScreenPlacement (below in
+       source order, hoisted, callable from here) for why that ordering is the entire point.
+       Fire-and-forget; never awaited, never delays this synchronous return by even one tick. */
+    _attemptScreenPlacement(win, o.screen);
     return win;
   }
 
@@ -1060,6 +1072,133 @@
       out.push({ name: name, url: url, ok: !!win, reused: wasTracked && !!win });
     }
     return out;
+  }
+
+  /* v1.68.0: C -- screen-aware placement, extending VW.windows.open() with an opts.screen hint
+     (multi-window support, PR 17 of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md,
+     stage 5, depending on PR 6's registry/bounds machinery above). Feature-detected via the Window
+     Management API's getScreenDetails() -- Chromium-only, requires an explicit one-time user
+     permission grant -- per the design doc's own item 10: "gated behind the capability ladder
+     (modern tier only)."
+
+     THE DOC/CODE GAP, and how this resolves it. The design doc names VW.capabilities.windowPlacement
+     as the feature-detection gate, but VW.capabilities is Stage 6 (PR 19-25) and does not exist yet;
+     nothing here builds any part of it. PR 15 hit the identical shape of gap for
+     VW.capabilities.tier and had genuinely nothing real to fall back to, so it shipped
+     feature-detected but INERT -- reading as "no tier info, do nothing" until Stage 6 actually lands
+     (see jobcard.html's launchWorkOrder()). This PR is not in that position: window.RPS.mode is a
+     real, ALREADY-LIVE hardware-tier signal, set by rps.js on every page that loads it
+     ("modern"|"lite"|"legacy" -- rps.js's own RPS.MODES/applyMode). window.RPS.mode IS the capability
+     ladder the design doc's item 10 asks for, just not yet wrapped in the Stage-6 name -- so this
+     gates for REAL, right now, on window.RPS.mode directly, checked as an EXACT string match against
+     "modern" (never a truthy/falsy read): "premium" is an additive, opt-in visual-effects FLAG
+     layered on top of an already-"modern" mode (rps.js's own applyMode comment: the server only ever
+     sets flags.premium_ui when mode is already "modern"; RPS.mode itself is never literally the
+     string "premium" -- confirmed against rps.py's VALID_MODES/mode_for_setting()), not itself a mode
+     value this check should treat as modern on its own terms. A FUTURE Stage 6 PR may replace this
+     direct window.RPS.mode check with VW.capabilities.windowPlacement once that exists -- the same
+     way PR 15's own tier-check comment above already points a future PR at itself.
+
+     Not every page loads rps.js (17 of this app's 49 pages do, as of this PR) -- window.RPS is
+     genuinely undefined on the rest, and _screenPlacementAvailable below treats that exactly like
+     "not modern tier": skip placement, never throw, same as every other unavailable case here.
+
+     THE PERMISSION-TIMING CONSTRAINT THIS EXISTS TO RESPECT. getScreenDetails() returns a Promise --
+     it IS how the permission prompt itself surfaces -- but window.open() must run SYNCHRONOUSLY
+     inside the original click-handler call stack, or a popup blocker can treat the resulting open as
+     not user-gesture-initiated. So this NEVER awaits/then()s getScreenDetails() before window.open():
+     windowsOpen() above already runs its entire synchronous open/reuse/toast/broadcast path and has
+     its real window handle, COMPLETELY UNCHANGED from before this PR, for every caller -- a caller
+     that never passes opts.screen never reaches any code below at all, and getScreenDetails() is
+     never even referenced, much less called, so no permission prompt can ever appear for a click that
+     never asked for one (proven by the "opts.screen absent" test in
+     engine/tests/test_windows_screen_placement.py, the single most important guarantee given this
+     feature's own stated permission philosophy). ONLY when opts.screen is truthy AND the gate below
+     passes does this fire getScreenDetails(), fire-and-forget, AFTER windowsOpen() already returned
+     its handle to the caller -- when/if that promise resolves, the ALREADY-OPEN window is repositioned
+     via win.moveTo(), a same-origin operation on a window this same script opened that needs no
+     special permission beyond the window still being open (a long-standing browser capability,
+     unrelated to the newer Window Management permission, which gates only getScreenDetails() itself).
+
+     ANY failure anywhere in this tail -- the API absent, the permission denied, the promise
+     rejecting, only one screen existing, the window having been closed before the promise resolved,
+     getScreenDetails() itself throwing synchronously -- is caught and silently ignored, exactly like
+     every other "can't place it, leave it where the browser already put it" case in this file.
+     Nothing here may ever throw an unhandled rejection or surface a console error under normal
+     denial: ["catch"] (bracket form, matching this file's own established convention for calling this
+     exact reserved-word-shaped method -- see importFile() above / palette.js's fetch chain) is wired
+     on every promise this creates. */
+  function _screenPlacementAvailable() {
+    try {
+      if (typeof window.getScreenDetails !== "function") return false;
+      return !!(window.RPS && window.RPS.mode === "modern");
+    } catch (e) { return false; }
+  }
+
+  /* A stable comparable key for a ScreenDetailed-shaped object (left/top -- present on every screen
+     in a real multi-screen span, per the Window Management API's own shape; availLeft/availTop as a
+     defensive fallback for a differently-shaped mock/object). null means "not comparable this way,"
+     which _screenPlacementPick below only ever treats as "assume different" alongside a failed
+     reference-equality check, never on its own. */
+  function _screenKey(s) {
+    try {
+      if (!s) return null;
+      var l = (typeof s.left === "number") ? s.left : s.availLeft;
+      var t = (typeof s.top === "number") ? s.top : s.availTop;
+      if (typeof l !== "number" || typeof t !== "number") return null;
+      return l + "," + t;
+    } catch (e) { return null; }
+  }
+
+  /* Picks a screen genuinely DIFFERENT from details.currentScreen out of a resolved ScreenDetails
+     object's own .screens array -- matched by reference identity first (per the Window Management
+     API, currentScreen IS the same ScreenDetailed instance found in .screens), falling back to the
+     comparable left/top key above when reference equality does not hold. Returns null when there is
+     nothing to move to -- fewer than two screens enumerated, or every entry compares equal to
+     currentScreen -- so the caller can skip silently, same as any other "nothing available" case
+     (the design doc's own opts.screen "hint" wording: prefer a different screen WHEN ONE EXISTS). */
+  function _screenPlacementPick(details) {
+    try {
+      var screens = details && details.screens;
+      if (Object.prototype.toString.call(screens) !== "[object Array]" || screens.length < 2) return null;
+      var current = details.currentScreen;
+      var curKey = _screenKey(current);
+      var i, s, sKey;
+      for (i = 0; i < screens.length; i++) {
+        s = screens[i];
+        if (!s || s === current) continue;
+        sKey = _screenKey(s);
+        if (curKey !== null && sKey !== null && sKey === curKey) continue;   // same physical screen
+        return s;
+      }
+      return null;
+    } catch (e) { return null; }
+  }
+
+  /* Fire-and-forget: called by windowsOpen() AFTER its own synchronous return value is already
+     decided, never before and never in any way that could delay it. win is the handle windowsOpen()
+     already produced (new open or reuse -- either way, an already-open window this repositions);
+     hint is opts.screen exactly as the caller passed it. Only its truthiness matters today: a bare
+     true (or any other truthy value, e.g. "other") means "prefer a different screen than this tab's
+     own, if one exists and is available" -- the simplest correct reading of the design doc's own
+     "screen is a hint" wording, and exactly what PR 18 (G, next in the plan) is already named to need:
+     "preferring a different screen than the request's origin where PR 17's placement is available." */
+  function _attemptScreenPlacement(win, hint) {
+    if (!hint) return;                       // no hint offered -- getScreenDetails must never be touched
+    if (!_screenPlacementAvailable()) return;
+    try {
+      window.getScreenDetails().then(function (details) {
+        try {
+          if (!win || win.closed === true) return;    // closed before the promise resolved
+          var target = _screenPlacementPick(details);
+          if (!target) return;                         // only one screen, or nothing genuinely different
+          var left = (typeof target.availLeft === "number") ? target.availLeft : target.left;
+          var top = (typeof target.availTop === "number") ? target.availTop : target.top;
+          if (typeof left !== "number" || typeof top !== "number") return;
+          try { win.moveTo(left, top); } catch (e) { /* same-origin move refused by some embedding */ }
+        } catch (e) { /* never allow a resolved-promise handler to throw back at the browser */ }
+      })["catch"](function () { /* denied/rejected -- the window stays wherever it already opened */ });
+    } catch (e) { /* getScreenDetails() itself threw synchronously -- nothing left to do */ }
   }
 
   /* v1.56.0: VW.bench -- the ONE canonical accessor for "My Bench", the technician's pinned list of

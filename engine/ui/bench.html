@@ -29,20 +29,42 @@
 <script>
 (function(){
   function $(s){return document.querySelector(s);}
-  /* esc()/toast() from /shared.js */
-  function get(){ try{ return JSON.parse(window.localStorage.getItem('viewer_bench')||'[]'); }catch(e){ return []; } }
-  function put(l){ try{ window.localStorage.setItem('viewer_bench', JSON.stringify(l.slice(0,100))); }catch(e){} }
+  /* esc()/toast() come from /shared.js — and since v1.56.0 (multi-window PR 13, feature D) so does
+     the bench accessor itself: VW.bench.get() / VW.bench.put(). The page-local get()/put() pair that
+     used to sit right here is deleted, not kept as a fallback. It was one of two independent copies
+     of the same two lines (palette.js's ☆ pin pill had the other), and promoting it into shared.js
+     is what lets every write publish the cross-tab change notification this page subscribes to
+     below. shared.js is loaded in this page's <head>, before this script runs. */
   function render(){
-    var l=get(), host=$('#list');
+    var l=VW.bench.get(), host=$('#list');
     if(!l.length){ host.innerHTML='<div class="empty">Nothing pinned yet.<br>On any page, click the <b>☆ pin</b> button (bottom-right, next to ⌘K) to add it here — a part dossier, a procedure, a torque spec, a figure. It stays until you remove it.</div>'; return; }
     var h='';
     l.forEach(function(it,i){
-      h+='<div class="item"><a class="open" href="'+esc(it.url)+'" target="_blank">'+esc(it.title||it.url)+(it.q?' <span class="q">“'+esc(it.q)+'”</span>':'')+'</a><span class="rm" data-i="'+i+'">✕ remove</span></div>';
+      h+='<div class="item"><a class="open" href="'+esc(it.url)+'" target="_blank">'+esc(it.title||it.url)+(it.q?' <span class="q">“'+esc(it.q)+'”</span>':'')+'</a><span class="rm" data-i="'+i+'" data-url="'+esc(it.url)+'">✕ remove</span></div>';
     });
     host.innerHTML=h;
-    host.querySelectorAll('.rm').forEach(function(b){ b.onclick=function(){ var l=get(); l.splice(parseInt(b.getAttribute('data-i'),10),1); put(l); render(); }; });
+    host.querySelectorAll('.rm').forEach(function(b){ b.onclick=function(){
+      /* Find the row by its url rather than by the index it was painted at: now that another window
+         can pin or remove something between this list being drawn and this click, a stale index
+         would delete the wrong pin. The painted index is only the fallback, for an entry that was
+         somehow stored without a url. */
+      var l=VW.bench.get(), u=b.getAttribute('data-url'), at=-1;
+      for(var k=0;k<l.length;k++){ if(String(l[k].url)===u){ at=k; break; } }
+      if(at<0){ var i=parseInt(b.getAttribute('data-i'),10); if(i>=0&&i<l.length) at=i; }
+      if(at>=0){ l.splice(at,1); VW.bench.put(l); }
+      render();
+    }; });
   }
-  $('#clear').onclick=function(){ if(confirm('Clear the whole bench?')){ put([]); render(); } };
+  $('#clear').onclick=function(){ if(confirm('Clear the whole bench?')){ VW.bench.put([]); render(); } };
+  /* D — live-synced bench across tabs. VW.bench.put() publishes a thin {action, count, at} hint on
+     VW.channel after every committed write; storage is already shared across every tab on this
+     origin, so the hint only ever means "re-read and repaint", never a second copy of the list.
+     Neither channel transport echoes back to the tab that published, so this tab's own edits repaint
+     exactly once — from their own call sites above — rather than twice. Conflicts are
+     last-write-wins with no merge, per the design spec: this repaint simply shows whatever is really
+     stored now. The toast is here because a row appearing or vanishing on its own, with no click
+     behind it, otherwise reads as a glitch rather than as the other window's doing. */
+  VW.channel.subscribe('bench', function(){ render(); toast('Bench updated in another window'); });
   render();
 })();
 </script>

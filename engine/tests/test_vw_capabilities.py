@@ -77,8 +77,15 @@ def main():
     # BEFORE popoutControl()'s own section -- never between it and the final "var VW = {" marker.
     # ============================================================================================
     tests.append(("shared_js_declares_vw_capabilities_object", "var _capabilities = {};" in shared_js))
+    # v1.74.0/PR 20 note: originally required capabilities: _capabilities to be the LAST key in the
+    # final VW assembly (immediately followed by the object literal's closing "}"). PR 20 legitimately
+    # appends a new "locks:" key straight after it (per the plan's own "PRs 20-24 read this" -- later
+    # Stage 6 PRs are expected to extend this same object), so the closing delimiter is now EITHER "}"
+    # (nothing appended yet) OR "," (a later PR's key follows) -- the actual guarantee this check
+    # exists for ("capabilities: _capabilities appears right after checkpoint's own block, in that
+    # position in the VW assembly") is unchanged either way.
     tests.append(("shared_js_exports_capabilities_off_vw",
-                  re.search(r"checkpoint:\s*\{[^}]*\},\s*capabilities:\s*_capabilities\s*\}", shared_js,
+                  re.search(r"checkpoint:\s*\{[^}]*\},\s*capabilities:\s*_capabilities\s*[,}]", shared_js,
                              re.S) is not None))
 
     caps_idx = shared_js.find("var _capabilities = {};")

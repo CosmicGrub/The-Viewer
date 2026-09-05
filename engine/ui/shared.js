@@ -1493,6 +1493,82 @@
     }
   });
 
+  /* v1.74.0: VW.locks -- Web Locks API wrapper (multi-window support, PR 20 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 6): "VW.locks.withLock(name,
+     fn); falls back to a best-effort in-memory single-tab lock on lite/legacy tier or where
+     navigator.locks is absent." Depends on PR 19's VW.capabilities.webLocks -- this is the FIRST real
+     consumer of VW.capabilities anywhere in this codebase, and it gates on the live _capabilities.webLocks
+     getter directly (matching how VW.capabilities.windowPlacement above calls straight into
+     _screenPlacementAvailable() rather than re-deriving its own copy) -- never a second, independently-
+     typed "locks" in navigator && tier === "modern" check of its own. Writing that second check here
+     would be exactly the kind of duplicated-logic-that-can-drift PR 19 was built to rule out: the two could silently diverge the
+     next time either one's condition changes.
+
+     withLock(name, fn) always returns a Promise settling with whatever fn() itself settles with -- fn
+     may return a plain value or a Promise, the same duck-typing navigator.locks.request()'s own callback
+     return value already supports, since both paths below feed it through a plain .then() chain (a bare
+     value and a thenable are both handled identically by Promise semantics).
+
+     REAL-API PATH (_capabilities.webLocks true): delegates straight to navigator.locks.request() --
+     the browser's own implementation already handles lock acquisition, release-on-settle (success or
+     failure), and cross-tab serialization; nothing here reimplements any of that.
+
+     FALLBACK PATH (webLocks false -- lite/legacy tier, or the raw API absent, or a non-modern tier even
+     with the raw API technically present): a best-effort in-memory PROMISE-CHAIN MUTEX, scoped to just
+     this tab -- not a real cross-tab guarantee, but "never blocks" (see the design doc's own "VW.locks
+     on a tier/browser without the Web Locks API" edge case: correctness within one tab is unaffected;
+     cross-tab races the real API would have prevented become possible again, an accepted, explicitly-
+     known regression on older hardware rather than a silent one).
+
+     _lockQueues maps a lock name to the current "tail" promise for that name:
+       - a call whose name has no tail yet chains off Promise.resolve() -- it runs on the next
+         microtask, "never blocks" on anything.
+       - a call sharing an EXISTING name chains its own fn() invocation onto that name's current tail,
+         so calls sharing a name run strictly one at a time, in call order -- genuine same-tab mutual
+         exclusion.
+       - calls with DIFFERENT names never share a tail, so they never wait on each other.
+       - the tail stored in the map (the "advance" variable below) is always a SETTLED-REGARDLESS-OF-
+         OUTCOME derivative of each call's own result (.then(onFulfilled, onRejected) with both handlers
+         returning normally, so "advance" itself never rejects) -- so a fn() that rejects or throws
+         still lets the NEXT queued call for that name run once it settles; a failure can never
+         permanently jam a name's queue. The promise actually handed back to THIS withLock() call
+         (the "outcome" variable below), by contrast, is built directly off fn()'s real result, so the
+         original rejection still reaches whoever made this specific call -- only the internal chain-
+         advancing copy swallows it, never the value the caller sees.
+       - once a name's queue drains -- "advance" is still the map's current entry for that name at the
+         moment it settles, i.e. no newer call replaced it in the meantime -- that entry is deleted, so
+         _lockQueues never grows without bound across a long session. */
+  var _lockQueues = {};
+
+  function _locksFallback(name, fn) {
+    var priorTail = _lockQueues[name] || Promise.resolve();
+    var outcome = priorTail.then(function () { return fn(); });
+    var advance = outcome.then(function () {}, function () {});
+    _lockQueues[name] = advance;
+    advance.then(function () {
+      if (_lockQueues[name] === advance) { delete _lockQueues[name]; }
+    });
+    return outcome;
+  }
+
+  function locksWithLock(name, fn) {
+    if (_capabilities.webLocks) {
+      return navigator.locks.request(name, function (lock) { return fn(); });
+    }
+    return _locksFallback(name, fn);
+  }
+
+  /* Debug/introspection only -- deliberately NOT part of the documented VW.locks API surface (the
+     design doc's own "VW.locks (Stage 6, new)" block names exactly one member: withLock). The
+     queue-cleanup guarantee above ("_lockQueues never grows without bound") has no other externally
+     observable signature: an already-settled promise chain is O(1) to build on whether or not the
+     dead map entry is cleaned up, so nothing about call ORDER or TIMING would ever differ if the
+     cleanup line above were silently deleted -- only long-run memory retention would. Exposing this
+     one read-only count is the only way to prove that guarantee with a real executed assertion rather
+     than guessing from source text; kept leading-underscore-named and off the public locks object's
+     documented shape for exactly that reason. */
+  function _locksDebugPendingCount() { return Object.keys(_lockQueues).length; }
+
   /* v1.63.0: VW.popoutControl -- A2, per-page pop-out control (multi-window support, PR 14 of
      docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 4). A1 (index.html's home-nav
      ↗ buttons, v1.55.0) pops a SECTION out from the home page; A2 is the mirror image -- a page a
@@ -1617,7 +1693,8 @@
                         restoreLayout: windowsRestoreLayout },
              bench: { get: benchGet, put: benchPut },
              checkpoint: { get: checkpointGet, clear: checkpointClear },
-             capabilities: _capabilities };
+             capabilities: _capabilities,
+             locks: { withLock: locksWithLock, _debugPendingCount: _locksDebugPendingCount } };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

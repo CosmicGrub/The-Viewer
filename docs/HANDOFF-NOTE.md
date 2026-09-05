@@ -1,9 +1,47 @@
-# THE VIEWER — Handoff Note (reconciled 2026-09-04)
+# THE VIEWER — Handoff Note (reconciled 2026-09-05)
 
 **Purpose:** hand this project to another chat/device without losing context. Read this + the canonical docs
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-fourth pass):** G — kiosk/second-screen reference view
+> (multi-window support, PR 18/25, stage 5), depending on PR 5 (`VW.windows`) and PR 17 (C —
+> screen-aware placement, `[1.68.0]`) for its `opts.screen` placement preference. New minimal server
+> route (`/reference`, registered in `static.py`'s `_PAGES` dict the same way every other page in
+> this app is — never a new Python-side HTML-templating mechanism) plus the first two real callers
+> of PR 17's `opts.screen` hint: "Send to second screen" buttons on `torque.html`/`procedure.html`.
+> **Two doc/code gaps resolved:** the design doc's "existing `viewer_kiosk` styling primitives"
+> phrase names a module that does not exist in this codebase (confirmed by grep) — it actually means
+> this app's real `body.kiosk-mode` convention (`base.css`'s own rules, toggled elsewhere by
+> `palette.js`), which this page forces on unconditionally via a plain `classList.add("kiosk-mode")`
+> call, then layers jumbo type on top using `base.css`'s own color tokens; and "a new server route +
+> template" follows the SAME client-rendered-static-file pattern every other page uses (`workspaces.html`/
+> PR 16 included), fetching from the SAME `/api/torque`/`/api/procedure_full` endpoints
+> `torque.html`/`procedure.html` themselves already call, never a duplicated data path. Both launch
+> buttons read their page's current query context at click time (mirroring A2/B's own launch
+> controls) and share the identical literal window name `"vw-reference"` — one shop, one second
+> screen, one reused window regardless of which page sent to it; `procedure.html`'s button computes
+> "the current step" from the SAME per-step `localStorage` state its own checkboxes already
+> read/write, never a second invented notion of "current." New `test_g_reference_view.py`, 54 real
+> assertions against a real `ThreadingHTTPServer` instance + source-text checks, proven load-bearing
+> by breaking 5 representative guarantees one at a time (7/2/2/1/8 failures respectively) and
+> confirming a clean 54/0 on revert. New standing document `docs/MULTI-WINDOW-MANUAL-QA.md` — the
+> plan doc's own note said this should have landed with PR 17 or this PR, whichever shipped first;
+> PR 17 merged without creating it — covers real multi-monitor screen-placement checks for both PR
+> 17's `opts.screen` and this PR's launch buttons, RPS-tier gating on real lite/legacy hardware, and a
+> marked placeholder for PR 24's Picture-in-Picture/Wake-Lock checks (not yet built). Manually
+> verified in a real running browser against a real fixture server: a real torque spec, a real
+> 5-step procedure with live per-step "current step" tracking (ticking steps 1-2 correctly surfaced
+> "Step 3 of 5"), and all three graceful "nothing to show" states. **Stated plainly:** this session's
+> browser-automation sandbox collapses every `window.open()` into one tab (a known, previously-
+> documented limitation of the tool, not the code under test) — every verification above was
+> confirmed via that one tab's resulting page/network requests, never two genuinely separate
+> windows; whether "Send to second screen" lands on a DIFFERENT physical monitor is real hardware
+> behavior only a human on real multi-monitor hardware can confirm, the same caveat PR 17's own
+> `[1.68.0]` entry states, now tracked as a repeatable checklist in `docs/MULTI-WINDOW-MANUAL-QA.md`
+> §1 rather than a one-off PR-body note. Landed as PR 18 (not yet merged as this note is written —
+> update on merge if renumbered), `[1.72.0]`.
+>
 > **Reconciliation note (2026-09-05, forty-third pass):** the last remaining flake from this session's
 > `verify_all.py --snapshot` audit — `test_ingest_routes.py`'s real, unmocked e2e upload check —
 > measured with the same discipline as the forty-second pass's `/api/ask` fix rather than re-guessed.

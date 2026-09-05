@@ -48,6 +48,7 @@
   <div class="search">
     <input id="q" placeholder="part / NSN / fastener — e.g.  alternator   ·   2920-01-…   ·   drain plug" aria-label="Search for torque specs by part, NSN, or fastener" autofocus>
     <button class="go" id="go">Find torque</button>
+    <button id="sendScreen" title="Show this torque spec on a second screen, big enough to read from across the bay">🖥 Send to second screen</button>
     <a class="btn" href="/">← search</a>
   </div>
   <div id="head" class="muted"></div>
@@ -119,6 +120,30 @@
   var pre=new URLSearchParams(location.search).get('q'); if(pre){ $('#q').value=pre; }
   renderConv();
   if(pre) run();
+
+  // v1.72.0 (G, kiosk/second-screen reference view, multi-window PR 18 of
+  // docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 5): "Send to second screen"
+  // reads THIS page's #q value at CLICK time (never a value captured at page load, same reasoning
+  // as jobcard.html's launchWorkOrder()) and opens /reference showing the SAME torque data this
+  // page itself fetches from /api/torque -- /reference does its own fetch, never a value handed
+  // through the URL -- via the SAME shared VW.windows.open() path every other launch control in
+  // this app uses. {screen: true} is PR 17's placement hint: "prefer a different screen than this
+  // tab's own, if one exists and is available" -- degrades silently to this screen when it doesn't
+  // (unsupported browser, denied permission, single-monitor hardware). The window name is the same
+  // literal "vw-reference" this page's procedure.html sibling button uses, deliberately -- a shop
+  // has one second screen, not one per source page, so both buttons must reuse the SAME window
+  // rather than each popping its own.
+  function sendToSecondScreen(){
+    var rq=$('#q').value.trim();
+    if(!rq){ if(window.VW&&typeof VW.toast==='function'){ VW.toast('Type a part or fastener first.'); } return; }
+    var url='/reference?type=torque&q='+encodeURIComponent(rq);
+    if(window.VW && VW.windows && typeof VW.windows.open==='function'){
+      VW.windows.open(url, {name: "vw-reference", screen: true});
+    } else {
+      try{ window.open(url); }catch(e){}
+    }
+  }
+  $('#sendScreen').onclick=sendToSecondScreen;
 
   // v1.63.0 (A2, multi-window PR 14): a zero-config pop-out control for THIS page (button + Ctrl+K
   // palette entry, both from shared.js). Guarded in case /shared.js failed to load.

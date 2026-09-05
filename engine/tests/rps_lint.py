@@ -24,6 +24,10 @@ ES5_REQUIRED = {
     "collections.html", "partdiff.html", "procedure.html", "solve.html", "dossier.html",
     "packet.html", "stepflow.html", "ingest.html", "ops.html", "status.html", "help.html",
     "torque.html", "collections.html", "keywords.html", "palette.js", "rps.js", "shared.js", "tagger.js",
+    # v1.72.0 (G -- kiosk/second-screen reference view, multi-window PR 18 of 25): /reference is a
+    # simple mechanic-facing tool in the exact same class as torque.html/procedure.html (it exists
+    # to show ONE of their values, big, on a second screen) -- must run on the legacy build too.
+    "reference.html",
     # v0.96.0 (G48): tiered/shared overlays that must run on every build — ES5-clean today, locked.
     "cadview.js", "demo.html", "loupe.js", "partview.js", "schemflow.js", "schemhl.js",
     # v1.5-1.7: injected app-wide by palette.js onto EVERY page (incl. legacy) -> must stay ES5.

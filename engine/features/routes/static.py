@@ -35,6 +35,7 @@ _PAGES = {  # route(+aliases) -> ui file
     ("/decode", "/decode.html", "/reference-codes"): ("decode.html", "no-cache"),
     ("/bench", "/bench.html"): ("bench.html", "no-cache"),
     ("/workspaces", "/workspaces.html"): ("workspaces.html", "no-cache"),  # F -- save & reopen named workspaces (multi-window PR 16 of 25)
+    ("/reference", "/reference.html"): ("reference.html", "no-cache"),  # G -- kiosk/second-screen reference view (multi-window PR 18 of 25)
     ("/fastener", "/fastener.html"): ("fastener.html", "no-cache"),
     ("/pmcs", "/pmcs.html"): ("pmcs.html", "no-cache"),
     ("/semantic", "/semantic.html"): ("semantic.html", "no-cache"),

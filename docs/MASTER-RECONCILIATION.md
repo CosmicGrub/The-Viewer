@@ -84,7 +84,7 @@ window name `"vw-reference"` (one shop, one second screen, one reused window); `
 button computes "the current step" from the SAME per-step `localStorage` state its own checkboxes
 already read/write. New `test_g_reference_view.py`, 54 real assertions against a real
 `ThreadingHTTPServer` instance plus source-text checks, proven load-bearing by breaking 5
-representative guarantees one at a time (7/2/2/1/8 failures respectively) and confirming a clean
+representative guarantees one at a time (8/2/2/1/8 failures respectively) and confirming a clean
 54/0 on revert. New standing document `docs/MULTI-WINDOW-MANUAL-QA.md` — the plan doc's own note
 said this should have landed with PR 17 or this PR, whichever shipped first; PR 17 merged without
 creating it — covers real multi-monitor placement checks for both PR 17's `opts.screen` and this
@@ -3244,7 +3244,7 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     uses) plus source-text checks, **proven load-bearing by breaking 5 representative guarantees one
     at a time** (removing the route registration; pointing the torque fetch at a nonexistent
     endpoint; dropping `screen: true`; swapping the kiosk-mode classList call for an inline style;
-    deleting the new manual-QA doc) and confirming 7/2/2/1/8 failures respectively, then reverting to
+    deleting the new manual-QA doc) and confirming 8/2/2/1/8 failures respectively, then reverting to
     a clean 54/0. `rps_lint.py` clean (`reference.html` newly classified ES5-required, same class as
     `torque.html`/`procedure.html`; one real near-miss found and fixed — prose "a plain class add"
     false-matched the ES6 class-declaration regex, reworded to "classList add"). New standing

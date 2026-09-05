@@ -1843,7 +1843,7 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     uses) plus source-text checks, **proven load-bearing by breaking 5 representative guarantees one
     at a time** (removing the route registration; pointing the torque fetch at a nonexistent
     endpoint; dropping `screen: true`; swapping the kiosk-mode classList call for an inline style;
-    deleting the new manual-QA doc) and confirming 7/2/2/1/8 failures respectively, then reverting to
+    deleting the new manual-QA doc) and confirming 8/2/2/1/8 failures respectively, then reverting to
     a clean 54/0. `rps_lint.py` clean (`reference.html` newly classified ES5-required, same class as
     `torque.html`/`procedure.html`; one real near-miss found and fixed — prose "a plain class add"
     false-matched the ES6 class-declaration regex, reworded to "classList add"). New standing

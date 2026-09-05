@@ -75,7 +75,7 @@ QA.md` exists with real, substantive checklist content. **Proven load-bearing by
 representative guarantees one at a time** in the working tree (removing the route registration;
 pointing `reference.html`'s torque fetch at a nonexistent endpoint; dropping `screen: true` from
 `torque.html`'s call; replacing the `kiosk-mode` classList call with an inline style; deleting
-`docs/MULTI-WINDOW-MANUAL-QA.md`) and confirming the right assertions genuinely failed each time (7,
+`docs/MULTI-WINDOW-MANUAL-QA.md`) and confirming the right assertions genuinely failed each time (8,
 2, 2, 1, 8 respectively), then reverting and re-confirming a clean 54/0. `rps_lint.py` clean
 (`reference.html` newly classified ES5-required, same class as `torque.html`/`procedure.html` — one
 real near-miss found and fixed during authoring: the prose "a plain class add" in an inline-script

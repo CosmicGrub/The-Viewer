@@ -24,7 +24,7 @@
 > "the current step" from the SAME per-step `localStorage` state its own checkboxes already
 > read/write, never a second invented notion of "current." New `test_g_reference_view.py`, 54 real
 > assertions against a real `ThreadingHTTPServer` instance + source-text checks, proven load-bearing
-> by breaking 5 representative guarantees one at a time (7/2/2/1/8 failures respectively) and
+> by breaking 5 representative guarantees one at a time (8/2/2/1/8 failures respectively) and
 > confirming a clean 54/0 on revert. New standing document `docs/MULTI-WINDOW-MANUAL-QA.md` — the
 > plan doc's own note said this should have landed with PR 17 or this PR, whichever shipped first;
 > PR 17 merged without creating it — covers real multi-monitor screen-placement checks for both PR

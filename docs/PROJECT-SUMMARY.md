@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.69.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.70.0 · 2026-09-05** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -1756,6 +1756,36 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     — both claimed `[1.68.0]` in `CHANGELOG.md`; resolved on merge by retitling this fix to `[1.69.0]`,
     the genuinely next-free version, the same renumbering-on-late-merge pattern this project has used
     since `[1.54.0]`'s own PR 47. See `CHANGELOG.md` `[1.69.0]`.
+
+52. **`[1.70.0]` — Root cause, finally: `test_routes.py`'s "known pre-existing `/api/ask` timeout
+    flake" was a live network call, not slow compute.** Named across a dozen-plus prior `CHANGELOG.md`
+    entries with the same shrug — reproduced on unmodified `main`, not this change's fault, moving on.
+    **What it is not:** expensive local computation outgrowing a fixed timeout, the
+    `test_ingest_routes.py`/`[1.50.0]` shape this flake was always filed alongside. **What it actually
+    is:** `/api/ask` (`ask.answer()`) and `/api/search_hybrid` (`hybrid_search()`) both lazily
+    `import embed`, and `embed.py`'s `SentenceTransformer(...)` call reaches the LIVE Hugging Face Hub
+    on every fresh process — measured directly at 15.97s with a real "unauthenticated requests to the
+    HF Hub" warning on the wire, vs. a consistent 8.4-8.7s across 3 runs once forced fully offline
+    against an already-warm local cache. An unbounded network round trip is exactly why widening the
+    timeout never once fixed it in over a dozen attempts (45s wasn't enough either, reproduced live
+    while diagnosing this) — and it directly contradicted `.github/workflows/ci.yml`'s own header
+    claim that this suite has "no network egress." **Fix**: `HF_HUB_OFFLINE`/`TRANSFORMERS_OFFLINE`
+    set via `os.environ.setdefault(...)` near the top of `engine/tests/test_routes.py` (never an
+    overwrite — an explicit ambient override still wins), verified safe both warm-cache (real semantic
+    path, purely from disk, 8.4-8.7s) and cold-cache (offline mode fails immediately, ~5s, caught by
+    `ask.answer()`'s own pre-existing fallback to FTS-only passages — never a hang, never a 5xx);
+    `_get()` gained an optional `timeout=`, with a new `SLOW_ROUTE_TIMEOUT` dict giving just these two
+    routes 25s (~3x the observed warm-cache worst case) while every other route keeps the tight 10s
+    default. **Trade-off stated plainly:** CI, having no Hugging-Face-model cache step, no longer
+    exercises the real semantic path for these two routes at all — only FTS fallback — same risk that
+    was always silently there on any run whose download stalled past its timeout, just deterministic
+    now instead of a coin flip; a follow-up CI model-cache step would restore full coverage, left out
+    to keep this fix scoped. Verified: `test_routes.py` standalone, 3 consecutive runs, 298/0 every
+    time (was 297/1); full `verify_all.py --snapshot` 75/75 ALL GREEN. **Landed as PR 60.** This entry
+    itself is a doc-sync completion: PR 60 shipped with only `CHANGELOG.md` updated (VERSION bumped,
+    no matching item here or in `MASTER-RECONCILIATION.md`/`HANDOFF-NOTE.md`), and PR 60 had already
+    merged by the time the gap was noticed — completed here in its own follow-up PR, the same way item
+    51/PR 59's own incomplete doc-sync was completed before it merged. See `CHANGELOG.md` `[1.70.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

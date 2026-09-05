@@ -4,6 +4,33 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-second pass):** root-caused this project's long-standing
+> "known pre-existing `/api/ask` timeout flake," named across a dozen-plus prior `CHANGELOG.md`
+> entries with the same shrug — reproduced on unmodified `main`, not this change's fault, moving on.
+> **It was never slow compute; it was a live network call.** `/api/ask` and `/api/search_hybrid` both
+> lazily `import embed`, and `embed.py`'s `SentenceTransformer(...)` call reaches the live Hugging
+> Face Hub on every fresh process — measured directly at 15.97s with a real "unauthenticated requests"
+> warning on the wire, vs. a consistent 8.4-8.7s once forced fully offline against an already-warm
+> local cache. An unbounded network round trip is exactly why widening the timeout never once fixed
+> it in over a dozen attempts (45s wasn't enough either, reproduced live while diagnosing this) — and
+> it directly contradicted `.github/workflows/ci.yml`'s own header claim that this suite has "no
+> network egress." **Fix:** `HF_HUB_OFFLINE`/`TRANSFORMERS_OFFLINE` set via `os.environ.setdefault(...)`
+> near the top of `test_routes.py` (never an overwrite — an explicit ambient override still wins),
+> verified safe both warm-cache (real semantic path, purely from disk, 8.4-8.7s) and cold-cache
+> (offline mode fails immediately, ~5s, caught by `ask.answer()`'s own pre-existing fallback to
+> FTS-only passages — never a hang, never a 5xx); `_get()` gained an optional `timeout=`, with a new
+> `SLOW_ROUTE_TIMEOUT` dict giving just these two routes 25s (~3x the observed warm-cache worst case)
+> while every other route keeps the tight 10s default. **Trade-off stated plainly:** CI, having no
+> Hugging-Face-model cache step, no longer exercises the real semantic path for these two routes at
+> all — only FTS fallback — same risk that was always silently there on any run whose download stalled
+> past its timeout, just deterministic now instead of a coin flip; a follow-up CI model-cache step
+> would restore full coverage, left out to keep this fix scoped. Verified: `test_routes.py` standalone,
+> 3 consecutive runs, 298/0 every time (was 297/1); full `verify_all.py --snapshot` 75/75 ALL GREEN.
+> Landed as PR 60, `[1.70.0]`. This doc-sync completion pass (`PROJECT-SUMMARY.md`/
+> `MASTER-RECONCILIATION.md`/this file/the snapshot files) was itself needed because PR 60 shipped with
+> only `CHANGELOG.md` updated — completed here the same way PR 59's own incomplete doc-sync was
+> completed, in its own follow-up PR since PR 60 had already merged by the time the gap was noticed.
+>
 > **Reconciliation note (2026-09-04, forty-first pass):** `test_windows_layout.py`'s own PR-6 sanity
 > check (`the_diff_genuinely_adds_the_restore_layout_declaration`) became a permanent false-failure
 > the moment PR 6 merged — it asserted the diff against `origin/main` genuinely adds

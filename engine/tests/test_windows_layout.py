@@ -112,7 +112,7 @@ def git_added_lines(rel_path):
             return None
         base_sha = base.stdout.strip()
         diff = subprocess.run(["git", "diff", base_sha, "--", rel_path],
-                               cwd=REPO, capture_output=True, text=True, timeout=15)
+                               cwd=REPO, capture_output=True, text=True, encoding="utf-8", timeout=15)
         if diff.returncode != 0:
             return None
         out = []
@@ -122,6 +122,20 @@ def git_added_lines(rel_path):
             if line.startswith("+"):
                 out.append(line[1:])
         return out
+    except Exception:
+        return None
+
+
+def declaration_already_merged(rel_path):
+    """Best-effort: whether DECL is already present in origin/main's OWN tree for rel_path (i.e. this
+    PR has since been merged), via `git show origin/main:<rel_path>`. Returns None (never raises) when
+    git/the remote ref is unavailable, same degrade-to-skip shape as git_added_lines above."""
+    try:
+        show = subprocess.run(["git", "show", "origin/main:" + rel_path],
+                               cwd=REPO, capture_output=True, text=True, encoding="utf-8", timeout=15)
+        if show.returncode != 0:
+            return None
+        return DECL in show.stdout
     except Exception:
         return None
 
@@ -186,10 +200,20 @@ def main():
         if bad:
             for b in bad:
                 print("  suspicious added line: %r" % b)
-        # Sanity: the diff actually DOES add the function (proves the check above is exercising
-        # something real, not vacuously passing because nothing changed).
-        tests.append(("the_diff_genuinely_adds_the_restore_layout_declaration",
-                       any(DECL in l for l in added)))
+        # Sanity: proves the check above is exercising something real, not vacuously passing because
+        # the diff is empty. Two ways this is legitimately real, not vacuous:
+        #   (a) the diff actually DOES add the function -- true while this PR's own changes are still
+        #       uncommitted/unmerged, sitting as a live diff against origin/main; or
+        #   (b) origin/main's OWN tree already declares it -- true once this PR has been merged, at
+        #       which point the merge-base diff against origin/main is naturally empty for this file
+        #       (there's nothing left to add), which is what makes (a) go quiet, not a sign the
+        #       declaration never landed.
+        # Only actually vacuous -- and left failing -- if NEITHER holds: the declaration is added by
+        # neither the diff nor origin/main, i.e. genuinely missing everywhere reachable from here.
+        already_merged = declaration_already_merged("engine/ui/shared.js")
+        tests.append(("the_diff_genuinely_adds_the_restore_layout_declaration_"
+                       "or_it_is_already_merged_into_origin_main",
+                       any(DECL in l for l in added) or bool(already_merged)))
 
     # Also: no load/init-style wiring token anywhere near "restoreLayout" text in the raw (uncommented
     # AND commented) source -- belt-and-suspenders beyond the call-site checks above, catching even a

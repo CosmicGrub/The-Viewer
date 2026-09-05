@@ -12,6 +12,56 @@ every change going forward.
 
 ---
 
+## [1.68.0] — 2026-09-04 — `test_windows_layout.py`'s own PR-6 sanity check became a permanent false-failure once PR 6 merged
+
+Found running `test_windows_layout.py` standalone on a clean `main` (post-`[1.67.0]`/PR 6 merge,
+`76a7233`), zero other changes in the working tree: **`the_diff_genuinely_adds_the_restore_layout_declaration`
+failed — 10 passed, 1 failed — with no real regression behind it.**
+
+**Root cause**: that assertion is a sanity check ON a sanity check — it exists to prove the diff-scoped
+`every_added_diff_line_mentioning_restore_layout_is_either_the_declaration_or_inside_a_comment` check
+isn't vacuously passing because `git_added_lines()`'s diff against `merge-base origin/main HEAD` came
+back empty. It asserted `any(DECL in l for l in added)` — true only while PR 6's own changes were still
+uncommitted/unmerged, sitting as a live diff against `origin/main`. Once PR 6 merged, `origin/main`
+itself contains `function windowsRestoreLayout(entries)`, so the merge-base diff against `shared.js` is
+naturally, permanently empty from here on — `added` is `[]` forever, and the assertion could never pass
+again on any branch cut from current `main`. Not a regression indicator; a check that quietly assumed
+its own branch was always mid-flight.
+
+**Fix**: new `declaration_already_merged()` helper (same best-effort, degrade-to-`None`-on-failure shape
+as the existing `git_added_lines()`) reads `origin/main`'s own tree directly via
+`git show origin/main:engine/ui/shared.js` and checks `DECL` against it. The sanity check now passes on
+EITHER condition — the diff genuinely adds the declaration (the live-PR case) OR it's already present in
+`origin/main` (the post-merge case) — renamed
+`the_diff_genuinely_adds_the_restore_layout_declaration_or_it_is_already_merged_into_origin_main`.
+Confirmed it still catches a real regression: manually simulated all three states (genuinely missing
+from both places -> fails; live uncommitted diff -> passes; merged into `origin/main` -> passes).
+
+**Second, smaller bug found while writing the fix**: `git show`'s full-file output triggered a
+`UnicodeDecodeError` (not a wrong answer — a hard crash) under this Windows box's default `cp1252`
+`subprocess.run(text=True)` decoding, tripping over a real UTF-8 multi-byte character already in
+`shared.js` (a "←" inside a comment, `\xe2\x86\x90`, byte-undefined at 0x90 in `cp1252`). Fixed by
+passing `encoding="utf-8"` explicitly (matching this same file's own `read()` helper) on both the new
+`git show` call and the pre-existing `git diff` call in `git_added_lines()` — that call reads the same
+UTF-8 file content and was equally exposed, just never triggered before by coincidence of an empty diff.
+
+Verified: `test_windows_layout.py` standalone now reports **11 passed, 0 failed** (was 10/1). Full
+`engine/tests/verify_all.py --snapshot` re-run afterward: `test_windows_layout.py` clean within it too
+(11/0); two unrelated, pre-existing failures elsewhere (`test_hardening.py`'s J68 check,
+`test_routes.py`'s `/api/ask` + one other route timing out) reproduced independently of this change and
+were confirmed flaky in isolation — `test_hardening.py` passed clean standalone (12/12), and
+`test_routes.py`'s two timeouts moved to different routes between runs — consistent with this
+environment's model-loading/timing variance, not this fix; neither touches `engine/ui/shared.js` or
+`engine/tests/test_windows_layout.py`. This diff touches no other file and does not change
+`VW.windows.restoreLayout()`'s behavior.
+
+- **`engine/tests/test_windows_layout.py`**: new `declaration_already_merged()` helper; the
+  `the_diff_genuinely_adds_the_restore_layout_declaration` sanity check widened to also accept
+  "already merged into `origin/main`"; `encoding="utf-8"` added to both git subprocess calls that
+  capture `shared.js` content.
+
+---
+
 ## [1.67.0] — 2026-09-04 — `VW.windows` layout capture + user-triggered restore (multi-window support, PR 6/25)
 
 Stage 2, PR 6 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — landed OUT OF the

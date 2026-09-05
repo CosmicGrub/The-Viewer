@@ -66,6 +66,7 @@ button:hover{border-color:var(--acc);background:var(--p2)}button.go{background:v
   <input id="q" placeholder="Part or symptom — e.g. alternator replacement, brake bleed" aria-label="Search for a procedure by part or symptom" autocomplete="off">
   <button class="go" onclick="run()">Find the procedure</button>
   <button onclick="window.print()" id="printbtn" style="display:none">&#128424; Print sheet</button>
+  <button id="sendScreen" title="Show the current step on a second screen, big enough to read while your hands are busy">&#128421; Send to second screen</button>
   <span class="muted" id="hint"></span>
 </div>
 <div id="out" aria-live="polite"><div class="empty">Type a part or symptom to rebuild its procedure.</div></div>
@@ -166,6 +167,41 @@ function run(){
 }
 $("q").addEventListener('keydown',function(e){ if(e.key==='Enter'||e.keyCode===13) run(); });
 (function(){ var m=location.search.match(/[?&]q=([^&]+)/); if(m){ $("q").value=decodeURIComponent(m[1].replace(/\+/g,' ')); run(); } })();
+
+// v1.72.0 (G, kiosk/second-screen reference view, multi-window PR 18 of
+// docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 5): "the current step" is the
+// first step this page's OWN per-step localStorage state (ckey()/getck(), the exact keys the
+// checkboxes above already read/write) has NOT yet ticked -- reusing that real, already-tracked
+// state rather than inventing a second notion of "current". All steps ticked -> the last step (a
+// technician who finished still gets something sensible to look at, never null-y nothing).
+function currentStepNumber(){
+  if(!CUR || !CUR.found || !CUR.steps || !CUR.steps.length) return null;
+  var src=CUR.source||{};
+  for(var i=0;i<CUR.steps.length;i++){
+    if(!getck(ckey(src, CUR.steps[i].n))) return CUR.steps[i].n;
+  }
+  return CUR.steps[CUR.steps.length-1].n;
+}
+// "Send to second screen" reads THIS page's #q value AND the current step at CLICK time (never a
+// value captured at page load) and opens /reference showing the SAME procedure data this page
+// itself fetches from /api/procedure_full -- /reference does its own fetch, never a value handed
+// through the URL beyond q/step -- via the SAME shared VW.windows.open() path every other launch
+// control in this app uses. {screen: true} is PR 17's placement hint (degrades silently without
+// it). The window name is the same literal "vw-reference" torque.html's sibling button uses,
+// deliberately -- one shop, one second screen, one reused window, not one per source page.
+function sendToSecondScreen(){
+  var rq=$("q").value.replace(/^\s+|\s+$/g,'');
+  if(!rq){ return; }
+  var step=currentStepNumber();
+  var url='/reference?type=procedure&q='+encodeURIComponent(rq)+(step!==null?('&step='+step):'');
+  if(window.VW && VW.windows && typeof VW.windows.open==='function'){
+    VW.windows.open(url, {name: "vw-reference", screen: true});
+  } else {
+    try{ window.open(url); }catch(e){}
+  }
+}
+$("sendScreen").onclick=sendToSecondScreen;
+
 // v1.63.0 (A2, multi-window PR 14): a zero-config pop-out control for THIS page (button + Ctrl+K
 // palette entry, both from shared.js). Guarded in case /shared.js failed to load.
 if(window.VW && typeof VW.popoutControl==="function"){ VW.popoutControl(); }

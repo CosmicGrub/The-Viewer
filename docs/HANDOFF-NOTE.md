@@ -4,6 +4,51 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-sixth pass):** `VW.locks` — Web Locks API wrapper
+> (multi-window support, PR 20/25, stage 6), depending on PR 19's `VW.capabilities.webLocks`
+> (`[1.73.0]`) — the FIRST real consumer of `VW.capabilities` anywhere in this codebase.
+> `VW.locks.withLock(name, fn)` gates on the live `_capabilities.webLocks` getter directly (mirroring
+> `VW.capabilities.windowPlacement`'s own call straight into `_screenPlacementAvailable()`), never a
+> second, independently-typed `"locks" in navigator && tier === "modern"` check of its own — writing
+> that second check would have been exactly the kind of duplicated-logic-that-can-drift PR 19 exists
+> to rule out. `withLock` returns a Promise settling with whatever `fn()` settles with (`fn` may
+> return a plain value or a Promise). **Real-API path** (webLocks true): delegates straight to
+> `navigator.locks.request()` — the browser's own implementation already handles acquisition,
+> release-on-settle, and cross-tab serialization; nothing reimplemented. **Fallback path** (webLocks
+> false — lite/legacy tier, raw API absent, or non-modern tier even with the raw API present): a
+> best-effort in-memory promise-chain mutex scoped to just this tab (not a real cross-tab guarantee,
+> but "never blocks," per the design doc's own named edge case). An internal `_lockQueues` map keys a
+> lock name to its current "tail" promise: same-name calls chain onto that tail and run strictly one
+> at a time, in call order; different names never share a tail and never wait on each other. The
+> stored tail is always a settled-regardless-of-outcome derivative of each call's own result, so a
+> rejecting/throwing `fn()` can never permanently jam a name's queue — the caller's own returned
+> promise, by contrast, carries the ORIGINAL rejection through untouched. A name's map entry is
+> deleted once its queue drains, so `_lockQueues` never grows without bound across a long session — a
+> debug-only `_debugPendingCount()` hook (deliberately not part of the documented `VW.locks` surface)
+> makes that provable with a real assertion. **Placement:** lands directly after `VW.capabilities`,
+> before `popoutControl()`'s own section, per PR 6/17/19's own `test_a2_popout.py` coupling hazard
+> (confirmed by a source-offset assertion and a clean, unchanged 62/0 re-run of that test). New
+> `engine/tests/test_vw_locks.py` + `engine/tests/js/test_vw_locks_node.js`, 55 real assertions (18
+> top-level + 37 node behavioral): the real-API path's delegation and round-trip in both directions;
+> the raw-API-absent case proven via the absence of the synchronous throw a real access against
+> `undefined` would cause; **the single most important test** — raw API present but tier
+> "lite"/"legacy"/"premium" — proves the fallback still runs via a canary proven NEVER invoked in any
+> of the three cases (mirroring PR 19's own most-important live-read test, with a contrasting
+> "tier modern → canary fires" case proving the canary itself works); fallback mutual exclusion
+> (same-name calls proven to run strictly one at a time via a non-interleaved log), independence
+> (different-name calls proven to genuinely interleave), resilience (a rejecting/throwing first call
+> does not block a second queued same-name call, and the first caller still receives the exact
+> original rejection), and the queue-cleanup guarantee (pending count returns to 0 once a name's
+> queue drains, for both one call and a longer chain, and is proven to read nonzero mid-flight so the
+> assertion is real). **Proven load-bearing** by breaking 4 guarantees one at a time (raw-feature-only
+> gate: 3+2 failures; no chain-onto-prior-tail: 1 failure, exactly mutual exclusion; a failure
+> becoming the queue's own tail: jammed exactly as predicted; removing the cleanup delete: 2
+> failures) and confirming a clean 55/0 on revert every time. One pre-existing PR 19 assertion
+> (`shared_js_exports_capabilities_off_vw`) had assumed `capabilities: _capabilities` was the LAST key
+> in the VW assembly — legitimately broken by this PR's own `locks:` key appended right after it;
+> fixed by widening its closing-delimiter match to accept either `}` or `,`, re-confirmed clean
+> (17/0). `rps_lint.py` clean. Landed as PR 20, `[1.74.0]`.
+>
 > **Reconciliation note (2026-09-05, forty-fifth pass):** `VW.capabilities` — centralized
 > feature-detection + tier registry (multi-window support, PR 19/25, stage 6), "depends on nothing"
 > per the plan's own words — the first of six bleeding-edge-capability PRs (19-24) that close out this

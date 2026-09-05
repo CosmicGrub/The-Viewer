@@ -67,7 +67,28 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.68.0, shipped 2026-09-04** (C — screen-aware placement, stage 5 / PR 17 of
+**True current state: v1.69.0, shipped 2026-09-04** (`test_windows_layout.py`'s own item 50/PR 6
+sanity check, `the_diff_genuinely_adds_the_restore_layout_declaration`, became a permanent
+false-failure the moment PR 6 merged — it asserted the diff against `origin/main` genuinely adds
+`windowsRestoreLayout`'s declaration, true only while PR 6 was still unmerged; once merged,
+`origin/main` already contains it, so that diff is naturally, permanently empty from here on and the
+assertion could never pass again on any branch cut from current `main`. Not a regression indicator, a
+check that quietly assumed its own branch was always mid-flight. Fixed with a new
+`declaration_already_merged()` helper reading `origin/main`'s own tree directly via `git show` — the
+check now passes on EITHER "the diff adds it" (live-PR case) OR "already merged into `origin/main`"
+(post-merge case), renamed accordingly; confirmed it still catches a real regression (all three states
+manually simulated). Also fixed a real `UnicodeDecodeError` crash found while writing that fix:
+`git show`'s output hit this Windows box's default `cp1252` `subprocess.run` decoding, tripping on a
+UTF-8 "←" already inside a `shared.js` comment — both the new and the pre-existing `git diff`
+subprocess call in `git_added_lines()` now pass `encoding="utf-8"` explicitly. Verified:
+`test_windows_layout.py` standalone 11 passed, 0 failed (was 10/1); clean within a full
+`verify_all.py --snapshot` run too. Two unrelated, pre-existing flakes (`test_hardening.py`'s J68
+check, `test_routes.py` route timeouts) reproduced independently and confirmed clean in isolation,
+neither touching this fix's files. Landed as PR 59, opened directly against `main` from a branch cut
+before item 51/PR 17 merged — both claimed `[1.68.0]` in `CHANGELOG.md`; resolved on merge by
+retitling this fix to `[1.69.0]`, the genuinely next-free version, the same renumbering-on-late-merge
+pattern this project has used since `[1.54.0]`'s own PR 47. See §6 item 52). Immediately prior:
+**v1.68.0, shipped 2026-09-04** (C — screen-aware placement, stage 5 / PR 17 of
 the multi-window/multi-tab initiative, depending on item 50/PR 6. Extends `VW.windows.open(url,
 opts)` with an opt-in `opts.screen` hint — truthy means "prefer a different screen than this tab's
 own, if one exists and is available" — feature-detected via the Window Management API's
@@ -3029,6 +3050,31 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     human-only verification step, called out as manual in the PR body, the same honest framing this
     initiative has used for every other real-browser-only behavior since PR 5. See `CHANGELOG.md`
     `[1.68.0]`.
+
+52. **`[1.69.0]` — `test_windows_layout.py`'s own item 50/PR 6 sanity check became a permanent
+    false-failure once PR 6 merged.** `the_diff_genuinely_adds_the_restore_layout_declaration`
+    asserted the diff against `origin/main` genuinely adds `windowsRestoreLayout`'s declaration — true
+    only while PR 6 was still unmerged; once merged, `origin/main` already contains it, so that diff
+    is naturally, permanently empty from here on and the assertion could never pass again on any
+    branch cut from current `main`. Not a regression indicator, a check that quietly assumed its own
+    branch was always mid-flight. **Fix**: new `declaration_already_merged()` helper reads
+    `origin/main`'s own tree directly via `git show` and checks the declaration against it — the
+    sanity check now passes on EITHER "the diff adds it" (live-PR case) OR "already merged into
+    `origin/main`" (post-merge case), renamed accordingly. Confirmed it still catches a real
+    regression (all three states manually simulated: genuinely missing from both places fails; either
+    real condition passes). **Second bug found while writing the fix**: `git show`'s output triggered
+    a real `UnicodeDecodeError` crash under this Windows box's default `cp1252` `subprocess.run`
+    decoding, tripping on a UTF-8 "←" already inside a `shared.js` comment — fixed by passing
+    `encoding="utf-8"` explicitly on both the new `git show` call and the pre-existing `git diff` call
+    in `git_added_lines()`, which reads the same UTF-8 content and was equally exposed, just never
+    triggered before by coincidence of an empty diff. Verified: `test_windows_layout.py` standalone
+    11 passed, 0 failed (was 10/1); clean within a full `verify_all.py --snapshot` run too. Two
+    unrelated, pre-existing flakes (`test_hardening.py`'s J68 check, `test_routes.py` route timeouts)
+    reproduced independently and confirmed clean in isolation, neither touching this fix's files.
+    **Landed as PR 59**, opened directly against `main` from a branch cut before item 51/PR 17 merged
+    — both claimed `[1.68.0]` in `CHANGELOG.md`; resolved on merge by retitling this fix to `[1.69.0]`,
+    the genuinely next-free version, the same renumbering-on-late-merge pattern this project has used
+    since `[1.54.0]`'s own PR 47. See `CHANGELOG.md` `[1.69.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

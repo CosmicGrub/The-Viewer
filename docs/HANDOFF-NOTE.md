@@ -4,6 +4,24 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, forty-first pass):** `test_windows_layout.py`'s own PR-6 sanity
+> check (`the_diff_genuinely_adds_the_restore_layout_declaration`) became a permanent false-failure
+> the moment PR 6 merged — it asserted the diff against `origin/main` genuinely adds
+> `windowsRestoreLayout`'s declaration, true only while PR 6 was still unmerged; once merged,
+> `origin/main` already contains it, so the diff is naturally, permanently empty and the assertion
+> could never pass again on any branch cut from current `main`. Fixed with a new
+> `declaration_already_merged()` helper reading `origin/main`'s own tree via `git show`, so the check
+> now passes on EITHER "the diff adds it" (live-PR case) OR "it's already merged" (post-merge case).
+> Also fixed a real `UnicodeDecodeError` crash found while writing that fix: `git show`'s output hit
+> this Windows box's default `cp1252` decoding on a UTF-8 "←" already in `shared.js`'s comments — both
+> the new and the pre-existing `git diff` subprocess calls now pass `encoding="utf-8"` explicitly.
+> `test_windows_layout.py` standalone: 11 passed, 0 failed (was 10/1). Two unrelated, pre-existing
+> flakes (`test_hardening.py`'s J68 check, `test_routes.py` timeouts) reproduced independently and
+> confirmed clean in isolation — neither touches this fix's files. Landed as PR 59, opened directly
+> against `main` from a branch cut before PR 17 merged; both claimed `[1.68.0]` in `CHANGELOG.md`,
+> resolved on merge by retitling this fix to `[1.69.0]`, the genuinely next-free version, the same
+> renumbering-on-late-merge pattern this project has used since `[1.54.0]`'s own PR 47.
+>
 > **Reconciliation note (2026-09-04, fortieth pass):** stage 5, PR 17 of the multi-window/multi-tab
 > initiative — **C, screen-aware placement** — extends `VW.windows.open(url, opts)` with an opt-in
 > `opts.screen` hint (truthy = "prefer a different screen than this tab's own, if one exists and is

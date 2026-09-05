@@ -12,6 +12,83 @@ every change going forward.
 
 ---
 
+## [1.71.0] — 2026-09-05 — `test_ingest_routes.py`'s real e2e upload flake: measured, not re-guessed — `safeguard.snapshot()` now costs ~100s, not ~25s
+
+The last remaining flake from this session's `verify_all.py --snapshot` audit (after `[1.69.0]`'s
+`test_windows_layout.py` fix and `[1.70.0]`'s `/api/ask` root-cause fix): the real, unmocked e2e
+upload check in `test_ingest_routes.py` intermittently reported `FAIL real e2e upload -> ok + started`
+and `FAIL ... the uploaded document actually landed in the DB`. Investigated with the same discipline
+as `[1.70.0]` — measured the actual mechanism directly rather than picking another timeout number.
+
+**What it is not:** the `test_routes.py`/`[1.70.0]` shape of problem (a hidden live network call). This
+check's real subprocess, `viewer_ingest.py`, has zero connection to `embed.py` or any network
+dependency at all — confirmed directly, grepping its imports and every `subprocess.run()` call site
+(`pdfinfo`/`pdftoppm`/`tesseract`, all local).
+
+**What it actually is:** `ingest_feature.py`'s `_launch()` takes a real, synchronous
+`safeguard.snapshot("pre-ingest")` of every tracked engine/docs/diagram file **before** it ever spawns
+the upload's subprocess or returns a response — by design (R1: always recoverable before any write).
+`[1.50.0]` already correctly diagnosed this mechanism and set the test's client timeout to 60s,
+reasoning the cost "scales with how many critical files the project has accumulated." That was half
+right: **measured directly, twice, in complete isolation (no other test running, no contention at
+all), a real `snapshot()` call over this project's current 749 tracked files took 102.4s and 99.6s** —
+the 60s budget has been quietly exceeded again as the project kept growing, exactly the same shape of
+staleness `[1.50.0]` itself fixed once already.
+
+But the file-count/data-volume framing undersells the real driver: **this project's actual tracked-file
+payload is ~12.3MB total** — even naive disk I/O plus SHA-256 over that is sub-second (confirmed
+directly: hashing + line-counting all 749 files by hand took 0.93s). The dominant cost lives in
+`atomic_copy()`'s per-file `fsync()` (copying each file into the new snapshot's vault directory,
+flushed durably before returning) plus the immediate post-copy paranoia re-read-and-re-hash
+(`sha256_file(dst) != e["sha256"]`) that verifies the copy before trusting it — real, synchronous,
+per-file work, consistent with the exact "antivirus/search-indexer scanning" per-file-open cost this
+same module's own `_replace_retry()` docstring already names as a known Windows tax elsewhere in this
+codebase (not something this codebase can control, any more than `[1.70.0]`'s Hugging Face Hub
+latency was).
+
+**Deliberately NOT weakened to chase this timing:** that `fsync()` and verify-reread are real safety
+guarantees — this module exists specifically so "a process killed mid-write, power loss, disk errors"
+can't silently corrupt a snapshot, and R1 ("always recoverable") is a standing rule at the top of this
+very file. Trading that away for test speed would be exactly the wrong kind of fix, and wasn't asked
+for.
+
+**What DID change, safely:** `entry_for()` used to call `sha256_file(path)` and `_count_lines(path)`
+separately — opening and fully re-reading the SAME file twice for no reason, doubling its file-open
+count across every tracked file. New `safeguard._hash_and_count()` computes both in one read pass.
+Verified byte-for-byte identical output to the old two-call approach across all 749 currently-tracked
+files before landing this (zero mismatches). Honestly measured, not oversold: `entry_for()`'s own
+whole share of the cost was already under a second either way (0.93s two-pass vs 0.42s single-pass) —
+this alone doesn't explain or fix the 100s figure (confirmed: a fresh `snapshot()` timing after this
+change still measured 99.6s) — but it's a free, zero-behavior-change, zero-downside win worth taking
+regardless, and every file-open avoided is one less the same per-open interception can tax.
+
+**The actual fix, in `engine/tests/test_ingest_routes.py`:** the initial `/api/ingest_upload` request's
+client timeout widened from 60s to **240s** (roughly 2.4x the measured 100s worst case, matching
+`_launch()`'s own explicit "no hard limit" design rather than picking another number that just moves
+the same false-failure to the next growth milestone), and the subsequent "did it land in the DB"
+polling deadline widened from 30s to **90s** for the same real-margin reasoning on the subprocess's own
+completion.
+
+**Verified:** `test_ingest_routes.py` standalone, 2 consecutive runs: **175 passed, 0 failed** every
+time. `entry_for()`'s new single-pass hashing verified byte-identical against the old two-pass result
+across all 749 tracked files (0 mismatches) before landing. `safeguard.py`'s own dependent test
+suites — `test_truncation.py` (11/0, the primary correctness suite for `classify()`/`recover()`/
+`snapshot()`/`verify()`), `test_backupdb.py` (12/0), `test_build_pipeline.py` (49/0),
+`test_prune.py` (29/0) — all clean; none test `entry_for()`'s exact output directly, so this was also
+confirmed by hand: the first 5 tracked files' `entry_for()` output matches the earlier direct
+measurement exactly. Full `engine/tests/verify_all.py --snapshot`: **75 checks, 75 ok, 0 FAILED — ALL
+GREEN**, including `safeguard verify` itself reporting `749 files, 749 OK, 0 DAMAGED` — the strongest
+available confirmation that the new single-pass manifest entries are genuinely correct, since `verify()`
+independently re-reads and re-hashes every file against them.
+
+- **`engine/safeguard.py`**: new `_hash_and_count(path)` (single-pass SHA-256 + newline count);
+  `entry_for()` now calls it instead of `sha256_file()` + `_count_lines()` separately. No manifest
+  shape or value change.
+- **`engine/tests/test_ingest_routes.py`**: real e2e upload check's initial-request timeout
+  60s → 240s; its "landed in DB" polling deadline 30s → 90s.
+
+---
+
 ## [1.70.0] — 2026-09-05 — Root cause, finally: `test_routes.py`'s "known pre-existing `/api/ask` timeout flake" was a live network call, not slow compute
 
 **This project's own CHANGELOG has named "the known pre-existing `/api/ask` timeout flake" across more

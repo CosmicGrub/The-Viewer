@@ -12,21 +12,51 @@ RUN ON WINDOWS / a coherent env -- it imports viewer_app, which a sandbox mount 
 Pure stdlib runner."""
 import os, sys, json, time, threading, tempfile, urllib.request, urllib.error
 
+# `/api/ask` (ask.answer()) and `/api/search_hybrid` (hybrid_search()) both lazily `import embed`,
+# which loads sentence-transformers' "all-MiniLM-L6-v2" (embed.py's own SentenceTransformer(...)
+# call) on first use. This project's own CHANGELOG has documented "the known pre-existing /api/ask
+# timeout flake" as a mysterious ~25-30s-round-trip cost across a dozen-plus prior entries -- root
+# cause, actually traced this time rather than re-shrugged-at: that load isn't expensive LOCAL
+# compute at all, it's a LIVE NETWORK round trip to the Hugging Face Hub (confirmed directly: the
+# same call took 15.97s with a real "unauthenticated requests to HF Hub" warning, then a consistent
+# 8.4-8.7s across 3 runs once forced offline below -- and even with NO cached model at all, offline
+# mode fails FAST, in ~5s, and is caught by ask.answer()'s own existing `except Exception: pass`
+# around embed.search(), degrading gracefully to FTS-only passages rather than hanging). That network
+# dependency directly contradicts this project's own stated test-suite contract (see
+# .github/workflows/ci.yml's header comment: "every one of those test files is self-contained
+# ... no network egress") -- this was that contract silently unenforced, not a genuinely slow route.
+# Forcing offline mode (setdefault, so an explicit ambient override still wins) makes this
+# deterministic instead of network-conditions-dependent, in every environment: a warm local cache
+# (a dev machine) gets the real semantic path, fast; a cold one (CI, which has no HF-model caching
+# step) gets the same graceful FTS-only fallback ask.answer() already has for any embed.py failure,
+# also fast -- never the multi-second-to-CI-runner-and-network-dependent gamble this flake was.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.dirname(HERE)
 sys.path.insert(0, ENGINE); sys.path.insert(0, HERE)
 import fixture
 
-def _get(url, data=None):
+def _get(url, data=None, timeout=10):
     req = urllib.request.Request(url, data=(json.dumps(data).encode() if data is not None else None),
                                  headers={"Content-Type": "application/json"} if data is not None else {})
     try:
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
     except Exception as e:
         return -1, str(e).encode()
+
+# Even fully offline, a warm local cache's real model load (SentenceTransformer(...) reading weights
+# off disk) measured 8.4-8.7s across 3 runs -- comfortably under 10s here, but close enough that a
+# slower CI machine deserves real headroom rather than a repeat of this exact flake at a new margin.
+# Every other route keeps the tight 10s default, so a genuinely hung/broken route still fails fast.
+SLOW_ROUTE_TIMEOUT = {
+    "/api/ask": 25,
+    "/api/search_hybrid": 25,
+}
 
 # (method, path, expect_json, must_200)
 ROUTES = [
@@ -171,7 +201,8 @@ def run():
     try:
         for method, path, expect_json, must_200 in ROUTES:
             body = POST_BODY.get(path) if method == "POST" else None
-            status, raw = _get(base + path, body)
+            timeout = SLOW_ROUTE_TIMEOUT.get(path.split("?")[0], 10)
+            status, raw = _get(base + path, body, timeout=timeout)
             label = "%s %s" % (method, path)
             if status == -1:
                 failed.append((label, "request error: %s" % raw[:120].decode("utf-8", "ignore"))); continue

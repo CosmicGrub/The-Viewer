@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.67.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.68.0 · 2026-09-04** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -1681,6 +1681,56 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     on this PR); and the actual on-screen placement behavior on real, possibly multi-monitor,
     hardware — stated plainly as a manual, real-browser-only check in the PR body, not glossed over.
     See `CHANGELOG.md` `[1.67.0]`.
+
+50. **`[1.68.0]` — C: screen-aware placement (multi-window support, PR 17/25, stage 5).** Depends on
+    item 49/PR 6. Extends `windowsOpen(url, opts)` with an opt-in `opts.screen` hint (truthy = "prefer
+    a different screen than this tab's own, if one exists and is available"), feature-detected via
+    the Window Management API's `getScreenDetails()`, gated "modern tier only" per the design doc's
+    own item 10. **The doc/code gap, resolved the same way item 46/PR 15 resolved an identical one:**
+    the design doc names `VW.capabilities.windowPlacement` as the gate, but `VW.capabilities` is
+    Stage 6 (PR 19–25) and does not exist yet. PR 15 had nothing real to fall back to and shipped
+    inert; this PR does have something real — `rps.js`'s already-live `window.RPS.mode`
+    (`"modern"`/`"lite"`/`"legacy"`) IS the capability ladder item 10 asks for, so this gates for real
+    on an exact `=== "modern"` match (never truthy — `"premium"` is a flag layered on `"modern"`, not
+    a mode of its own). `window.RPS` is genuinely `undefined` on 32 of this app's 49 pages (confirmed
+    by grep) — treated exactly like "not modern," never a throw. A future Stage 6 PR may swap this for
+    `VW.capabilities.windowPlacement`, mirroring item 46's own forward-pointing comment.
+    **The permission-timing crux:** `getScreenDetails()` returns a Promise (how the permission prompt
+    surfaces), but `window.open()` must run synchronously in the click-handler call stack or a popup
+    blocker can treat it as not user-gesture-initiated. `windowsOpen()`'s existing synchronous
+    open/reuse/toast/broadcast path runs FIRST, unchanged, and returns its real handle before any of
+    this PR's code runs; only then, if the gate passes, does `getScreenDetails()` fire —
+    fire-and-forget, never awaited. The resolved target screen (picked from `.screens` by reference
+    identity against `.currentScreen`, a comparable `left`/`top` key as fallback; fewer than 2 screens
+    or every entry matching current is a no-op) is moved to via `win.moveTo()`. Every failure — API
+    absent, denied/rejected promise, a synchronous throw, one screen, a since-closed window — is
+    caught silently, never an unhandled rejection.
+    **New `test_windows_screen_placement.py` + `test_windows_screen_placement_node.js`, 32 real
+    assertions** through the real production code in a `vm.createContext()` sandbox extending item
+    36's own dual-sandbox convention (the same one item 49 itself extended): `opts.screen` absent
+    NEVER calls `getScreenDetails()` (the single
+    most important guarantee given this feature's own stated permission philosophy); the API absent
+    and `lite`/`legacy`/undefined `RPS.mode` all skip cleanly; a resolved 2-screen result moves to the
+    OTHER screen's bounds, never current's; 1 screen attempts no move; a rejected promise AND a
+    synchronously-throwing `getScreenDetails()` both caught with zero unhandled rejections (a real
+    `process.on("unhandledRejection", …)` listener backs this); the call ORDER proven via a shared log
+    — `window.open()` always before `getScreenDetails()`. **Proven load-bearing** by breaking 6
+    representative guarantees one at a time and confirming the right assertions genuinely failed each
+    time (3, 2, 2, 3, 1, 4 respectively), then reverting to a clean 32/0. Full `verify_all.py` run
+    specifically to confirm item 45's own named `test_a2_popout.py` cross-PR coupling hazard stayed
+    avoided (new code landed before `popoutControl()`, same as item 49) — clean 62/0.
+    **One pre-existing, not-this-PR's-regression issue found and confirmed, not glossed over:**
+    `test_windows_layout.py`'s own `the_diff_genuinely_adds_the_restore_layout_declaration` sanity
+    check fails on a clean `origin/main` checkout with zero changes (confirmed via `git stash`) — a
+    self-referential git-diff check that can never pass again now that item 49/PR 6 is merged and its
+    declaration lives in `origin/main` itself; flagged as a separate follow-up, not touched here (out
+    of this PR's scope). `rps_lint.py` clean. Design doc's own `C's extension to VW.windows` section
+    updated to name the real `window.RPS.mode` gate instead of the not-yet-existing
+    `VW.capabilities.windowPlacement`. **Deliberately out of scope:** any UI page/button passing
+    `opts.screen` (PR 18/G, next in the plan, is the first real consumer); `win.resizeTo()`; and the
+    actual on-screen placement behavior on real, possibly multi-monitor, Chromium hardware — Node has
+    no `getScreenDetails` and no real screens to be right or wrong about it, stated plainly as a
+    manual, real-hardware-only check in the PR body. See `CHANGELOG.md` `[1.68.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

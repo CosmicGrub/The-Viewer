@@ -4,6 +4,72 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-04, fortieth pass):** stage 5, PR 17 of the multi-window/multi-tab
+> initiative — **C, screen-aware placement** — extends `VW.windows.open(url, opts)` with an opt-in
+> `opts.screen` hint (truthy = "prefer a different screen than this tab's own, if one exists and is
+> available"), depending on PR 6 (`VW.windows` layout capture/restore, merged as `[1.67.0]`).
+> Feature-detected via the Window Management API's `getScreenDetails()`, gated to the design doc's
+> own "modern tier only" requirement. **The doc/code gap, resolved the same way the thirty-sixth
+> pass's PR 15 resolved an identical one:** the design doc names `VW.capabilities.windowPlacement` as
+> the gate, but `VW.capabilities` is Stage 6 (PR 19–25) and does not exist yet. PR 15 had genuinely
+> nothing real to fall back to, so it shipped feature-detected but INERT. This PR is not in that
+> position — `rps.js`'s `window.RPS.mode` (`"modern"`/`"lite"`/`"legacy"`, set on every page that
+> loads it) IS the capability ladder item 10 asks for, just not yet wrapped in the Stage-6 name, so
+> this gates for real, right now, on an EXACT `=== "modern"` string match (never truthy) — `"premium"`
+> is an additive flag layered on an already-`"modern"` mode per `rps.js`'s own comment, never a mode
+> value of its own. `window.RPS` is genuinely `undefined` on 32 of this app's 49 pages (confirmed by
+> grep, not assumed) — treated exactly like "not modern," never a throw. A future Stage 6 PR may swap
+> this for `VW.capabilities.windowPlacement`, the same way PR 15's own comment points a future PR at
+> itself. **The permission-timing crux this PR exists to respect:** `getScreenDetails()` returns a
+> Promise (it IS how the permission prompt surfaces), but `window.open()` must run synchronously
+> inside the click-handler call stack or a popup blocker can treat it as not user-gesture-initiated.
+> `windowsOpen()`'s existing synchronous open/reuse/toast/broadcast path runs FIRST, completely
+> unchanged, and returns its real handle before any of this PR's code is reached; only then, if
+> `opts.screen` is truthy and the gate passes, does `getScreenDetails()` fire — fire-and-forget, never
+> awaited, never delaying the synchronous return. The resolved target screen is repositioned to via
+> `win.moveTo()`, picked from `.screens` by reference identity against `.currentScreen` first, a
+> comparable `left`/`top` key as fallback; fewer than 2 screens, or every entry matching current, is a
+> silent no-op. Every failure (API absent, denied/rejected promise, a synchronous throw, one screen,
+> a since-closed window) is caught silently — no unhandled rejection, no throw, ever, under normal
+> denial. **New `test_windows_screen_placement.py` + `test_windows_screen_placement_node.js`, 32 real
+> assertions** through the real production code in a `vm.createContext()` sandbox extending PR 5's own
+> dual-sandbox convention (the same one PR 6 itself extended): `opts.screen` absent NEVER calls
+> `getScreenDetails()` at all (the single
+> most important guarantee given this feature's stated permission philosophy); the API absent, `lite`/
+> `legacy`/undefined `RPS.mode` all skip cleanly, never throw; a resolved 2-screen result moves to the
+> OTHER screen's bounds, never current's; a resolved 1-screen result attempts no move; a rejected
+> promise AND a synchronously-throwing `getScreenDetails()` are both caught with zero unhandled
+> rejections (a real `process.on("unhandledRejection", …)` listener backs this, not just an absent
+> crash); and the call ORDER itself is proven via a shared log — `window.open()` always before
+> `getScreenDetails()`, checked immediately with no wait. **Proven load-bearing by breaking 6
+> representative guarantees one at a time** (the truthiness guard, the tier gate, the pick function's
+> identity/key check against both the 2-screen and 1-screen cases, the `["catch"]` handler, the
+> feature-check + outer `try`/`catch` together, and a premature call before `window.open()`) and
+> confirming the right assertions genuinely failed each time (3, 2, 2, 3, 1, 4 respectively), then
+> reverting to a clean 32/0. **The thirty-fifth pass's own `test_a2_popout.py` cross-PR coupling
+> hazard checked for and avoided the same way the thirty-ninth pass (PR 6) already avoided it:** every
+> new function lands immediately after `windowsRestoreLayout()`, before the bench/checkpoint/
+> `popoutControl()` sections — confirmed `test_a2_popout.py` unaffected at a clean 62/0. **One
+> pre-existing, NOT-this-PR's-regression issue
+> found and confirmed, not glossed over:** `test_windows_layout.py`'s own
+> `the_diff_genuinely_adds_the_restore_layout_declaration` sanity check fails on a clean `origin/main`
+> checkout with ZERO changes (confirmed via `git stash` before writing a single line of this PR) — a
+> self-referential git-diff check that can never pass again now that PR 6 is merged and its
+> declaration lives in `origin/main` itself, not something this PR broke; flagged as a separate
+> follow-up task rather than touched here (out of this PR's scope — PR 6's own test file). `rps_lint.py`
+> clean (`shared.js` is ES5-required; two prose word choices read as false-positive ES6 `let` hits and
+> were reworded, same near-miss category the thirty-ninth pass already named). Design doc's own `C's
+> extension to VW.windows` section updated to reflect the real `window.RPS.mode` gate instead of the
+> not-yet-existing `VW.capabilities.windowPlacement` name. **Deliberately out of scope:** any UI
+> page/button passing `opts.screen` (PR 18/G, named next in the plan, is the first real consumer);
+> `win.resizeTo()`; and, stated plainly, the actual on-screen placement behavior on real,
+> possibly multi-monitor, Chromium hardware — Node has no `getScreenDetails`, no real permission
+> prompt, and no real screens to be right or wrong about any of it, a real human-only verification
+> step called out as manual in the PR body, the same honest framing every other real-hardware-only
+> behavior in this initiative has used since PR 5. Shipped as `[1.68.0]`. `main` is at `[1.67.0]` as
+> of this pass.
+>
+
 > **Reconciliation note (2026-09-04, thirty-ninth pass):** stage 2, PR 6 of the multi-window/
 > multi-tab initiative — **`VW.windows` layout capture + user-triggered restore**, landed OUT OF the
 > plan doc's own stage order (same shape the thirty-seventh pass's PR 3 already used): it belongs

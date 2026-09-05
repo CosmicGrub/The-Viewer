@@ -50,6 +50,23 @@ def sha256_file(path):
         for chunk in iter(lambda: f.read(CHUNK), b""): h.update(chunk)
     return h.hexdigest()
 
+def _hash_and_count(path):
+    """Single read pass computing both the SHA-256 hash and newline count together. entry_for() used
+    to call sha256_file(path) + _count_lines(path) separately -- opening and fully reading the SAME
+    file twice for no reason, doubling the file-open count across every tracked file. Confirmed
+    byte-for-byte identical output to the old two-call approach across every currently-tracked file
+    before landing this (see docs/CHANGELOG.md for the investigation this came out of: snapshot()'s
+    real measured cost is dominated by atomic_copy()'s per-file fsync + the paranoia verify-reread,
+    not this read -- entry_for()'s own two-pass cost was already under a second total -- but halving
+    entry_for()'s file-open count is a free, behavior-preserving win on top of that, worth taking)."""
+    h = hashlib.sha256()
+    n = 0
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(CHUNK), b""):
+            h.update(chunk)
+            n += chunk.count(b"\n")
+    return h.hexdigest(), n
+
 def iter_critical():
     seen = set()
     for g in CRITICAL_GLOBS:
@@ -77,8 +94,9 @@ def _glob(pattern):
 
 def entry_for(path):
     st = os.stat(path)
+    sha, lines = _hash_and_count(path)
     return {"rel": os.path.relpath(path, ROOT).replace("\\", "/"), "size": st.st_size,
-            "sha256": sha256_file(path), "lines": _count_lines(path), "mtime": round(st.st_mtime, 3)}
+            "sha256": sha, "lines": lines, "mtime": round(st.st_mtime, 3)}
 
 def _count_lines(path):
     n = 0

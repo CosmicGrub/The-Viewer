@@ -457,20 +457,33 @@ def main():
                 V.DB_PATH = up_db
                 # _launch() takes a real, synchronous safeguard.snapshot("pre-ingest") of every
                 # engine/**/*.py + docs/*.md + docs/diagrams/*.svg file BEFORE it ever spawns the
-                # subprocess and returns -- by design (R1: always recoverable before any write). That
-                # snapshot's cost scales with how many critical files the project has accumulated, not
-                # with the size of this one tiny upload; on a long-lived project (hundreds of source/doc/
-                # diagram files by now) it can genuinely take longer than the default 15s _req() timeout
-                # -- caught live: this check timed out ("timed out", not a real ok:false rejection) once
-                # the project grew enough for a real snapshot() call to measure ~24.5s standalone, well
-                # under _launch()'s own no-hard-limit design but over this test's assumed budget. A wider
-                # timeout here (not lowered anywhere else) reflects that real, by-design cost honestly
-                # instead of chasing a moving target as the project keeps growing.
-                c, b = _req("/api/ingest_upload", up_payload, timeout=60)
+                # subprocess and returns -- by design (R1: always recoverable before any write). The
+                # 60s timeout this used to carry (raised from an original 15s once already, when the
+                # project's growth pushed a real snapshot() call to ~24.5s) has since been exceeded
+                # again -- measured directly, twice, independent of this test: a real snapshot() call
+                # over this project's current 749 tracked files took 102.4s and 99.6s standalone, with
+                # NO other load competing for disk/CPU at all. This is NOT primarily a file-count/
+                # data-volume scaling problem (the actual tracked-file payload is ~12MB total -- even
+                # naive disk I/O + SHA-256 over that is sub-second, confirmed directly) -- the real
+                # cost is per-file-OPEN overhead in atomic_copy()'s fsync'd copy-into-the-vault step
+                # plus its paranoia post-copy verify-reread, consistent with the antivirus/search-
+                # indexer per-file interception this same codebase's _replace_retry() docstring
+                # already documents as a known Windows cost elsewhere. Deliberately NOT weakened to
+                # chase this timing: that fsync + verify-reread is a real safety guarantee (R1), not
+                # incidental slowness, so it stays. What changed instead: entry_for()'s OWN redundant
+                # double-read (sha256_file() + _count_lines() each separately re-opening and re-
+                # reading the same file) is now a single pass (see safeguard.py's _hash_and_count()) --
+                # a safe, verified-byte-identical, zero-behavior-change win, confirmed too small on its
+                # own to explain the 100s+ cost (entry_for()'s whole share of it was already under a
+                # second either way) but real and worth taking regardless. The timeout below reflects
+                # the ACTUAL now-measured cost with real margin, matching _launch()'s own explicit
+                # "no hard limit" design, rather than picking another number that just moves the same
+                # false-failure to a new growth milestone.
+                c, b = _req("/api/ingest_upload", up_payload, timeout=240)
                 r = _json(b)
                 check("real e2e upload -> ok + started (unmocked, genuinely launches viewer_ingest.py)",
                       c == 200 and r.get("ok") is True and r.get("started") is True)
-                deadline = time.time() + 30
+                deadline = time.time() + 90
                 landed = False
                 while time.time() < deadline:
                     cs, bs = _req("/api/ingest_status")

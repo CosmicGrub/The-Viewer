@@ -12,6 +12,102 @@ every change going forward.
 
 ---
 
+## [1.72.0] — 2026-09-05 — G: kiosk/second-screen reference view (multi-window support, PR 18/25)
+
+Stage 5, PR 18 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`, depending on PR 5
+(`VW.windows`, merged long ago) and PR 17 (C — screen-aware placement, `[1.68.0]`) for its
+`opts.screen` placement preference — the plan's own note says this PR "degrades cleanly without it,"
+but PR 17 had already merged by the time this shipped, so it is wired in for real, not left inert.
+New minimal server route + template, plus the first two real callers of PR 17's `opts.screen` hint:
+"Send to second screen" buttons on `torque.html` and `procedure.html` — the exact two use cases the
+design doc itself names (item 8/B's own reasoning: "a torque spec or the current procedure step that
+needs to stay visible while a technician's hands are busy").
+
+**Two doc/code gaps, resolved rather than glossed over.** (1) The design doc's own "G's kiosk/
+reference route" section describes reusing "the existing `viewer_kiosk` styling primitives" — no
+module or file named `viewer_kiosk` exists anywhere in this codebase (confirmed by grep). What that
+phrase actually refers to is this app's real client-side convention: `body.kiosk-mode`, the class
+`base.css` already carries real rules for (bigger baseline text, higher-contrast `--sub`/`--mut`,
+44px touch targets), toggled everywhere else via `palette.js`'s `kioskOn()`/`toggleKiosk()`/
+`applyKiosk()` and `localStorage.viewer_kiosk`. This PR uses that real convention directly — forcing
+`body.kiosk-mode` on unconditionally via a plain `classList.add("kiosk-mode")` call (glanceability
+from across a room is the entire point of a second-screen reference view, not an opt-in choice the
+way it is everywhere else) — then layers page-specific jumbo type (`clamp()`-sized, reusing
+`base.css`'s own `--txt`/`--acc`/`--grn-tx`/`--amb` tokens, no hand-picked hex values) on top for the
+one glanceable value that actually matters. `base.css`'s own `body.kiosk-mode` rule is never
+redefined — this page just turns it on. (2) "A new server route + template" does not mean a new
+Python-side HTML-templating mechanism — every page in this app, `workspaces.html` (PR 16) included,
+is a plain client-rendered static file registered in `static.py`'s `_PAGES` dict that fetches its own
+data from existing JSON APIs. `reference.html` follows that exact pattern: a new `/reference` entry
+in `_PAGES`, and a static page whose inline script fetches from `/api/torque`/`/api/procedure_full` —
+the SAME endpoints `torque.html`/`procedure.html` themselves already call — never a duplicated or
+re-implemented data path.
+
+**The two launch buttons**, mirroring every prior pop-out/launch control this initiative has built
+(A2's `popoutControl()`, B's `launchWorkOrder()`/`launchSolveIt()`): each reads that page's OWN
+current query context at CLICK time (never a value captured at page load) and calls
+`VW.windows.open(url, {name: "vw-reference", screen: true})` — the exact `opts.screen` hint PR 17
+built, guarded the same defensive way `jobcard.html`'s `launchWorkOrder()` already is (`VW`/
+`VW.windows` checked before use, a plain `window.open()` fallback otherwise). Both buttons
+deliberately share the identical literal window name `"vw-reference"` — a shop has one second
+screen, not one per source page, so a technician who sends a torque spec over and then sends a
+procedure step reuses the SAME popped-out window rather than stacking a second one. `procedure.html`'s
+button additionally computes "the current step" as the first step its OWN per-step `localStorage`
+state (`ckey()`/`getck()`, the exact keys its checkboxes already read/write) has not yet ticked — real
+already-tracked state, not a second, invented notion of "current" — threaded onto the URL as
+`&step=N`; all-ticked falls back to the last step rather than nothing.
+
+**"Nothing found" handling**, proven in a real running browser against a real query, a query with no
+matches, and no query at all: every branch renders a clear, still-large-text message
+(`showEmpty()`), never a blank page or a crash — matching this PR's own explicit requirement.
+
+**New `engine/tests/test_g_reference_view.py`, 54 real assertions**, against the actual shipped
+files: `/reference` is genuinely registered in `static.py`'s `_PAGES` dict AND served correctly by a
+real `ThreadingHTTPServer` instance (the same rig `test_routes.py` uses, over the same deterministic
+`fixture` DB) — bare, with `?type=torque&q=...`, and with `?type=procedure&q=...`, never a 404/5xx;
+`reference.html` genuinely fetches from `/api/torque`/`/api/procedure_full` exactly once each (no
+duplicated data path); the real `classList.add("kiosk-mode")` call exists and `base.css`'s own
+`body.kiosk-mode` rule is never redefined locally; both launch buttons are real `<button>` elements
+that read their page's current context at click time and call the exact shared
+`VW.windows.open(url, {name: "vw-reference", screen: true})` call site, byte-for-byte identical in
+both files; `rps_lint.py` classifies `reference.html` as ES5-required; `docs/MULTI-WINDOW-MANUAL-
+QA.md` exists with real, substantive checklist content. **Proven load-bearing by breaking 5
+representative guarantees one at a time** in the working tree (removing the route registration;
+pointing `reference.html`'s torque fetch at a nonexistent endpoint; dropping `screen: true` from
+`torque.html`'s call; replacing the `kiosk-mode` classList call with an inline style; deleting
+`docs/MULTI-WINDOW-MANUAL-QA.md`) and confirming the right assertions genuinely failed each time (7,
+2, 2, 1, 8 respectively), then reverting and re-confirming a clean 54/0. `rps_lint.py` clean
+(`reference.html` newly classified ES5-required, same class as `torque.html`/`procedure.html` — one
+real near-miss found and fixed during authoring: the prose "a plain class add" in an inline-script
+comment matched the ES6 class-declaration regex on the bare word "class" followed by whitespace,
+reworded to "classList add").
+
+**New standing document, `docs/MULTI-WINDOW-MANUAL-QA.md`** — the plan doc's own "New standing
+document" note said this should have landed with PR 17 or this PR, whichever shipped first; PR 17
+merged without creating it. Covers what PR 17 and this PR actually need verified on real hardware
+(genuine multi-monitor screen placement for both PR 17's `opts.screen` and this PR's "send to second
+screen" buttons — permission prompt, landing screen, window reuse across both buttons, denied/
+single-monitor/non-Chromium fallback; RPS-tier gating on a real lite/legacy-classified machine) with a
+clearly-marked placeholder section for PR 24's Picture-in-Picture/Wake-Lock checks, left unfilled
+since that code does not exist yet.
+
+**Manually verified in a real running browser** against a real fixture server: `/torque?q=lug nut`
+found a real cited spec ("450–500 ft-lb"), clicking "Send to second screen" opened `/reference`
+showing that exact value in large green text; `/procedure?q=alternator` found a real 5-step
+procedure, ticking steps 1–2 then clicking "Send to second screen" correctly showed "Step 3 of 5" —
+proving the per-step `localStorage` read genuinely works, not just that a step renders; both the
+no-match and no-query-at-all states rendered their intended graceful messages. **Stated plainly, not
+glossed over:** this session's browser-automation tool collapses every `window.open()` call into the
+SAME tab (documented by prior PRs in this initiative as a sandbox limitation, not a bug in the code
+under test) — every one of the above was confirmed by inspecting the resulting page/network requests
+in that one tab, never by observing two genuinely separate windows. Whether "Send to second screen"
+actually lands its window on a DIFFERENT physical monitor is real `opts.screen`/`getScreenDetails()`
+hardware behavior that only a human on real multi-monitor hardware can confirm — the same honest
+caveat PR 17's own `[1.68.0]` entry states, now tracked as a standing, repeatable checklist in
+`docs/MULTI-WINDOW-MANUAL-QA.md` §1 rather than a one-off PR-body note.
+
+---
+
 ## [1.71.0] — 2026-09-05 — `test_ingest_routes.py`'s real e2e upload flake: measured, not re-guessed — `safeguard.snapshot()` now costs ~100s, not ~25s
 
 The last remaining flake from this session's `verify_all.py --snapshot` audit (after `[1.69.0]`'s

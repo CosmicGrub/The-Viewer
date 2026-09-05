@@ -67,7 +67,36 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.71.0, shipped 2026-09-05** (`test_ingest_routes.py`'s real e2e upload flake —
+**True current state: v1.72.0, shipped 2026-09-05** (G — kiosk/second-screen reference view,
+multi-window support PR 18/25, stage 5, depending on PR 5/`VW.windows` and item 51/PR 17's
+`opts.screen` placement preference. New minimal server route (`/reference`, registered in
+`static.py`'s `_PAGES` dict the same way every page in this app is) plus the first two real callers
+of PR 17's `opts.screen` hint: "Send to second screen" buttons on `torque.html`/`procedure.html`.
+Two doc/code gaps resolved: the design doc's "existing `viewer_kiosk` styling primitives" phrase
+names a module that does not exist in this codebase (confirmed by grep) — it actually means this
+app's real `body.kiosk-mode` convention (`base.css`'s own rules, toggled elsewhere by `palette.js`),
+forced on unconditionally here via a plain `classList.add("kiosk-mode")` call, then layered with
+jumbo type using `base.css`'s own color tokens; and the route follows the SAME client-rendered-
+static-file pattern every other page uses, fetching from the SAME `/api/torque`/`/api/
+procedure_full` endpoints `torque.html`/`procedure.html` already call, never a duplicated data
+path. Both buttons read their page's current query context at click time and share the literal
+window name `"vw-reference"` (one shop, one second screen, one reused window); `procedure.html`'s
+button computes "the current step" from the SAME per-step `localStorage` state its own checkboxes
+already read/write. New `test_g_reference_view.py`, 54 real assertions against a real
+`ThreadingHTTPServer` instance plus source-text checks, proven load-bearing by breaking 5
+representative guarantees one at a time (7/2/2/1/8 failures respectively) and confirming a clean
+54/0 on revert. New standing document `docs/MULTI-WINDOW-MANUAL-QA.md` — the plan doc's own note
+said this should have landed with PR 17 or this PR, whichever shipped first; PR 17 merged without
+creating it — covers real multi-monitor placement checks for both PR 17's `opts.screen` and this
+PR's buttons, RPS-tier gating on real lite/legacy hardware, and a marked placeholder for PR 24's
+Picture-in-Picture/Wake-Lock checks. Manually verified in a real running browser against a real
+fixture server: a real cited torque spec, a real 5-step procedure with live per-step "current step"
+tracking (ticking steps 1-2 correctly surfaced "Step 3 of 5"), and all three graceful "nothing to
+show" states. Stated plainly: this session's browser-automation sandbox collapses every
+`window.open()` into one tab (a previously-documented tool limitation, not a bug in the code under
+test) — real cross-monitor placement remains a human-only check on real hardware, the same caveat
+item 51/PR 17's own `[1.68.0]` entry states, now tracked in `docs/MULTI-WINDOW-MANUAL-QA.md` §1. See
+§6 item 55). Immediately prior: **v1.71.0, shipped 2026-09-05** (`test_ingest_routes.py`'s real e2e upload flake —
 the last remaining flake from this session's `verify_all.py --snapshot` audit, after item 53/PR 60's
 `/api/ask` fix — measured, not re-guessed, with the same discipline. Not the same shape of problem:
 `viewer_ingest.py`, the real subprocess this check launches, has zero network dependency at all
@@ -3188,6 +3217,54 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     flakes remaining. This entry itself is a doc-sync completion, the same pattern item 53/PR 60's own
     gap was completed with: PR 62 shipped with only `CHANGELOG.md` updated. See `CHANGELOG.md`
     `[1.71.0]`.
+
+55. **`[1.72.0]` — G: kiosk/second-screen reference view (multi-window support, PR 18/25, stage
+    5).** Depends on PR 5 (`VW.windows`) and item 51/PR 17 (C — screen-aware placement, `[1.68.0]`)
+    for its `opts.screen` placement preference. New minimal server route + template, plus the first
+    two real callers of PR 17's `opts.screen` hint: "Send to second screen" buttons on
+    `torque.html`/`procedure.html` — the two use cases the design doc itself names. **Two doc/code
+    gaps resolved, not glossed over:** the design doc's "existing `viewer_kiosk` styling primitives"
+    phrase names a module that does not exist anywhere in this codebase (confirmed by grep) — it
+    actually means this app's real client-side `body.kiosk-mode` convention (`base.css`'s own rules,
+    toggled elsewhere by `palette.js`'s `kioskOn()`/`toggleKiosk()`), which this page forces on
+    unconditionally (a plain `classList.add("kiosk-mode")` call — glanceability from across a room
+    is the entire point here, not an opt-in choice) then layers jumbo, `clamp()`-sized type on top
+    using `base.css`'s own color tokens, never hand-picked hex values; and "a new server route +
+    template" follows the SAME client-rendered-static-file pattern every other page in this app uses
+    (`workspaces.html`/item 49 included) — a new `/reference` entry in `static.py`'s `_PAGES` dict,
+    fetching from the SAME `/api/torque`/`/api/procedure_full` endpoints
+    `torque.html`/`procedure.html` themselves already call, never a duplicated data path. Both launch
+    buttons read their page's current query context at CLICK time (mirroring A2's `popoutControl()`/
+    B's `launchWorkOrder()`/`launchSolveIt()`) and share the identical literal window name
+    `"vw-reference"` — one shop has one second screen, not one per source page, so both buttons reuse
+    the SAME popped-out window; `procedure.html`'s button additionally computes "the current step"
+    from the SAME per-step `localStorage` state its own checkboxes already read/write (`ckey()`/
+    `getck()`), never a second, invented notion of "current." New `engine/tests/test_g_reference_view.py`,
+    54 real assertions against a real `ThreadingHTTPServer` instance (the same rig `test_routes.py`
+    uses) plus source-text checks, **proven load-bearing by breaking 5 representative guarantees one
+    at a time** (removing the route registration; pointing the torque fetch at a nonexistent
+    endpoint; dropping `screen: true`; swapping the kiosk-mode classList call for an inline style;
+    deleting the new manual-QA doc) and confirming 7/2/2/1/8 failures respectively, then reverting to
+    a clean 54/0. `rps_lint.py` clean (`reference.html` newly classified ES5-required, same class as
+    `torque.html`/`procedure.html`; one real near-miss found and fixed — prose "a plain class add"
+    false-matched the ES6 class-declaration regex, reworded to "classList add"). New standing
+    document `docs/MULTI-WINDOW-MANUAL-QA.md` — the plan doc's own note said this should have landed
+    with PR 17 or this PR, whichever shipped first; PR 17 merged without creating it — covers real
+    multi-monitor screen-placement checks for both PR 17's `opts.screen` and this PR's launch
+    buttons, RPS-tier gating on real lite/legacy hardware, and a marked placeholder for PR 24's
+    Picture-in-Picture/Wake-Lock checks (not yet built). Manually verified in a real running browser
+    against a real fixture server: a real cited torque spec ("450–500 ft-lb") and a real 5-step
+    alternator-removal procedure with live per-step "current step" tracking (ticking steps 1-2
+    correctly surfaced "Step 3 of 5" on the reference view), plus all three graceful "nothing to
+    show" states (no match, no query, unknown type). **Stated plainly, not glossed over:** this
+    session's browser-automation sandbox collapses every `window.open()` call into the SAME tab (a
+    previously-documented tool limitation, not a bug in the code under test) — every verification
+    above was confirmed via that one tab's resulting page/network requests, never two genuinely
+    separate windows; whether "Send to second screen" actually lands its window on a DIFFERENT
+    physical monitor is real `opts.screen`/`getScreenDetails()` hardware behavior only a human on
+    real multi-monitor hardware can confirm — the same honest caveat item 51/PR 17's own `[1.68.0]`
+    entry states, now tracked as a standing, repeatable checklist in `docs/MULTI-WINDOW-MANUAL-QA.md`
+    §1 rather than a one-off PR-body note. **Landed as PR 18.** See `CHANGELOG.md` `[1.72.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

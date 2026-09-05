@@ -1,0 +1,155 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE VIEWER — Second-screen reference</title>
+<link rel="stylesheet" href="/base.css"><script src="/shared.js"></script>
+<style>
+/* G -- kiosk/second-screen reference view (multi-window support, PR 18 of
+   docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 5). A torque spec or the
+   current procedure step needs to stay legible from across a bay while a technician's hands are
+   busy (design doc item 11's own stated reasoning: docs/superpowers/specs/2026-09-03-multi-window-
+   tabs-design.md, "send to second screen"). Rather than inventing a new "big text" look from
+   scratch, this page forces THIS APP'S OWN real kiosk-mode convention (body.kiosk-mode, the class
+   base.css already carries real rules for -- see base.css's own "KIOSK / GLOVE MODE" block) on
+   UNCONDITIONALLY -- see the classList.add call below -- then layers page-specific jumbo type on
+   top for the one value that actually matters, reusing base.css's own color tokens (--bg/--txt/
+   --sub/--acc/--amb/--grn-tx) rather than hand-picking new hex values. No body.kiosk-mode rule is
+   redefined here -- the real one lives in base.css and this page just turns it on. */
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  min-height:100vh;display:flex;flex-direction:column}
+.top{padding:14px 22px 0;color:var(--sub);font-size:1em;letter-spacing:.03em;text-transform:uppercase}
+.wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 28px}
+.kicker{color:var(--sub);font-size:1.5em;margin:0 0 10px}
+.progress{font-size:1.2em;color:var(--sub);margin-bottom:8px}
+/* the one glanceable value: intentionally far larger than kiosk-mode's own 16px baseline (base.css's
+   body.kiosk-mode rule is a floor for ordinary controls/text app-wide, not a jumbotron size) --
+   clamp() keeps it filling the screen without ever overflowing it on a small second display. */
+.glance{font-weight:800;line-height:1.12;color:var(--txt);font-size:clamp(40px,9vw,120px);margin:0 0 14px;word-break:break-word}
+.glance.torque{color:var(--grn-tx)}
+.glance.step{color:var(--acc)}
+.sub{font-size:clamp(18px,2.6vw,30px);color:var(--sub);margin:0 0 6px;max-width:1100px}
+.meta{font-size:1.1em;color:var(--sub);margin-top:20px}
+.qual{font-size:1.1em;color:var(--amb);margin-top:10px}
+.empty{font-size:clamp(26px,4vw,44px);font-weight:700;color:var(--amb);max-width:900px}
+</style></head>
+<body>
+<div class="top">THE VIEWER — second-screen reference (read-only)</div>
+<div class="wrap" id="out"><div class="empty">Loading&hellip;</div></div>
+<script>
+(function(){
+  "use strict";
+  // Force the app's real kiosk-mode convention on for THIS page, unconditionally -- glanceability
+  // from across a room is the entire point of a second-screen reference view here, not an opt-in
+  // choice the way it is everywhere else (palette.js's "Toggle kiosk mode" command). Applied
+  // directly as a plain classList add -- this minimal page deliberately does not load palette.js (no
+  // command palette, no toggle UI belongs on a passive reference display) -- base.css's own
+  // body.kiosk-mode rules (bigger baseline text, higher-contrast --sub/--mut, 44px touch targets)
+  // still apply because base.css itself is always linked above, whether or not palette.js runs.
+  try{ (document.body||document.documentElement).classList.add("kiosk-mode"); }catch(e){}
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (window.VW && typeof VW.esc==="function") ? VW.esc(s) : String(s===null||s===undefined?"":s); }
+
+  function qparam(name){
+    var m = new RegExp("[?&]"+name+"=([^&]*)").exec(location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g," ")) : "";
+  }
+
+  // GET a JSON endpoint. Prefers shared.js's own VW.getJSON (the one copy of this helper this app
+  // maintains) so THIS page never carries a second, independently-drifting XHR implementation;
+  // falls back to a plain inline XHR only if /shared.js itself failed to load, the same defensive
+  // shape every other guarded VW.* call site in this app already uses.
+  function getJSON(url, cb, errcb){
+    if(window.VW && typeof VW.getJSON==="function"){ VW.getJSON(url, cb, errcb); return; }
+    var x=new XMLHttpRequest(); x.open("GET", url, true);
+    x.onreadystatechange=function(){
+      if(x.readyState!==4) return;
+      var data=null; try{ data=JSON.parse(x.responseText||"null"); }catch(e){ /* non-JSON */ }
+      if(x.status>=200 && x.status<300) cb(data); else if(errcb) errcb(x.status); else cb(null);
+    };
+    x.send();
+  }
+
+  // "Nothing found for this query" (or "nothing to show at all") is a real, expected state here --
+  // a technician can open this page with a stale/mistyped query, or before /shared.js even answers
+  // -- and it must always render as a clear, still-large-text message, never a blank page or a
+  // silent crash. msg is passed RAW (never pre-escaped) -- esc() runs exactly once, here.
+  function showEmpty(msg){
+    $("out").innerHTML = '<div class="empty">'+esc(msg)+'</div>';
+  }
+
+  // Renders the SAME data torque.html itself fetches from /api/torque -- no second, duplicated
+  // query path against the database. Shows the single best (first) match big; a real query
+  // legitimately returning several specs (e.g. multiple fasteners on one part) still gets an
+  // honest secondary line rather than silently hiding that more exist.
+  function renderTorque(q, j){
+    var specs = (j && j.specs) || [];
+    if(!specs.length){
+      showEmpty('No torque value found for "'+q+'".');
+      return;
+    }
+    var s = specs[0];
+    var h = '<div class="kicker">Torque — '+esc(j.nomenclature||q)+'</div>';
+    h += '<div class="glance torque">'+esc(s.value||"?")+'</div>';
+    if(s.context){ h += '<div class="sub">'+esc(s.context)+'</div>'; }
+    // Same OCR-quality flag torque.html itself shows (recommendations annex #2) -- this page must
+    // not silently drop the one signal that says "verify this on the page before you trust it".
+    if(s.confidence && s.confidence!=="clean"){
+      h += '<div class="qual">&#9888; verify on page — OCR quality: '+esc(s.confidence)+'</div>';
+    }
+    var cite = (s.vehicle||"?")+" · "+(s.tm_number||"")+" · p."+(s.page||"?");
+    h += '<div class="meta">'+esc(cite)+
+      (specs.length>1 ? (' &middot; <b>'+(specs.length-1)+'</b> more match'+(specs.length===2?"":"es")+' on /torque') : '')+
+      '</div>';
+    $("out").innerHTML = h;
+  }
+
+  // Renders the SAME data procedure.html itself fetches from /api/procedure_full. stepParam (this
+  // window's own "?step=" query param, threaded by procedure.html's launch button at click time --
+  // see its own currentStepNumber()) selects which step is "current"; absent/unmatched falls back
+  // to the first step, never a blank page.
+  function renderProcedure(q, stepParam, d){
+    if(!d || !d.found || !d.steps || !d.steps.length){
+      showEmpty('No step-by-step procedure found for "'+q+'".');
+      return;
+    }
+    var steps = d.steps;
+    var want = stepParam ? parseInt(stepParam, 10) : NaN;
+    var cur = null, idx = -1, i;
+    for(i=0;i<steps.length;i++){
+      if(!isNaN(want) && steps[i].n === want){ cur = steps[i]; idx = i; break; }
+    }
+    if(!cur){ cur = steps[0]; idx = 0; }
+    var src = d.source || {};
+    var h = '<div class="progress">Step '+(idx+1)+' of '+steps.length+'</div>';
+    h += '<div class="kicker">'+esc(d.title||"Procedure")+'</div>';
+    h += '<div class="glance step">'+esc(cur.text||"")+'</div>';
+    if(cur.subs && cur.subs.length){
+      for(var su=0; su<cur.subs.length; su++){
+        h += '<div class="sub">'+String.fromCharCode(97+su)+'. '+esc(cur.subs[su])+'</div>';
+      }
+    }
+    if(cur.torque && cur.torque.length){
+      h += '<div class="sub">&#128297; '+esc(cur.torque.join(" · "))+'</div>';
+    }
+    var cite = (src.vehicle||src.tm||"the manual")+(src.page?(" · p."+src.page):"");
+    h += '<div class="meta">'+esc(cite)+'</div>';
+    $("out").innerHTML = h;
+  }
+
+  var type = qparam("type");
+  var q = qparam("q");
+  var step = qparam("step");
+
+  if(!q){
+    showEmpty("Nothing to show — open this page from a torque or procedure search's “Send to second screen” button.");
+  } else if(type === "torque"){
+    getJSON('/api/torque?q='+encodeURIComponent(q), function(j){ renderTorque(q, j); }, function(){ showEmpty("Lookup failed."); });
+  } else if(type === "procedure"){
+    getJSON('/api/procedure_full?q='+encodeURIComponent(q), function(d){ renderProcedure(q, step, d); }, function(){ showEmpty("Lookup failed."); });
+  } else {
+    showEmpty("Nothing to show — unknown reference type.");
+  }
+})();
+</script>
+</body></html>

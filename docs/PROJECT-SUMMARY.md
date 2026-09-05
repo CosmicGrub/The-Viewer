@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.70.0 · 2026-09-05** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.71.0 · 2026-09-05** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -1786,6 +1786,36 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     no matching item here or in `MASTER-RECONCILIATION.md`/`HANDOFF-NOTE.md`), and PR 60 had already
     merged by the time the gap was noticed — completed here in its own follow-up PR, the same way item
     51/PR 59's own incomplete doc-sync was completed before it merged. See `CHANGELOG.md` `[1.70.0]`.
+
+53. **`[1.71.0]` — `test_ingest_routes.py`'s real e2e upload flake: measured, not re-guessed —
+    `safeguard.snapshot()` now costs ~100s, not ~25s.** The last remaining flake from this session's
+    `verify_all.py --snapshot` audit (after item 52/`[1.70.0]`'s `/api/ask` fix). **Not the same shape
+    of problem** — `viewer_ingest.py`, the real subprocess this check launches, has zero network
+    dependency at all (confirmed by grepping every import/`subprocess.run()` call site: only local
+    `pdfinfo`/`pdftoppm`/`tesseract`). **What it actually is:** `ingest_feature.py`'s `_launch()`
+    takes a real, synchronous `safeguard.snapshot("pre-ingest")` before ever spawning the subprocess
+    (R1: always recoverable before any write) — `[1.50.0]` already correctly diagnosed this and set a
+    60s timeout once; that budget has quietly been exceeded again as the project grew. Measured
+    directly, twice, in complete isolation: a real `snapshot()` call over this project's current 749
+    tracked files took 102.4s and 99.6s. The actual driver is NOT file-count/data-volume (the
+    tracked-file payload is only ~12.3MB, sub-second even hashed by hand) — it's `atomic_copy()`'s
+    per-file `fsync()` plus its paranoia post-copy verify-reread, the same per-file-open Windows tax
+    `_replace_retry()`'s own docstring already names elsewhere. **Deliberately NOT weakened:** that
+    `fsync()`/verify-reread is a real safety guarantee (R1), not incidental slowness. **What did
+    change, safely:** `entry_for()` used to call `sha256_file()` + `_count_lines()` separately,
+    reading the same file twice for nothing; new `safeguard._hash_and_count()` computes both in one
+    pass, verified byte-identical across all 749 tracked files (confirmed too small alone to explain
+    the 100s figure, but a free, zero-behavior-change win taken regardless). The actual fix: the
+    upload request's timeout widened 60s → 240s (~2.4x the measured worst case) and the "landed in
+    DB" polling deadline 30s → 90s, both matching `_launch()`'s own explicit "no hard limit" design.
+    Verified: `test_ingest_routes.py` standalone, 2 consecutive runs, 175/0 every time;
+    `safeguard.py`'s dependent suites all clean; full `verify_all.py --snapshot` 75/75 ALL GREEN
+    including `safeguard verify` itself at 749/749 OK. **Landed as PR 62** — third and final entry in
+    this session's flake-fixing arc (item 51/PR 59 → `[1.69.0]`, item 52/PR 60 → `[1.70.0]`, PR 62 →
+    `[1.71.0]`); `verify_all.py --snapshot` now runs genuinely ALL GREEN with no known pre-existing
+    flakes remaining. This entry itself is a doc-sync completion, the same pattern item 52/PR 60's own
+    gap was completed with: PR 62 shipped with only `CHANGELOG.md` updated. See `CHANGELOG.md`
+    `[1.71.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

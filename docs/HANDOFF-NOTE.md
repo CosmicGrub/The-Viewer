@@ -4,6 +4,40 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-fifth pass):** `VW.capabilities` — centralized
+> feature-detection + tier registry (multi-window support, PR 19/25, stage 6), "depends on nothing"
+> per the plan's own words — the first of six bleeding-edge-capability PRs (19-24) that close out this
+> initiative. Adds a single object exposing `{tier, broadcastChannel, windowPlacement, wakeLock,
+> pictureInPicture, fileSystemAccess, webLocks, indexedDB}` to `shared.js`, alongside the existing
+> `VW.channel`/`VW.workspace`/`VW.windows`/`VW.bench`/`VW.checkpoint` — nothing else changes; those
+> existing namespaces and PR 17's `_screenPlacementAvailable()` stay byte-for-byte what they were.
+> **The live-read decision, the one thing most worth explaining:** the plan doc calls this "computed
+> once," which reads naturally as "cache the whole object at load time" — actively wrong here, because
+> `window.RPS.mode` (the tier signal every non-tier field is AND-ed against) is set asynchronously by
+> `rps.js`'s `boot()`, well after `shared.js`'s own top-level code has already run on most pages (only
+> 17 of 49 pages load `rps.js` at all). A one-time snapshot would silently lock every flag to a stale
+> value forever. Same "live vs. cached" question PR 6's `windowsRegistry()` already answered — so
+> every field is a LIVE getter (`Object.defineProperty`, plain ES5, never the newer getter/setter
+> object-literal shorthand `rps_lint.py` would flag), re-evaluated fresh on every read. Every
+> non-tier flag is a raw feature check AND-ed with `tier === "modern"` EXACTLY (never truthy — a
+> `"premium"` tier does not itself unlock anything, matching `_screenPlacementAvailable()`'s own
+> established convention); `windowPlacement` calls that exact existing function directly rather than
+> re-typing a second, drift-prone copy. Every getter is independently try/caught so one hostile raw
+> check degrades only that one flag. **Already-wired callers come alive with zero code changes:** PR
+> 15's `jobcard.html`/`solve.html` were written reading `VW.capabilities.tier` back when they shipped,
+> deliberately inert with their own "no change needed here" comment — this PR makes that real, with
+> neither HTML file touched (confirmed by a `git diff` assertion in the new tests). New
+> `engine/tests/test_vw_capabilities.py` + `engine/tests/js/test_vw_capabilities_node.js`, 82 real
+> assertions (17 top-level + 65 in the node `vm.createContext` behavioral layer, same sandbox style
+> `test_windows_layout.py`/PR 6 established): the live-read guarantee proven by mutating
+> `window.RPS.mode` on an already-loaded sandbox and confirming the next read reflects it; every flag
+> tested across present+modern/lite/legacy/premium and absent+modern (35 assertions); a throwing raw
+> check degrading only its own flag; `windowPlacement`'s source body and live behavior both proven
+> identical to `_screenPlacementAvailable()`. **Proven load-bearing** by breaking 3 guarantees one at a
+> time (caching the tier once: 2 failures; removing one getter's try/catch: 3 failures; re-typing
+> `windowPlacement` as an independent copy: 2 failures at both the node and Python layers) and
+> confirming a clean 82/0 on revert every time. `rps_lint.py` clean. Landed as PR 19, `[1.73.0]`.
+>
 > **Reconciliation note (2026-09-05, forty-fourth pass):** G — kiosk/second-screen reference view
 > (multi-window support, PR 18/25, stage 5), depending on PR 5 (`VW.windows`) and PR 17 (C —
 > screen-aware placement, `[1.68.0]`) for its `opts.screen` placement preference. New minimal server

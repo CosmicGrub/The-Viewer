@@ -1390,6 +1390,109 @@
     return had;
   }
 
+  /* v1.73.0: VW.capabilities -- centralized feature-detection + tier registry (multi-window support,
+     PR 19 of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 6). A single object
+     exposing:
+       {tier, broadcastChannel, windowPlacement, wakeLock, pictureInPicture, fileSystemAccess,
+        webLocks, indexedDB}
+     -- see the design doc's own "VW.capabilities (Stage 6, new)" API block. Depends on nothing; PRs
+     20-24 read this instead of each reimplementing its own tier/feature-detection ad hoc. Per the
+     plan's own text this PR only ADDS the registry -- VW.channel/VW.workspace/VW.windows's existing
+     contracts, PR 15's jobcard.html tier check, and PR 17's _screenPlacementAvailable() above are NOT
+     retrofitted to read it; that retrofit is explicitly out of scope here ("a later cleanup PR, not
+     part of this plan").
+
+     LIVE READS, NOT A ONE-TIME SNAPSHOT -- the one design choice here most worth explaining. The plan
+     doc calls this "computed once," but window.RPS.mode -- the tier signal every non-tier field below
+     is AND-ed against -- is set on a delay: rps.js's boot() only replaces the {mode:"modern"} default
+     once its own fetch("/api/rps") call resolves, and boot() itself does not even run until
+     document.body exists. shared.js's own top-level code (this whole IIFE) runs on every page BEFORE
+     that resolution happens, and often before rps.js has run at all (rps.js loads near the bottom of
+     the body today, well after shared.js in the head) -- and most of this app's pages never load
+     rps.js at all, so window.RPS stays undefined there permanently. A plain object computed once at
+     this exact moment (shared.js's own module-load time) and cached forever would either capture
+     "undefined" (most pages) or capture the "modern" default before the real tier ever arrives (the
+     pages that do eventually load rps.js) -- silently locking every AND-ed-with-tier flag to whatever
+     RPS happened to look like at that one early instant, forever, even after the real tier becomes
+     known moments later. This is the same "live vs. cached" correctness question windowsRegistry()
+     above already answered once (it reads screenX/screenY/etc. LIVE off the window handle at CALL
+     TIME, never a stale open-time snapshot) -- so every field below is a live getter, re-evaluated on
+     each access, via Object.defineProperty (plain ES5 -- deliberately NOT the newer getter/setter
+     shorthand syntax built into an object literal, which rps_lint's own ES6-syntax scan would flag).
+     "Computed once" is read here as "the CHECK is written once, when this file loads," never "the
+     VALUE is captured once."
+
+     Every non-tier field is a raw browser-feature check AND-ed with tier === "modern" exactly (a
+     strict string match, never a truthy read -- matching _screenPlacementAvailable()'s own established
+     convention above: "premium" is an additive flag layered on top of an already-"modern" mode per
+     rps.js's own applyMode comment, never a mode value of its own, and unlocks nothing here beyond what
+     "modern" already does). windowPlacement calls _screenPlacementAvailable() itself rather than
+     re-typing a second, potentially-drifting copy of its raw getScreenDetails check, so the two can
+     never diverge. Every getter below is individually wrapped in its own try/catch so one hostile or
+     throwing global degrades only that one field to false, never breaking any other field's read. */
+  function _capTier() {
+    try {
+      return (g.RPS && typeof g.RPS.mode === "string") ? g.RPS.mode : "modern";
+    } catch (e) { return "modern"; }
+  }
+  function _capIsModernTier() {
+    try { return _capTier() === "modern"; } catch (e) { return false; }
+  }
+  var _capabilities = {};
+  Object.defineProperty(_capabilities, "tier", {
+    enumerable: true,
+    get: function () { return _capTier(); }
+  });
+  Object.defineProperty(_capabilities, "broadcastChannel", {
+    enumerable: true,
+    get: function () {
+      try { return typeof BroadcastChannel === "function" && _capIsModernTier(); }
+      catch (e) { return false; }
+    }
+  });
+  Object.defineProperty(_capabilities, "windowPlacement", {
+    enumerable: true,
+    get: function () {
+      try { return _screenPlacementAvailable(); }
+      catch (e) { return false; }
+    }
+  });
+  Object.defineProperty(_capabilities, "wakeLock", {
+    enumerable: true,
+    get: function () {
+      try { return ("wakeLock" in navigator) && _capIsModernTier(); }
+      catch (e) { return false; }
+    }
+  });
+  Object.defineProperty(_capabilities, "pictureInPicture", {
+    enumerable: true,
+    get: function () {
+      try { return typeof window.documentPictureInPicture !== "undefined" && _capIsModernTier(); }
+      catch (e) { return false; }
+    }
+  });
+  Object.defineProperty(_capabilities, "fileSystemAccess", {
+    enumerable: true,
+    get: function () {
+      try { return typeof window.showSaveFilePicker === "function" && _capIsModernTier(); }
+      catch (e) { return false; }
+    }
+  });
+  Object.defineProperty(_capabilities, "webLocks", {
+    enumerable: true,
+    get: function () {
+      try { return ("locks" in navigator) && _capIsModernTier(); }
+      catch (e) { return false; }
+    }
+  });
+  Object.defineProperty(_capabilities, "indexedDB", {
+    enumerable: true,
+    get: function () {
+      try { return typeof window.indexedDB !== "undefined" && _capIsModernTier(); }
+      catch (e) { return false; }
+    }
+  });
+
   /* v1.63.0: VW.popoutControl -- A2, per-page pop-out control (multi-window support, PR 14 of
      docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 4). A1 (index.html's home-nav
      ↗ buttons, v1.55.0) pops a SECTION out from the home page; A2 is the mirror image -- a page a
@@ -1513,7 +1616,8 @@
              windows: { open: windowsOpen, registry: windowsRegistry,
                         restoreLayout: windowsRestoreLayout },
              bench: { get: benchGet, put: benchPut },
-             checkpoint: { get: checkpointGet, clear: checkpointClear } };
+             checkpoint: { get: checkpointGet, clear: checkpointClear },
+             capabilities: _capabilities };
   g.VW = VW;
   /* Back-compat: expose the classic names only when the page doesn't define its own. */
   if (g.esc === undefined) g.esc = esc;

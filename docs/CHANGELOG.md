@@ -12,6 +12,117 @@ every change going forward.
 
 ---
 
+## [1.73.0] — 2026-09-05 — `VW.capabilities`: centralized feature-detection + tier registry (multi-window support, PR 19/25)
+
+Stage 6, PR 19 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md` — "depends on nothing"
+(the plan's own words), the first of the six bleeding-edge-capability PRs (19–24) that close out this
+initiative. Adds `VW.capabilities` — a single object exposing `{tier, broadcastChannel,
+windowPlacement, wakeLock, pictureInPicture, fileSystemAccess, webLocks, indexedDB}` — to `shared.js`,
+alongside the existing `VW.channel`/`VW.workspace`/`VW.windows`/`VW.bench`/`VW.checkpoint`
+namespaces. Nothing else changes: per the plan's own text ("PRs 1/2/5 are NOT retrofitted to depend on
+it — their existing contracts stay stable"), `VW.channel`/`VW.workspace`/`VW.windows`'s public exports
+and PR 17's `_screenPlacementAvailable()` are byte-for-byte what they were before this PR.
+
+**The live-read decision — the one design choice here most worth explaining.** The plan doc calls
+this registry "computed once," which reads naturally as "cache the whole object the moment `shared.js`
+loads." That reading is actively wrong here, for a real, already-diagnosed reason: `window.RPS.mode` —
+the tier signal every non-tier field is AND-ed against — is set asynchronously. `rps.js`'s `boot()`
+only replaces its `{mode:"modern"}` default once its own `fetch("/api/rps")` call resolves, and
+`boot()` itself does not even run until `document.body` exists (it waits on `DOMContentLoaded` for a
+`<head>`-loaded script). On `engine/ui/index.html`, `shared.js` loads at line 6 while `rps.js` does not
+load until line 336 — meaning at the exact moment `shared.js`'s own top-level code runs on that page,
+`window.RPS` does not exist yet at all. Separately, only 17 of this app's 49 pages load `rps.js` in
+the first place (`torque.html` among the pages that never do) — `window.RPS` is simply undefined
+there, permanently. A plain object snapshotted once at `shared.js`'s own module-load time would
+therefore either capture `undefined` (most pages) or capture the `"modern"` default before the real
+tier ever arrives (the pages that do eventually load `rps.js`) — silently locking every AND-ed-with-
+tier flag to whatever `RPS` happened to look like at that one early instant, forever, even after the
+real tier becomes known moments later. This is the exact same "live vs. cached" correctness question
+PR 6's `windowsRegistry()` already answered once (it reads `screenX`/`screenY`/etc. LIVE off the
+window handle at CALL time, never a stale open-time snapshot) — so every field on `VW.capabilities` is
+a live getter, via `Object.defineProperty` (plain ES5 — deliberately not the newer getter/setter
+shorthand syntax built into an object literal, which `rps_lint.py`'s own ES6-syntax scan would flag),
+re-evaluated fresh on every read. "Computed once" is read here as "the CHECK is written once, when
+`shared.js` loads," never "the VALUE is captured once."
+
+**The 8 fields.** `tier` reads `window.RPS.mode` live, defaulting to `"modern"` when `window.RPS`
+itself is absent or malformed. The other 7 are each a raw browser-feature check AND-ed with
+`tier === "modern"` **exactly** — a strict string match, never a truthy read, matching
+`_screenPlacementAvailable()`'s own established convention: `"premium"` is an additive, opt-in
+visual-effects flag layered on top of an already-`"modern"` mode (`rps.js`'s own `applyMode` comment —
+the server only ever sets `flags.premium_ui` when mode is already `"modern"`; `RPS.mode` itself is
+never literally the string `"premium"`), never a mode value of its own, and unlocks nothing here
+beyond what `"modern"` already does. `broadcastChannel` (`typeof BroadcastChannel === "function"`),
+`wakeLock` (`"wakeLock" in navigator`), `pictureInPicture` (`typeof window.documentPictureInPicture
+!== "undefined"` — Document Picture-in-Picture, per PR 24's stated need, deliberately NOT the older
+video-element-only `document.pictureInPictureEnabled`), `fileSystemAccess` (`typeof
+window.showSaveFilePicker === "function"`), `webLocks` (`"locks" in navigator`), and `indexedDB`
+(`typeof window.indexedDB !== "undefined"`) are each a fresh, independent live getter. `windowPlacement`
+calls PR 17's existing `_screenPlacementAvailable()` directly rather than re-typing a second,
+potentially-drifting copy of its `typeof window.getScreenDetails === "function"` + tier check — the
+two can never diverge, because there is only ever one implementation. Every getter is individually
+wrapped in its own `try`/`catch` so a hostile or locked-down browser context that throws on one raw
+check degrades only that one flag to `false`, never breaking any other flag's read.
+
+**Already-wired, previously-inert callers come alive with zero code changes.** PR 15's
+`jobcard.html`/`solve.html` (`launchWorkOrder()`/`launchSolveIt()`) were written reading
+`window.VW && VW.capabilities` / `caps.tier` back when they shipped, deliberately inert with their own
+comment saying so ("`VW.capabilities` is Stage 6 ... the day PR 19 ships a real `VW.capabilities`,
+this starts warning with no change needed here"). This PR makes that real: opening 3 windows at once
+from either page now genuinely warns on `lite`/`legacy` tier, with **no edit to either HTML file** —
+confirmed by a `git diff` assertion in the new test suite that this PR's own diff touches neither file
+at all.
+
+**Placement discipline** — per PR 6/PR 17's own documented `test_a2_popout.py` cross-PR coupling
+hazard (that test slices `popoutControl()`'s body up to the next `var VW = {` marker; anything
+inserted between them gets silently swallowed into what it inspects, including its
+exactly-one-`VW.windows.open(`-call assertion), the new code lands entirely BEFORE
+`popoutControl()`'s own section, confirmed by both a source-offset assertion in the new test file and
+a clean re-run of `test_a2_popout.py` itself (62/0, unchanged).
+
+**New `engine/tests/test_vw_capabilities.py` + `engine/tests/js/test_vw_capabilities_node.js`, 82 real
+assertions total** (17 top-level + 65 inside the node behavioral layer), against the actual shipped
+`shared.js`, in the same `vm.createContext` sandbox style `test_windows_layout.py` (PR 6) established:
+the live-read guarantee itself (`window.RPS.mode` mutated on an already-loaded sandbox — no reload, no
+second `vm.runInContext` call — is reflected on the very next read of `tier`/`broadcastChannel`, then
+flipped back and re-confirmed); `window.RPS` entirely absent reads `tier` as `"modern"`, never throws;
+each of the 7 AND-ed flags tested across present+modern→true, present+lite→false, present+legacy→
+false, absent+modern→false, and present+premium→false (35 assertions, the `"premium"`-is-not-`"modern"`
+edge case included for every flag); a raw feature check that throws (`window.documentPictureInPicture`
+given a throwing accessor — the one raw check exercised this way, since a Node vm sandbox's own
+global-object accessor semantics silently swallow a throwing accessor placed directly on the sandbox
+itself into a plain `ReferenceError` rather than propagating it, a real Node vm quirk confirmed by hand
+while building this suite, not a `shared.js` bug or something worked around by accident — `window` is
+therefore a genuine, distinct plain object in this sandbox, not the vm's own global, so a throw on it
+propagates exactly like a real browser's `window` would) degrades only that one flag, proven not to
+affect `tier`/`broadcastChannel`/`wakeLock` in the same object, and proven not to accidentally cache
+the degraded value (read twice, `false` both times); `windowPlacement`'s getter body is asserted, at
+the source level, to call `_screenPlacementAvailable()` directly with no second `getScreenDetails`
+check of its own, AND its value is asserted, behaviorally, to match manually evaluating that exact
+documented expression across 6 scenarios; `VW.channel`/`VW.workspace`/`VW.windows` still export
+exactly what they did before this diff. **Proven load-bearing by breaking 3 representative guarantees
+one at a time** in the working tree — replacing the live tier getter with a value captured once at
+load time (2 assertions genuinely failed: the two live-read checks, and no others); removing the
+`try`/`catch` around the `pictureInPicture` getter (3 assertions genuinely failed: the three
+throw-isolation checks); re-typing `windowPlacement`'s getter as a second, independent copy of
+`_screenPlacementAvailable()`'s expression instead of calling it (2 assertions genuinely failed, at
+BOTH the node-behavioral layer and the Python source-level layer) — then reverting each and
+re-confirming a clean 17/0 (82/0 including the nested node layer) after every one. `rps_lint.py` clean
+(no ES6 syntax; `Object.defineProperty` used throughout, never the getter/setter shorthand — checked
+by the new test suite too, as a belt-and-suspenders source scan alongside `rps_lint.py` itself).
+
+**Files changed**: `engine/ui/shared.js` (new `VW.capabilities`, placed before `popoutControl()`'s own
+section, per the coupling hazard above); `engine/viewer_app.py` (`VERSION`); new
+`engine/tests/test_vw_capabilities.py` + `engine/tests/js/test_vw_capabilities_node.js`;
+`docs/superpowers/specs/2026-09-03-multi-window-tabs-design.md` (the `VW.capabilities` API block's own
+section header updated from "Stage 6, new" to reflect that it has landed — a small, honest doc-
+accuracy fix, nothing else in that spec file touched); `docs/CHANGELOG.md`, `docs/HANDOFF-NOTE.md`,
+`docs/PROJECT-SUMMARY.md`, `docs/MASTER-RECONCILIATION.md`, `docs/ITERATION-SNAPSHOTS.md`,
+`docs/ITERATION-DASHBOARD.html` (the last two regenerated via `engine/build_iteration_snapshot.py`,
+never hand-edited).
+
+---
+
 ## [1.72.0] — 2026-09-05 — G: kiosk/second-screen reference view (multi-window support, PR 18/25)
 
 Stage 5, PR 18 of `docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md`, depending on PR 5

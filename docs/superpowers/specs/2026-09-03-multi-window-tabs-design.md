@@ -263,12 +263,19 @@ VW.windows.registry() -> [{name, url, screenX, screenY, outerWidth, outerHeight}
 VW.windows.restoreLayout(entries)   // user-triggered only
 ```
 
-### `VW.capabilities` (Stage 6, new)
+### `VW.capabilities` (Stage 6, PR 19 — landed)
 ```
 VW.capabilities.tier         // "modern" | "lite" | "legacy", read from the existing rps.js tier
 VW.capabilities.broadcastChannel / windowPlacement / wakeLock / pictureInPicture /
   fileSystemAccess / webLocks / indexedDB   // booleans, raw feature-detection AND-ed with tier
 ```
+Each field above is a LIVE getter (`Object.defineProperty` on a plain object in `shared.js`),
+re-evaluated on every read rather than a value captured once when `shared.js` loads — `window.RPS.mode`
+(the tier signal every non-tier field is AND-ed against) is itself set asynchronously by `rps.js`, well
+after `shared.js`'s own top-level code has already run on most pages, so a one-time snapshot would
+silently lock every flag to a stale value. See `engine/ui/shared.js`'s own comment directly above
+`VW.capabilities` for the full timing argument, and `[1.73.0]` in `docs/CHANGELOG.md` for the shipped
+PR.
 
 ### `VW.locks` (Stage 6, new)
 ```

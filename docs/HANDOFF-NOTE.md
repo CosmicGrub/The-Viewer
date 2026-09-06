@@ -4,6 +4,49 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-eighth pass):** `VW.workspace` — schema-versioned saved data
+> (multi-window support, PR 22/25, stage 6), depending on PR 2 (CRUD, already merged) **only** —
+> explicitly independent of PR 19-21's IndexedDB work, since both backings store the same record shape.
+> Fulfills the `schemaVersion` deferral PR 3 named explicitly at the time it shipped. A new
+> `_WS_SCHEMA_VERSION = 1` constant is stamped onto every newly-created record; migrate-on-read runs at
+> the one shared chokepoint PR 21 itself established (`_wsAllForRead()`/`_wsAllForMutation()`). **The
+> three cases, decided by one shared function (`_wsClassifyRecordSchema`) both the read path and the
+> import path call:** schemaVersion MISSING entirely (every record PR 2-through-21 ever saved) is
+> stamped with the current constant and written back; present and `<=` current passes through
+> untouched; present and `>` current (a cached-newer build, or a rolled-back deploy against
+> already-upgraded data) is CLEAN REFUSAL — excluded from `list()`'s returned array while every other
+> valid record still comes back correctly, and NEVER deleted or mutated in the underlying stored array;
+> `get(id)` keeps its null-for-not-found convention but makes the two cases distinguishable via a
+> `console.warn` plus a new debug accessor, `_lastGetSchemaRefusal()`. **Two real correctness hazards
+> found and fixed during this PR's own load-bearing verification:** an eager write-back on every
+> migrated read would have defeated PR 2's own deliberate "a read never rewrites corrupt storage"
+> guarantee whenever a migratable record shared storage with genuine junk (fixed via a new
+> `_wsLastReadHadJunk` signal deferring the durable write in that mixed case); and an eager write-back
+> on the IndexedDB-backed path, fired before PR 21's own bootstrap/reconcile had resolved, could race
+> and make reconcile wrongly skip replacing the cache with genuinely-authoritative prior-session data
+> (fixed by gating the eager commit behind `_wsIdbDb` already being an established connection).
+> **Export/import (PR 3):** `_wsExportPayload()` now also carries `schemaVersion`;
+> `_wsValidateImportShape()` calls the SAME shared classifier before `workspaceCreate()` is ever
+> reached, refusing a future-schemaVersion import file with PR 3's own established specific-`Error`
+> convention, writing nothing to storage — an old (schemaVersion-less) export still imports cleanly.
+> Lands after PR 21's IndexedDB section and well before `popoutControl()`'s own section, per the
+> `test_a2_popout.py` coupling hazard. New `engine/tests/test_vw_workspace_schema_version.py` +
+> `engine/tests/js/test_vw_workspace_schema_version_node.js`, 62 real assertions total (13 static +
+> `node --check` + 47 node behavioral): a fresh `create()` stamping the constant proven in isolation
+> (checked against raw storage before any `get()`/`list()` call could itself migrate-and-mask a missing
+> stamp); an old-shaped fixture (no `schemaVersion` field, exactly real PR2-21 data) read correctly via
+> `list()`/`get()` AND durably re-stamped afterward; a future-schemaVersion fixture excluded from
+> `list()` while a sibling record still comes back correctly, NEVER deleted/mutated even across a real,
+> unrelated `create()` commit; `get()`'s null distinguished from a genuine not-found; export/import's
+> schemaVersion round-trip, an old export still importing cleanly, and a future-schemaVersion import
+> throwing/rejecting with a version-naming message while writing nothing to storage; and the shared
+> classifier exercised directly. PR 2's, PR 3's, and PR 21's own original test suites re-run UNMODIFIED
+> against this new code — three EXPECTED failures, the direct and intended consequence of `schemaVersion`
+> joining the record/export/`VW.workspace` shapes, never a regression (PR 2: 72/73 clean; PR 3: 52/53
+> clean; PR 21: 43/43 node assertions clean, 25/26 structural checks clean) — every OTHER assertion
+> passed unchanged. **Proven load-bearing** by breaking 7 representative guarantees one at a time and
+> confirming a clean re-run on revert every time. `rps_lint.py` clean. Landed as PR 22, `[1.76.0]`.
+>
 > **Reconciliation note (2026-09-05, forty-seventh pass):** `VW.workspace` — IndexedDB storage
 > migration (multi-window support, PR 21/25, stage 6), depending on PR 2 (CRUD, already merged) and
 > PR 19's `VW.capabilities.indexedDB` (`[1.73.0]`) — `lite`/`legacy` tier keeps the original

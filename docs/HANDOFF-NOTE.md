@@ -4,6 +4,56 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-ninth pass):** `VW.workspace.exportFileNative`/
+> `importFileNative` — File System Access API for export/import (multi-window support, PR 23/25,
+> stage 6), depending on PR 3 (`exportFile`/`importFile`, already merged) and PR 19
+> (`VW.capabilities.fileSystemAccess`, already merged) — both reused directly, never re-derived.
+> **exportFileNative(id):** where the capability is true, calls `window.showSaveFilePicker()`
+> directly in the click handler (a suggested filename from the workspace's own name + `.json`, a
+> JSON type filter), writes the SAME `_wsExportPayload()`/`exportFile()` JSON via the handle's
+> `createWritable()`/`write()`/`close()`, and remembers the `FileSystemFileHandle` in a
+> this-tab-only, in-memory map keyed by workspace id — deliberately never persisted (a handle can't
+> be trivially serialized to localStorage/IndexedDB; a real IndexedDB-handle-persistence scheme
+> exists in principle but is meaningfully more complex and not required by the plan). Where the
+> capability is false, performs the EXACT SAME Blob/`URL.createObjectURL`/`<a download>` trigger
+> `workspaces.html`'s own `downloadFile()` already uses — one function, best available behavior
+> either way. **WRITE-BACK-IN-PLACE** (the actual "whole team re-saves into the same shared file"
+> scenario the design doc names it for): a second `exportFileNative()` call for an id already
+> remembered re-verifies write permission via the handle's own `queryPermission()`/
+> `requestPermission()` FIRST — never assumes a stale handle is still writable, since permission can
+> be revoked between calls — and only reuses it if that genuinely confirms `"granted"`; a
+> revoked/denied handle is dropped and this falls through to a fresh picker call. **CANCEL IS NOT AN
+> ERROR:** a real `AbortError` from either native picker resolves (never rejects) `false`/`null`;
+> any OTHER rejection still propagates as a genuine failure. **importFileNative():** only meaningful
+> where the capability is true (rejects clearly otherwise — the existing `<input type="file">` UI is
+> already the complete fallback); calls `window.showOpenFilePicker()`, reads the picked file's text,
+> feeds it through the EXISTING `_wsImportFromJson()` (PR 3/PR 22's own validation/migration path,
+> never a second copy), and on success remembers the handle keyed by the NEWLY CREATED id, so a
+> later `exportFileNative()` for that id writes back to the SAME file — completing the real
+> open→edit→save-back loop. **UI:** a feature-detected "💾 Save to file…" button added next to every
+> row's existing "⬇ Download .json" button, and a feature-detected "🗂 Open from file…" button added
+> next to the existing "📁 Import from file…" control in `workspaces.html`, both visible only when
+> `VW.capabilities.fileSystemAccess` is true — the existing download/import UI is completely
+> untouched. Lands after PR 3's `workspaceImportFile()` and well before `popoutControl()`'s own
+> section, per the `test_a2_popout.py` coupling hazard. New
+> `engine/tests/test_vw_workspace_fsa.py` + `engine/tests/js/test_vw_workspace_fsa_node.js`, 97
+> real assertions total (43 static + 2 `node --check` gates + 52 node behavioral -- reported as a
+> single rollup line by the `.py` wrapper's own 46-item count): the fallback path against a real
+> Node `Blob`; the native path's picker options and exact written JSON; write-back-in-place via a
+> call-count spy; a revoked/denied permission proven re-checked and falling back to a fresh picker;
+> cancel-is-not-an-error in both directions, contrasted against a genuine rejection still
+> propagating; the schema-refusal path proven to route through PR 22's own `_wsClassifyRecordSchema`
+> (same specific-`Error` message, not a second comparison); a successful import's handle proven
+> remembered via a subsequent reusing export call; and capability-false import proven to reject
+> clearly, never silently no-op. PR 3's, PR 19's, PR 21's, PR 22's, PR 2's, PR 16's, PR 20's, and PR
+> 14's own original suites re-run by hand, all fully green, no assertion needing to change (real
+> counts in `CHANGELOG.md`'s `[1.77.0]` entry). **Proven load-bearing** by breaking 9 representative
+> guarantees one at a time (several surfaced as a hard crash, not merely a failed assertion, proving
+> the guard's absence is actively dangerous) and confirming a clean re-run on revert every time.
+> `rps_lint.py` clean. **Manual-only, per the plan's own stated requirement:** the real native
+> Save/Open dialog on real Chromium hardware has no headless equivalent and is not automated here.
+> Landed as PR 23, `[1.77.0]`.
+>
 > **Reconciliation note (2026-09-05, forty-eighth pass):** `VW.workspace` — schema-versioned saved data
 > (multi-window support, PR 22/25, stage 6), depending on PR 2 (CRUD, already merged) **only** —
 > explicitly independent of PR 19-21's IndexedDB work, since both backings store the same record shape.

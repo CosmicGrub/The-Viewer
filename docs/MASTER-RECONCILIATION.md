@@ -67,7 +67,56 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.76.0, shipped 2026-09-05** (`VW.workspace` — schema-versioned saved data,
+**True current state: v1.77.0, shipped 2026-09-05** (`VW.workspace.exportFileNative`/
+`importFileNative` — File System Access API for export/import, multi-window support PR 23/25, stage
+6, depending on item 48/PR 3 (`exportFile`/`importFile`, already merged) and item 56/PR 19
+(`VW.capabilities.fileSystemAccess`, already merged) — both reused directly, per the plan's own
+words: "the existing blob/`<a download>` path stays as the universal fallback, never removed... this
+is a strictly-better OPTION layered on top." Two new functions on `VW.workspace`, both gated on the
+SAME `_capabilities.fileSystemAccess` item 56/PR 19 established, never a second raw
+`showSaveFilePicker` check of their own: `exportFileNative(id) -> Promise<boolean>` — where the
+capability is true, calls `window.showSaveFilePicker()` directly inside the click handler that
+triggers it (a suggested filename from the workspace's own name plus `.json`, a JSON type filter),
+writes the SAME `_wsExportPayload()`/`exportFile()` JSON via the handle's
+`createWritable()`/`write()`/`close()`, and remembers the resulting `FileSystemFileHandle` in a
+this-tab-only, in-memory map keyed by workspace id — deliberately never persisted to
+localStorage/IndexedDB (a handle can't be trivially serialized there; a real
+IndexedDB-handle-persistence scheme exists in principle but is meaningfully more complex and not
+required by the plan); where the capability is false, performs the EXACT SAME
+Blob/`URL.createObjectURL`/`<a download>` trigger `workspaces.html`'s own `downloadFile()` already
+uses — one function, best available behavior either way. `importFileNative() -> Promise<string|null>`
+— only meaningful where the capability is true (rejects clearly, never silently no-ops, otherwise —
+the existing `<input type="file">` UI is already the complete fallback); calls
+`window.showOpenFilePicker()`, reads the picked file's text, feeds it through the EXISTING
+`_wsImportFromJson()` (item 48/PR 3's and item 59/PR 22's own validation/migration path, never a
+second copy), and on success remembers the handle keyed by the NEWLY CREATED id, so a later
+`exportFileNative()` for that id writes back to the SAME file — completing the real
+open→edit→save-back loop. **WRITE-BACK-IN-PLACE**, the actual "whole team re-saves into the same
+shared file" scenario the design doc names it for: a second `exportFileNative()` call for an
+already-remembered id re-verifies write permission via the handle's own `queryPermission()`/
+`requestPermission()` FIRST — never assumes a stale handle is still writable, since permission can
+be revoked between calls — and only reuses it if that genuinely confirms `"granted"`; a
+revoked/denied handle is dropped and this falls through to a fresh picker call. **CANCEL IS NOT AN
+ERROR:** a real `AbortError` from either native picker resolves (never rejects) `false`/`null`; any
+OTHER rejection still propagates as a genuine failure. **UI:** a feature-detected "Save to file…"
+button added next to every row's existing "Download .json" button, and a feature-detected "Open
+from file…" button added next to the existing "Import from file…" control in `workspaces.html`,
+both visible only when the capability is true — the existing download/import UI is completely
+untouched. Lands after item 48/PR 3's `workspaceImportFile()` and well before `popoutControl()`'s
+own section, per the `test_a2_popout.py` coupling hazard. New `engine/tests/test_vw_workspace_fsa.py`
++ `engine/tests/js/test_vw_workspace_fsa_node.js` — the `.py` wrapper runs 43 static checks plus two
+`node --check` gates and the node suite's own rollup (46/0); the node suite carries **52 real
+assertions** against a hand-rolled mock `showSaveFilePicker`/`showOpenFilePicker`/
+`FileSystemFileHandle` (permission state fully scriptable, including changing it BETWEEN two calls
+to simulate a revoked grant). Item 48/PR 3's, item 56/PR 19's, item 58/PR 21's, item 59/PR 22's, item
+36/PR 2's, item 49/PR 16's, item 57/PR 20's, and item 46/PR 14's OWN original test suites were all
+re-run by hand against this new code and stayed fully green with no assertion needing to change (real
+counts in `CHANGELOG.md`'s `[1.77.0]` entry). Proven load-bearing by breaking 9 representative
+guarantees one at a time — several surfacing as a hard crash rather than merely a failed assertion,
+proving the guard's absence is actively dangerous, not just untested — and confirming a clean re-run
+on revert every time. `rps_lint.py` clean. Manual-only, per the plan's own explicit requirement: the
+real native Save/Open dialog on real Chromium hardware has no headless test-suite equivalent and is
+not automated here. See §6 item 60). Immediately prior: **v1.76.0, shipped 2026-09-05** (`VW.workspace` — schema-versioned saved data,
 multi-window support PR 22/25, stage 6, depending on item 36/PR 2 (CRUD, already merged) ONLY —
 explicitly INDEPENDENT of item 58/PR 21's IndexedDB work, since both backings store the same record
 shape. Fulfills the `schemaVersion` deferral item 48/PR 3 named explicitly at the time. A new
@@ -3696,6 +3745,104 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     ellipsis, item 50/PR 6's "let alone"/ellipsis — caught here too (markdown-style backticks around
     variable names in new comments, a literal "..." inside quoted spec prose, and "async
     write-through") and reworded rather than suppressed). See `CHANGELOG.md` `[1.76.0]`.
+60. **`[1.77.0]` — `VW.workspace`: File System Access API for export/import (multi-window support, PR
+    23/25, stage 6).** Depends on item 48/PR 3 (`exportFile`/`importFile`, already merged) and item
+    56/PR 19 (`VW.capabilities.fileSystemAccess`, already merged) — both reused directly, per the
+    plan's own words: "the existing blob/`<a download>` path stays as the universal fallback, never
+    removed... this is a strictly-better OPTION layered on top." **Two new functions on
+    `VW.workspace`, both gated on the SAME `_capabilities.fileSystemAccess` item 56/PR 19
+    established, never a second raw `showSaveFilePicker` check of their own:**
+    `exportFileNative(id) -> Promise<boolean>` — where the capability is true, calls
+    `window.showSaveFilePicker()` directly inside the click handler that triggers it (a suggested
+    filename derived from the workspace's own name plus `.json`, a JSON `types` filter), writes the
+    SAME payload `_wsExportPayload()`/`exportFile()` already produce via the handle's
+    `createWritable()`/`write()`/`close()`, and remembers the resulting `FileSystemFileHandle` in a
+    THIS-TAB-ONLY, in-memory map keyed by workspace id — deliberately never persisted to
+    localStorage/IndexedDB (a handle cannot be trivially serialized there; a real
+    IndexedDB-handle-persistence scheme exists in principle but is meaningfully more complex and not
+    required by the plan, stated plainly rather than attempted); where the capability is false,
+    performs the EXACT SAME Blob/`URL.createObjectURL`/`<a download>` trigger `workspaces.html`'s own
+    `downloadFile()` already uses, mirrored byte-for-byte — one function call gets the best available
+    behavior regardless of tier, resolving `true` once the download was triggered (an honest, stated
+    limitation of that path only: no way to know if the technician actually kept it).
+    `importFileNative() -> Promise<string|null>` — only meaningful where the capability is true
+    (rejects clearly, never silently no-ops, when false — the existing `<input type="file">` UI is
+    already the complete, correct fallback for opening a file on that tier, so no second fallback is
+    built here); calls `window.showOpenFilePicker()` (same JSON filter), reads the picked file's text
+    via the handle's `getFile()`/`.text()`, feeds it through the EXISTING `_wsImportFromJson()` —
+    item 48/PR 3's and item 59/PR 22's own validation/migration path, never a second,
+    independently-typed copy — and on success remembers the resulting handle keyed by the NEWLY
+    CREATED workspace's id, so a LATER `exportFileNative()` call for that id writes back to the SAME
+    file it was opened from. **WRITE-BACK-IN-PLACE, the actual "whole team re-saves into the same
+    shared file" scenario the design doc names it for:** a second `exportFileNative()` call for an id
+    already remembered re-verifies write permission via the handle's own `queryPermission()`/
+    `requestPermission()` methods FIRST — never assumes a stale handle is still writable, since
+    permission can be revoked by the user or the browser between calls — and only reuses it (no new
+    picker shown) once that check genuinely confirms `"granted"`; a revoked/denied handle is dropped
+    and this falls through to a fresh `showSaveFilePicker()` call, exactly as if no handle had ever
+    been remembered for that id. **CANCEL IS NOT AN ERROR:** a technician dismissing either native
+    picker throws a real `DOMException` named `"AbortError"` — a normal, expected choice, never
+    treated as a failure; both functions catch specifically that one case and resolve (never reject)
+    `false`/`null` respectively, while any OTHER rejection (a genuine I/O failure, a permission the
+    browser refuses outright) still propagates as a real rejection — proven separately, so "cancel
+    never rejects" cannot be mistaken for "nothing ever rejects". **UI
+    (`engine/ui/workspaces.html`):** a feature-detected "Save to file…" button ADDED next to every
+    workspace row's existing "Download .json" button, and a feature-detected "Open from file…"
+    button ADDED next to the existing "Import from file…" control — both visible/enabled only when
+    `VW.capabilities.fileSystemAccess` is true, both genuinely wired to the two new functions above
+    (never an orphaned API addition nobody can reach). The existing download link, the
+    `<input type="file">` pair, and their click handlers are completely untouched — every technician
+    on a tier without this capability keeps exactly today's behavior. **Placement:** per the
+    by-now well-established `test_a2_popout.py` cross-PR coupling hazard, all new code lands after
+    item 48/PR 3's `workspaceImportFile()` and well before `popoutControl()`'s own section, confirmed
+    by a source-offset assertion in the new test file. New `engine/tests/test_vw_workspace_fsa.py` +
+    `engine/tests/js/test_vw_workspace_fsa_node.js` — the `.py` wrapper runs 43 static
+    source-level/placement/reuse/ES5 checks plus two `node --check` gates and the node suite's own
+    rollup (46/0 total); the node suite itself carries **52 real assertions** against the real
+    exported `VW.workspace` functions, with a hand-rolled mock
+    `showSaveFilePicker`/`showOpenFilePicker`/`FileSystemFileHandle` (permission state fully
+    scriptable, including changing it BETWEEN two calls to simulate a revoked grant): the fallback
+    path proven against a real Node `Blob` (a mocked `URL.createObjectURL` receiving a Blob whose
+    text is exactly `_wsExportPayload()`'s own JSON); the native path's `showSaveFilePicker()`
+    options (suggested filename, JSON type filter) and the exact JSON written via the mocked
+    writable stream; write-back-in-place proven with a call-count spy (a second
+    `exportFileNative()` call for the same id never calls `showSaveFilePicker()` again); a
+    revoked/denied permission on a previously-granted handle proven to be re-checked and to fall
+    back to a genuinely fresh picker call rather than silently reusing or failing; cancel-is-not-an-
+    error proven in both directions, contrasted directly against a genuine (non-abort) rejection
+    still propagating; `importFileNative()` proven to route through the EXISTING
+    `_wsImportFromJson()` by feeding it a `schemaVersion: 999` payload and confirming the SAME
+    "Workspace import failed: schemaVersion 999 is newer than this app version understands…" message
+    item 59/PR 22's own classifier produces (not a second, hand-rolled comparison); a successful
+    import's handle proven remembered by a subsequent `exportFileNative()` call for that same id
+    never re-prompting; and `importFileNative()` proven to reject clearly (never silently no-op) when
+    the capability is false. Item 48/PR 3's, item 56/PR 19's, item 58/PR 21's, item 59/PR 22's, item
+    36/PR 2's, item 49/PR 16's, item 57/PR 20's, and item 46/PR 14's OWN original test suites were all
+    re-run by hand against this new code and stayed fully green with no assertion needing to change —
+    this PR only adds new members/functions and never touches an existing record/export/UI shape any
+    of them check byte-for-byte (real, actually-counted numbers: PR 3 `.py` wrapper 2/2 + node suite
+    53/53; PR 19 `.py` wrapper 17/17 + node suite 65/65; PR 21 `.py` wrapper 27/27 + node suite
+    43/43; PR 22 `.py` wrapper 15/15 + node suite 47/47; PR 2 `.py` wrapper 2/2 + node suite 73/73;
+    PR 16 (single flat count) 40/40; PR 20 `.py` wrapper 18/18 + node suite 37/37; PR 14 (structural
+    only, no separate node file, per its own docstring) 62/62). **Proven load-bearing by breaking 9
+    representative guarantees one at a time** in the working tree and confirming a genuine failure
+    (several surfaced as a hard crash rather than merely a failed assertion, proving the guard's
+    absence is actively dangerous, not just untested) every time, then a clean re-run on revert: no
+    handle remembered after a fresh native export (5 failures); permission never re-checked before
+    reuse (5 failures); the AbortError special-case removed from the export path and from the import
+    path (each a chain-aborting failure); the fallback branch disabled entirely (crash —
+    `showSaveFilePicker` called on a tier that doesn't have it); the native branch's JSON payload
+    corrupted (crash downstream, plus a direct mismatch failure); `importFileNative()`'s
+    shared-validation call replaced with a naive, unvalidated `workspaceCreate()` (the schema-refusal
+    test no longer rejects); the imported handle no longer remembered (crash — the next export finds
+    no handle and calls the picker with no mock resolution value); and the capability-false guard
+    inverted (crash — `showOpenFilePicker` called on a tier that doesn't have it, proving "rejects
+    clearly" is the only thing standing between a normal call and a synchronous `TypeError`).
+    `rps_lint.py` clean. **Manual-only, per the plan's own explicit requirement:** the real native
+    Save/Open dialog on real Chromium hardware — the picker genuinely appearing, write-back-in-place
+    genuinely landing on a real shared/network file across two separate saves — has no headless
+    test-suite equivalent and is not automated here, exactly as the plan's own PR 23 entry states.
+    See `CHANGELOG.md` `[1.77.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 

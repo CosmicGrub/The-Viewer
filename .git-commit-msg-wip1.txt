@@ -1,4 +1,0 @@
-wip(multi-window): VW.workspace FSA export/import + node test (checkpoint)
-
-Checkpoint commit before running load-bearing break/restore verification on the
-new exportFileNative/importFileNative guarantees. Not a final commit message.

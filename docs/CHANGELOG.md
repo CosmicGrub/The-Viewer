@@ -106,8 +106,8 @@ durably) while the identical payload against a quota-constrained (~5MB) localSto
 exactly as the pre-PR-21 code would have, a real reproduced `QuotaExceededError`, not asserted in prose.
 
 **PR 2's and PR 3's own original test suites re-run UNMODIFIED against this new code, proving the
-contract really didn't change:** `test_shared_workspace.py`/`test_workspace_node.js` (68 real
-assertions) and `test_workspace_export_import.py`/`test_workspace_export_import_node.js` (46 real
+contract really didn't change:** `test_shared_workspace.py`/`test_workspace_node.js` (73 real
+assertions) and `test_workspace_export_import.py`/`test_workspace_export_import_node.js` (53 real
 assertions) both pass clean — their sandboxes never define `window.indexedDB`, so
 `VW.capabilities.indexedDB` reads `false` there and every assertion exercises the untouched
 localStorage path.

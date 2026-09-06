@@ -68,7 +68,7 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
 **True current state: v1.75.0, shipped 2026-09-05** (`VW.workspace` — IndexedDB storage migration,
-multi-window support PR 21/25, stage 6, depending on item 2/PR 2 (CRUD, already merged) and item
+multi-window support PR 21/25, stage 6, depending on item 36/PR 2 (CRUD, already merged) and item
 56/PR 19's `VW.capabilities.indexedDB` — `lite`/`legacy` tier keeps the original `localStorage` path
 unchanged. The unavoidable problem: IndexedDB has no synchronous read or write anywhere, but
 `create/list/get/touch/delete` are called synchronously by every existing consumer today, and per the
@@ -109,8 +109,8 @@ both instantly synchronous and eventually durably persisted; `lite`/`legacy`/`"p
 never call `indexedDB.open()` at all; failure resilience; the one-time failure toast proven with a real
 invocation counter (not text comparison); and the large-payload case this migration exists for — an
 ~8MB payload succeeds via IndexedDB while the identical payload against a quota-constrained (~5MB)
-localStorage-only mock fails with a real, reproduced `QuotaExceededError`. Item 2/PR 2's and item 3/PR
-3's OWN original test suites re-run UNMODIFIED against this new code — 68 and 46 real assertions
+localStorage-only mock fails with a real, reproduced `QuotaExceededError`. Item 36/PR 2's and item 48/PR
+3's OWN original test suites re-run UNMODIFIED against this new code — 73 and 53 real assertions
 respectively, both clean, since their sandboxes never define `window.indexedDB`. Proven load-bearing by
 breaking 7 representative guarantees one at a time and confirming a clean re-run on revert every time.
 `rps_lint.py` clean. See §6 item 58). Immediately prior: **v1.74.0, shipped 2026-09-05** (`VW.locks` —
@@ -3503,7 +3503,7 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     re-confirmed clean (17/0). `rps_lint.py` clean. See `CHANGELOG.md` `[1.74.0]`.
 
 58. **`[1.75.0]` — `VW.workspace`: IndexedDB storage migration (multi-window support, PR 21/25, stage
-    6).** Depends on item 2/PR 2 (CRUD, already merged) and item 56/PR 19's
+    6).** Depends on item 36/PR 2 (CRUD, already merged) and item 56/PR 19's
     `VW.capabilities.indexedDB` — `lite`/`legacy` tier keeps the original `localStorage` path
     unchanged. **The unavoidable problem:** IndexedDB has no synchronous read or write anywhere, but
     `create/list/get/touch/delete` are called synchronously by every existing consumer today, and per
@@ -3538,7 +3538,7 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     broadcast could paint a still-bootstrapping view with false confidence as easily as a correct one.
     **Placement:** `create/list/get/touch/delete` modified IN PLACE (never duplicated) to route through
     two new entry points, `_wsAllForRead()`/`_wsAllForMutation()`, committed via `_wsCommit()` —
-    `lite`/`legacy` tier stays exactly the old `_wsRead()`/`_wsWrite()`, unchanged; item 3/PR 3's
+    `lite`/`legacy` tier stays exactly the old `_wsRead()`/`_wsWrite()`, unchanged; item 48/PR 3's
     export/import functions needed zero additional changes, inheriting the correct backing for free
     through `workspaceGet`/`workspaceCreate`. Shape validation (`_wsCoerceAll`, pulled out of the old
     `_wsRead()`) is shared by both backings. Lands well before `popoutControl()`'s own section, per
@@ -3559,10 +3559,10 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     one firing from several identical ones); and the large-payload case this migration exists for — an
     ~8MB payload succeeds via IndexedDB while the identical payload against a quota-constrained (~5MB)
     localStorage-only mock fails with a real, reproduced `QuotaExceededError`, exactly as the
-    pre-PR-21 code would have. Item 2/PR 2's and item 3/PR 3's OWN original test suites re-run
+    pre-PR-21 code would have. Item 36/PR 2's and item 48/PR 3's OWN original test suites re-run
     UNMODIFIED against this new code (their sandboxes never define `window.indexedDB`, so
     `VW.capabilities.indexedDB` reads `false` and every assertion exercises the untouched localStorage
-    path) — 68 and 46 real assertions respectively, both clean. **Proven load-bearing by breaking 7
+    path) — 73 and 53 real assertions respectively, both clean. **Proven load-bearing by breaking 7
     representative guarantees one at a time** in the working tree and confirming a clean re-run on
     revert every time (bootstrap returning `[]` instead of `_wsRead()`'s result: 4 failures; skipping
     the one-time migration write: 1 failure; skipping the cache-replacement assignment: 2 failures; the

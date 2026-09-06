@@ -47,7 +47,7 @@
 > case this migration exists for — an ~8MB payload succeeds via IndexedDB while the identical payload
 > against a quota-constrained (~5MB) localStorage-only mock fails with a real, reproduced
 > `QuotaExceededError`. PR 2's and PR 3's own original test suites re-run UNMODIFIED against this new
-> code (68 and 46 real assertions respectively), both clean. **Proven load-bearing** by breaking 7
+> code (73 and 53 real assertions respectively), both clean. **Proven load-bearing** by breaking 7
 > representative guarantees one at a time and confirming a clean re-run on revert every time.
 > `rps_lint.py` clean. Landed as PR 21, `[1.75.0]`.
 >

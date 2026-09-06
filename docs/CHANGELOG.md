@@ -74,7 +74,7 @@ code lands after PR 3's `workspaceImportFile()` and well before `popoutControl()
 confirmed by a source-offset assertion in the new test file.
 
 **New `engine/tests/test_vw_workspace_fsa.py` + `engine/tests/js/test_vw_workspace_fsa_node.js`** —
-the `.py` wrapper runs 45 static source-level/placement/reuse/ES5 checks (including "reuses
+the `.py` wrapper runs 43 static source-level/placement/reuse/ES5 checks (including "reuses
 `_wsExportPayload()`/`workspaceGet()`/`_wsImportFromJson()` directly, never a second,
 independently-typed copy of the JSON shape or the validation logic" and "gates on
 `_capabilities.fileSystemAccess` directly, never a second raw `showSaveFilePicker` check of its

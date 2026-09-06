@@ -2193,7 +2193,7 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     by-now well-established `test_a2_popout.py` cross-PR coupling hazard, all new code lands after
     item 47/PR 3's `workspaceImportFile()` and well before `popoutControl()`'s own section, confirmed
     by a source-offset assertion in the new test file. New `engine/tests/test_vw_workspace_fsa.py` +
-    `engine/tests/js/test_vw_workspace_fsa_node.js` — the `.py` wrapper runs 45 static
+    `engine/tests/js/test_vw_workspace_fsa_node.js` — the `.py` wrapper runs 43 static
     source-level/placement/reuse/ES5 checks plus two `node --check` gates and the node suite's own
     rollup (46/0 total); the node suite itself carries **52 real assertions** against the real
     exported `VW.workspace` functions, with a hand-rolled mock
@@ -2214,7 +2214,7 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     import's handle proven remembered by a subsequent `exportFileNative()` call for that same id
     never re-prompting; and `importFileNative()` proven to reject clearly (never silently no-op) when
     the capability is false. Item 47/PR 3's, item 55/PR 19's, item 57/PR 21's, item 58/PR 22's, item
-    35/PR 2's, item 46/PR 16's, item 56/PR 20's, and item 45/PR 14's OWN original test suites were all
+    35/PR 2's, item 48/PR 16's, item 56/PR 20's, and item 45/PR 14's OWN original test suites were all
     re-run by hand against this new code and stayed fully green with no assertion needing to change —
     this PR only adds new members/functions and never touches an existing record/export/UI shape any
     of them check byte-for-byte (real, actually-counted numbers: PR 3 `.py` wrapper 2/2 + node suite

@@ -37,7 +37,7 @@
 > untouched. Lands after PR 3's `workspaceImportFile()` and well before `popoutControl()`'s own
 > section, per the `test_a2_popout.py` coupling hazard. New
 > `engine/tests/test_vw_workspace_fsa.py` + `engine/tests/js/test_vw_workspace_fsa_node.js`, 97
-> real assertions total (45 static + 2 `node --check` gates + 52 node behavioral -- reported as a
+> real assertions total (43 static + 2 `node --check` gates + 52 node behavioral -- reported as a
 > single rollup line by the `.py` wrapper's own 46-item count): the fallback path against a real
 > Node `Blob`; the native path's picker options and exact written JSON; write-back-in-place via a
 > call-count spy; a revoked/denied permission proven re-checked and falling back to a fresh picker;

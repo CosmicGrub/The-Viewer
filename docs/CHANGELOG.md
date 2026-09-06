@@ -114,16 +114,18 @@ import throwing/rejecting with a version-naming message while writing nothing to
 `importUrl` and `importFile`); and the shared classifier exercised directly against five representative
 inputs (missing/ok/future/invalid/`null`).
 
-**PR 2's, PR 3's, and PR 21's own original test suites re-run UNMODIFIED against this new code** — three
-assertions are EXPECTED to fail, the direct and intended consequence of `schemaVersion` joining the
-record/export/`VW.workspace` shapes, never a regression: `test_workspace_node.js`'s "stored record has
-no extra fields beyond the spec's six" (73 assertions total, 72 clean); `test_workspace_export_import_node.js`'s
-"exportUrl payload carries exactly {name, items}" (53 total, 52 clean); and
-`test_vw_workspace_indexeddb.py`'s own structural `vw_workspace_export_unchanged` check, a byte-for-byte
-literal match on `VW.workspace`'s exported object that this PR deliberately extends with debug members
-(26-check wrapper, 25 clean; its 43 real node behavioral assertions are all clean, 0 failures). Every
-OTHER assertion in all three suites passed unchanged, proving the public CRUD/export/import contract
-itself was not broken.
+**PR 2's, PR 3's, and PR 21's own original test suites re-run against this new code** each caught one
+assertion genuinely made stale by `schemaVersion` joining the record/export/`VW.workspace` shapes — real,
+warranted updates (never weakened, only widened to admit the one new field/member each was checking
+for), fixed as part of this same PR: `test_workspace_node.js`'s "stored record has no extra fields
+beyond the spec's six" → "...seven" (73/73 clean); `test_workspace_export_import_node.js`'s "exportUrl
+payload carries exactly {name, items}" → "...{name, items, schemaVersion}" (53/53 clean); and
+`test_vw_workspace_indexeddb.py`'s structural `vw_workspace_export_unchanged` check — a byte-for-byte
+literal match on `VW.workspace`'s exported object, brittle against the new debug members and their
+explanatory comment — split into an unchanged-original-8-members prefix check plus a separate, name-based
+check for the new debug members (27/27 clean; its 43 real node behavioral assertions were clean
+throughout, 0 failures). Every OTHER assertion in all three suites was untouched throughout, proving the
+public CRUD/export/import contract itself was not broken.
 
 **Proven load-bearing by breaking 7 representative guarantees one at a time** in the working tree and
 confirming a clean re-run on revert every time: (1) `workspaceCreate()` no longer stamping the

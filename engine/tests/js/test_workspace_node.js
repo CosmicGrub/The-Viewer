@@ -156,8 +156,11 @@ check("stored record carries exactly the spec's fields",
   Object.prototype.toString.call(rec.items) === "[object Array]" &&
   typeof rec.created === "number" && typeof rec.lastOpened === "number" &&
   rec.source === "manual");
-check("stored record has no extra fields beyond the spec's six",
-  rec && Object.keys(rec).sort().join(",") === "created,id,items,lastOpened,name,source");
+// v1.76.0 (PR 22): schemaVersion joined the record shape as a real, documented 7th field --
+// updated from "the spec's six" to "the spec's seven" to match, not weakened otherwise: every
+// other field check above is untouched, and this still fails on any UNPLANNED 8th field.
+check("stored record has no extra fields beyond the spec's seven",
+  rec && Object.keys(rec).sort().join(",") === "created,id,items,lastOpened,name,schemaVersion,source");
 check("created === lastOpened on a fresh workspace", rec.created === rec.lastOpened);
 check("created uses the real clock", rec.created === 1756800000000);
 check("items normalized to {page, params} with string param values",

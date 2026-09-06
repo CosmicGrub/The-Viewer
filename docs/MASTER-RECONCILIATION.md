@@ -94,14 +94,18 @@ is ever reached, refusing a future-schemaVersion import file with PR 3's own est
 cleanly. New `engine/tests/test_vw_workspace_schema_version.py` +
 `engine/tests/js/test_vw_workspace_schema_version_node.js` — the `.py` wrapper runs 13 static checks
 plus a `node --check` gate and the node suite's own rollup (15/0); the node suite carries **47 real
-assertions**. Item 36/PR 2's, item 48/PR 3's, and item 58/PR 21's OWN original test suites re-run
-UNMODIFIED against this new code: PR 2's 73 assertions (72 clean, 1 EXPECTED failure — a stored
-workspace now genuinely carries seven fields, `schemaVersion` being the spec's own seventh); PR 3's 53
-assertions (52 clean, 1 EXPECTED failure — the export payload now also carries `schemaVersion`); PR
-21's 43 node assertions all clean plus its 26-check `.py` wrapper (25 clean, 1 EXPECTED failure — a
-byte-for-byte literal match on `VW.workspace`'s export that this PR deliberately extends with debug
-members). All three expected failures are the direct, intended consequence of this PR's own mandate;
-every other assertion in all three suites passed unchanged. Proven load-bearing by breaking 7
+assertions**. Item 36/PR 2's, item 48/PR 3's, and item 58/PR 21's OWN original test suites were re-run
+against this new code and each caught one assertion genuinely made stale by `schemaVersion` joining the
+record/export/`VW.workspace` shapes — real, warranted test updates (never weakened, only widened to
+admit the one new field/member each was checking for), fixed as part of this same PR: PR 2's "no extra
+fields beyond the spec's six" → "...seven" (a stored workspace now genuinely carries seven fields,
+`schemaVersion` being the spec's own seventh); PR 3's "exportUrl payload carries exactly {name, items}"
+→ "...{name, items, schemaVersion}" (a receiving browser needs it to apply the same migrate-or-refuse
+logic on import); PR 21's byte-for-byte `vw_workspace_export_unchanged` literal, brittle against the new
+debug members and their explanatory comment, split into an unchanged-original-8-members prefix check
+plus a separate, name-based check for the new debug members. All three suites are clean again — PR 2
+73/73, PR 3 53/53, PR 21 43/43 node assertions plus a 27/27 `.py` wrapper — every other assertion in all
+three suites was untouched throughout. Proven load-bearing by breaking 7
 representative guarantees one at a time and confirming a clean re-run on revert every time. `rps_lint.py`
 clean. See §6 item 59). Immediately prior: **v1.75.0, shipped 2026-09-05** (`VW.workspace` — IndexedDB
 storage migration, multi-window support PR 21/25, stage 6, depending on item 36/PR 2 (CRUD, already
@@ -3663,18 +3667,20 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     schemaVersion round-trip, an old export still importing cleanly, and a future-schemaVersion import
     throwing/rejecting with a version-naming message while writing nothing to storage (both `importUrl`
     and `importFile`); and the shared classifier exercised directly against five representative inputs.
-    Item 36/PR 2's, item 48/PR 3's, and item 58/PR 21's OWN original test suites re-run UNMODIFIED
-    against this new code: PR 2's 73 assertions — 72 clean, 1 EXPECTED failure ("stored record has no
-    extra fields beyond the spec's six" — a stored workspace now genuinely carries seven, `schemaVersion`
-    being the design spec's own seventh field); PR 3's 53 assertions — 52 clean, 1 EXPECTED failure
-    ("exportUrl payload carries exactly {name, items}" — the export payload now also carries
-    `schemaVersion`, this PR's own point 3); PR 21's 43 real node assertions all clean (0 failures) plus
-    its 26-check `.py` wrapper — 25 clean, 1 EXPECTED failure (`vw_workspace_export_unchanged`, a
-    byte-for-byte literal match on `VW.workspace`'s exported object that this PR deliberately extends
-    with debug/introspection members). All three expected failures are the direct, intended consequence
-    of this PR's own mandate (`schemaVersion` joining the record/export/VW.workspace shapes) — every
-    other assertion in all three suites passed unchanged, proving the public CRUD/export/import contract
-    itself was not broken. **Proven load-bearing by breaking 7 representative guarantees one at a
+    Item 36/PR 2's, item 48/PR 3's, and item 58/PR 21's OWN original test suites were re-run against
+    this new code and each caught one assertion genuinely made stale by `schemaVersion` joining the
+    record/export/VW.workspace shapes — real, warranted updates (never weakened, only widened to admit
+    the one new field/member each was checking for), fixed as part of this same PR: PR 2's "stored
+    record has no extra fields beyond the spec's six" → "...seven" (a stored workspace now genuinely
+    carries seven fields, `schemaVersion` being the design spec's own seventh); PR 3's "exportUrl payload
+    carries exactly {name, items}" → "...{name, items, schemaVersion}" (this PR's own point 3, so a
+    receiving browser can apply the same migrate-or-refuse logic on import); PR 21's byte-for-byte
+    `vw_workspace_export_unchanged` literal, brittle against the new debug/introspection members and
+    their explanatory comment, split into an unchanged-original-8-members prefix check plus a separate,
+    name-based check for the new debug members. All three suites are clean again — PR 2 73/73, PR 3
+    53/53, PR 21 43/43 real node assertions plus a 27/27 `.py` wrapper — every other assertion in all
+    three suites was untouched throughout, proving the public CRUD/export/import contract itself was not
+    broken. **Proven load-bearing by breaking 7 representative guarantees one at a
     time** in the working tree and confirming a clean re-run on revert every time (`workspaceCreate()`
     no longer stamping the constant: 2 failures, caught only once the create-time check was isolated
     from a masking migrate-on-read (get() right after create() would otherwise migrate-and-mask a

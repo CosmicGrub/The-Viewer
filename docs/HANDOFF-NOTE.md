@@ -40,11 +40,15 @@
 > unrelated `create()` commit; `get()`'s null distinguished from a genuine not-found; export/import's
 > schemaVersion round-trip, an old export still importing cleanly, and a future-schemaVersion import
 > throwing/rejecting with a version-naming message while writing nothing to storage; and the shared
-> classifier exercised directly. PR 2's, PR 3's, and PR 21's own original test suites re-run UNMODIFIED
-> against this new code — three EXPECTED failures, the direct and intended consequence of `schemaVersion`
-> joining the record/export/`VW.workspace` shapes, never a regression (PR 2: 72/73 clean; PR 3: 52/53
-> clean; PR 21: 43/43 node assertions clean, 25/26 structural checks clean) — every OTHER assertion
-> passed unchanged. **Proven load-bearing** by breaking 7 representative guarantees one at a time and
+> classifier exercised directly. PR 2's, PR 3's, and PR 21's own original test suites re-run against this
+> new code caught three assertions genuinely made stale by `schemaVersion` joining the record/export/
+> `VW.workspace` shapes — not a regression, but real assertions this PR's own review pass required
+> updating (never weakened, only widened to admit the one new field/member each was checking for):
+> PR 2's "no extra fields beyond the spec's six" → "...seven"; PR 3's "exportUrl payload carries exactly
+> {name, items}" → "...{name, items, schemaVersion}"; PR 21's byte-for-byte `vw_workspace_export_unchanged`
+> literal split into an unchanged-prefix check plus a separate check for the new debug members. All
+> three suites are clean again: PR 2 73/73, PR 3 53/53, PR 21 43/43 node assertions + 27/27 structural
+> checks. **Proven load-bearing** by breaking 7 representative guarantees one at a time and
 > confirming a clean re-run on revert every time. `rps_lint.py` clean. Landed as PR 22, `[1.76.0]`.
 >
 > **Reconciliation note (2026-09-05, forty-seventh pass):** `VW.workspace` — IndexedDB storage

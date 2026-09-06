@@ -167,6 +167,13 @@ def main():
     # ============================================================================================
     tests.append(("vw_channel_export_unchanged",
                   "channel: { publish: channelPublish, subscribe: channelSubscribe }," in shared_js))
+    # v1.76.0 (PR 22): the original 8 documented members must still appear verbatim, in the same
+    # relative order -- but PR 22 legitimately interleaves a real explanatory comment plus 4 new
+    # leading-underscore debug/introspection members (the same non-public convention
+    # VW.locks._debugPendingCount already established) before the closing brace. Matching the
+    # ORIGINAL prefix literally (never weakened) plus a separate check for the new members (by
+    # name, not by brittle exact comment text) is more robust than one giant literal that breaks
+    # every time the comment's wording changes without the actual export shape changing at all.
     tests.append(("vw_workspace_export_unchanged",
                   "workspace: { create: workspaceCreate, list: workspaceList,\n"
                   "                          get: workspaceGet, touch: workspaceTouch, "
@@ -174,7 +181,12 @@ def main():
                   "                          exportUrl: workspaceExportUrl, "
                   "exportFile: workspaceExportFile,\n"
                   "                          importUrl: workspaceImportUrl, "
-                  "importFile: workspaceImportFile }," in shared_js))
+                  "importFile: workspaceImportFile,\n" in shared_js))
+    tests.append(("vw_workspace_schema_debug_members_added",
+                  re.search(r"workspace:\s*\{.*?_schemaVersion:\s*_WS_SCHEMA_VERSION,"
+                             r".*?_classifySchemaVersion:\s*_wsClassifyRecordSchema,"
+                             r".*?_lastGetSchemaRefusal:\s*function\s*\(\)",
+                             shared_js, re.S) is not None))
     tests.append(("vw_windows_export_unchanged",
                   "windows: { open: windowsOpen, registry: windowsRegistry," in shared_js))
     tests.append(("vw_capabilities_export_unchanged", "capabilities: _capabilities," in shared_js))

@@ -133,8 +133,11 @@ check("exportUrl output does not leak created/lastOpened timestamps",
   url1.indexOf(String(origRecord.created)) === -1);
 
 var decodedPayload1 = JSON.parse(decodeURIComponent(url1.slice(3)));
-check("exportUrl payload carries exactly {name, items}",
-  Object.keys(decodedPayload1).sort().join(",") === "items,name");
+// v1.76.0 (PR 22): schemaVersion now travels with an export too, so a receiving browser can
+// apply the same migrate-or-refuse logic on import -- updated from "{name, items}" to
+// "{items, name, schemaVersion}", not weakened otherwise: still fails on any other extra field.
+check("exportUrl payload carries exactly {name, items, schemaVersion}",
+  Object.keys(decodedPayload1).sort().join(",") === "items,name,schemaVersion");
 check("exportUrl payload name matches the source workspace", decodedPayload1.name === "Work Order 9001");
 check("exportUrl payload items match the source workspace",
   JSON.stringify(decodedPayload1.items) === JSON.stringify(origRecord.items));

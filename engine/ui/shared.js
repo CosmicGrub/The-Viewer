@@ -478,13 +478,29 @@
     return out;
   }
 
+  /* v1.76.0: set by every _wsRead() call -- true when the raw stored value needed _wsCoerceAll()
+     to silently drop something (corrupt/hostile storage: a non-array value, or an array with junk
+     entries mixed in) to produce the array actually returned; false for a clean read. Read by
+     _wsAllForRead() below so a SCHEMA-MIGRATION write-back (a new v1.76.0 behavior) never also
+     doubles as a silent junk cleanup on a mere read -- preserving this file's original, deliberate
+     "a read never rewrites storage" guarantee for corrupt/hostile values (see _wsRead()'s own
+     long-standing comment above) even though a migration stamp on an otherwise-valid record now
+     does get written back on a genuinely CLEAN read. A junk-mixed read still migrates the valid
+     record in memory for THIS call's own return value -- only the durable write-back is deferred,
+     to whichever real mutation (create/touch/delete, which already commits unconditionally) or
+     later clean read completes it; nothing here ever produces a wrong answer, only a deferred one. */
+  var _wsLastReadHadJunk = false;
+
   function _wsRead() {
     var raw = null;
-    try { raw = window.localStorage.getItem(_WS_KEY); } catch (e) { return []; }
-    if (!raw) return [];
+    try { raw = window.localStorage.getItem(_WS_KEY); } catch (e) { _wsLastReadHadJunk = false; return []; }
+    if (!raw) { _wsLastReadHadJunk = false; return []; }
     var parsed = null;
-    try { parsed = JSON.parse(raw); } catch (e) { return []; }
-    return _wsCoerceAll(parsed);
+    try { parsed = JSON.parse(raw); } catch (e) { _wsLastReadHadJunk = false; return []; }
+    var coerced = _wsCoerceAll(parsed);
+    _wsLastReadHadJunk = !(Object.prototype.toString.call(parsed) === "[object Array]" &&
+      parsed.length === coerced.length);
+    return coerced;
   }
 
   /* Writes the whole set back. Returns true on success, false when storage refused the write (a
@@ -797,19 +813,207 @@
     return _wsCache;
   }
 
+  /* v1.76.0: VW.workspace schema versioning -- migrate-on-read or clean refusal (multi-window
+     support, PR 22 of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 6).
+     Depends on PR 2's CRUD above and applies at THIS chokepoint deliberately -- explicitly
+     INDEPENDENT of PR 21's IndexedDB work immediately above: this logic runs identically no matter
+     which backing (_wsRead()/_wsWrite(), or the _wsCache/_wsIdb* pair) is actually live for this
+     page, because both ultimately store the exact same JSON-serializable record array and both
+     already funnel through _wsAllForRead()/_wsAllForMutation()/_wsCommit() below -- the one shared
+     place every CRUD/export/import function already goes through, so migration logic lives here
+     exactly once rather than being duplicated into workspaceList()/workspaceGet()/etc. separately.
+
+     THE THREE CASES the design spec's own edge case ("a saved workspace's schemaVersion is older
+     than the running code understands: migrated on read where a safe migration path exists,
+     refused with a clear message, never silently misinterpreted, where it doesn't") and this PR's
+     plan entry name:
+
+       - MISSING entirely -- every record this codebase has EVER written before this PR shipped
+         (PR 2 through PR 21 never stamped schemaVersion at all, so this is the overwhelmingly
+         common real case, not a hypothetical one): a trivially SAFE migration, since the record
+         shape itself has not otherwise changed underneath it -- treated as pre-versioning and
+         upgraded in place by stamping the CURRENT _WS_SCHEMA_VERSION onto it.
+       - present and <= _WS_SCHEMA_VERSION -- understood. Only one version has ever existed as of
+         this PR, so this is a straight pass-through today; a real future version bump with its own
+         forward-migration would branch on the specific old number inside _wsMigrateAll below, in
+         exactly the one place that already inspects every record, rather than a second place.
+       - present and > _WS_SCHEMA_VERSION -- data written by a NEWER build than what is currently
+         running (a technician's browser cache holding a newer build, or a rolled-back deploy
+         running older code against already-upgraded data -- both real, not hypothetical). CLEAN
+         REFUSAL: never silently treated as understood, and -- just as importantly -- never
+         DELETED either. A rolled-back/stale build committing a write must not destroy data a
+         newer build already wrote just because THIS build cannot interpret it; see _wsMigrateAll's
+         own comment for exactly how "refused" still survives every commit.
+
+     _wsClassifyRecordSchema() below is the ONE place that <= / > comparison is made. Both the
+     read-path migration (_wsMigrateAll, used by _wsAllForRead()/_wsAllForMutation() further down)
+     and the import-path validation (_wsValidateImportShape(), PR 3, further below) call this exact
+     function -- never a second, independently-typed copy of the same comparison -- so "migrate vs
+     refuse" can never quietly diverge between "a saved workspace this browser already has" and "a
+     workspace file someone just handed this browser," which is the single most realistic way two
+     different schemaVersions actually meet in practice: two technicians on two different app
+     versions handing a workspace export to each other. Exposed read-only on VW.workspace as
+     _classifySchemaVersion (leading-underscore, matching this file's existing debug-accessor
+     convention, e.g. VW.locks._debugPendingCount) so this can be proven directly rather than only
+     inferred from source text; engine/tests/test_vw_workspace_schema_version.py's own "not
+     duplicated" check additionally confirms, structurally, that both call sites above really do
+     read from this one function's text rather than each rolling their own comparison. */
+  var _WS_SCHEMA_VERSION = 1;
+
+  /* Classifies a raw schemaVersion value (whatever was actually stored, or handed in on an import
+     payload -- may be a number, undefined, or garbage from a hand-edited/tampered file) against
+     what THIS running build understands. Pure and side-effect-free on purpose, so it can be the
+     one thing every call site above shares without any of them needing to also inherit a
+     mutation or a console call they did not ask for.
+       "missing" -- no field at all (typeof undefined) -- see the MISSING case above.
+       "ok"      -- a real, finite number <= _WS_SCHEMA_VERSION.
+       "future"  -- a real, finite number > _WS_SCHEMA_VERSION.
+       "invalid" -- present but not a usable number (a string, NaN, null, an object) -- a
+                    hand-edited or corrupted value this build cannot trust any more than an
+                    unrecognized future one, refused the same way "future" is; kept as a distinct
+                    status purely so the reason text stays accurate about which problem it is. */
+  function _wsSchemaVersionStatus(schemaVersion) {
+    if (typeof schemaVersion === "undefined") return "missing";
+    if (typeof schemaVersion !== "number" || !isFinite(schemaVersion)) return "invalid";
+    if (schemaVersion > _WS_SCHEMA_VERSION) return "future";
+    return "ok";
+  }
+
+  /* Applies _wsSchemaVersionStatus() to one candidate record/payload's .schemaVersion field and
+     turns it into a {ok, status, reason} verdict -- reason is only ever set when ok is false, and
+     is always specific enough to name the actual value and what this build does understand, per
+     the design spec's "refused with a clear message (never silently misinterpreted)" edge case
+     and PR 3's own established specific-message convention for other malformed-import cases
+     (_wsValidateImportShape below). Accepts a bare object (a parsed import payload need not be a
+     real workspace record) -- reads only .schemaVersion off it, nothing else. */
+  function _wsClassifyRecordSchema(rec) {
+    var sv = rec ? rec.schemaVersion : undefined;
+    var status = _wsSchemaVersionStatus(sv);
+    if (status === "missing" || status === "ok") return { ok: true, status: status };
+    return {
+      ok: false,
+      status: status,
+      reason: status === "future"
+        ? ("schemaVersion " + sv + " is newer than this app version understands (max " +
+           _WS_SCHEMA_VERSION + ")")
+        : "schemaVersion is not a recognized value"
+    };
+  }
+
+  /* THE READ-PATH MIGRATION. Runs every record in the "all" array passed in (the LIVE mutation
+     array on the IndexedDB-backed path -- see the big comment above _wsEnsureCache() for why
+     mutating those objects in place matters there especially -- or a fresh parse on the
+     localStorage path) through _wsClassifyRecordSchema() and:
+       - "missing"          -> stamps _WS_SCHEMA_VERSION onto the record OBJECT ITSELF, in place
+                                (never a copy), so the SAME reference committed back afterward
+                                carries the stamp, and so an IndexedDB-cache-backed record keeps the
+                                stamp for the rest of this page's life even before any
+                                still-pending write-through resolves.
+       - "ok"                -> left completely untouched.
+       - "future"/"invalid"  -> left COMPLETELY untouched in the returned "all" (never dropped,
+                                never overwritten) but left OUT of the returned "visible" array, the
+                                one a caller-facing read actually gets back, and named in the
+                                returned "refused" list with its id/reason so list()/get() below can
+                                each surface a distinguishable signal rather than folding a refusal
+                                into an identical-looking empty/not-found result. Keeping it in
+                                "all" (not "visible") is what lets a plain commit of "all" --
+                                workspaceCreate() pushing a sibling record, workspaceTouch()/
+                                workspaceDelete() on a DIFFERENT id -- carry a record this build
+                                cannot interpret safely through to the next write, unharmed, exactly
+                                like _wsItems()'s established "drop what's invalid, keep the rest"
+                                precedent is applied here to READS, not to the record's continued
+                                existence in storage.
+     A console.warn per refused record, naming the id and the reason, is this function's own
+     "never silently misinterpreted" signal -- independent of whatever list()/get() layer on top of
+     it (see their own comments below), and the one a technician actually watching devtools would
+     see even if no UI code ever calls the debug accessors those expose. */
+  function _wsMigrateAll(all) {
+    var visible = [];
+    var refused = [];
+    var migrated = false;
+    for (var i = 0; i < all.length; i++) {
+      var rec = all[i];
+      var verdict = _wsClassifyRecordSchema(rec);
+      if (!verdict.ok) {
+        refused.push({ id: rec && rec.id, schemaVersion: rec && rec.schemaVersion, reason: verdict.reason });
+        try {
+          console.warn("VW.workspace: record " + (rec && rec.id) + " has an unrecognized " +
+            "schemaVersion (" + JSON.stringify(rec && rec.schemaVersion) + ") -- " + verdict.reason +
+            "; excluded from list()/get(), left untouched in storage.");
+        } catch (e) { /* devtools/console unavailable -- the refused[] list above still tells the story */ }
+        continue;
+      }
+      if (verdict.status === "missing") {
+        rec.schemaVersion = _WS_SCHEMA_VERSION;
+        migrated = true;
+      }
+      visible.push(rec);
+    }
+    return { all: all, visible: visible, migrated: migrated, refused: refused };
+  }
+
+  /* The most recent workspaceList()/workspaceGet() call's refused-record list (see _wsMigrateAll
+     above) -- exposed read-only as VW.workspace._lastReadSchemaRefusals() so a caller (a test, or a
+     future UI) can distinguish "every record came back clean" from "something was excluded" without
+     get()'s or list()'s own return shape ever having to grow a second, error-carrying variant. Reset
+     at the top of every _wsAllForRead() call, so it always reflects only the most recent read. */
+  var _wsLastReadRefusals = [];
+
   /* The two entry points every CRUD/export/import function below goes through instead of calling
      _wsRead()/_wsWrite() directly. On lite/legacy tier (or wherever indexedDB is unavailable) these
      are exactly _wsRead()/_wsWrite() -- nothing about that path changes in this PR. On the
      IndexedDB-backed path, reads return a fresh clone of _wsCache (matching _wsRead()'s own "always
      a fresh copy" contract) and mutations get the LIVE _wsCache array to modify directly, committed
-     back via _wsCommit(). */
-  function _wsAllForRead() {
-    if (_wsUsingIndexedDB()) return _wsCloneAll(_wsEnsureCache());
-    return _wsRead();
-  }
+     back via _wsCommit().
+
+     v1.76.0: both now additionally run every record through _wsMigrateAll() (above) before handing
+     anything to a caller. _wsAllForMutation() returns the FULL (post-stamp, pre-filter) array,
+     unchanged in length -- create()'s id-uniqueness scan and touch()/delete()'s id lookups need the
+     real underlying set, and any refused/unrecognized-future record MUST still be present in what
+     gets committed back, or the very next mutation from this page would silently erase it. Only
+     _wsAllForRead() applies the visibility filter (a caller-facing list()/get() must never even see
+     a record it should refuse to interpret) -- and, when _wsMigrateAll() reports a genuine in-place
+     stamp AND this was a CLEAN read (_wsLastReadHadJunk false -- see that variable's own comment),
+     immediately commits the result back via the SAME _wsCommit() every mutation already uses
+     ("via the existing commit path", per this PR's own plan entry), so a stamped record is durably
+     upgraded on its very first CLEAN read rather than waiting on some future unrelated write to
+     carry it along -- an idempotent, one-time upgrade-on-first-touch for the overwhelmingly common
+     real case (every already-saved workspace, on otherwise-healthy storage). The junk-mixed-in case
+     defers the durable write specifically to preserve this file's older, still-deliberate "a read
+     never rewrites storage" guarantee for corrupt/hostile values -- the in-memory stamp still makes
+     THIS call's own return value correct; only persisting it waits for a real mutation (or a later
+     clean read) instead of happening as a side effect of merely looking at hostile data. The
+     IndexedDB-backed path has no equivalent concern (_wsLastReadHadJunk only ever reflects the
+     localStorage path _wsRead() actually took) -- its own cache/commit model already documented
+     above never treated "read" as side-effect-free in the first place (_wsEnsureCache() itself
+     always kicks off an asynchronous reconcile). */
   function _wsAllForMutation() {
-    if (_wsUsingIndexedDB()) return _wsEnsureCache();
-    return _wsRead();
+    var all = _wsUsingIndexedDB() ? _wsEnsureCache() : _wsRead();
+    return _wsMigrateAll(all).all;
+  }
+  function _wsAllForRead() {
+    var onIdb = _wsUsingIndexedDB();
+    var all = onIdb ? _wsEnsureCache() : _wsRead();
+    var hadJunk = onIdb ? false : _wsLastReadHadJunk;
+    var migration = _wsMigrateAll(all);
+    _wsLastReadRefusals = migration.refused;
+    /* onIdb: only commit a migration stamp eagerly once _wsIdbDb is already a real, established
+       connection -- i.e. _wsIdbReconcile() (kicked off by _wsEnsureCache() above, at most once per
+       page) has ALREADY decided replace-vs-migrate and this page's cache is no longer the
+       still-provisional localStorage-sourced bootstrap value. Committing BEFORE that point would
+       open a second, independent IndexedDB connection out of band and could write this page's
+       bootstrap cache into the durable store before reconcile's own read of it resolves -- which
+       would make reconcile see "IndexedDB already has records" and wrongly skip replacing the
+       cache with truly-authoritative IndexedDB data from a prior session (a real, observed failure
+       mode this exact ordering was written specifically to prevent; see the big comment above
+       _wsEnsureCache() for the bootstrap/reconcile contract this must never race against). Skipping
+       the eager commit here costs nothing: the stamp already lives in _wsCache (mutated in place by
+       _wsMigrateAll above) for the rest of THIS page's life regardless, and reconcile's own
+       eventual write (the "IndexedDB reads back empty" branch clones _wsCache AT THE TIME IT
+       RUNS, so it already carries any migration applied by then) or the next real mutation's own
+       commit persists it durably either way. */
+    if (migration.migrated && !hadJunk && (!onIdb || _wsIdbDb)) _wsCommit(migration.all);
+    return onIdb ? _wsCloneAll(migration.visible) : migration.visible;
   }
   function _wsCommit(all) {
     if (_wsUsingIndexedDB()) {
@@ -838,7 +1042,12 @@
          siblings by lastOpened alone, with no null handling in every consumer, and "never reopened
          since it was made" stays detectable as lastOpened === created. */
       lastOpened: now,
-      source: source === "template" ? "template" : "manual"
+      source: source === "template" ? "template" : "manual",
+      /* v1.76.0: every NEWLY-created record is stamped with the current schema version -- see the
+         big comment above _wsMigrateAll() for the full read-side migration story. A record with no
+         schemaVersion at all is therefore, from this PR forward, unambiguously "written before this
+         PR shipped", never a record this build itself just created. */
+      schemaVersion: _WS_SCHEMA_VERSION
     };
     all.push(ws);
     if (!_wsCommit(all)) return null;
@@ -854,13 +1063,27 @@
      most-recently-opened order sorts by lastOpened itself. */
   function workspaceList() { return _wsAllForRead(); }
 
-  /* get(id) -> the workspace record, or null when no such id is stored. */
+  /* get(id) -> the workspace record, or null when no such id is stored. v1.76.0: null is ALSO
+     returned when the id genuinely IS stored but this build refuses to interpret its schemaVersion
+     (see _wsMigrateAll above) -- get()'s long-established not-found convention is kept exactly
+     as-is (never a second return shape for this rarer case) rather than changed, but the two null
+     cases are not identical under the hood: _wsMigrateAll() already emitted a console.warn naming
+     this id and its unrecognized schemaVersion during the _wsAllForRead() call just above, and
+     _wsLastGetSchemaRefusal (reset at the top of every call, so it always reflects only the most
+     recent one) additionally lets a caller -- or a future UI -- ask "was that null a genuine
+     not-found, or a refused schema mismatch?" without get() itself ever lying about which one it
+     was. Exposed read-only as VW.workspace._lastGetSchemaRefusal(). */
+  var _wsLastGetSchemaRefusal = null;
   function workspaceGet(id) {
+    _wsLastGetSchemaRefusal = null;
     if (id === null || id === undefined) return null;
     var want = String(id);
     var all = _wsAllForRead();
     for (var i = 0; i < all.length; i++) {
       if (all[i].id === want) return all[i];
+    }
+    for (var j = 0; j < _wsLastReadRefusals.length; j++) {
+      if (_wsLastReadRefusals[j].id === want) { _wsLastGetSchemaRefusal = _wsLastReadRefusals[j]; break; }
     }
     return null;
   }
@@ -930,10 +1153,20 @@
      which mints via the same _wsNewId() path every other workspace goes through -- there is no code
      path anywhere in here that could reuse an incoming id even by accident. */
 
-  /* The data an export hands to a different browser: name + items only. Shared by exportUrl and
-     exportFile so this shape is written exactly once. */
+  /* The data an export hands to a different browser: name + items + schemaVersion. Shared by
+     exportUrl and exportFile so this shape is written exactly once.
+     v1.76.0: schemaVersion joins name/items here because two technicians running different app
+     versions handing a workspace file to each other is the single most realistic real-world
+     scenario for a genuine version mismatch -- see _wsValidateImportShape below for the matching
+     import-side check. Uses the build's own _WS_SCHEMA_VERSION rather than reading ws.schemaVersion
+     back off the record: by the time any caller reaches a real "ws" argument here, it already came through
+     workspaceGet() -> _wsAllForRead() -> _wsMigrateAll(), which never returns a record this build
+     doesn't fully understand (a refused one comes back as get()'s null instead, so exportUrl/
+     exportFile already return null for it via their own existing not-found convention) -- so the
+     two are always equal in practice, and using the named constant directly says plainly "this
+     export reflects what THIS build understands", which is the actually-true claim being made. */
   function _wsExportPayload(ws) {
-    return { name: ws.name, items: ws.items };
+    return { name: ws.name, items: ws.items, schemaVersion: _WS_SCHEMA_VERSION };
   }
 
   /* Shape-validates a parsed import payload before ANYTHING is written to storage. Returns null
@@ -954,6 +1187,15 @@
     if (_wsItems(parsed.items).length !== parsed.items.length) {
       return "one or more workspace items is missing a valid page";
     }
+    /* v1.76.0: the SAME migrate-or-refuse decision the read path uses (_wsClassifyRecordSchema,
+       shared verbatim -- see its own big comment above _wsMigrateAll for why this must never be a
+       second, independently-typed copy of the comparison). A payload with no schemaVersion at all
+       (every export this codebase produced before this PR shipped) classifies as "missing", which
+       is "ok" here exactly as it is on the read path -- an old export stays importable. Only a
+       schemaVersion NEWER than this build understands is refused, with the same specific-message
+       convention as every other reason string in this function. */
+    var schemaVerdict = _wsClassifyRecordSchema(parsed);
+    if (!schemaVerdict.ok) return schemaVerdict.reason;
     return null;
   }
 
@@ -1957,7 +2199,16 @@
              workspace: { create: workspaceCreate, list: workspaceList,
                           get: workspaceGet, touch: workspaceTouch, delete: workspaceDelete,
                           exportUrl: workspaceExportUrl, exportFile: workspaceExportFile,
-                          importUrl: workspaceImportUrl, importFile: workspaceImportFile },
+                          importUrl: workspaceImportUrl, importFile: workspaceImportFile,
+                          /* v1.76.0: schema-versioning debug/introspection members -- deliberately
+                             NOT part of the design doc's documented VW.workspace shape (same
+                             leading-underscore convention as VW.locks._debugPendingCount above),
+                             kept only so the migrate-or-refuse guarantees can be proven with real
+                             executed assertions rather than inferred from source text alone. */
+                          _schemaVersion: _WS_SCHEMA_VERSION,
+                          _classifySchemaVersion: _wsClassifyRecordSchema,
+                          _lastGetSchemaRefusal: function () { return _wsLastGetSchemaRefusal; },
+                          _lastReadSchemaRefusals: function () { return _wsLastReadRefusals.slice(); } },
              windows: { open: windowsOpen, registry: windowsRegistry,
                         restoreLayout: windowsRestoreLayout },
              bench: { get: benchGet, put: benchPut },

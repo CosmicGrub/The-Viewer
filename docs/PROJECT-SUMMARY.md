@@ -1,6 +1,6 @@
 # THE VIEWER — Complete Project Summary (duplication / hand-off kit)
 
-**State: v1.75.0 · 2026-09-05** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
+**State: v1.76.0 · 2026-09-05** (rewritten 2026-08-08 from ~130 versions of drift, updated 2026-08-09,
 reconciled 2026-08-18 after a 50-finding 4-tier audit + UX pass + CI + doc reconciliation, reconciled
 again 2026-08-24 after a 30-commit Discovery Engine / in-app scanning / reachability-audit session,
 reconciled again 2026-08-29 after 6 PRs (`[1.18.0]`–`[1.23.0]`) merged in sequence plus a route-count
@@ -2060,6 +2060,88 @@ items (host-side, still owed — full detail in `MASTER-RECONCILIATION.md` §6):
     synchronously-throwing `open()`: 3 failures; removing the one-time-toast latch: caught only after
     upgrading the assertion from text equality to a real invocation counter). `rps_lint.py` clean. See
     `CHANGELOG.md` `[1.75.0]`.
+
+58. **`[1.76.0]` — `VW.workspace`: schema-versioned saved data (multi-window support, PR 22/25, stage
+    6).** Depends on item 35/PR 2 (CRUD, already merged) ONLY — explicitly INDEPENDENT of item 57/PR
+    21's IndexedDB work, per the plan's own words: this applies equally regardless of which backing
+    (`localStorage` or IndexedDB) is currently active, since both ultimately store the same record
+    shape. Fulfills the `schemaVersion` deferral item 47/PR 3 named explicitly at the time
+    ("deliberately out of scope... `schemaVersion` and migration-on-read (Stage 6)"). A new
+    `_WS_SCHEMA_VERSION = 1` constant is stamped onto every NEWLY-created record by `workspaceCreate()`;
+    migrate-on-read runs at the ONE shared chokepoint item 57/PR 21 itself established
+    (`_wsAllForRead()`/`_wsAllForMutation()`), never duplicated per-consumer. **The three cases, and the
+    one shared decision function (`_wsClassifyRecordSchema`) both the read path and the import path
+    call — never a second, independently-typed copy of the comparison:** schemaVersion MISSING entirely
+    (every record PR 2-through-21 ever saved, the overwhelmingly common real case) is stamped with the
+    current constant in place and written back; present and `<= _WS_SCHEMA_VERSION` passes through
+    untouched; present and `>` (a technician's cached-newer build, or a rolled-back deploy against
+    already-upgraded data) is CLEAN REFUSAL — excluded from `list()`'s returned array (matching
+    `_wsItems()`'s own established "drop what's invalid, keep the rest" precedent) while every OTHER
+    valid record still comes back correctly, and NEVER deleted or mutated in the underlying stored array
+    (a rolled-back build must not destroy data a newer build already wrote); `get(id)` keeps its
+    existing null-for-not-found convention but makes the two cases DISTINGUISHABLE via a `console.warn`
+    naming the id and the unrecognized version plus a new debug accessor,
+    `VW.workspace._lastGetSchemaRefusal()` (`_lastReadSchemaRefusals()` mirrors this for `list()`) —
+    deliberately NOT part of the documented public shape, same convention as item 56/PR 20's
+    `_debugPendingCount`. **Two real correctness hazards found and fixed during this PR's own
+    load-bearing verification, not shipped blind:** (1) an eager write-back on EVERY migrated read would
+    have silently defeated `_wsRead()`'s own pre-existing, deliberate "a read never rewrites
+    corrupt/hostile storage" guarantee (item 35/PR 2's own test) whenever a migratable valid record
+    shared storage with genuine junk — fixed by a new `_wsLastReadHadJunk` signal that defers the
+    durable write specifically in that mixed case (the stamp still applies in-memory for that call's own
+    return value; only the persist waits for a real mutation or a later clean read); (2) an eager
+    write-back on the IndexedDB-backed path, fired before item 57/PR 21's own bootstrap/reconcile had
+    resolved, could open a second out-of-band connection and write the still-provisional
+    localStorage-sourced bootstrap cache into IndexedDB before reconcile's own read of it — making
+    reconcile wrongly conclude "already migrated" instead of replacing the cache with
+    genuinely-authoritative prior-session data; fixed by gating the eager commit behind `_wsIdbDb`
+    already being an established connection (reconcile runs at most once per page, so once set, no
+    bootstrap decision is still pending). **Export/import (item 47/PR 3):** `_wsExportPayload()` now
+    also carries `schemaVersion`; `_wsValidateImportShape()` calls the SAME `_wsClassifyRecordSchema()`
+    before `workspaceCreate()` is ever reached, so a future-schemaVersion import file is refused with
+    the identical specific-`Error` convention PR 3's other malformed-import cases already use, and
+    nothing is written to storage — an old (schemaVersion-less) export still imports cleanly, matching
+    the read path's own "missing is fine" rule. New `engine/tests/test_vw_workspace_schema_version.py` +
+    `engine/tests/js/test_vw_workspace_schema_version_node.js` — the `.py` wrapper runs 13 static
+    source-level/placement/ES5 checks plus a `node --check` gate and the node suite's own rollup
+    (15/0); the node suite itself carries **47 real assertions** against the real exported
+    `VW.workspace` functions on the localStorage backing (deliberate, per this PR's own
+    IndexedDB-independence): a fresh `create()` stamping the constant PROVEN IN ISOLATION (checked
+    against raw storage before any `get()`/`list()` call could itself migrate-and-mask a missing
+    stamp); a hand-constructed old-shaped fixture (no `schemaVersion` field, exactly real PR2-21 data)
+    read correctly via `list()`/`get()` AND durably re-stamped in the backing store afterward; a
+    future-schemaVersion fixture excluded from `list()` while a sibling record still comes back
+    correctly, NEVER deleted/mutated even across a REAL, unrelated `create()` commit afterward (proven
+    byte-for-byte), with `get()`'s null distinguished from a genuine not-found via the new debug
+    accessor; an invalid (non-numeric) schemaVersion refused the same way; export/import's
+    schemaVersion round-trip, an old export still importing cleanly, and a future-schemaVersion import
+    throwing/rejecting with a version-naming message while writing nothing to storage (both `importUrl`
+    and `importFile`); and the shared classifier exercised directly against five representative inputs.
+    Item 35/PR 2's, item 47/PR 3's, and item 57/PR 21's OWN original test suites were re-run against
+    this new code and each caught one assertion genuinely made stale by `schemaVersion` joining the
+    record/export/VW.workspace shapes — real, warranted updates (never weakened, only widened to admit
+    the one new field/member each was checking for), fixed as part of this same PR: PR 2's "stored
+    record has no extra fields beyond the spec's six" → "...seven" (a stored workspace now genuinely
+    carries seven fields, `schemaVersion` being the design spec's own seventh); PR 3's "exportUrl payload
+    carries exactly {name, items}" → "...{name, items, schemaVersion}" (this PR's own point 3, so a
+    receiving browser can apply the same migrate-or-refuse logic on import); PR 21's byte-for-byte
+    `vw_workspace_export_unchanged` literal, brittle against the new debug/introspection members and
+    their explanatory comment, split into an unchanged-original-8-members prefix check plus a separate,
+    name-based check for the new debug members. All three suites are clean again — PR 2 73/73, PR 3
+    53/53, PR 21 43/43 real node assertions plus a 27/27 `.py` wrapper — every other assertion in all
+    three suites was untouched throughout, proving the public CRUD/export/import contract itself was not
+    broken. **Proven load-bearing by breaking 7 representative guarantees one at a
+    time** in the working tree and confirming a clean re-run on revert every time (`workspaceCreate()`
+    no longer stamping the constant: 2 failures, caught only once the create-time check was isolated
+    from a masking migrate-on-read; the missing-schemaVersion stamp/write-back removed: 3 failures; the
+    future-schemaVersion refusal disabled: 6 failures; a future record surviving only reads but not a
+    real mutation commit: 2 failures, caught only after strengthening the test to exercise an actual
+    commit; export dropping `schemaVersion`: 2 behavioral + 1 structural failure; import skipping the
+    shared classifier: 4 behavioral + 1 structural failure; a hand-rolled second schemaVersion
+    comparison added alongside the shared call in the import path: 2 behavioral + 1 structural failure,
+    exactly the "not duplicated" guarantee). `rps_lint.py` clean (the same backtick/ellipsis/"async "
+    false-positive class this same multi-window session already hit in earlier PRs, reworded rather than
+    suppressed). See `CHANGELOG.md` `[1.76.0]`.
 
 Resolved since the last update (kept here for continuity, since these were open as of v1.14.0):
 `engine/tests/verify_all.py` climbed from 26/26 to **46/46, ALL GREEN**, 18 new test files added · a real

@@ -59,6 +59,12 @@
       <button class="go" id="importGo">⬇ Import from link</button>
       <button id="importFileBtn">📁 Import from file…</button>
       <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+      <!-- v1.77.0 (PR 23): feature-detected ADDITION alongside the <input type="file"> pair above
+           (never a replacement -- that pair is the complete, correct fallback everywhere this
+           isn't available). Starts hidden; JS below reveals it only when a real native Open
+           dialog is genuinely available, mirroring the per-row "Save to file…" button's own
+           fsaAvailable() gate. -->
+      <button id="importFileNativeBtn" hidden>🗂 Open from file…</button>
     </div>
     <div class="err" id="importErr" aria-live="polite"></div>
   </div>
@@ -122,6 +128,14 @@
   // ------------------------------------------------------------------------------------------
   // LIST + REOPEN + DELETE + EXPORT
   // ------------------------------------------------------------------------------------------
+  // v1.77.0 (PR 23): a live read every render, not a cached-once flag -- VW.capabilities' own
+  // fields can in principle change within a page's life (RPS.mode resolving from its "modern"
+  // default to the real tier after this script has already run), and this button's visibility
+  // should always match what exportFileNative() would ACTUALLY do right now if clicked.
+  function fsaAvailable(){
+    return !!(window.VW && VW.capabilities && VW.capabilities.fileSystemAccess);
+  }
+
   function render(){
     var all=VW.workspace.list().slice();
     all.sort(function(a,b){ return (b.lastOpened||0)-(a.lastOpened||0); });   // most-recently-opened first
@@ -130,6 +144,7 @@
       host.innerHTML='<div class="empty">No saved workspaces yet. Pop a few pages out (a work order launch, a torque table, a procedure), then click <b>Save current windows as a workspace</b> above.</div>';
       return;
     }
+    var fsaOn=fsaAvailable();
     var h='';
     all.forEach(function(ws){
       var n=(ws.items||[]).length;
@@ -140,6 +155,11 @@
         +'<button class="go reopen" data-id="'+esc(ws.id)+'">↗ Reopen</button>'
         +'<button class="copylink" data-id="'+esc(ws.id)+'">🔗 Copy share link</button>'
         +'<button class="dlfile" data-id="'+esc(ws.id)+'">⬇ Download .json</button>'
+        // v1.77.0 (PR 23): feature-detected, ADDITIONAL to (never replacing) the download button
+        // above -- only rendered when a real native Save dialog is genuinely available. Reuses
+        // the same "…" ellipsis convention this page's own "Import from file…" button already
+        // uses for an action that opens a further OS-level dialog.
+        +(fsaOn?'<button class="savenative" data-id="'+esc(ws.id)+'" title="Save via your browser\'s native file dialog -- re-saves into the same file next time if you pick one on a shared/network drive">💾 Save to file…</button>':'')
         +'<button class="danger del" data-id="'+esc(ws.id)+'">🗑 Delete</button>'
         +'</div>'
         +'<div class="sharebox" id="share-'+esc(ws.id)+'"><input type="text" readonly></div>'
@@ -154,6 +174,7 @@
     $('#list').querySelectorAll('.del').forEach(function(b){ b.onclick=function(){ del(b.getAttribute('data-id')); }; });
     $('#list').querySelectorAll('.copylink').forEach(function(b){ b.onclick=function(){ copyLink(b.getAttribute('data-id')); }; });
     $('#list').querySelectorAll('.dlfile').forEach(function(b){ b.onclick=function(){ downloadFile(b.getAttribute('data-id')); }; });
+    $('#list').querySelectorAll('.savenative').forEach(function(b){ b.onclick=function(){ saveFileNative(b.getAttribute('data-id')); }; });
   }
 
   // REOPEN: touch() first (so "last opened" genuinely reflects this reopen, matching what
@@ -215,6 +236,24 @@
     a.href=u; a.download=name+'.json'; document.body.appendChild(a); a.click(); a.parentNode.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(u); }, 800);
     toast('Downloaded '+name+'.json');
+  }
+
+  // v1.77.0 (PR 23): the feature-detected native-dialog OPTION alongside downloadFile() above --
+  // never a replacement for it (downloadFile()/the button that calls it are untouched). Only ever
+  // wired to a button rendered when fsaAvailable() is true, so this itself resolving false here
+  // (rather than showing the picker) would mean the capability flipped off between render() and
+  // this click -- worth a distinct message rather than the generic "Could not export" downloadFile()
+  // uses, since nothing here is actually broken, just no longer available. A genuine failure (not a
+  // cancel -- exportFileNative() never rejects on a cancel, see shared.js's own contract) still
+  // reaches the catch below and is shown honestly rather than swallowed.
+  function saveFileNative(id){
+    var ws=VW.workspace.get(id);
+    VW.workspace.exportFileNative(id).then(function(ok){
+      if(ok){ toast('Saved "'+((ws&&ws.name)||'workspace')+'" -- pick the same file again next time to save back into it.'); }
+      else { toast('Save was cancelled, or the native file dialog is no longer available -- try again or use Download .json.'); }
+    }, function(e){
+      toast((e&&e.message)||'Could not save that workspace to a file.');
+    });
   }
 
   // ------------------------------------------------------------------------------------------
@@ -291,6 +330,27 @@
       showImportErr((e&&e.message)||'That file could not be read.');
     });
   });
+
+  // v1.77.0 (PR 23): "Open from file…" -- the feature-detected native-dialog OPTION alongside the
+  // <input type="file"> pair above (never a replacement for it; that pair keeps working completely
+  // unchanged on every tier). Only revealed when fsaAvailable() is true, so a click here always
+  // means the real native picker genuinely exists right now. importFileNative() itself already
+  // resolves null (never rejects) on a cancel -- treated here as "nothing to do", not an error, the
+  // same non-error-on-cancel convention saveFileNative() above follows for exportFileNative().
+  if(fsaAvailable()){
+    $('#importFileNativeBtn').hidden=false;
+    $('#importFileNativeBtn').onclick=function(){
+      showImportErr('');
+      VW.workspace.importFileNative().then(function(id){
+        if(!id) return;   // cancelled -- not an error, nothing to report
+        var ws=VW.workspace.get(id);
+        toast('Imported "'+((ws&&ws.name)||'workspace')+'" -- picking the same file again next time saves back into it.');
+        render();
+      }, function(e){
+        showImportErr((e&&e.message)||'That file could not be read.');
+      });
+    };
+  }
 
   // A share link someone opened directly (rather than pasting) lands here with ?ws=… already in
   // the address bar -- prefill the paste box from it so the one remaining step is a single click on

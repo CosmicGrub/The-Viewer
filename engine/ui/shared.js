@@ -1274,6 +1274,188 @@
     });
   }
 
+  /* v1.77.0: VW.workspace.exportFileNative/importFileNative -- File System Access API for
+     export/import (multi-window support, PR 23 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 6): "A real native
+     Save/Open dialog (and write-back-in-place) where VW.capabilities.fileSystemAccess is true;
+     the existing blob/<a download> path (PR 3, above) stays as the universal fallback, never
+     removed." Depends on PR 3 (exportFile/importFile/_wsExportPayload/_wsImportFromJson, all
+     reused directly below -- never a second, independently-typed copy of the JSON shape or the
+     validation/migration logic) and PR 19 (_capabilities.fileSystemAccess, gated on directly,
+     the same "reuse, never re-derive" discipline every Stage 6 PR since PR 20 has followed).
+
+     WHY THIS IS ONE FUNCTION PER DIRECTION, NOT TWO: exportFileNative(id) internally branches on
+     _capabilities.fileSystemAccess itself, so a caller gets "the best available behavior" with a
+     single call regardless of tier -- real native Save dialog where available, the exact same
+     Blob/URL.createObjectURL/<a download> pattern workspaces.html's own downloadFile() already
+     uses otherwise (mirrored here byte-for-byte, not reimplemented). importFileNative() is NOT
+     symmetric this way on purpose: the existing <input type="file"> UI is already the complete,
+     correct fallback for opening a file when the native picker is unavailable, so importFileNative()
+     itself just rejects clearly on that tier rather than building a second, redundant fallback path
+     -- no caller should reach it there in the first place (workspaces.html's own UI only surfaces
+     this action when the capability is genuinely present).
+
+     WRITE-BACK-IN-PLACE, the actual "whole team re-saves into the same shared file" scenario the
+     design doc names: _wsFileHandles remembers the FileSystemFileHandle a successful
+     exportFileNative()/importFileNative() obtained, keyed by workspace id, THIS TAB ONLY --
+     deliberately an in-memory object, never persisted to localStorage/IndexedDB the way this app's
+     other data is. A FileSystemFileHandle cannot be trivially serialized there; a real
+     IndexedDB-handle-persistence scheme exists in principle but is meaningfully more complex and
+     not required by the plan -- stated plainly as a real limitation rather than attempted here. A
+     later exportFileNative() call for an id already in this map re-verifies write permission via
+     the handle's own queryPermission()/requestPermission() methods FIRST (never assumes a stale
+     handle is still writable -- permission can be revoked by the user or the browser between
+     calls) and only reuses it (no new picker shown) if that check confirms "granted"; a revoked/
+     denied handle is dropped and this falls through to a fresh showSaveFilePicker() call, exactly
+     as if no handle had ever been remembered for this id. importFileNative() remembers the handle
+     it opened, keyed by the NEWLY CREATED workspace's id (_wsImportFromJson always mints a fresh
+     id -- see PR 3's own comment above), so open -> edit -> a later exportFileNative() call for
+     that same id writes back to the SAME file, completing the real loop the design doc describes.
+
+     CANCEL IS NOT AN ERROR: a user dismissing either native picker throws a real DOMException named
+     "AbortError" -- a normal, expected user choice, never treated as a failure here. Both functions
+     catch that one specific case and resolve (never reject) with false/null respectively; any OTHER
+     rejection (a real I/O failure, a permission the browser refuses outright, etc.) still propagates
+     as a genuine rejection, never silently swallowed alongside the cancel case. */
+
+  /* This-tab-only, in-memory: workspace id -> the FileSystemFileHandle a native export/import last
+     obtained for it. See the big comment above for why this is deliberately never persisted. */
+  var _wsFileHandles = {};
+
+  /* Same sanitization downloadFile() (engine/ui/workspaces.html) already applies to a workspace's
+     name before using it as a filename -- kept as its own tiny function so both the native path
+     below and the fallback path within exportFileNative() itself share exactly one copy, rather
+     than each hand-rolling the same regex. */
+  function _wsSuggestedFilename(ws) {
+    var name = ((ws && ws.name) || "workspace").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "") ||
+      "workspace";
+    return name + ".json";
+  }
+
+  /* Resolves true only once queryPermission (falling back to requestPermission when not already
+     "granted") genuinely confirms this handle is writable RIGHT NOW -- never assumes a remembered
+     handle from an earlier call is still good. Never rejects: any thrown/rejected permission check
+     is treated as "not writable", the same conservative default a missing method gets. */
+  function _wsHandleCanWrite(handle) {
+    if (!handle) return Promise.resolve(false);
+    var query = (typeof handle.queryPermission === "function")
+      ? handle.queryPermission({ mode: "readwrite" })
+      : Promise.resolve("prompt");
+    return Promise.resolve(query).then(function (state) {
+      if (state === "granted") return true;
+      if (typeof handle.requestPermission !== "function") return false;
+      return handle.requestPermission({ mode: "readwrite" }).then(function (state2) {
+        return state2 === "granted";
+      }, function () { return false; });
+    }, function () { return false; });
+  }
+
+  /* The one place createWritable()/write()/close() is actually called -- shared by the fresh-pick
+     path and the reuse-existing-handle path so both write the SAME way. */
+  function _wsWriteJsonToHandle(handle, text) {
+    return handle.createWritable().then(function (writable) {
+      return writable.write(text).then(function () {
+        return writable.close();
+      });
+    });
+  }
+
+  /* Shows the native Save dialog, writes text to whatever the technician picks, and -- only on a
+     genuine success -- remembers the handle for this id (never remembered on a cancel or a real
+     write failure). A cancel (AbortError) resolves false rather than rejecting; any other failure
+     propagates as a real rejection. */
+  function _wsPickSaveHandleAndWrite(id, suggestedName, text) {
+    return window.showSaveFilePicker({
+      suggestedName: suggestedName,
+      types: [{ description: "Workspace JSON", accept: { "application/json": [".json"] } }]
+    }).then(function (handle) {
+      return _wsWriteJsonToHandle(handle, text).then(function () {
+        _wsFileHandles[id] = handle;
+        return true;
+      });
+    }, function (err) {
+      if (err && err.name === "AbortError") return false;
+      throw err;
+    });
+  }
+
+  /* exportFileNative(id) -> Promise<boolean>. See the big comment above for the full contract;
+     the short version: real native Save-dialog + write-back-in-place where
+     _capabilities.fileSystemAccess is true, the exact same Blob/<a download> trigger
+     downloadFile() already uses otherwise -- one function, best available behavior either way. */
+  function workspaceExportFileNative(id) {
+    var ws = workspaceGet(id);
+    if (!ws) return Promise.resolve(false);   // matches exportFile()/exportUrl()'s own not-found convention
+
+    if (!_capabilities.fileSystemAccess) {
+      /* FALLBACK: mirrors workspaces.html's own downloadFile() exactly (same Blob, same
+         URL.createObjectURL/<a download> trigger) -- not a second, differently-shaped download
+         mechanism. There is no way to know whether the technician actually kept the resulting
+         download (an honest, stated platform limitation of this path only, unlike the native
+         path below which genuinely confirms a write succeeded); resolves true once the download
+         was triggered. */
+      return new Promise(function (resolve) {
+        var blob = workspaceExportFile(id);
+        if (!blob) { resolve(false); return; }
+        var name = _wsSuggestedFilename(ws);
+        var u = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = u; a.download = name;
+        document.body.appendChild(a); a.click(); a.parentNode.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(u); }, 800);
+        resolve(true);
+      });
+    }
+
+    var json = JSON.stringify(_wsExportPayload(ws));   // the SAME payload exportFile()/exportUrl() produce
+    var suggestedName = _wsSuggestedFilename(ws);
+    var existing = _wsFileHandles[id];
+    if (existing) {
+      return _wsHandleCanWrite(existing).then(function (writable) {
+        if (writable) {
+          return _wsWriteJsonToHandle(existing, json).then(function () { return true; });
+        }
+        /* Revoked/denied since it was granted -- drop it and fall back to a fresh picker, exactly
+           as if no handle had ever been remembered for this id. Never silently fails, and never
+           writes to a handle that just failed its own permission check. */
+        delete _wsFileHandles[id];
+        return _wsPickSaveHandleAndWrite(id, suggestedName, json);
+      });
+    }
+    return _wsPickSaveHandleAndWrite(id, suggestedName, json);
+  }
+
+  /* importFileNative() -> Promise<string|null>, resolving to the new workspace's id (or null on a
+     cancel). Only meaningful where _capabilities.fileSystemAccess is true -- see the big comment
+     above for why this deliberately has no second fallback of its own. Feeds the picked file's
+     text through the EXISTING _wsImportFromJson() (PR 3/PR 22's own validation/migration path),
+     then remembers the resulting handle for the newly-created id so a later exportFileNative()
+     call for that id writes back to the same file. */
+  function workspaceImportFileNative() {
+    if (!_capabilities.fileSystemAccess) {
+      return Promise.reject(new Error(
+        "Workspace import failed: the native file picker isn't available on this browser/tier -- " +
+        "use \"Import from file\" instead."));
+    }
+    return window.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "Workspace JSON", accept: { "application/json": [".json"] } }]
+    }).then(function (fileHandles) {
+      var handle = fileHandles && fileHandles[0];
+      if (!handle) return null;
+      return handle.getFile().then(function (file) {
+        return file.text().then(function (text) {
+          var id = _wsImportFromJson(text);   // throws/rejects on any parse or shape failure, unchanged
+          _wsFileHandles[id] = handle;
+          return id;
+        });
+      });
+    }, function (err) {
+      if (err && err.name === "AbortError") return null;
+      throw err;
+    });
+  }
+
   /* v1.53.0: VW.windows -- the one shared window-opening path for this app (multi-window support,
      PR 5 of docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 2, riding VW.channel
      above).
@@ -2200,6 +2382,17 @@
                           get: workspaceGet, touch: workspaceTouch, delete: workspaceDelete,
                           exportUrl: workspaceExportUrl, exportFile: workspaceExportFile,
                           importUrl: workspaceImportUrl, importFile: workspaceImportFile,
+                          /* v1.77.0: File System Access API export/import (PR 23) -- a real
+                             native Save/Open dialog + write-back-in-place where
+                             VW.capabilities.fileSystemAccess is true; exportFileNative() itself
+                             falls back to the exact same behavior exportFile()/downloadFile()
+                             already provide otherwise, so a caller gets the best available
+                             result from one function call regardless of tier. See the big
+                             comment above these functions' own declarations for the full
+                             contract (write-back-in-place, permission re-verification, cancel
+                             handling). */
+                          exportFileNative: workspaceExportFileNative,
+                          importFileNative: workspaceImportFileNative,
                           /* v1.76.0: schema-versioning debug/introspection members -- deliberately
                              NOT part of the design doc's documented VW.workspace shape (same
                              leading-underscore convention as VW.locks._debugPendingCount above),
@@ -2208,7 +2401,14 @@
                           _schemaVersion: _WS_SCHEMA_VERSION,
                           _classifySchemaVersion: _wsClassifyRecordSchema,
                           _lastGetSchemaRefusal: function () { return _wsLastGetSchemaRefusal; },
-                          _lastReadSchemaRefusals: function () { return _wsLastReadRefusals.slice(); } },
+                          _lastReadSchemaRefusals: function () { return _wsLastReadRefusals.slice(); },
+                          /* v1.77.0: same debug-only convention -- lets a test (or a future UI)
+                             ask "is a write-back handle currently remembered for this id?"
+                             without reaching into the in-memory map directly. Not part of the
+                             documented public shape. */
+                          _hasRememberedFileHandle: function (id) {
+                            return Object.prototype.hasOwnProperty.call(_wsFileHandles, id);
+                          } },
              windows: { open: windowsOpen, registry: windowsRegistry,
                         restoreLayout: windowsRestoreLayout },
              bench: { get: benchGet, put: benchPut },

@@ -4,6 +4,53 @@
 (`docs/EXTRACTION-COVERAGE.md`, `docs/ROADMAP-1.1.md`, `docs/CHANGELOG.md`, `docs/ITERATION-SNAPSHOTS.md`,
 `docs/MASTER-RECONCILIATION.md`).
 
+> **Reconciliation note (2026-09-05, forty-seventh pass):** `VW.workspace` — IndexedDB storage
+> migration (multi-window support, PR 21/25, stage 6), depending on PR 2 (CRUD, already merged) and
+> PR 19's `VW.capabilities.indexedDB` (`[1.73.0]`) — `lite`/`legacy` tier keeps the original
+> `localStorage` path unchanged. **The unavoidable problem:** IndexedDB has no synchronous read or
+> write anywhere, but `create/list/get/touch/delete` are called synchronously by every existing
+> consumer today, and per the plan none may be made to start handling a Promise or callback in this
+> PR — so this cannot be "the same functions, reading IndexedDB now," it has to be a synchronous cache
+> with IndexedDB underneath it. **The resolution:** a synchronous in-memory cache (`_wsCache`),
+> bootstrapped instantly from a plain `_wsRead()` the moment any workspace function is first called on
+> a page (so even the very first synchronous call sees a result that really did come from a valid
+> read), with IndexedDB reconciled in afterward, fire-and-forget: if IndexedDB already holds records,
+> it replaces the cache wholesale and becomes authoritative; if it reads back empty, a ONE-TIME
+> migration writes the localStorage-sourced cache into it (localStorage's own key is deliberately left
+> untouched afterward, never cleared). From then on every mutation updates the cache synchronously and
+> fires an async, best-effort write-through to IndexedDB — never also writing to localStorage again,
+> which is exactly what lets a payload too big for localStorage's own quota succeed. Any IndexedDB
+> failure degrades silently at the persistence layer only, EXCEPT a repeated failure streak (3 in a
+> row), which fires one one-time toast on this file's own R13 "fail loud enough to be seen"
+> discipline. **Which backing to use is decided once, at bootstrap, and latched for the page's
+> life** — the one deliberate departure from "gate on the live capabilities getter" per call, since
+> `VW.capabilities`'s own fields can flip once `RPS.mode` resolves from its `"modern"` default to the
+> real tier after this file has already loaded. **The one real limitation stated plainly:** two tabs
+> open at once on modern tier each bootstrap their own cache independently and reconcile against
+> IndexedDB asynchronously — a real, narrow window exists where the two can briefly disagree before
+> both round trips finish, and this PR adds no new cross-tab live-sync mechanism to close it (the
+> existing `VW.channel` broadcast is unchanged and still fires on every mutation, but a receiving
+> tab's own reconcile may not have settled when it arrives); deliberately not layering a second
+> broadcast onto the async cache-replacement step, since a receiving tab cannot tell its own reconcile
+> already finished from not-yet. **Placement:** `create/list/get/touch/delete` modified IN PLACE
+> (never duplicated) to route through two new entry points,
+> `_wsAllForRead()`/`_wsAllForMutation()`/`_wsCommit()`; PR 3's export/import functions needed zero
+> additional changes, inheriting the correct backing for free. Lands well before `popoutControl()`'s
+> own section, per the `test_a2_popout.py` coupling hazard. New
+> `engine/tests/test_vw_workspace_indexeddb.py` +
+> `engine/tests/js/test_vw_workspace_indexeddb_node.js`, 69 real assertions total (24 static +
+> `node --check` + 43 node behavioral against a hand-rolled mock IndexedDB, genuinely async via
+> `setTimeout`): the bootstrap guarantee with a deliberately deferred mock `open()`; the one-time
+> migration; wholesale cache replacement; mutations proven both instantly synchronous AND eventually
+> durably persisted; `lite`/`legacy` tier proven to never call `indexedDB.open()` at all; failure
+> resilience; the one-time failure toast proven with a real invocation counter; and the large-payload
+> case this migration exists for — an ~8MB payload succeeds via IndexedDB while the identical payload
+> against a quota-constrained (~5MB) localStorage-only mock fails with a real, reproduced
+> `QuotaExceededError`. PR 2's and PR 3's own original test suites re-run UNMODIFIED against this new
+> code (68 and 46 real assertions respectively), both clean. **Proven load-bearing** by breaking 7
+> representative guarantees one at a time and confirming a clean re-run on revert every time.
+> `rps_lint.py` clean. Landed as PR 21, `[1.75.0]`.
+>
 > **Reconciliation note (2026-09-05, forty-sixth pass):** `VW.locks` — Web Locks API wrapper
 > (multi-window support, PR 20/25, stage 6), depending on PR 19's `VW.capabilities.webLocks`
 > (`[1.73.0]`) — the FIRST real consumer of `VW.capabilities` anywhere in this codebase.

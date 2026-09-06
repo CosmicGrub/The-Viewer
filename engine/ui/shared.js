@@ -463,12 +463,12 @@
      value stays inspectable instead of being silently destroyed by the act of looking at it; the
      next successful write does drop those entries for good, which is the correct outcome since
      they were unusable either way. */
-  function _wsRead() {
-    var raw = null;
-    try { raw = window.localStorage.getItem(_WS_KEY); } catch (e) { return []; }
-    if (!raw) return [];
-    var parsed = null;
-    try { parsed = JSON.parse(raw); } catch (e) { return []; }
+  /* v1.75.0: shape-coerces ANY parsed value -- a JSON.parse() result from localStorage, or a raw
+     structured-clone value read back out of IndexedDB (see the IndexedDB-backing block below) --
+     into a real workspace-record array: non-array input becomes [], and any entry that is not a
+     plain object carrying a string id is dropped from the returned view. Pulled out of _wsRead()
+     below so both storage backings share this exact rule rather than each keeping its own copy. */
+  function _wsCoerceAll(parsed) {
     if (!parsed || Object.prototype.toString.call(parsed) !== "[object Array]") return [];
     var out = [];
     for (var i = 0; i < parsed.length; i++) {
@@ -476,6 +476,15 @@
       if (w && typeof w === "object" && typeof w.id === "string") out.push(w);
     }
     return out;
+  }
+
+  function _wsRead() {
+    var raw = null;
+    try { raw = window.localStorage.getItem(_WS_KEY); } catch (e) { return []; }
+    if (!raw) return [];
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { return []; }
+    return _wsCoerceAll(parsed);
   }
 
   /* Writes the whole set back. Returns true on success, false when storage refused the write (a
@@ -553,13 +562,271 @@
     } catch (e) { /* the data is safely stored; a missed repaint hint is not worth failing over */ }
   }
 
+  /* v1.75.0: IndexedDB-backed storage for VW.workspace (multi-window support, PR 21 of
+     docs/superpowers/specs/2026-09-03-multi-window-tabs-plan.md, stage 6). Depends on PR 19's
+     VW.capabilities.indexedDB and PR 2's CRUD above -- "swaps the storage backing PR 2 built
+     (localStorage under viewer_workspaces) for IndexedDB, keeping create/list/get/touch's public
+     contract byte-for-byte identical" (the plan doc's own words). On lite/legacy tier, or wherever
+     the raw API is missing, nothing below this comment ever runs -- every mutation still goes
+     straight to _wsRead()/_wsWrite() exactly as PR 2 wrote it, which is "the original localStorage
+     path" the plan explicitly keeps for constrained hardware.
+
+     THE UNAVOIDABLE PROBLEM: IndexedDB has no synchronous read or write anywhere -- every operation
+     is callback/event-based (IDBRequest.onsuccess/onerror). create/list/get/touch/delete are called
+     synchronously by every existing page today (workspaces.html's list render, jobcard.html/
+     solve.html's launch buttons, palette.js) and per the plan's own text none of them may be made to
+     start handling a Promise or a callback in this PR. A function cannot read or write IndexedDB and
+     return a real value on the same synchronous call -- so this cannot be "the same functions, but
+     now reading IndexedDB instead of localStorage"; it has to be a synchronous cache with IndexedDB
+     underneath it.
+
+     THE RESOLUTION -- a synchronous in-memory array (_wsCache), bootstrapped instantly and
+     losslessly from a plain _wsRead() (localStorage is already synchronous, so this genuinely
+     cannot be stale at the moment it runs), with IndexedDB reconciled in afterward, fully
+     asynchronously, never delaying or blocking the call that triggered the bootstrap:
+
+       1. _wsEnsureCache() runs on the FIRST workspace call this page ever makes (create/list/get/
+          touch/delete/export/import all funnel through _wsAllForRead()/_wsAllForMutation() below,
+          which call it). If _wsCache is still null, it is set to _wsRead()'s result right there,
+          synchronously, before anything else happens -- so even the very first call a page ever
+          makes sees a result that really did come from a valid read, never a placeholder.
+       2. Immediately after that synchronous assignment, _wsIdbReconcile() fires -- fire-and-forget;
+          its own callbacks never block or delay the return already in flight above:
+            - IndexedDB already holds records (a prior session's own migration already ran) ->
+              IndexedDB is the durable, authoritative store from here on; _wsCache is replaced
+              wholesale with what IndexedDB actually holds.
+            - IndexedDB reads back empty (first time on this browser profile) -> a ONE-TIME
+              migration: _wsCache (the localStorage-sourced bootstrap value) is written into
+              IndexedDB as-is. localStorage's own key is deliberately left untouched afterward,
+              never cleared -- a frozen, unread backup costs nothing to leave in place, and clearing
+              it would turn a hypothetical future rollback of this PR into a full data loss instead
+              of "reads the last-known-good copy again".
+       3. From that point on, every mutation updates _wsCache synchronously (the calling tab always
+          sees an instantly-consistent result, matching today's behavior exactly) and fires an async,
+          best-effort write-through to IndexedDB (_wsIdbPersist below) to make it durable. Once a page
+          is on this path it never also writes to localStorage again -- only the original one-time
+          bootstrap read from localStorage ever happens, by design, which is exactly what lets a
+          payload too big for localStorage's own quota succeed here (see this PR's large-payload
+          test).
+       4. Any IndexedDB failure (open blocked/denied, a thrown exception, a failed transaction)
+          degrades silently at the PERSISTENCE layer only -- _wsCache stays authoritative and every
+          synchronous caller keeps working whether or not the background durability write actually
+          landed. See _wsIdbNoteFailure() below for the one deliberate exception: a REPEATED failure
+          streak gets a single one-time toast, on this file's own "fail loud enough to be seen, never
+          silently misrepresent" R13 discipline (docs/MASTER-RECONCILIATION.md's standing-rules
+          table) -- because past that point this tab's workspace data genuinely only lives in memory,
+          a real and otherwise-invisible data-loss risk, not merely a transient hiccup that the
+          in-memory cache already absorbs without incident.
+
+     WHICH BACKING A PAGE USES IS DECIDED ONCE, AT BOOTSTRAP, NOT RE-CHECKED ON EVERY CALL -- the one
+     deliberate departure from "gate on the live capabilities getter" being a per-call re-read
+     everywhere else in this file (VW.locks re-reads _capabilities.webLocks on every withLock() call,
+     since switching which lock implementation backs one call can never corrupt anything). Workspace
+     storage is different: VW.capabilities' own comment documents that its non-tier fields are LIVE
+     reads because window.RPS.mode can resolve from its "modern" default to the real tier only after
+     this file has already loaded -- so a page's very first workspace call can observe indexedDB
+     true, commit a mutation straight into _wsCache, and only later observe indexedDB false once
+     RPS.boot() resolves. Re-deriving the backing on every call would then silently strand that
+     already-committed cache entry against a resumed _wsRead()/_wsWrite() localStorage path that
+     never saw it. _wsUsingIndexedDB() below reads the LIVE getter -- never a hand-rolled second copy
+     of its check -- but only until _wsCache is first created; from then on this one page's backing
+     choice is latched for the rest of its life, which is the only way "byte-for-byte identical
+     contract" can also mean "internally consistent for this whole page load".
+
+     THE ONE REAL LIMITATION THIS DESIGN CANNOT FULLY ELIMINATE, stated plainly rather than glossed
+     over (the same honesty this initiative has applied to every other real-hardware/real-timing edge
+     case since PR 5): open this app in TWO tabs at once on modern tier, and each tab bootstraps its
+     OWN _wsCache from its OWN synchronous localStorage read at whatever moment IT first needs one,
+     then reconciles against IndexedDB independently and asynchronously. There is a real, narrow
+     window where the two tabs' caches can briefly disagree before both round trips finish -- and this
+     PR adds no new cross-tab live-sync mechanism for workspace data to close it. _wsNotify() above
+     (PR 2's existing VW.channel broadcast) is UNCHANGED and still fires on every create/touch/delete,
+     but a receiving tab's own reconcile may not have settled yet when that notification arrives, so a
+     repaint it triggers can still show a stale view for a moment. Deliberately NOT layering a second
+     broadcast on top of _wsIdbReconcile()'s own cache replacement/migration step to paper over this:
+     a receiving tab has no way to tell "my own reconcile already finished" apart from "it has not",
+     so acting on such a broadcast could just as easily paint an intermediate, still-bootstrapping
+     view with false confidence as a correct one -- worse than the narrow, self-healing window this
+     already is (every later call on that tab, once its own reconcile lands, is correct again). */
+
+  /* The in-memory cache -- null until _wsEnsureCache() bootstraps it; a real array from then on,
+     exactly the shape _wsRead() already returns. _wsCacheOnIdb latches, at the moment the cache is
+     first created, whether this page is running the IndexedDB-backed path -- see the big comment
+     above for why this is a one-time decision rather than a live re-check. */
+  var _wsCache = null;
+  var _wsCacheOnIdb = false;
+
+  function _wsUsingIndexedDB() {
+    if (_wsCache !== null) return _wsCacheOnIdb;
+    try { return !!_capabilities.indexedDB; } catch (e) { return false; }
+  }
+
+  /* Deep-clones via a JSON round trip -- deliberately the SAME mechanism a fresh localStorage parse
+     already produces, so a cache-backed read is indistinguishable from _wsRead()'s own contract:
+     returned records are never a live reference into the authoritative array, so a caller mutating
+     what it gets back (see the node test's own "mutating a returned record does not corrupt storage"
+     check) can never corrupt _wsCache. */
+  function _wsCloneAll(all) {
+    try { return JSON.parse(JSON.stringify(all)); } catch (e) { return []; }
+  }
+
+  /* IndexedDB constants, kept deliberately parallel to the localStorage shape above -- one
+     JSON-serializable array holds the whole saved set, now under one fixed key in a "kv"-style
+     object store instead of one localStorage key, so _wsCoerceAll() and every id/notify function
+     above stay completely unaware of which backing is actually live underneath a given call. */
+  var _WS_IDB_NAME = "viewer_workspaces_db";
+  var _WS_IDB_STORE = "kv";
+  var _WS_IDB_ROW_KEY = "viewer_workspaces";
+  var _WS_IDB_VERSION = 1;
+
+  /* The open IndexedDB connection, once reconciliation has produced one -- reused by every later
+     write-through so a mutation never has to reopen the database. Stays null forever on a page
+     where indexedDB.open() itself failed; _wsIdbPersist() below tries a fresh open on every call in
+     that case, since a transient open failure (a blocked upgrade in another tab, say) may well
+     succeed the next time. */
+  var _wsIdbDb = null;
+
+  /* Opens (creating the "kv" object store on first use) the database backing this cache. cb(db) on
+     success, cb(null) on ANY failure -- a thrown open() call, onerror, or onblocked (another tab
+     holding a version-change lock). Every failure path here is a reason to give up silently at THIS
+     layer only, never to throw into a synchronous caller several frames up. */
+  function _wsIdbOpenDb(cb) {
+    var req;
+    try { req = window.indexedDB.open(_WS_IDB_NAME, _WS_IDB_VERSION); }
+    catch (e) { cb(null); return; }
+    req.onupgradeneeded = function () {
+      try {
+        if (!req.result.objectStoreNames.contains(_WS_IDB_STORE)) {
+          req.result.createObjectStore(_WS_IDB_STORE);
+        }
+      } catch (e) { /* a failed store creation surfaces through onerror/onsuccess below either way */ }
+    };
+    req.onsuccess = function () { cb(req.result || null); };
+    req.onerror = function () { cb(null); };
+    req.onblocked = function () { cb(null); };
+  }
+
+  /* Reads the single stored row back out. cb(array) on a real (possibly empty) read, cb(null) on
+     any failure -- null vs. an empty array is exactly how _wsIdbReconcile() below tells "IndexedDB
+     could not be read" apart from "IndexedDB was read and genuinely has nothing in it yet". */
+  function _wsIdbReadAll(db, cb) {
+    try {
+      var tx = db.transaction([_WS_IDB_STORE], "readonly");
+      var store = tx.objectStore(_WS_IDB_STORE);
+      var req = store.get(_WS_IDB_ROW_KEY);
+      req.onsuccess = function () { cb(_wsCoerceAll(req.result)); };
+      req.onerror = function () { cb(null); };
+    } catch (e) { cb(null); }
+  }
+
+  /* Writes the whole set back as the single stored row. cb(true) once the transaction has actually
+     committed (never merely once put() was called -- oncomplete is the real durability signal),
+     cb(false) on any error/abort/thrown exception. */
+  function _wsIdbWriteAll(db, all, cb) {
+    try {
+      var tx = db.transaction([_WS_IDB_STORE], "readwrite");
+      tx.objectStore(_WS_IDB_STORE).put(all, _WS_IDB_ROW_KEY);
+      tx.oncomplete = function () { cb(true); };
+      tx.onerror = function () { cb(false); };
+      tx.onabort = function () { cb(false); };
+    } catch (e) { cb(false); }
+  }
+
+  /* Failure bookkeeping for the one-time toast described in the big comment above. A single
+     transient failure stays fully silent -- _wsCache already has every write this tab has made, so
+     nothing the technician is doing right now is actually broken by it. Three in a row with no
+     successful round trip in between means this tab's workspace data is, for the rest of this page's
+     life, only ever going to live in memory -- closing the tab loses everything written since the
+     last real success, with no other visible sign of it -- which is exactly the kind of silent
+     misrepresentation this file's own R13 discipline exists to rule out. */
+  var _wsIdbFailureStreak = 0;
+  var _wsIdbFailureToastShown = false;
+  var _WS_IDB_FAILURE_TOAST_AT = 3;
+  function _wsIdbNoteFailure() {
+    _wsIdbFailureStreak++;
+    if (_wsIdbFailureStreak < _WS_IDB_FAILURE_TOAST_AT || _wsIdbFailureToastShown) return;
+    _wsIdbFailureToastShown = true;
+    try {
+      toast("Workspace changes are not saving to this browser's long-term storage right now " +
+        "— they will be lost if this tab is closed.", 6000);
+    } catch (e) { /* the cache still works; a failed toast is not worth failing over */ }
+  }
+  function _wsIdbNoteSuccess() { _wsIdbFailureStreak = 0; }
+
+  /* Fire-and-forget durability write for one mutation's already-final array. Reuses the cached
+     connection when one exists; opens a fresh one otherwise (see _wsIdbDb's own comment above for
+     why that retry is worth attempting rather than giving up for the rest of the page's life). */
+  function _wsIdbPersist(all) {
+    function go(db) {
+      if (!db) { _wsIdbNoteFailure(); return; }
+      _wsIdbDb = db;
+      _wsIdbWriteAll(db, all, function (ok) {
+        if (ok) _wsIdbNoteSuccess(); else _wsIdbNoteFailure();
+      });
+    }
+    if (_wsIdbDb) go(_wsIdbDb); else _wsIdbOpenDb(go);
+  }
+
+  /* Runs exactly once per page, right after _wsEnsureCache()'s synchronous bootstrap -- see step 2
+     of the big comment above for the replace-vs-migrate decision this makes. */
+  function _wsIdbReconcile() {
+    _wsIdbOpenDb(function (db) {
+      if (!db) { _wsIdbNoteFailure(); return; }
+      _wsIdbDb = db;
+      _wsIdbReadAll(db, function (fromIdb) {
+        if (fromIdb === null) { _wsIdbNoteFailure(); return; }
+        if (fromIdb.length > 0) {
+          _wsCache = fromIdb;
+          _wsIdbNoteSuccess();
+        } else {
+          _wsIdbWriteAll(db, _wsCloneAll(_wsCache), function (ok) {
+            if (ok) _wsIdbNoteSuccess(); else _wsIdbNoteFailure();
+          });
+        }
+      });
+    });
+  }
+
+  /* Bootstraps _wsCache on the first call that ever needs it (see step 1 of the big comment above);
+     a no-op on every later call. */
+  function _wsEnsureCache() {
+    if (_wsCache !== null) return _wsCache;
+    _wsCacheOnIdb = _wsUsingIndexedDB();
+    _wsCache = _wsRead();
+    if (_wsCacheOnIdb) _wsIdbReconcile();
+    return _wsCache;
+  }
+
+  /* The two entry points every CRUD/export/import function below goes through instead of calling
+     _wsRead()/_wsWrite() directly. On lite/legacy tier (or wherever indexedDB is unavailable) these
+     are exactly _wsRead()/_wsWrite() -- nothing about that path changes in this PR. On the
+     IndexedDB-backed path, reads return a fresh clone of _wsCache (matching _wsRead()'s own "always
+     a fresh copy" contract) and mutations get the LIVE _wsCache array to modify directly, committed
+     back via _wsCommit(). */
+  function _wsAllForRead() {
+    if (_wsUsingIndexedDB()) return _wsCloneAll(_wsEnsureCache());
+    return _wsRead();
+  }
+  function _wsAllForMutation() {
+    if (_wsUsingIndexedDB()) return _wsEnsureCache();
+    return _wsRead();
+  }
+  function _wsCommit(all) {
+    if (_wsUsingIndexedDB()) {
+      _wsCache = all;
+      _wsIdbPersist(_wsCloneAll(all));
+      return true;
+    }
+    return _wsWrite(all);
+  }
+
   /* create(name, items) -> id, or null if storage refused the write.
      The third argument is the record's "source" field, defaulting to "manual" and accepting only
      "template" as the alternative. It exists now, rather than being bolted on in PR 4, because the
      design spec's record shape carries "source" from the start -- without it this function could
      only ever write "manual" and the field would be a constant with a misleading name. */
   function workspaceCreate(name, items, source) {
-    var all = _wsRead();
+    var all = _wsAllForMutation();
     var now = Date.now();
     var nm = (name === null || name === undefined) ? "" : String(name);
     var ws = {
@@ -574,22 +841,24 @@
       source: source === "template" ? "template" : "manual"
     };
     all.push(ws);
-    if (!_wsWrite(all)) return null;
+    if (!_wsCommit(all)) return null;
     _wsNotify("create", ws);
     return ws.id;
   }
 
   /* list() -> array of workspace records in creation order (oldest first), newest appended last.
-     Every call re-parses storage, so the returned records are fresh copies -- a caller mutating
-     what it gets back cannot corrupt what is stored, and cannot hold a stale view across another
-     tab's write either. A UI wanting most-recently-opened order sorts by lastOpened itself. */
-  function workspaceList() { return _wsRead(); }
+     Every call re-reads the active backing, so the returned records are fresh copies -- a caller
+     mutating what it gets back cannot corrupt what is stored, and cannot hold a stale view across
+     another tab's write either (on the IndexedDB-backed path this is a fresh clone of _wsCache; on
+     the localStorage path it is _wsRead()'s own fresh parse, unchanged). A UI wanting
+     most-recently-opened order sorts by lastOpened itself. */
+  function workspaceList() { return _wsAllForRead(); }
 
   /* get(id) -> the workspace record, or null when no such id is stored. */
   function workspaceGet(id) {
     if (id === null || id === undefined) return null;
     var want = String(id);
-    var all = _wsRead();
+    var all = _wsAllForRead();
     for (var i = 0; i < all.length; i++) {
       if (all[i].id === want) return all[i];
     }
@@ -602,14 +871,14 @@
   function workspaceTouch(id) {
     if (id === null || id === undefined) return false;
     var want = String(id);
-    var all = _wsRead();
+    var all = _wsAllForMutation();
     var hit = null;
     for (var i = 0; i < all.length; i++) {
       if (all[i].id === want) { hit = all[i]; break; }
     }
     if (!hit) return false;
     hit.lastOpened = Date.now();
-    if (!_wsWrite(all)) return false;
+    if (!_wsCommit(all)) return false;
     _wsNotify("touch", hit);
     return true;
   }
@@ -624,13 +893,13 @@
   function workspaceDelete(id) {
     if (id === null || id === undefined) return false;
     var want = String(id);
-    var all = _wsRead();
+    var all = _wsAllForMutation();
     var hit = null, kept = [];
     for (var i = 0; i < all.length; i++) {
       if (all[i].id === want) { hit = all[i]; } else { kept.push(all[i]); }
     }
     if (!hit) return false;
-    if (!_wsWrite(kept)) return false;
+    if (!_wsCommit(kept)) return false;
     _wsNotify("delete", hit);
     return true;
   }

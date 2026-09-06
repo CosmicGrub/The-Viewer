@@ -67,7 +67,54 @@ the actual files on disk (not just memory) where practical. It supplements — d
 `CHANGELOG.md` (a per-change log whose entry count is no longer re-tallied here after v1.13.2, see §7) and
 `HANDOFF-NOTE.md` (the living session hand-off). Treat all four as canonical going forward; keep them in sync.
 
-**True current state: v1.74.0, shipped 2026-09-05** (`VW.locks` — Web Locks API wrapper, multi-window
+**True current state: v1.75.0, shipped 2026-09-05** (`VW.workspace` — IndexedDB storage migration,
+multi-window support PR 21/25, stage 6, depending on item 2/PR 2 (CRUD, already merged) and item
+56/PR 19's `VW.capabilities.indexedDB` — `lite`/`legacy` tier keeps the original `localStorage` path
+unchanged. The unavoidable problem: IndexedDB has no synchronous read or write anywhere, but
+`create/list/get/touch/delete` are called synchronously by every existing consumer today, and per the
+plan none may be made to start handling a Promise or callback in this PR — so this cannot be "the same
+functions, reading IndexedDB now," it has to be a synchronous cache with IndexedDB underneath it. The
+resolution: a synchronous in-memory cache (`_wsCache`), bootstrapped instantly from a plain `_wsRead()`
+the moment any workspace function is first called on a page, with IndexedDB reconciled in afterward,
+fire-and-forget — if IndexedDB already holds records it replaces the cache wholesale and becomes
+authoritative; if it reads back empty, a one-time migration writes the localStorage-sourced cache into
+it (localStorage's own key is deliberately left untouched afterward, never cleared). From then on every
+mutation updates the cache synchronously and fires an async, best-effort write-through to IndexedDB —
+never also writing to localStorage again, which is exactly what lets a payload too big for
+localStorage's own quota succeed. Any IndexedDB failure degrades silently at the persistence layer
+only, except a repeated failure streak (3 in a row), which fires one one-time toast on this file's own
+R13 "fail loud enough to be seen" discipline. Which backing to use is decided once, at bootstrap, and
+latched for the page's life — the one deliberate departure from "gate on the live capabilities getter"
+per call, since `VW.capabilities`'s own fields can flip once `RPS.mode` resolves from its `"modern"`
+default to the real tier after this file has already loaded. The one real limitation stated plainly:
+two tabs open at once on modern tier each bootstrap their own cache independently and reconcile against
+IndexedDB asynchronously — a real, narrow window exists where the two can briefly disagree before both
+round trips finish, and this PR adds no new cross-tab live-sync mechanism to close it (item 2's existing
+`VW.channel` broadcast is unchanged and still fires on every mutation, but a receiving tab's own
+reconcile may not have settled when it arrives) — deliberately not layering a second broadcast onto the
+async cache-replacement step, since a receiving tab cannot tell its own reconcile already finished from
+not-yet, and acting on such a broadcast could paint a still-bootstrapping view with false confidence as
+easily as a correct one. `create/list/get/touch/delete` modified IN PLACE (never duplicated) to route
+through two new entry points, `_wsAllForRead()`/`_wsAllForMutation()`, committed via `_wsCommit()`; item
+3/PR 3's export/import functions needed zero additional changes, inheriting the correct backing for
+free. Lands well before `popoutControl()`'s own section, per item 46's `test_a2_popout.py` coupling
+hazard. New `engine/tests/test_vw_workspace_indexeddb.py` +
+`engine/tests/js/test_vw_workspace_indexeddb_node.js` — the `.py` wrapper runs 24 static source-level
+checks plus a `node --check` gate and the node suite's own rollup (26/0); the node suite itself carries
+43 real assertions against a hand-rolled mock IndexedDB (genuinely async via `setTimeout`, driven only
+through the real callback properties `shared.js` itself assigns): the bootstrap guarantee proven with a
+deliberately deferred mock `open()`; the one-time migration proven by reading the mock's own durable
+store; wholesale cache replacement once IndexedDB already holds different records; mutations proven
+both instantly synchronous and eventually durably persisted; `lite`/`legacy`/`"premium"` tier proven to
+never call `indexedDB.open()` at all; failure resilience; the one-time failure toast proven with a real
+invocation counter (not text comparison); and the large-payload case this migration exists for — an
+~8MB payload succeeds via IndexedDB while the identical payload against a quota-constrained (~5MB)
+localStorage-only mock fails with a real, reproduced `QuotaExceededError`. Item 2/PR 2's and item 3/PR
+3's OWN original test suites re-run UNMODIFIED against this new code — 68 and 46 real assertions
+respectively, both clean, since their sandboxes never define `window.indexedDB`. Proven load-bearing by
+breaking 7 representative guarantees one at a time and confirming a clean re-run on revert every time.
+`rps_lint.py` clean. See §6 item 58). Immediately prior: **v1.74.0, shipped 2026-09-05** (`VW.locks` —
+Web Locks API wrapper, multi-window
 support PR 20/25, stage 6, depending on item 56/PR 19's `VW.capabilities.webLocks` (`[1.73.0]`) — the
 FIRST real consumer of `VW.capabilities` anywhere in this codebase. `VW.locks.withLock(name, fn)` gates
 on the live `_capabilities.webLocks` getter directly, mirroring `VW.capabilities.windowPlacement`'s own
@@ -3454,6 +3501,76 @@ the source-file snapshot vault (item 4 below is now "confirm it's actually fired
     the LAST key in the `VW` assembly — legitimately broken by this PR's own `locks:` key appended
     right after it; fixed by widening its closing-delimiter match to accept either `}` or `,`,
     re-confirmed clean (17/0). `rps_lint.py` clean. See `CHANGELOG.md` `[1.74.0]`.
+
+58. **`[1.75.0]` — `VW.workspace`: IndexedDB storage migration (multi-window support, PR 21/25, stage
+    6).** Depends on item 2/PR 2 (CRUD, already merged) and item 56/PR 19's
+    `VW.capabilities.indexedDB` — `lite`/`legacy` tier keeps the original `localStorage` path
+    unchanged. **The unavoidable problem:** IndexedDB has no synchronous read or write anywhere, but
+    `create/list/get/touch/delete` are called synchronously by every existing consumer today, and per
+    the plan none may be made to start handling a Promise or callback in this PR — so this cannot be
+    "the same functions, reading IndexedDB now," it has to be a synchronous cache with IndexedDB
+    underneath it. **The resolution:** a synchronous in-memory cache (`_wsCache`), bootstrapped
+    instantly from a plain `_wsRead()` the moment any workspace function is first called on a page (so
+    even the very first synchronous call sees a result that really did come from a valid read), with
+    IndexedDB reconciled in afterward, fire-and-forget: if IndexedDB already holds records, it replaces
+    the cache wholesale and becomes authoritative; if it reads back empty, a ONE-TIME migration writes
+    the localStorage-sourced cache into it (localStorage's own key is deliberately left untouched
+    afterward, never cleared — a frozen, unread backup costs nothing and turns a hypothetical rollback
+    into "reads the last-known-good copy again" instead of data loss). From then on every mutation
+    updates the cache synchronously and fires an async, best-effort write-through to IndexedDB — never
+    also writing to localStorage again, which is exactly what lets a payload too big for localStorage's
+    own quota succeed. Any IndexedDB failure degrades silently at the persistence layer only, EXCEPT a
+    *repeated* failure streak (3 in a row), which fires one one-time toast on this file's own R13 "fail
+    loud enough to be seen" discipline — past that point the tab's data genuinely only lives in memory,
+    a real invisible data-loss risk, not a transient hiccup the cache already absorbs. **Which backing
+    to use is decided once, at bootstrap, and latched for the page's life** — the one deliberate
+    departure from "gate on the live capabilities getter" per call, since `VW.capabilities`'s own
+    fields can flip once `RPS.mode` resolves from its `"modern"` default to the real tier after this
+    file has already loaded, and re-deriving the backing on every call would risk stranding an
+    already-committed cache entry against a resumed localStorage-only path that never saw it. **The one
+    real limitation stated plainly:** two tabs open at once on modern tier each bootstrap their own
+    cache independently and reconcile against IndexedDB asynchronously — a real, narrow window exists
+    where the two can briefly disagree before both round trips finish, and this PR adds no new
+    cross-tab live-sync mechanism to close it (item 2's existing `VW.channel` broadcast is unchanged
+    and still fires on every mutation, but a receiving tab's own reconcile may not have settled when it
+    arrives). Deliberately not layering a second broadcast onto the async cache-replacement step: a
+    receiving tab cannot tell its own reconcile already finished from not-yet, so acting on such a
+    broadcast could paint a still-bootstrapping view with false confidence as easily as a correct one.
+    **Placement:** `create/list/get/touch/delete` modified IN PLACE (never duplicated) to route through
+    two new entry points, `_wsAllForRead()`/`_wsAllForMutation()`, committed via `_wsCommit()` —
+    `lite`/`legacy` tier stays exactly the old `_wsRead()`/`_wsWrite()`, unchanged; item 3/PR 3's
+    export/import functions needed zero additional changes, inheriting the correct backing for free
+    through `workspaceGet`/`workspaceCreate`. Shape validation (`_wsCoerceAll`, pulled out of the old
+    `_wsRead()`) is shared by both backings. Lands well before `popoutControl()`'s own section, per
+    item 46's `test_a2_popout.py` coupling hazard, confirmed by a source-offset assertion. New
+    `engine/tests/test_vw_workspace_indexeddb.py` +
+    `engine/tests/js/test_vw_workspace_indexeddb_node.js` — the `.py` wrapper runs 24 static
+    source-level checks plus a `node --check` gate and the node suite's own rollup (26/0); the node
+    suite itself carries **43 real assertions** against a hand-rolled mock IndexedDB (genuinely async
+    via `setTimeout`, driven only through the real
+    `onsuccess`/`onerror`/`onupgradeneeded`/`oncomplete`/`onabort` callbacks `shared.js` itself
+    assigns): the bootstrap guarantee proven with a DELIBERATELY DEFERRED mock `open()`; the one-time
+    migration proven by reading the mock's own durable store; wholesale cache replacement once
+    IndexedDB already holds different records; mutations proven both instantly synchronous AND
+    eventually durably persisted; `lite`/`legacy`/`"premium"` tier proven to never call
+    `indexedDB.open()` at all via the mock's own call counter; failure resilience (a synchronously-
+    throwing `open()`, and every operation erroring, never break a synchronous caller); the one-time
+    failure toast proven with a real invocation counter (not text comparison, which cannot distinguish
+    one firing from several identical ones); and the large-payload case this migration exists for — an
+    ~8MB payload succeeds via IndexedDB while the identical payload against a quota-constrained (~5MB)
+    localStorage-only mock fails with a real, reproduced `QuotaExceededError`, exactly as the
+    pre-PR-21 code would have. Item 2/PR 2's and item 3/PR 3's OWN original test suites re-run
+    UNMODIFIED against this new code (their sandboxes never define `window.indexedDB`, so
+    `VW.capabilities.indexedDB` reads `false` and every assertion exercises the untouched localStorage
+    path) — 68 and 46 real assertions respectively, both clean. **Proven load-bearing by breaking 7
+    representative guarantees one at a time** in the working tree and confirming a clean re-run on
+    revert every time (bootstrap returning `[]` instead of `_wsRead()`'s result: 4 failures; skipping
+    the one-time migration write: 1 failure; skipping the cache-replacement assignment: 2 failures; the
+    tier gate reading raw presence only: 3 failures; `_wsCommit` still writing to localStorage on the
+    IndexedDB path: 3 failures, the entire point of this migration; removing the `try`/`catch` around a
+    synchronously-throwing `open()`: 3 failures; removing the one-time-toast latch: caught only after
+    upgrading the assertion from text equality to a real invocation counter). `rps_lint.py` clean. See
+    `CHANGELOG.md` `[1.75.0]`.
 
 ## 7 · Downloadable artifacts produced across the project's life
 
